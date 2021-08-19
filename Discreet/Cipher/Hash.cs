@@ -54,6 +54,7 @@ namespace Discreet.Cipher
 
     public struct SHA256 : Hash
     {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
         private byte[] bytes;
 
         /* a property which returns a pointer to the hash data. Do not use unless necessary. */
@@ -133,6 +134,7 @@ namespace Discreet.Cipher
 
     public struct SHA512 : Hash
     {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64)]
         private byte[] bytes;
 
         /* a property which returns a pointer to the hash data. Do not use unless necessary. */
