@@ -7,7 +7,6 @@ namespace Discreet.Cipher
 {
     public static class HashOps
     {
-        /* WIP */
         [DllImport(@"DiscreetCore.dll", EntryPoint = "HashData", CallingConvention = CallingConvention.StdCall)]
         public static extern void HashData(ref Key hash, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] data, [MarshalAs(UnmanagedType.U4)] uint l);
 
