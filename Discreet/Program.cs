@@ -10,7 +10,7 @@ namespace Discreet
 
 
             /* Development playground.
-             * An idiot 
+             * An idiot admires complexity; a genius admires simplicity.
              * 
              * 
              */
