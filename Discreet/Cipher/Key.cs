@@ -69,11 +69,11 @@ namespace Discreet.Cipher
 
     public static class KeyOps
     {
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateKeypair", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateKeypair", CallingConvention = CallingConvention.StdCall)]
         public static extern void GenerateKeypair(ref Key sk, ref Key pk);
 
         /* ap = a*P, a is a group scalar, P is a group element */
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultKey", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultKey", CallingConvention = CallingConvention.StdCall)]
         public static extern void ScalarmultKey(ref Key ap, ref Key p, ref Key a);
     }
 

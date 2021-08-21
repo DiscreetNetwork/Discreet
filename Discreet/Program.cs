@@ -1,4 +1,5 @@
 ﻿using System;
+using Discreet.Cipher;
 
 namespace Discreet
 {
@@ -6,7 +7,22 @@ namespace Discreet
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+
+
+            /* Development playground.
+             * An idiot 
+             * 
+             * 
+             */
+
+            Key pk = new Key();
+            Key sk = new Key();
+
+            KeyOps.GenerateKeypair(ref sk, ref pk);
+
+            Console.WriteLine($"Public key:  {BitConverter.ToString(pk.bytes).Replace("-", string.Empty).ToLower()}");
+            Console.WriteLine($"Secret key:  {BitConverter.ToString(sk.bytes).Replace("-", string.Empty).ToLower()}");
+            Console.ReadLine();
         }
     }
 }
