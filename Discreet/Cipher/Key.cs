@@ -104,6 +104,16 @@ namespace Discreet.Cipher
         }
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct ECDHTuple
+    {
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key mask;
+
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key amount;
+    }
+
     /**
      * This is used in place of the C++-style vector argument for keys and 
      * commitments for proofs like Triptych, CLSAG and 
@@ -216,7 +226,14 @@ namespace Discreet.Cipher
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "EqualKeys", CallingConvention = CallingConvention.StdCall)]
         public static extern bool EqualKeys(ref Key a, ref Key b);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GenCommitmentMask", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key GenCommitmentMask(ref Key sk);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ECDHEncode", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key ECDHEncode(ref ECDHTuple unmasked, ref Key secret, [MarshalAs(UnmanagedType.Bool)] bool v2);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ECDHDecode", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key ECDHDecode(ref ECDHTuple masked, ref Key secret, [MarshalAs(UnmanagedType.Bool)] bool v2);
     }
-
-
 }
