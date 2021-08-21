@@ -66,4 +66,16 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)]
         public Key[] keys;
     }
+
+    public static class KeyOps
+    {
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateKeypair", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void GenerateKeypair(ref Key sk, ref Key pk);
+
+        /* ap = a*P, a is a group scalar, P is a group element */
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultKey", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void ScalarmultKey(ref Key ap, ref Key p, ref Key a);
+    }
+
+
 }
