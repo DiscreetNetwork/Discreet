@@ -50,4 +50,20 @@ namespace Discreet.Cipher
             return (1 & ((diff - 1) >> 8) - 1) != 0;
         }
     }
+
+    /**
+     * This is used in place of the C++-style vector argument for keys and 
+     * commitments for proofs like Triptych, CLSAG and 
+     *
+     *
+     *
+     *
+     *
+     */
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Key64
+    {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)]
+        public Key[] keys;
+    }
 }
