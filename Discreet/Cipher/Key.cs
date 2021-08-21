@@ -128,6 +128,94 @@ namespace Discreet.Cipher
         /* ap = a*P, a is a group scalar, P is a group element */
         [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultKey", CallingConvention = CallingConvention.StdCall)]
         public static extern void ScalarmultKey(ref Key ap, ref Key p, ref Key a);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "DKSAP", CallingConvention = CallingConvention.StdCall)]
+        public static extern void DKSAP(ref Key R, ref Key T, ref Key pv, ref Key ps);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "DKSAPRecover", CallingConvention = CallingConvention.StdCall)]
+        public static extern void DKSAPRecover(ref Key t, ref Key R, ref Key sv, ref Key ss);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateSeckey1", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key GenerateSeckey();
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateSeckey", CallingConvention = CallingConvention.StdCall)]
+        public static extern void GenerateSeckey(ref Key sk);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GeneratePubkey", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key GeneratePubkey();
+
+        public static void GeneratePubkey(ref Key pk)
+        {
+            Key.Copy(GeneratePubkey(), pk);
+        }
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultBase", CallingConvention = CallingConvention.StdCall)]
+        public static extern void ScalarmultBase(ref Key ag, ref Key a);
+
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultBase1", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key ScalarmultBase(ref Key a);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GenCommitment", CallingConvention = CallingConvention.StdCall)]
+        public static extern void GenCommitment(ref Key c, ref Key a, [MarshalAs(UnmanagedType.U8)] ulong amount);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "Commit", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key Commit(ref Key a, [MarshalAs(UnmanagedType.U8)] ulong amount);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "CommitToZero", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key CommitToZero([MarshalAs(UnmanagedType.U8)] ulong amount);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "RandomDisAmount", CallingConvention = CallingConvention.StdCall)]
+        public static extern ulong RandomDisAmount([MarshalAs(UnmanagedType.U8)] ulong limit);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultKey1", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key ScalarmultKey(ref Key p, ref Key a);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultH", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key ScalarmultH(ref Key a);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "Scalarmult8", CallingConvention = CallingConvention.StdCall)]
+        public static extern void Scalarmult8(ref GEP3 res, ref Key p);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "Scalarmult81", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key Scalarmult8(ref Key p);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "InMainSubgroup", CallingConvention = CallingConvention.StdCall)]
+        public static extern bool InMainSubgroup(ref Key a);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "AddKeys", CallingConvention = CallingConvention.StdCall)]
+        public static extern void AddKeys(ref Key ab, ref Key a, ref Key b);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "AddKeys_1", CallingConvention = CallingConvention.StdCall)]
+        public static extern Key AddKeys(ref Key a, ref Key b);
+
+        /* computes agb = aG + B */
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "AddKeys1", CallingConvention = CallingConvention.StdCall)]
+        public static extern void AGB(ref Key agb, ref Key a, ref Key b);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "AddKeys2", CallingConvention = CallingConvention.StdCall)]
+        public static extern void AGBP(ref Key agbp, ref Key a, ref Key b, ref Key p);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "Precomp", CallingConvention = CallingConvention.StdCall)]
+        public static extern void Precomp([In, Out] [MarshalAs(UnmanagedType.LPArray, SizeConst = 8, ArraySubType =UnmanagedType.Struct)] GEPrecomp[] rv, ref Key b);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "AddKeys3", CallingConvention = CallingConvention.StdCall)]
+        public static extern void APBQ(ref Key apbq, ref Key a, ref Key p, ref Key b, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 8, ArraySubType = UnmanagedType.Struct)] GEPrecomp[] q);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "AddKeys3_1", CallingConvention = CallingConvention.StdCall)]
+        public static extern void APBQ(ref Key apbq, ref Key a, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 8, ArraySubType = UnmanagedType.Struct)] GEPrecomp[] p, ref Key b, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 8, ArraySubType = UnmanagedType.Struct)] GEPrecomp[] q);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "AddKeys4", CallingConvention = CallingConvention.StdCall)]
+        public static extern void AGBPCQ(ref Key agbpcq, ref Key a, ref Key b, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 8, ArraySubType = UnmanagedType.Struct)] GEPrecomp[] p, ref Key c, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 8, ArraySubType = UnmanagedType.Struct)] GEPrecomp[] q);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "AddKeys5", CallingConvention = CallingConvention.StdCall)]
+        public static extern void APBQCR(ref Key agbpcq, ref Key a, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 8, ArraySubType = UnmanagedType.Struct)] GEPrecomp[] p, ref Key b, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 8, ArraySubType = UnmanagedType.Struct)] GEPrecomp[] q, ref Key c, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 8, ArraySubType = UnmanagedType.Struct)] GEPrecomp[] r);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "SubKeys", CallingConvention = CallingConvention.StdCall)]
+        public static extern void SubKeys(ref Key ab, ref Key a, ref Key b);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "EqualKeys", CallingConvention = CallingConvention.StdCall)]
+        public static extern bool EqualKeys(ref Key a, ref Key b);
     }
 
 
