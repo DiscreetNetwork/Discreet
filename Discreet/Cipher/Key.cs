@@ -130,6 +130,62 @@ namespace Discreet.Cipher
         public Key[] keys;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Signature
+    {
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key s;
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key e;
+
+        public Signature(Key x, Key p, string m)
+        {
+            this = KeyOps.Sign(ref x, ref p, m);
+        }
+
+        public Signature(Key x, Key p, byte[] m)
+        {
+            this = KeyOps.Sign(ref x, ref p, m);
+        }
+
+        public Signature(Key x, Key p, Hash m)
+        {
+            this = KeyOps.Sign(ref x, ref p, m);
+        }
+
+        public Signature(Key x, Key p, SHA256 m)
+        {
+            this = KeyOps.Sign(ref x, ref p, m);
+        }
+
+        public bool Verify(Key p, Key m)
+        {
+            return KeyOps.SchnorrVerify(ref s, ref e, ref p, ref m);
+        }
+
+        public bool Verify(Key p, SHA256 m)
+        {
+            Key mk = KeyOps.SHA256ToKey(m);
+            return KeyOps.SchnorrVerify(ref s, ref e, ref p, ref mk);
+        }
+
+        public bool Verify(Key p, string m)
+        {
+            byte[] bytes = UTF8Encoding.UTF8.GetBytes(m);
+            Key mk = KeyOps.SHA256ToKey(SHA256.HashData(bytes));
+
+            return KeyOps.SchnorrVerify(ref s, ref e, ref p, ref mk);
+        }
+
+        public bool Verify(Key p, Hash m)
+        {
+            byte[] bytes = m.GetBytes();
+            Key mk = KeyOps.SHA256ToKey(SHA256.HashData(bytes));
+
+            return KeyOps.SchnorrVerify(ref s, ref e, ref p, ref mk);
+        }
+    }
+
     public static class KeyOps
     {
         [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateKeypair", CallingConvention = CallingConvention.StdCall)]
@@ -235,5 +291,54 @@ namespace Discreet.Cipher
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "ECDHDecode", CallingConvention = CallingConvention.StdCall)]
         public static extern Key ECDHDecode(ref ECDHTuple masked, ref Key secret, [MarshalAs(UnmanagedType.Bool)] bool v2);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "SchnorrSign", CallingConvention = CallingConvention.StdCall)]
+        public static extern void SchnorrSign(ref Key s, ref Key e, ref Key p, ref Key x, ref Key m);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "SchnorrVerify", CallingConvention = CallingConvention.StdCall)]
+        public static extern bool SchnorrVerify(ref Key s, ref Key e, ref Key p, ref Key m);
+
+        public static Key SHA256ToKey(SHA256 h)
+        {
+            return new Key(h.GetBytes());
+        }
+
+        public static Signature Sign(ref Key x, ref Key p, string m)
+        {
+            byte[] bytes = UTF8Encoding.UTF8.GetBytes(m);
+            Key mk = SHA256ToKey(SHA256.HashData(bytes));
+
+            Signature sig = new Signature();
+            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
+            return sig;
+        }
+
+        public static Signature Sign(ref Key x, ref Key p, Hash m)
+        {
+            byte[] bytes = m.GetBytes();
+            Key mk = SHA256ToKey(SHA256.HashData(bytes));
+
+            Signature sig = new Signature();
+            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
+            return sig;
+        }
+
+        public static Signature Sign(ref Key x, ref Key p, SHA256 m)
+        {
+            Key mk = SHA256ToKey(m);
+
+            Signature sig = new Signature();
+            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
+            return sig;
+        }
+
+        public static Signature Sign(ref Key x, ref Key p, byte[] m)
+        {
+            Key mk = SHA256ToKey(SHA256.HashData(m));
+
+            Signature sig = new Signature();
+            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
+            return sig;
+        }
     }
 }
