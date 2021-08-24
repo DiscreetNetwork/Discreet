@@ -22,6 +22,14 @@ namespace Discreet
 
             Console.WriteLine($"Public key:  {BitConverter.ToString(pk.bytes).Replace("-", string.Empty).ToLower()}");
             Console.WriteLine($"Secret key:  {BitConverter.ToString(sk.bytes).Replace("-", string.Empty).ToLower()}");
+
+
+            //TestCipher.Test(args);
+
+            Key pk1 = KeyOps.GeneratePubkey();
+
+            Console.WriteLine($"Secret key:  {BitConverter.ToString(pk1.bytes).Replace("-", string.Empty).ToLower()}");
+
             Console.ReadLine();
         }
     }

@@ -158,9 +158,16 @@ namespace Discreet.Cipher
             this = KeyOps.Sign(ref x, ref p, m);
         }
 
-        public bool Verify(Key p, Key m)
+        public Signature(Key x, Key p, Key m)
         {
-            return KeyOps.SchnorrVerify(ref s, ref e, ref p, ref m);
+            this = KeyOps.Sign(ref x, ref p, m);
+        }
+
+        public bool Verify(Key p, byte[] m)
+        {
+            Key mk = KeyOps.SHA256ToKey(SHA256.HashData(m));
+
+            return KeyOps.SchnorrVerify(ref s, ref e, ref p, ref mk);
         }
 
         public bool Verify(Key p, SHA256 m)
@@ -184,6 +191,11 @@ namespace Discreet.Cipher
 
             return KeyOps.SchnorrVerify(ref s, ref e, ref p, ref mk);
         }
+
+        public bool Verify(Key p, Key m)
+        {
+            return KeyOps.SchnorrVerify(ref s, ref e, ref p, ref m);
+        }
     }
 
     public static class KeyOps
@@ -202,12 +214,14 @@ namespace Discreet.Cipher
         public static extern void DKSAPRecover(ref Key t, ref Key R, ref Key sv, ref Key ss);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateSeckey1", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key GenerateSeckey();
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateSeckey", CallingConvention = CallingConvention.StdCall)]
         public static extern void GenerateSeckey(ref Key sk);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "GeneratePubkey", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key GeneratePubkey();
 
         public static void GeneratePubkey(ref Key pk)
@@ -309,6 +323,8 @@ namespace Discreet.Cipher
             Key mk = SHA256ToKey(SHA256.HashData(bytes));
 
             Signature sig = new Signature();
+            sig.s = new Key();
+            sig.e = new Key();
             SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
             return sig;
         }
@@ -319,6 +335,8 @@ namespace Discreet.Cipher
             Key mk = SHA256ToKey(SHA256.HashData(bytes));
 
             Signature sig = new Signature();
+            sig.s = new Key();
+            sig.e = new Key();
             SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
             return sig;
         }
@@ -328,6 +346,8 @@ namespace Discreet.Cipher
             Key mk = SHA256ToKey(m);
 
             Signature sig = new Signature();
+            sig.s = new Key();
+            sig.e = new Key();
             SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
             return sig;
         }
@@ -337,7 +357,18 @@ namespace Discreet.Cipher
             Key mk = SHA256ToKey(SHA256.HashData(m));
 
             Signature sig = new Signature();
+            sig.s = new Key();
+            sig.e = new Key();
             SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
+            return sig;
+        }
+
+        public static Signature Sign(ref Key x, ref Key p, Key m)
+        {
+            Signature sig = new Signature();
+            sig.s = new Key();
+            sig.e = new Key();
+            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref m);
             return sig;
         }
     }
