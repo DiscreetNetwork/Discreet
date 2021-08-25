@@ -1,5 +1,6 @@
 ﻿using System;
 using Discreet.Cipher;
+using System.Text;
 
 namespace Discreet
 {
@@ -43,9 +44,13 @@ namespace Discreet
             KeyOps.ScalarmultBase(ref pk3, ref sk3);
 
             Console.WriteLine($"Public key:  {BitConverter.ToString(pk3.bytes).Replace("-", string.Empty).ToLower()}");
-            Console.WriteLine($"Secret key:  {BitConverter.ToString(sk3.bytes).Replace("-", string.Empty).ToLower()}"); 
+            Console.WriteLine($"Secret key:  {BitConverter.ToString(sk3.bytes).Replace("-", string.Empty).ToLower()}");
 
+            string m = "brap";
 
+            SHA256 hash = SHA256.HashData(UTF8Encoding.UTF8.GetBytes(m));
+
+            Console.WriteLine($"SHA256:  {BitConverter.ToString(hash.GetBytes()).Replace("-", string.Empty).ToLower()}");
 
             Console.ReadLine();
         }
