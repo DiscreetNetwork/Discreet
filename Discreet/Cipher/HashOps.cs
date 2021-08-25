@@ -20,15 +20,19 @@ namespace Discreet.Cipher
         public static extern void HashKeyToScalar(ref Key hash, ref Key data);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "HashKey1", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key HashKey(ref Key data);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "HashKeyToScalar1", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key HashToScalar(ref Key data);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "HashData128", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key HashData128([In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] data);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "HashToScalar128", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key HashToScalar128([In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] data);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "HashToP3", CallingConvention = CallingConvention.StdCall)]

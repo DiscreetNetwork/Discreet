@@ -27,13 +27,16 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8, ArraySubType = UnmanagedType.U4)]
         private uint[] s;
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha256_init", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha256_init", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.I4)]
         private static extern int sha256_init(SHA256Ctx state);
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha256_update", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha256_update", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.I4)]
         private static extern int sha256_update(SHA256Ctx state, [In, Out] [MarshalAs(UnmanagedType.LPArray)] byte[] _in, ulong inlen);
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha256_update", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha256_update", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.I4)]
         private static extern int sha256_final(SHA256Ctx state, [In, Out] [MarshalAs(UnmanagedType.LPArray, SizeConst = 32)] byte[] _out);
 
         public int Init()
@@ -68,7 +71,8 @@ namespace Discreet.Cipher
 
         public byte[] GetBytes() { return (byte[])bytes.Clone(); }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha256", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha256", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.I4)]
         private static extern int sha256([In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 32)] byte[] dataout, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] datain, ulong len);
 
         public static SHA256 HashData(byte[] data)
@@ -107,13 +111,16 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8, ArraySubType = UnmanagedType.U8)]
         private uint[] s;
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512_init", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512_init", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.I4)]
         private static extern int sha512_init(SHA512Ctx state);
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512_update", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512_update", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.I4)]
         private static extern int sha512_update(SHA512Ctx state, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] _in, ulong inlen);
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512_update", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512_update", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.I4)]
         private static extern int sha512_final(SHA512Ctx state, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 64)] byte[] _out);
 
         public int Init()
@@ -148,7 +155,8 @@ namespace Discreet.Cipher
 
         public byte[] GetBytes() { return (byte[])bytes.Clone(); }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.I4)]
         private static extern int sha512([In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 64)] byte[] dataout, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] datain, ulong len);
 
         public static SHA512 HashData(byte[] data)
