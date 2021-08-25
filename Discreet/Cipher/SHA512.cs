@@ -79,8 +79,7 @@ namespace Discreet.Cipher
             }
             else if (data.Length != 64)
             {
-                Console.WriteLine("ERR: Discreet.Cipher.SHA512 cannot have data be anything but 64 bytes");
-                bytes = new byte[64];
+                throw new Exception("ERR: Discreet.Cipher.SHA512 cannot have data be anything but 64 bytes");
             }
             else
             {

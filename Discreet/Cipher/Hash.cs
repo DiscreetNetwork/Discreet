@@ -11,6 +11,7 @@ namespace Discreet.Cipher
         public int Update(byte[] data);
         public int Final(byte[] dataout);
     }
+
     public interface Hash
     {
         /* safely returns a copy of the hash data */

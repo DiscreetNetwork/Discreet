@@ -79,8 +79,7 @@ namespace Discreet.Cipher
             }
             else if (data.Length != 32)
             {
-                Console.WriteLine("ERR: Discreet.Cipher.SHA256 cannot have data be anything but 32 bytes");
-                bytes = new byte[32];
+                throw new Exception("ERR: Discreet.Cipher.SHA256 cannot have data be anything but 32 bytes");
             }
             else
             {
