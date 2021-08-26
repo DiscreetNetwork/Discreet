@@ -1,6 +1,8 @@
 ﻿using System;
 using Discreet.Cipher;
+using Discreet.Network.Helpers;
 using System.Text;
+
 
 namespace Discreet
 {
@@ -46,11 +48,13 @@ namespace Discreet
             Console.WriteLine($"Public key:  {BitConverter.ToString(pk3.bytes).Replace("-", string.Empty).ToLower()}");
             Console.WriteLine($"Secret key:  {BitConverter.ToString(sk3.bytes).Replace("-", string.Empty).ToLower()}");
 
-            string m = "brap";
+            string m = "wrap";
 
             SHA256 hash = SHA256.HashData(UTF8Encoding.UTF8.GetBytes(m));
 
             Console.WriteLine($"SHA256:  {BitConverter.ToString(hash.GetBytes()).Replace("-", string.Empty).ToLower()}");
+
+            Console.WriteLine($"Checksum: {BitConverter.ToString(PacketHelper.Checksum(UTF8Encoding.UTF8.GetBytes(m))).Replace("-", string.Empty).ToLower()}");
 
             Console.ReadLine();
         }
