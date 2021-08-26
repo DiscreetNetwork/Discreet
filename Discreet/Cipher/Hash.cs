@@ -16,5 +16,9 @@ namespace Discreet.Cipher
     {
         /* safely returns a copy of the hash data */
         public byte[] GetBytes();
+
+        public string ToHex();
+
+        public string ToHexShort();
     }
 }

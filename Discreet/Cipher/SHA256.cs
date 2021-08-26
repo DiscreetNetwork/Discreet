@@ -70,7 +70,7 @@ namespace Discreet.Cipher
             return new SHA256(_bytes, false);
         }
 
-        public SHA256(byte[] data, bool hash)
+        public SHA256(byte[] data, bool hash) 
         {
             if (hash)
             {
@@ -85,6 +85,16 @@ namespace Discreet.Cipher
             {
                 bytes = data;
             }
+        }
+
+        public string ToHex()
+        {
+            return BitConverter.ToString(GetBytes()).Replace("-", string.Empty).ToLower();
+        }
+
+        public string ToHexShort()
+        {
+            return ToHex().Substring(0, 8);
         }
     }
 }
