@@ -8,8 +8,8 @@ namespace Discreet.Coin
     {
         public Discreet.Cipher.SHA256 Hash();
         public string Readable();
-        public byte[] Marshall();
-        public void Unmarshall(byte[] bytes);
+        public byte[] Marshal();
+        public void Unmarshal(byte[] bytes);
         public uint Size();
     }
 }
