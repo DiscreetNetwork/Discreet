@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 namespace Discreet.Network.Packets
 {
     public class AckMessage : WireMessage
+
     {
         public AckMessage(int sequenceNumber)
         {
@@ -19,5 +20,7 @@ namespace Discreet.Network.Packets
         {
             get { return WireMessageType.Ack; }
         }
+
+  
     }
 }
