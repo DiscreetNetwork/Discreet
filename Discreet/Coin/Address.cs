@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace Discreet.Coin
 {
-    public interface Address
+    public interface IAddress
     {
         public byte[] Bytes();
         public string String();
@@ -24,7 +24,7 @@ namespace Discreet.Coin
     /**
      * TAddress is the Discreet Transparent address class.
      */
-    public class TAddress: Address
+    public class TAddress: IAddress
     {
         [MarshalAs(UnmanagedType.U1)]
         public byte version;
@@ -84,7 +84,7 @@ namespace Discreet.Coin
     /**
      * StealthAddress is the Discreet shielded/private address class (i.e. dual key wallet).
      */
-    public class StealthAddress : Address
+    public class StealthAddress : IAddress
     {
         [MarshalAs(UnmanagedType.U1)]
         public byte version;
