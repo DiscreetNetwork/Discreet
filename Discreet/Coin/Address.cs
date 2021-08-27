@@ -64,6 +64,15 @@ namespace Discreet.Coin
             return rv;
         }
 
+        public void FromBytes(byte[] bytes)
+        {
+            version = bytes[0];
+            byte[] _hash = new byte[20];
+            Array.Copy(bytes, 1, _hash, 0, 20);
+            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+            Array.Copy(bytes, 21, checksum, 0, 4);
+        }
+
         public string String()
         {
             return Discreet.Cipher.Base58.Encode(Bytes());

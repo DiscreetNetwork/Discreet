@@ -102,6 +102,16 @@ namespace Discreet.Cipher
             diff |= (int)bytes[31] ^ (int)b.bytes[31];
             return (1 & ((diff - 1) >> 8) - 1) != 0;
         }
+
+        public string ToHex()
+        {
+            return BitConverter.ToString(bytes).Replace("-", string.Empty).ToLower();
+        }
+
+        public string ToHexShort()
+        {
+            return ToHex().Substring(0, 8);
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
