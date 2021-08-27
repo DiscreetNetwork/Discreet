@@ -48,6 +48,23 @@ namespace Discreet.Coin
             checksum = Discreet.Cipher.Base58.GetCheckSum(chk);
         }
 
+        public TAddress()
+        {
+            version = 0;
+            hash = new Discreet.Cipher.RIPEMD160(new byte[20], false);
+            checksum = new byte[4];
+        }
+
+        public TAddress(byte[] bytes)
+        {
+            version = bytes[0];
+            byte[] _hash = new byte[20];
+            Array.Copy(bytes, 1, _hash, 0, 20);
+            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+            checksum = new byte[4];
+            Array.Copy(bytes, 21, checksum, 0, 4);
+        }
+
         public uint Size()
         {
             return 25;

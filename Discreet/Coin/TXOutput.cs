@@ -26,6 +26,18 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.U8)]
         public ulong BlockNumber;
 
+        public TxOutputHeader()
+        {
+            Timestamp = 0;
+            BlockNumber = 0;
+        }
+
+        public TxOutputHeader(ulong timestamp, ulong blockNumber)
+        {
+            Timestamp = timestamp;
+            BlockNumber = blockNumber;
+        }
+
         public SHA256 Hash()
         {
             return SHA256.HashData(Marshal());
@@ -117,6 +129,20 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.Struct)]
         Discreet.Cipher.Key Value;
 
+        public PTxOutputBody()
+        {
+            TransactionSrc = new SHA256(new byte[32], false);
+            UXKey = new Key(new byte[32]);
+            Value = new Key(new byte[32]);
+        }
+
+        public PTxOutputBody(SHA256 transactionSrc, Key uxKey, Key value)
+        {
+            TransactionSrc = transactionSrc;
+            UXKey = uxKey;
+            Value = value;
+        }
+
         public SHA256 Hash()
         {
             return SHA256.HashData(Marshal());
@@ -180,6 +206,20 @@ namespace Discreet.Coin
         TAddress Address;
         [MarshalAs(UnmanagedType.Struct)]
         ulong Value;
+
+        public TTxOutputBody()
+        {
+            TransactionSrc = new SHA256(new byte[32], false);
+            Address = new TAddress(new byte[25]);
+            Value = 0;
+        }
+
+        public TTxOutputBody(SHA256 transactionSrc, TAddress address, ulong value)
+        {
+            TransactionSrc = transactionSrc;
+            Address = address;
+            Value = value;
+        }
 
         public SHA256 Hash()
         {
@@ -269,6 +309,18 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.Struct)]
         TTxOutputBody Body;
 
+        public TTXOutput()
+        {
+            Head = new TxOutputHeader();
+            Body = new TTxOutputBody();
+        }
+
+        public TTXOutput(TxOutputHeader header, TTxOutputBody body)
+        {
+            Head = header;
+            Body = body;
+        }
+
         public SHA256 Hash()
         {
             throw new NotImplementedException();
@@ -321,6 +373,18 @@ namespace Discreet.Coin
         TxOutputHeader Head;
         [MarshalAs(UnmanagedType.Struct)]
         PTxOutputBody Body;
+
+        public PTXOutput()
+        {
+            Head = new TxOutputHeader();
+            Body = new PTxOutputBody();
+        }
+
+        public PTXOutput(TxOutputHeader header, PTxOutputBody body)
+        {
+            Head = header;
+            Body = body;
+        }
 
         public SHA256 Hash()
         {
