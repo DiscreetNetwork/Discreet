@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Numerics;
 
@@ -11,11 +10,6 @@ namespace Discreet.Cipher
 	{
 		public static T[] ConcatArrays<T>(params T[][] arrays)
 		{
-			Contract.Requires(arrays != null);
-			Contract.Requires(Contract.ForAll(arrays, (arr) => arr != null));
-			Contract.Ensures(Contract.Result<T[]>() != null);
-			Contract.Ensures(Contract.Result<T[]>().Length == arrays.Sum(arr => arr.Length));
-
 			var result = new T[arrays.Sum(arr => arr.Length)];
 			int offset = 0;
 			for (int i = 0; i < arrays.Length; i++)
@@ -29,11 +23,6 @@ namespace Discreet.Cipher
 
 		public static T[] ConcatArrays<T>(T[] arr1, T[] arr2)
 		{
-			Contract.Requires(arr1 != null);
-			Contract.Requires(arr2 != null);
-			Contract.Ensures(Contract.Result<T[]>() != null);
-			Contract.Ensures(Contract.Result<T[]>().Length == arr1.Length + arr2.Length);
-
 			var result = new T[arr1.Length + arr2.Length];
 			Buffer.BlockCopy(arr1, 0, result, 0, arr1.Length);
 			Buffer.BlockCopy(arr2, 0, result, arr1.Length, arr2.Length);
@@ -42,13 +31,6 @@ namespace Discreet.Cipher
 
 		public static T[] SubArray<T>(T[] arr, int start, int length)
 		{
-			Contract.Requires(arr != null);
-			Contract.Requires(start >= 0);
-			Contract.Requires(length >= 0);
-			Contract.Requires(start + length <= arr.Length);
-			Contract.Ensures(Contract.Result<T[]>() != null);
-			Contract.Ensures(Contract.Result<T[]>().Length == length);
-
 			var result = new T[length];
 			Buffer.BlockCopy(arr, start, result, 0, length);
 			return result;
@@ -56,12 +38,6 @@ namespace Discreet.Cipher
 
 		public static T[] SubArray<T>(T[] arr, int start)
 		{
-			Contract.Requires(arr != null);
-			Contract.Requires(start >= 0);
-			Contract.Requires(start <= arr.Length);
-			Contract.Ensures(Contract.Result<T[]>() != null);
-			Contract.Ensures(Contract.Result<T[]>().Length == arr.Length - start);
-
 			return SubArray(arr, start, arr.Length - start);
 		}
 	}
@@ -72,8 +48,6 @@ namespace Discreet.Cipher
 
 		public static byte[] AddCheckSum(byte[] data)
 		{
-			Contract.Requires<ArgumentNullException>(data != null);
-			Contract.Ensures(Contract.Result<byte[]>().Length == data.Length + CheckSumSizeInBytes);
 			byte[] checkSum = GetCheckSum(data);
 			byte[] dataWithCheckSum = ArrayHelpers.ConcatArrays(data, checkSum);
 			return dataWithCheckSum;
@@ -82,8 +56,6 @@ namespace Discreet.Cipher
 		//Returns null if the checksum is invalid
 		public static byte[] VerifyAndRemoveCheckSum(byte[] data)
 		{
-			Contract.Requires<ArgumentNullException>(data != null);
-			Contract.Ensures(Contract.Result<byte[]>() == null || Contract.Result<byte[]>().Length + CheckSumSizeInBytes == data.Length);
 			byte[] result = ArrayHelpers.SubArray(data, 0, data.Length - CheckSumSizeInBytes);
 			byte[] givenCheckSum = ArrayHelpers.SubArray(data, data.Length - CheckSumSizeInBytes);
 			byte[] correctCheckSum = GetCheckSum(result);
@@ -97,9 +69,6 @@ namespace Discreet.Cipher
 
 		public static string Encode(byte[] data)
 		{
-			Contract.Requires<ArgumentNullException>(data != null);
-			Contract.Ensures(Contract.Result<string>() != null);
-
 			// Decode byte[] to BigInteger
 			BigInteger intData = 0;
 			for (int i = 0; i < data.Length; i++)
@@ -126,16 +95,11 @@ namespace Discreet.Cipher
 
 		public static string EncodeWithCheckSum(byte[] data)
 		{
-			Contract.Requires<ArgumentNullException>(data != null);
-			Contract.Ensures(Contract.Result<string>() != null);
 			return Encode(AddCheckSum(data));
 		}
 
 		public static byte[] Decode(string s)
 		{
-			Contract.Requires<ArgumentNullException>(s != null);
-			Contract.Ensures(Contract.Result<byte[]>() != null);
-
 			// Decode Base58 string to BigInteger 
 			BigInteger intData = 0;
 			for (int i = 0; i < s.Length; i++)
@@ -161,8 +125,6 @@ namespace Discreet.Cipher
 		// Throws `FormatException` if s is not a valid Base58 string, or the checksum is invalid
 		public static byte[] DecodeWithCheckSum(string s)
 		{
-			Contract.Requires<ArgumentNullException>(s != null);
-			Contract.Ensures(Contract.Result<byte[]>() != null);
 			var dataWithCheckSum = Decode(s);
 			var dataWithoutCheckSum = VerifyAndRemoveCheckSum(dataWithCheckSum);
 			if (dataWithoutCheckSum == null)
@@ -172,9 +134,6 @@ namespace Discreet.Cipher
 
 		public static byte[] GetCheckSum(byte[] data)
 		{
-			Contract.Requires<ArgumentNullException>(data != null);
-			Contract.Ensures(Contract.Result<byte[]>() != null);
-
 			byte[] hash1 = SHA256.HashData(data).Bytes;
 			byte[] hash2 = SHA256.HashData(hash1).Bytes;
 
