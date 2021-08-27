@@ -13,6 +13,18 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.Struct)]
         public Key e;
 
+        public Signature(bool blank)
+        {
+            s = new Key(new byte[32]);
+            e = new Key(new byte[32]);
+        }
+
+        public Signature(Key _s, Key _e)
+        {
+            s = _s;
+            e = _e;
+        }
+
         public Signature(Key x, Key p, string m)
         {
             this = KeyOps.Sign(ref x, ref p, m);

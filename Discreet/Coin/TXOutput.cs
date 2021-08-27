@@ -323,7 +323,7 @@ namespace Discreet.Coin
 
         public SHA256 Hash()
         {
-            throw new NotImplementedException();
+            return SHA256.HashData(Body.Marshal());
         }
 
         public byte[] Marshal()
@@ -388,7 +388,7 @@ namespace Discreet.Coin
 
         public SHA256 Hash()
         {
-            throw new NotImplementedException();
+            return SHA256.HashData(Body.Marshal());
         }
 
         public byte[] Marshal()
