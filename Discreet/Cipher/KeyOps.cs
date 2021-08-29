@@ -117,8 +117,7 @@ namespace Discreet.Cipher
         public static extern bool EqualKeys(ref Key a, ref Key b);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "GenCommitmentMask", CallingConvention = CallingConvention.StdCall)]
-        [return: MarshalAs(UnmanagedType.Struct)]
-        public static extern Key GenCommitmentMask(ref Key sk);
+        public static extern void GenCommitmentMask(ref Key rv, ref Key sk);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "ECDHEncode", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Struct)]
