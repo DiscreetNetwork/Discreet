@@ -187,7 +187,7 @@ namespace Discreet.Coin
             Array.Copy(bytes, offset + 26 * 32, z.bytes, 0, 32);
         }
 
-        public uint Size()
+        public static uint Size()
         {
             return 18*64 + 9*64;
         }

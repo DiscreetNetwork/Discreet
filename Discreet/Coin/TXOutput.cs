@@ -65,9 +65,39 @@ namespace Discreet.Coin
             Array.Copy(bytes, offset, rv, 0, Size());
         }
 
+        public byte[] TXMarshal()
+        {
+            byte[] rv = new byte[72];
+
+            Array.Copy(UXKey.bytes, 0, rv, 0, 32);
+            Array.Copy(Commitment.bytes, 0, rv, 32, 32);
+
+            byte[] amount = BitConverter.GetBytes(Amount);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(amount);
+            }
+
+            Array.Copy(amount, 0, rv, 64, 8);
+
+            return rv;
+        }
+
+        public void TXMarshal(byte[] bytes, uint offset)
+        {
+            byte[] rv = TXMarshal();
+
+            Array.Copy(bytes, offset, rv, 0, Size());
+        }
+
         public string Readable()
         {
             return $"{{\"TransactionSrc\": \"{TransactionSrc.ToHex()}\",\"UXKey\":\"{UXKey.ToHex()}\",\"Commitment\":\"{Commitment.ToHex()}\",\"Amount\":\"{Amount:X}\"}}";
+        }
+
+        public string TXReadable()
+        {
+            return $"{{\"UXKey\":\"{UXKey.ToHex()}\",\"Commitment\":\"{Commitment.ToHex()}\",\"Amount\":\"{Amount:X}\"}}";
         }
 
         public static uint Size()
@@ -105,6 +135,36 @@ namespace Discreet.Coin
 
             byte[] amount = new byte[8];
             Array.Copy(bytes, offset + 96, amount, 0, 8);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(amount);
+            }
+
+            Amount = BitConverter.ToUInt64(amount);
+        }
+
+        public void TXUnmarshal(byte[] bytes)
+        {
+            Array.Copy(bytes, 0, UXKey.bytes, 0, 32);
+            Array.Copy(bytes, 0, Commitment.bytes, 0, 32);
+
+            byte[] amount = new byte[8];
+            Array.Copy(bytes, 64, amount, 0, 8);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(amount);
+            }
+
+            Amount = BitConverter.ToUInt64(amount);
+        }
+
+        public void TXUnmarshal(byte[] bytes, uint offset)
+        {
+            Array.Copy(bytes, offset, UXKey.bytes, 0, 32);
+            Array.Copy(bytes, offset + 32, Commitment.bytes, 0, 32);
+
+            byte[] amount = new byte[8];
+            Array.Copy(bytes, offset + 64, amount, 0, 8);
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(amount);
