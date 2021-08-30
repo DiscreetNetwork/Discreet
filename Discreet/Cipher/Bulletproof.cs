@@ -49,5 +49,9 @@ namespace Discreet.Cipher
 
             return Prove(vArg, gammaArg);
         }
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "bulletproof_VERIFY", CallingConvention = CallingConvention.StdCall)]
+            [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool Verify(Bulletproof bp);
     }
 }
