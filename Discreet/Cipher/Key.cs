@@ -129,10 +129,16 @@ namespace Discreet.Cipher
      * This is used in place of the C++-style vector argument for keys and 
      * commitments for proofs like Triptych, CLSAG and 
      *
-     *
-     *
-     *
-     *
+     * Alice has keys (a, A); Bob has keys (b, B)
+     * 
+     * alice does aB = Ab = g^(ab)
+     * 
+     * (a, A), (b, B), (c, C), (d, D)
+     * 
+     * 1. everybody sends keys. Alice -> Bob, Carol, Dan : (B, C, D) ; etc
+     * A. B^a * C * D = A^(b) * C * D = A^(c) * B * D = A^(d) * B * C = (g*g*g)^(abcd)
+     * 
+     * 
      */
     [StructLayout(LayoutKind.Sequential)]
     public struct Key64
