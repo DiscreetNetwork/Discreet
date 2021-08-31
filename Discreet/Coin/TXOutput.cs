@@ -10,13 +10,13 @@ namespace Discreet.Coin
     public class TXOutput : ICoin
     {
         [MarshalAs(UnmanagedType.Struct)]
-        Discreet.Cipher.SHA256 TransactionSrc;
+        public Discreet.Cipher.SHA256 TransactionSrc;
         [MarshalAs(UnmanagedType.Struct)]
-        Discreet.Cipher.Key UXKey;
+        public Discreet.Cipher.Key UXKey;
         [MarshalAs(UnmanagedType.Struct)]
-        Discreet.Cipher.Key Commitment;
+        public Discreet.Cipher.Key Commitment;
         [MarshalAs(UnmanagedType.U8)]
-        ulong Amount;
+        public ulong Amount;
 
         public TXOutput()
         {

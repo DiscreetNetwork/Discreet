@@ -43,8 +43,49 @@ namespace Discreet.Coin
 
         public Cipher.SHA256 Hash()
         {
-            //TODO: IMPLEMENT INNERHASH
             return Cipher.SHA256.HashData(Marshal());
+        }
+
+        /**
+         * This is the hash signed through signatures.
+         * It is composed of:
+         *  Version,
+         *  Inputs,
+         *  Outputs (only output pubkey and amount),
+         *  Extra
+         */
+        public Cipher.SHA256 SigningHash()
+        {
+            byte[] bytes = new byte[1 + Inputs.Length * TXInput.Size() + (32 + 8) * Outputs.Length + Extra.Length];
+
+            bytes[0] = Version;
+
+            uint offset = 1;
+
+            for (int i = 0; i < Inputs.Length; i++)
+            {
+                Array.Copy(Inputs[i].Marshal(), 0, bytes, offset, TXInput.Size());
+                offset += TXInput.Size();
+            }
+
+            for (int i = 0; i < Outputs.Length; i++)
+            {
+                Array.Copy(Outputs[i].UXKey.bytes, 0, bytes, offset, 32);
+                offset += 32;
+
+                byte[] amount = BitConverter.GetBytes(Outputs[i].Amount);
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(amount);
+                }
+
+                Array.Copy(amount, 0, bytes, offset, 8);
+                offset += 8;
+            }
+
+            Array.Copy(Extra, 0, bytes, offset, Extra.Length);
+
+            return Cipher.SHA256.HashData(bytes);
         }
 
         public byte[] Marshal()
