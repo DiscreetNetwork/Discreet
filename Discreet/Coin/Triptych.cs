@@ -40,10 +40,6 @@ namespace Discreet.Coin
             Array.Copy(C.bytes, 0, bytes, 32 * 4, 32);
             Array.Copy(D.bytes, 0, bytes, 32 * 5, 32);
 
-            X = new Key[6];
-            Y = new Key[6];
-            f = new Key[6];
-
             for (int i = 0; i < 6; i++)
             {
                 Array.Copy(X[i].bytes, 0, bytes, 32 * 6 + 32 * i, 32);
@@ -189,7 +185,36 @@ namespace Discreet.Coin
 
         public static uint Size()
         {
-            return 18*64 + 9*64;
+            return 18*32 + 9*32;
+        }
+
+        public static Triptych GenerateMock()
+        {
+            Triptych proof = new Triptych();
+
+            proof.J = Cipher.KeyOps.GeneratePubkey();
+            proof.K = Cipher.KeyOps.GeneratePubkey();
+            proof.A = Cipher.KeyOps.GeneratePubkey();
+            proof.B = Cipher.KeyOps.GeneratePubkey();
+            proof.C = Cipher.KeyOps.GeneratePubkey();
+            proof.D = Cipher.KeyOps.GeneratePubkey();
+
+            proof.X = new Key[6];
+            proof.Y = new Key[6];
+            proof.f = new Key[6];
+
+            for (int i = 0; i < 6; i++)
+            {
+                proof.X[i] = Cipher.KeyOps.GeneratePubkey();
+                proof.Y[i] = Cipher.KeyOps.GeneratePubkey();
+                proof.f[i] = Cipher.KeyOps.GenerateSeckey();
+            }
+
+            proof.zA = Cipher.KeyOps.GenerateSeckey();
+            proof.zC = Cipher.KeyOps.GenerateSeckey();
+            proof.z = Cipher.KeyOps.GenerateSeckey();
+
+            return proof;
         }
     }
 }

@@ -58,7 +58,7 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            string rv = "{\"Offsets:\"[";
+            string rv = "{\"Offsets\":[";
             for (int i = 0; i < 64; i++)
             {
                 rv += Offsets[i].ToString();
@@ -108,6 +108,22 @@ namespace Discreet.Coin
         public static uint Size()
         {
             return (uint)((Config.OutputVersion > 1) ? 8 : 4) * 64 + 32;
+        }
+
+        public static TXInput GenerateMock()
+        {
+            TXInput input = new TXInput();
+
+            input.KeyImage = Cipher.KeyOps.GeneratePubkey();
+            input.Offsets = new uint[64];
+            System.Random rng = new System.Random();
+
+            for (int i = 0; i < 64; i++)
+            {
+                input.Offsets[i] = (uint)rng.Next(0, Int32.MaxValue);
+            }
+
+            return input;
         }
     }
 }

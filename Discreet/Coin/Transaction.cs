@@ -9,37 +9,37 @@ namespace Discreet.Coin
     public class Transaction: ICoin
     {
         [MarshalAs(UnmanagedType.U1)]
-        byte Version;
+        public byte Version;
         [MarshalAs(UnmanagedType.U1)]
-        byte NumInputs;
+        public byte NumInputs;
         [MarshalAs(UnmanagedType.U1)]
-        byte NumOutputs;
+        public byte NumOutputs;
         [MarshalAs(UnmanagedType.U1)]
-        byte NumSigs;
+        public byte NumSigs;
 
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
-        TXInput[] Inputs;
+        public TXInput[] Inputs;
 
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
-        TXOutput[] Outputs;
+        public TXOutput[] Outputs;
 
         [MarshalAs(UnmanagedType.Struct)]
-        Bulletproof RangeProof;
+        public Bulletproof RangeProof;
 
         [MarshalAs(UnmanagedType.U8)]
-        ulong Fee;
+        public ulong Fee;
 
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
-        Triptych[] Signatures;
+        public Triptych[] Signatures;
 
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
-        Cipher.Key[] PseudoOutputs;
+        public Cipher.Key[] PseudoOutputs;
 
         [MarshalAs(UnmanagedType.U4)]
-        uint ExtraLen;
+        public uint ExtraLen;
 
         [MarshalAs(UnmanagedType.ByValArray)]
-        byte[] Extra;
+        public byte[] Extra;
 
         public Cipher.SHA256 Hash()
         {
@@ -99,13 +99,13 @@ namespace Discreet.Coin
 
             uint offset = 4;
 
-            for (int i = 0; i < NumInputs; i++)
+            for (int i = 0; i < Inputs.Length; i++)
             {
                 Inputs[i].Marshal(bytes, offset);
                 offset += TXInput.Size();
             }
 
-            for (int i = 0; i < NumOutputs; i++)
+            for (int i = 0; i < Outputs.Length; i++)
             {
                 Outputs[i].TXMarshal(bytes, offset);
                 offset += 72;
@@ -121,6 +121,7 @@ namespace Discreet.Coin
             }
 
             Array.Copy(fee, 0, bytes, offset, 8);
+            offset += 8;
 
             for (int i = 0; i < NumSigs; i++)
             {
@@ -157,7 +158,7 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            string rv = "{{";
+            string rv = "{";
 
             rv += $"\"Version:\":{Version},";
             rv += $"\"NumInputs:\":{NumInputs},";
@@ -263,6 +264,7 @@ namespace Discreet.Coin
 
             Array.Copy(bytes, offset, fee, 0, 8);
             Fee = BitConverter.ToUInt64(fee);
+            offset += 8;
 
             for (int i = 0; i < NumSigs; i++)
             {
@@ -321,6 +323,7 @@ namespace Discreet.Coin
 
             Array.Copy(bytes, offset, fee, 0, 8);
             Fee = BitConverter.ToUInt64(fee);
+            offset += 8;
 
             for (int i = 0; i < NumSigs; i++)
             {
@@ -350,6 +353,47 @@ namespace Discreet.Coin
         public uint Size()
         {
             return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + PseudoOutputs.Length * 32 + 4 + Extra.Length);
+        }
+
+        public static Transaction GenerateMock()
+        {
+            Transaction tx = new Transaction();
+            tx.Version = 1;
+            tx.NumInputs = 2;
+            tx.NumOutputs = 2;
+            tx.NumSigs = 2;
+
+            tx.Inputs = new TXInput[2];
+            tx.Outputs = new TXOutput[2];
+            tx.Signatures = new Triptych[2];
+            tx.PseudoOutputs = new Cipher.Key[2];
+
+            for (int i = 0; i < 2; i++)
+            {
+                tx.Inputs[i] = TXInput.GenerateMock();
+                tx.Outputs[i] = TXOutput.GenerateMock();
+                tx.Signatures[i] = Triptych.GenerateMock();
+                tx.PseudoOutputs[i] = Cipher.KeyOps.GeneratePubkey();
+            }
+
+            tx.RangeProof = Bulletproof.GenerateMock();
+
+
+            var buffer = new byte[8];
+            new Random().NextBytes(buffer);
+            tx.Fee = BitConverter.ToUInt64(buffer, 0);
+
+            tx.ExtraLen = 34;
+            
+            Cipher.Key key = Cipher.KeyOps.GeneratePubkey();
+
+            tx.Extra = new byte[34];
+            tx.Extra[0] = 1;
+            tx.Extra[1] = 34;
+
+            Array.Copy(key.bytes, 0, tx.Extra, 2, 32);
+
+            return tx;
         }
     }
 }

@@ -43,14 +43,14 @@ namespace Discreet.Coin
             Array.Copy(taux.bytes, 0, bytes, 4 + 32 * 4, 32);
             Array.Copy(mu.bytes, 0, bytes, 4 + 32 * 5, 32);
 
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < L.Length; i++)
             {
                 Array.Copy(L[i].bytes, 0, bytes, 4 + 32 * 6 + 32 * i, 32);
             }
 
-            for (int i = 0; i < 6; i++)
+            for (int i = 0; i < R.Length; i++)
             {
-                Array.Copy(R[i].bytes, 0, bytes, 4 + 32 * 6 + L.Length * 32 + 32 * i, 32);
+                Array.Copy(R[i].bytes, 0, bytes, 4 + 32 * 6 + R.Length * 32 + 32 * i, 32);
             }
 
             Array.Copy(a.bytes, 0, bytes, 4 + 32 * 6 + 2 * L.Length * 32, 32);
@@ -179,6 +179,33 @@ namespace Discreet.Coin
         public uint Size()
         {
             return (uint)L.Length * 64 + 9 * 32 + 4;
+        }
+
+        public static Bulletproof GenerateMock()
+        {
+            Bulletproof bp = new Bulletproof();
+            bp.size = 7;
+            bp.A = Cipher.KeyOps.GeneratePubkey();
+            bp.S = Cipher.KeyOps.GeneratePubkey();
+            bp.T1 = Cipher.KeyOps.GeneratePubkey();
+            bp.T2 = Cipher.KeyOps.GeneratePubkey();
+            bp.taux = Cipher.KeyOps.GenerateSeckey();
+            bp.mu = Cipher.KeyOps.GenerateSeckey();
+
+            bp.L = new Key[7];
+            bp.R = new Key[7];
+
+            for (int i = 0; i < 7; i++)
+            {
+                bp.L[i] = Cipher.KeyOps.GeneratePubkey();
+                bp.R[i] = Cipher.KeyOps.GeneratePubkey();
+            }
+
+            bp.a = Cipher.KeyOps.GenerateSeckey();
+            bp.b = Cipher.KeyOps.GenerateSeckey();
+            bp.t = Cipher.KeyOps.GenerateSeckey();
+
+            return bp;
         }
     }
 }

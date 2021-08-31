@@ -157,7 +157,7 @@ namespace Discreet
 
         public static void Main(string[] args)
         {
-            Key bv = new Key();
+            /*Key bv = new Key();
             Key BV = new Key();
             Key bs = new Key();
             Key BS = new Key();
@@ -165,7 +165,7 @@ namespace Discreet
             KeyOps.GenerateKeypair(ref bv, ref BV);
             KeyOps.GenerateKeypair(ref bs, ref BS);
 
-            /* DKSAP */
+            // DKSAP 
             Key R = new Key();
             Key T = new Key();
             try
@@ -250,7 +250,7 @@ namespace Discreet
 
             Console.WriteLine($"Commitment:  {BitConverter.ToString(P.bytes).Replace("-", string.Empty).ToLower()}");
 
-            /* P - yG - gH = amount???????*/
+            // P - yG - gH = amount???????
             Key yg = new Key();
             KeyOps.ScalarmultBase(ref yg, ref y);
 
@@ -296,7 +296,19 @@ namespace Discreet
 
             KeyOps.ScalarmultKey(ref truebh, ref Key.H, ref trueb);
 
-            Console.WriteLine($"Public key:  {BitConverter.ToString(truebh.bytes).Replace("-", string.Empty).ToLower()}");
+            Console.WriteLine($"Public key:  {BitConverter.ToString(truebh.bytes).Replace("-", string.Empty).ToLower()}");*/
+
+            Coin.Transaction tx = Coin.Transaction.GenerateMock();
+
+            Console.WriteLine(Coin.Printable.Prettify(tx.Readable()));
+
+            Console.WriteLine(tx.Readable().Length);
+            Console.WriteLine(tx.Marshal().Length);
+
+            Console.WriteLine(tx.Size());
+            Console.WriteLine("\n\n" + Coin.Printable.Hexify(tx.Marshal()));
+            Console.WriteLine("\n\n" + Coin.Printable.Hexify(tx.Outputs[0].TXMarshal()));
+            Console.WriteLine("\n\n" + Coin.Printable.Hexify(tx.Outputs[1].TXMarshal()));
         }
 
     }

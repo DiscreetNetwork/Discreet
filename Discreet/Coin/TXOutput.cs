@@ -87,7 +87,7 @@ namespace Discreet.Coin
         {
             byte[] rv = TXMarshal();
 
-            Array.Copy(bytes, offset, rv, 0, Size());
+            Array.Copy(rv, 0, bytes, offset, 72);
         }
 
         public string Readable()
@@ -171,6 +171,22 @@ namespace Discreet.Coin
             }
 
             Amount = BitConverter.ToUInt64(amount);
+        }
+
+        public static TXOutput GenerateMock()
+        {
+            TXOutput output = new TXOutput();
+            Random rng = new Random();
+
+            ulong v1 = ((ulong)rng.Next(0, Int32.MaxValue)) << 32;
+            ulong v2 = (ulong)rng.Next(0, int.MaxValue);
+            output.Amount = v1 | v2;
+
+            output.UXKey = Cipher.KeyOps.GeneratePubkey();
+            output.Commitment = Cipher.KeyOps.GeneratePubkey();
+            output.TransactionSrc = new Cipher.SHA256(new byte[32], false);
+
+            return output;
         }
     }
 }
