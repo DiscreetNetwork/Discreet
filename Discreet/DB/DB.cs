@@ -36,6 +36,12 @@ namespace Discreet.DB
      * database consistently to get the global indices for each output. As such, global index and transaction index
      * information is consistent among all honest nodes (at the cost of availability and partition tolerance); yet,
      * validation/consensus regains availablility and partition tolerance (CAP theorem shiz). 
+     * 
+     * A note on DAGs:
+     * We currently do not have Aleph implemented to the point where we are ready to use it for testnet. As such,
+     * database information regarding the block DAG is not present. Once consensus implementation matures, such changes
+     * will be reflected in this file. For now, we support a blockchain for the sake of quick development towards a
+     * viable testnet.
      */
     public class DB
     {
