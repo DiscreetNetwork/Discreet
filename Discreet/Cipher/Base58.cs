@@ -44,7 +44,10 @@ namespace Discreet.Cipher
 		public static string EncodeChunk(byte[] raw, int padding)
         {
 			raw = PadTo8(raw);
-			Array.Reverse(raw);
+			if (BitConverter.IsLittleEndian)
+			{
+				Array.Reverse(raw);
+			}
 			ulong remainder = BitConverter.ToUInt64(raw);
 			ulong bigZero = 0;
 			ulong bigBase = 58;
@@ -82,7 +85,11 @@ namespace Discreet.Cipher
             }
 
 			byte[] rv = TruncateFrom8(BitConverter.GetBytes(bigResult));
-			Array.Reverse(rv);
+			if (BitConverter.IsLittleEndian)
+			{
+				Array.Reverse(rv);
+			}
+			
 			return rv;
 		}
 
