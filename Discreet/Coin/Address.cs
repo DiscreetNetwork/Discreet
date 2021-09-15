@@ -116,10 +116,10 @@ namespace Discreet.Coin
         public byte version;
 
         [MarshalAs(UnmanagedType.Struct)]
-        public Discreet.Cipher.Key view;
+        public Discreet.Cipher.Key spend;
 
         [MarshalAs(UnmanagedType.Struct)]
-        public Discreet.Cipher.Key spend;
+        public Discreet.Cipher.Key view;
 
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
         public byte[] checksum;
@@ -133,10 +133,47 @@ namespace Discreet.Coin
 
             byte[] chk = new byte[65];
             chk[0] = version;
-            Array.Copy(view.bytes, 0, chk, 1, 32);
+            Array.Copy(spend.bytes, 0, chk, 1, 32);
             Array.Copy(view.bytes, 0, chk, 33, 32);
 
             checksum = Discreet.Cipher.Base58.GetCheckSum(chk);
+        }
+
+        public StealthAddress(byte[] bytes)
+        {
+            if (bytes.Length != Size())
+            {
+                throw new Exception($"Discreet.Coin.StealthAddress: Cannot make stealth address from byte array of size {bytes.Length}, requires byte array of size {Size()}");
+            }
+            version = bytes[0];
+
+            spend = new Cipher.Key(new byte[32]);
+            view = new Cipher.Key(new byte[32]);
+            checksum = new byte[4];
+
+            Array.Copy(bytes, 1, spend.bytes, 0, 32);
+            Array.Copy(bytes, 33, view.bytes, 0, 32);
+            Array.Copy(bytes, 65, checksum, 0, 4);
+        }
+
+        public StealthAddress(string data)
+        {
+            byte[] bytes = Cipher.Base58.Decode(data);
+
+            if (bytes.Length != Size())
+            {
+                throw new Exception($"Discreet.Coin.StealthAddress: Cannot make stealth address from byte array of size {bytes.Length}, requires byte array of size {Size()} (attempted to make from string: \"{data}\")");
+            }
+
+            version = bytes[0];
+
+            spend = new Cipher.Key(new byte[32]);
+            view = new Cipher.Key(new byte[32]);
+            checksum = new byte[4];
+
+            Array.Copy(bytes, 1, spend.bytes, 0, 32);
+            Array.Copy(bytes, 33, view.bytes, 0, 32);
+            Array.Copy(bytes, 65, checksum, 0, 4);
         }
 
         public uint Size()
@@ -149,8 +186,8 @@ namespace Discreet.Coin
             byte[] rv = new byte[Size()];
 
             rv[0] = version;
-            Array.Copy(view.bytes, 0, rv, 1, 32);
-            Array.Copy(spend.bytes, 0, rv, 33, 32);
+            Array.Copy(spend.bytes, 0, rv, 1, 32);
+            Array.Copy(view.bytes, 0, rv, 33, 32);
             Array.Copy(checksum, 0, rv, 65, 4);
 
             return rv;

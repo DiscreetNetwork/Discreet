@@ -189,7 +189,7 @@ namespace Discreet.Coin
                 }
             }
 
-            rv += ",\"RangeProof\":" + RangeProof.Readable();
+            rv += "],\"RangeProof\":" + RangeProof.Readable();
             rv += $",\"Fee\":{Fee}";
             rv += ",\"Signatures\":[";
 
@@ -203,7 +203,7 @@ namespace Discreet.Coin
                 }
             }
 
-            rv += "],\"PseudoOutputs\":";
+            rv += "],\"PseudoOutputs\":[";
 
             for (int i = 0; i < PseudoOutputs.Length; i++)
             {

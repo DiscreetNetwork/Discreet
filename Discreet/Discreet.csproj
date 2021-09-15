@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="LightningDB" Version="0.13.0" />
     <PackageReference Include="xunit" Version="2.4.1" />
   </ItemGroup>
 

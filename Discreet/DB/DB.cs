@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using LightningDB;
+using Discreet.Coin;
+using System.IO;
 
 namespace Discreet.DB
 {
@@ -45,6 +48,78 @@ namespace Discreet.DB
      */
     public class DB
     {
-        //TODO: Implement
+        //WIP
+
+        /* table keys */
+        public static string SPENT_KEYS = "spent_keys";
+        public static string TX_POOL_META = "tx_pool_meta";
+        public static string TX_POOL_BLOB = "tx_pool_blob";
+        public static string OUTPUTS = "outputs";
+        public static string TX_INDICES = "tx_indices";
+        public static string TXS = "txs";
+        public static string BLOCK_INFO = "block_info";
+        public static string BLOCK_HEIGHTS = "block_heights";
+        public static string BLOCKS = "blocks";
+
+        /* zero key */
+        public static byte[] ZEROKEY = new byte[8];
+
+        /* DB txn cursors */
+        private LightningCursor CursorSpentKeys;
+        private LightningCursor CursorTXPoolMeta;
+        private LightningCursor CursorTXPoolBlob;
+        private LightningCursor CursorOutputs;
+        private LightningCursor CursorTXIndices;
+        private LightningCursor CursorTXs;
+        private LightningCursor CursorBlockInfo;
+        private LightningCursor CursorBlockHeights;
+        private LightningCursor CursorBlocks;
+
+        /* Environment */
+        private LightningEnvironment Environment;
+
+        /* Databases */
+        private LightningDatabase SpentKeys;
+        private LightningDatabase TXPoolMeta;
+        private LightningDatabase TXPoolBlob;
+        private LightningDatabase Outputs;
+        private LightningDatabase TXIndices;
+        private LightningDatabase TXs;
+        private LightningDatabase BlockInfo;
+        private LightningDatabase BlockHeights;
+        private LightningDatabase Blocks;
+
+        private string Folder;
+
+        private bool IsOpen;
+
+        public void Open(string filename)
+        {
+            if (IsOpen) throw new Exception("Discreet.DB: Database is already open");
+
+            if (File.Exists(filename)) throw new Exception("Discreet.DB: Open() expects a valid directory path, not a file");
+
+            //if (Directory.CreateDirectory(filename)) 
+        }
+
+        public DB()
+        {
+
+        }
+
+        public void CheckOpen()
+        {
+            /*if (!Database.IsOpened)
+            {
+                throw new Exception("Discreet.DB: Database is not open!");
+            }*/
+        }
+
+        public void AddBlock(Block blk)
+        {
+            CheckOpen();
+
+
+        }
     }
 }

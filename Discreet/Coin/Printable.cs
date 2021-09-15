@@ -6,10 +6,19 @@ namespace Discreet.Coin
 {
     public static class Printable
     {
+        public static uint NUMSPACE = 4;
+        
         public static string Prettify(string s)
         {
             int nBrace = 0;
             string rv = "";
+
+            string spaces = "";
+
+            for (int i = 0; i < NUMSPACE; i++)
+            {
+                spaces += " ";
+            }
 
             for (int i = 0; i < s.Length; i++)
             {
@@ -20,7 +29,7 @@ namespace Discreet.Coin
                         rv += "\n";
                         for (int j = 0; j < nBrace; j++)
                         {
-                            rv += "  ";
+                            rv += spaces;
                         }
                     }
                     rv += s[i];
@@ -28,7 +37,7 @@ namespace Discreet.Coin
                     nBrace++;
                     for (int j = 0; j < nBrace; j++)
                     {
-                        rv += "  ";
+                        rv += spaces;
                     }
                 }
                 else if (s[i] == '}' || s[i] == ']')
@@ -37,7 +46,7 @@ namespace Discreet.Coin
                     nBrace--;
                     for (int j = 0; j < nBrace; j++)
                     {
-                        rv += "  ";
+                        rv += spaces;
                     }
                     rv += s[i];
                 }
@@ -47,7 +56,7 @@ namespace Discreet.Coin
                     rv += "\n";
                     for (int j = 0; j < nBrace; j++)
                     {
-                        rv += "  ";
+                        rv += spaces;
                     }
                 }
                 else
@@ -65,8 +74,43 @@ namespace Discreet.Coin
 
             for(int i = 0; i < bytes.Length; i++)
             {
-                rv += "0123456789ancdef"[bytes[i] >> 4];
-                rv += "0123456789ancdef"[bytes[i] & 0xf];
+                rv += "0123456789abcdef"[bytes[i] >> 4];
+                rv += "0123456789abcdef"[bytes[i] & 0xf];
+            }
+
+            return rv;
+        }
+
+        public static bool IsHex(string hex)
+        {
+            if (hex.Length % 2 != 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < hex.Length; i++)
+            {
+                if ("0123456789abcdef".IndexOf(hex[i]) < 0)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public static byte[] Byteify(string hex)
+        {
+            if (!IsHex(hex))
+            {
+                throw new Exception("Discreet.Coin.Printable: Byteify expects a hex string; this is not a hex string: " + hex);
+            }
+
+            byte[] rv = new byte[hex.Length / 2];
+
+            for (int i = 0; i < rv.Length; i++)
+            {
+                rv[i] = (byte)(("0123456789abcdef".IndexOf(hex[2 * i]) << 4) | "0123456789abcdef".IndexOf(hex[2 * i + 1]));
             }
 
             return rv;
