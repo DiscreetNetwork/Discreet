@@ -231,8 +231,6 @@ namespace Discreet.Cipher.Mnemonics
 
             BigInteger bigData = new BigInteger(trueEntropy);
 
-            Console.WriteLine(checksum[0]);
-
             for (int i = 0; i < checksumBits; i++)
             {
                 bigData *= 2;
@@ -302,8 +300,6 @@ namespace Discreet.Cipher.Mnemonics
                 entropy = PadOrShortenByteArray(entropy, words.Length / 3 * 4);
             }
 
-            Console.WriteLine(Coin.Printable.Hexify(entropy));
-
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(entropy);
@@ -321,8 +317,7 @@ namespace Discreet.Cipher.Mnemonics
 
             if ((byte)checksum != computedChecksumBytes[0])
             {
-                //throw new Exception($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {computedChecksumBytes[0]}");
-                Console.WriteLine($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum:x}; instead got {computedChecksumBytes[0]:x}");
+                throw new Exception($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {computedChecksumBytes[0]}");
             }
 
             return entropy;

@@ -427,11 +427,8 @@ namespace Discreet
 
             Console.WriteLine(mnemonic.GetMnemonic());
 
-            Console.WriteLine("===");
 			Console.WriteLine(BitConverter.ToString(mnemonic.GetEntropy()).Replace("-", string.Empty).ToLower());
-            Console.WriteLine("-----");
 			Mnemonic check = new Mnemonic(mnemonic.GetMnemonic());
-			Console.WriteLine(":::::");
 			Console.WriteLine(BitConverter.ToString(check.GetEntropy()).Replace("-", string.Empty).ToLower());
 		}
 
