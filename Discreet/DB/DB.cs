@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using LightningDB;
+using System.Threading;
 using Discreet.Coin;
 using System.IO;
 
@@ -45,6 +46,9 @@ namespace Discreet.DB
      * database information regarding the block DAG is not present. Once consensus implementation matures, such changes
      * will be reflected in this file. For now, we support a blockchain for the sake of quick development towards a
      * viable testnet.
+     * 
+     * Another note:
+     * Block metadata is currently not being tracked since testnet blocks will all be minted by similar parties.
      */
     public class DB
     {
@@ -91,35 +95,67 @@ namespace Discreet.DB
 
         private string Folder;
 
-        private bool IsOpen;
+        private ulong indexer_tx;
+        private ulong indexer_output;
+
+        private ulong height;
+
 
         public void Open(string filename)
         {
-            if (IsOpen) throw new Exception("Discreet.DB: Database is already open");
-
-            if (File.Exists(filename)) throw new Exception("Discreet.DB: Open() expects a valid directory path, not a file");
-
-            //if (Directory.CreateDirectory(filename)) 
-        }
-
-        public DB()
-        {
-
-        }
-
-        public void CheckOpen()
-        {
-            /*if (!Database.IsOpened)
+            lock (Environment)
             {
-                throw new Exception("Discreet.DB: Database is not open!");
-            }*/
+                if (Environment != null && Environment.IsOpened) return;
+
+                if (File.Exists(filename)) throw new Exception("Discreet.DB: Open() expects a valid directory path, not a file");
+
+                if (!Directory.Exists(filename))
+                {
+                    Directory.CreateDirectory(filename);
+                }
+
+                Environment = new LightningEnvironment(filename);
+                Environment.Open();
+            }
+        }
+
+        public DB(string path)
+        {
+            Open(path);
+
+            using var txn = Environment.BeginTransaction();
+            var config = new DatabaseConfiguration { Flags = DatabaseOpenFlags.Create };
+            
+            SpentKeys = txn.OpenDatabase(SPENT_KEYS, config);
+            TXPoolMeta = txn.OpenDatabase(TX_POOL_META, config);
+            TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB, config);
+            Outputs = txn.OpenDatabase(OUTPUTS, config);
+            TXIndices = txn.OpenDatabase(TX_INDICES, config);
+            TXs = txn.OpenDatabase(TXS, config);
+            BlockInfo = txn.OpenDatabase(BLOCK_INFO, config);
+            BlockHeights = txn.OpenDatabase(BLOCK_HEIGHTS, config);
+            Blocks = txn.OpenDatabase(BLOCKS, config);
+
+            /*
+            CursorSpentKeys = txn.CreateCursor(SpentKeys);
+            CursorTXPoolMeta = txn.CreateCursor(TXPoolMeta);
+            CursorTXPoolBlob = txn.CreateCursor(TXPoolBlob);
+            CursorOutputs = txn.CreateCursor(Outputs);
+            CursorTXIndices = txn.CreateCursor(TXIndices);
+            CursorTXs = txn.CreateCursor(TXs);
+            CursorBlockInfo = txn.CreateCursor(BlockInfo);
+            CursorBlockHeights = txn.CreateCursor(BlockHeights);
+            CursorBlocks = txn.CreateCursor(Blocks);
+            */
         }
 
         public void AddBlock(Block blk)
         {
-            CheckOpen();
+            using var txn = Environment.BeginTransaction();
 
+            
 
+            txn.Commit();
         }
     }
 }

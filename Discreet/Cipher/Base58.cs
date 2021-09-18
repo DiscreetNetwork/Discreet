@@ -93,6 +93,54 @@ namespace Discreet.Cipher
 			return rv;
 		}
 
+		public static string EncodeWhole(byte[] raw)
+        {
+			if (BitConverter.IsLittleEndian)
+			{
+				Array.Reverse(raw);
+			}
+
+			BigInteger remainder = new BigInteger(raw);
+			BigInteger bigZero = 0;
+			BigInteger bigBase = 58;
+
+			string rv = "";
+
+			while (remainder.CompareTo(bigZero) > 0)
+			{
+				BigInteger current = remainder % bigBase;
+				remainder /= bigBase;
+				rv = Alphabet[((int)current)] + rv;
+			}
+
+			return rv;
+		}
+
+		public static byte[] DecodeWhole(string encoded)
+		{
+			BigInteger bigResult = 0;
+			BigInteger currentMultiplier = 1;
+			BigInteger bigBase = 58;
+			BigInteger tmp;
+
+			for (int i = encoded.Length - 1; i >= 0; i--)
+			{
+				tmp = new BigInteger(Alphabet.IndexOf(encoded[i]));
+				tmp *= currentMultiplier;
+				bigResult += tmp;
+				currentMultiplier *= bigBase;
+			}
+
+			byte[] rv = bigResult.ToByteArray();
+
+			if (BitConverter.IsLittleEndian)
+            {
+				Array.Reverse(rv);
+            }
+
+			return rv;
+		}
+
 		public static string Encode(byte[] data)
         {
 			int rounds = data.Length / 8;

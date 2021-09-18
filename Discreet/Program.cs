@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
+using Cryptography.ECDSA;
 
 namespace Discreet
 {
@@ -155,6 +156,45 @@ namespace Discreet
 		{
 			return true;
 		}*/
+
+		/*public struct BTCAddress
+        {
+			public byte[] bytes;
+			public byte[] privkey;
+
+			public string addr;
+        }
+
+		public static BTCAddress GenerateBTCwallet()
+        {
+			bytes[0] = 0;
+			byte[] bytes = new byte[25];
+			byte[] privkey = Secp256K1Manager.GenerateRandomKey();
+			byte[] pubkey = Secp256K1Manager.GetPublicKey(privkey, true);
+
+			byte[] hash1 = SHA256.HashData(pubkey).Bytes;
+			byte[] hash2 = SHA256.HashData(hash1).Bytes;
+
+			byte[] ripemd160 = RIPEMD160.HashData(hash2).Bytes;
+
+			Array.Copy(ripemd160, 0, bytes, 1, 20);
+
+			
+
+			byte[] checksumBytes = new byte[21];
+			Array.Copy(bytes, checksumBytes, 21);
+
+			byte[] checksum = SHA256.HashData(checksumBytes).Bytes;
+
+			Array.Copy(checksum, 0, bytes, 21, 4);
+
+			BTCAddress rv = new BTCAddress();
+			rv.bytes = bytes;
+			rv.privkey = privkey;
+			rv.addr = Cipher.Base58.EncodeWhole(bytes);
+
+			return rv;
+        }*/
 
 		public static void Main(string[] args)
 		{
@@ -334,10 +374,9 @@ namespace Discreet
 				Console.WriteLine($"Public spend key:  {BitConverter.ToString(SP.bytes).Replace("-", string.Empty).ToLower()}");
 				Console.WriteLine($"Address: {addr.String()}");
 			}*/
-
-			Key specvw = new Key(Coin.Printable.Byteify("0bc71f597f6f930f2c7b1aa482fd87c46c6870baeb2155d74cbf62dbcd3f1c09"));
-			Key specsp = new Key(Coin.Printable.Byteify("3e2357f872652d11a0f0744e0bdd4e1613d4642a2e51b921ea94dff34b28b808"));
-
+			
+			Key specvw = new Key(Coin.Printable.Byteify("0f3fe9c20b24a11bf4d6d1acd335c6a80543f1f0380590d7323caf1390c78e88"));
+			Key specsp = new Key(Coin.Printable.Byteify("0f3fe9c20b24a11bf4d6d1acd335c6a80543f1f0380590d7323caf1390c78e88"));
 			Key specVW = KeyOps.ScalarmultBase(ref specvw);
 			Key specSP = KeyOps.ScalarmultBase(ref specsp);
 
@@ -372,7 +411,16 @@ namespace Discreet
 			Console.WriteLine($"Version: {addr.version}");
 			Console.WriteLine($"Special Address: {addr.String()}");
 
-			//Console.WriteLine($"Version: {addr.version}");
+			/*
+
+			for (int i = 0; i < 100; i++)
+            {
+				Console.WriteLine($"Addr: {GenerateBTCwallet().addr}");
+            }*/
+
+            //Console.WriteLine();
+
+			//Console.WriteLine($"Special time: {BitConverter.ToString(Keccak.HashData(new byte[32]).Bytes).Replace("-", string.Empty).ToLower()}");
 		}
 
 	}
