@@ -423,13 +423,16 @@ namespace Discreet
 
 			//Console.WriteLine($"Special time: {BitConverter.ToString(Keccak.HashData(new byte[32]).Bytes).Replace("-", string.Empty).ToLower()}");
 
-			Mnemonic mnemonic = new Mnemonic(256, Mnemonic.Language.English);
+			for (int i = 0; i < 100; i++)
+			{
+				Mnemonic mnemonic = new Mnemonic(128, Mnemonic.Language.English);
 
-            Console.WriteLine(mnemonic.GetMnemonic());
+				Console.WriteLine(mnemonic.GetMnemonic());
 
-			Console.WriteLine(BitConverter.ToString(mnemonic.GetEntropy()).Replace("-", string.Empty).ToLower());
-			Mnemonic check = new Mnemonic(mnemonic.GetMnemonic());
-			Console.WriteLine(BitConverter.ToString(check.GetEntropy()).Replace("-", string.Empty).ToLower());
+				Console.WriteLine(BitConverter.ToString(mnemonic.GetEntropy()).Replace("-", string.Empty).ToLower());
+				Mnemonic check = new Mnemonic(mnemonic.GetMnemonic());
+				Console.WriteLine(BitConverter.ToString(check.GetEntropy()).Replace("-", string.Empty).ToLower());
+			}
 		}
 
 	}

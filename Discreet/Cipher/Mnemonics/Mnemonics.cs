@@ -309,15 +309,17 @@ namespace Discreet.Cipher.Mnemonics
             entropy = PadOrShortenByteArray(entropy, words.Length / 3 * 4);
 
             byte[] computedChecksumBytes = SHA256.HashData(entropy).Bytes;
+            int computedChecksum = computedChecksumBytes[0];
             
             if (words.Length != 24)
             {
-                checksum /= (1 << ((24 - words.Length) / 3));
+                computedChecksum /= (1 << ((24 - words.Length) / 3));
             }
 
-            if ((byte)checksum != computedChecksumBytes[0])
+            if ((int)checksum != computedChecksum)
             {
-                throw new Exception($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {computedChecksumBytes[0]}");
+                //throw new Exception($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {(computedChecksumBytes[0] & ((1 << checksumBits) - 1))}");
+                Console.WriteLine($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {computedChecksum}");
             }
 
             return entropy;
