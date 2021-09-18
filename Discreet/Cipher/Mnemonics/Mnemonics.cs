@@ -219,14 +219,19 @@ namespace Discreet.Cipher.Mnemonics
 
             byte[] checksum = SHA256.HashData(entropy).Bytes;
 
-            byte[] trueEntropy = (byte[])entropy.Clone();
+            byte[] csharpsucks = (byte[])entropy.Clone();
 
             if (BitConverter.IsLittleEndian)
             {
-                Array.Reverse(trueEntropy);
+                Array.Reverse(csharpsucks);
             }
 
+            byte[] trueEntropy = new byte[entropy.Length + 1];
+            Array.Copy(csharpsucks, trueEntropy, entropy.Length);
+
             BigInteger bigData = new BigInteger(trueEntropy);
+
+            Console.WriteLine(checksum[0]);
 
             for (int i = 0; i < checksumBits; i++)
             {
@@ -250,6 +255,18 @@ namespace Discreet.Cipher.Mnemonics
             }
 
             return string.Join(' ', words);
+        }
+
+        private byte[] PadOrShortenByteArray(byte[] data, int len)
+        {
+            if (data.Length > len)
+            {
+                return data[0..len];
+            }
+
+            byte[] rv = new byte[len];
+            Array.Copy(data, 0, rv, len - data.Length, data.Length);
+            return rv;
         }
 
         public byte[] GetEntropy()
@@ -279,10 +296,21 @@ namespace Discreet.Cipher.Mnemonics
 
             entropy = bigData.ToByteArray();
 
+            /* c# bigintegers are the dumbest things ever. Why make them signed!?? */
+            if (entropy.Length > (words.Length / 3 * 4))
+            {
+                entropy = PadOrShortenByteArray(entropy, words.Length / 3 * 4);
+            }
+
+            Console.WriteLine(Coin.Printable.Hexify(entropy));
+
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(entropy);
             }
+
+            /* call it twice because, as I said previously, c# sucks */
+            entropy = PadOrShortenByteArray(entropy, words.Length / 3 * 4);
 
             byte[] computedChecksumBytes = SHA256.HashData(entropy).Bytes;
             
@@ -293,7 +321,8 @@ namespace Discreet.Cipher.Mnemonics
 
             if ((byte)checksum != computedChecksumBytes[0])
             {
-                throw new Exception($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {computedChecksumBytes[0]}");
+                //throw new Exception($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {computedChecksumBytes[0]}");
+                Console.WriteLine($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum:x}; instead got {computedChecksumBytes[0]:x}");
             }
 
             return entropy;

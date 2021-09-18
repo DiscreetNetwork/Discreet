@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
 using Cryptography.ECDSA;
+using Discreet.Cipher.Mnemonics;
 
 namespace Discreet
 {
@@ -374,8 +375,8 @@ namespace Discreet
 				Console.WriteLine($"Public spend key:  {BitConverter.ToString(SP.bytes).Replace("-", string.Empty).ToLower()}");
 				Console.WriteLine($"Address: {addr.String()}");
 			}*/
-			
-			Key specvw = new Key(Coin.Printable.Byteify("0f3fe9c20b24a11bf4d6d1acd335c6a80543f1f0380590d7323caf1390c78e88"));
+
+			/*Key specvw = new Key(Coin.Printable.Byteify("0f3fe9c20b24a11bf4d6d1acd335c6a80543f1f0380590d7323caf1390c78e88"));
 			Key specsp = new Key(Coin.Printable.Byteify("0f3fe9c20b24a11bf4d6d1acd335c6a80543f1f0380590d7323caf1390c78e88"));
 			Key specVW = KeyOps.ScalarmultBase(ref specvw);
 			Key specSP = KeyOps.ScalarmultBase(ref specsp);
@@ -409,7 +410,7 @@ namespace Discreet
 
 			Console.WriteLine($"recomputed checksum: {BitConverter.ToString(newchecksum).Replace("-", string.Empty).ToLower()}");
 			Console.WriteLine($"Version: {addr.version}");
-			Console.WriteLine($"Special Address: {addr.String()}");
+			Console.WriteLine($"Special Address: {addr.String()}");*/
 
 			/*
 
@@ -418,9 +419,20 @@ namespace Discreet
 				Console.WriteLine($"Addr: {GenerateBTCwallet().addr}");
             }*/
 
-            //Console.WriteLine();
+			//Console.WriteLine();
 
 			//Console.WriteLine($"Special time: {BitConverter.ToString(Keccak.HashData(new byte[32]).Bytes).Replace("-", string.Empty).ToLower()}");
+
+			Mnemonic mnemonic = new Mnemonic(256, Mnemonic.Language.English);
+
+            Console.WriteLine(mnemonic.GetMnemonic());
+
+            Console.WriteLine("===");
+			Console.WriteLine(BitConverter.ToString(mnemonic.GetEntropy()).Replace("-", string.Empty).ToLower());
+            Console.WriteLine("-----");
+			Mnemonic check = new Mnemonic(mnemonic.GetMnemonic());
+			Console.WriteLine(":::::");
+			Console.WriteLine(BitConverter.ToString(check.GetEntropy()).Replace("-", string.Empty).ToLower());
 		}
 
 	}
