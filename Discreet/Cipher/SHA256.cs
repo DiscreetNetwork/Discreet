@@ -70,7 +70,7 @@ namespace Discreet.Cipher
             return new SHA256(_bytes, false);
         }
 
-        public SHA256(byte[] data, bool hash) 
+        public SHA256(byte[] data, bool hash)
         {
             if (hash)
             {
@@ -94,7 +94,34 @@ namespace Discreet.Cipher
 
         public string ToHexShort()
         {
-            return ToHex().Substring(0, 8);
+            return ToHex().Substring(0, 8) + "...";
+        }
+
+        /* a > b => 1, a == b => 0, a < b => -1 */
+        public static int Compare(SHA256 a, SHA256 b)
+        {
+            int i;
+
+            for (i = 0; i < 32; i++)
+            {
+                if (a.bytes[i] != b.bytes[i])
+                {
+                    
+                }
+            }
+
+            if (i == 32)
+            {
+                return 0;
+            }
+            else if (a.bytes[i] > b.bytes[i])
+            {
+                return 1;
+            }
+            else
+            {
+                return -1;
+            }
         }
     }
 }

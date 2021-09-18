@@ -30,11 +30,12 @@ namespace Discreet.Coin
 
         public uint NumTXs;
         public uint BlockSize;              // 129
-        public Cipher.SHA256[] Transactions; // 32 * len + 129
+        public uint NumOutputs;             // 133
+        public Cipher.SHA256[] Transactions; // 32 * len + 133
 
         public byte[] Marshal()
         {
-            byte[] rv = new byte[129 + 32 * Transactions.Length];
+            byte[] rv = new byte[133 + 32 * Transactions.Length];
 
             rv[0] = Version;
 
@@ -48,10 +49,11 @@ namespace Discreet.Coin
 
             Serialization.CopyData(rv, 121, NumTXs);
             Serialization.CopyData(rv, 125, BlockSize);
+            Serialization.CopyData(rv, 129, NumOutputs);
 
             for (int i = 0; i < NumTXs; i++)
             {
-                Array.Copy(Transactions[i].Bytes, 0, rv, 129 + i * 32, 32);
+                Array.Copy(Transactions[i].Bytes, 0, rv, 133 + i * 32, 32);
             }
 
             return rv;
@@ -82,12 +84,13 @@ namespace Discreet.Coin
 
             NumTXs = Serialization.GetUInt32(bytes, 121);
             BlockSize = Serialization.GetUInt32(bytes, 125);
+            NumOutputs = Serialization.GetUInt32(bytes, 129);
 
             Transactions = new Cipher.SHA256[NumTXs];
 
             for (int i = 0; i < NumTXs; i++)
             {
-                Transactions[i] = new SHA256(bytes[(129 + i * 32)..(129 + (i + 1) * 32)], false);
+                Transactions[i] = new SHA256(bytes[(133 + i * 32)..(133 + (i + 1) * 32)], false);
             }
         }
 
@@ -106,18 +109,19 @@ namespace Discreet.Coin
 
             NumTXs = Serialization.GetUInt32(bytes, _offset + 121);
             BlockSize = Serialization.GetUInt32(bytes, _offset + 125);
+            NumOutputs = Serialization.GetUInt32(bytes, _offset + 129);
 
             Transactions = new Cipher.SHA256[NumTXs];
 
             for (int i = 0; i < NumTXs; i++)
             {
-                Transactions[i] = new SHA256(bytes[(offset + 129 + i * 32)..(offset + 129 + (i + 1) * 32)], false);
+                Transactions[i] = new SHA256(bytes[(offset + 133 + i * 32)..(offset + 133 + (i + 1) * 32)], false);
             }
         }
 
         public uint Size()
         {
-            return 129 + 32 * (uint)Transactions.Length;
+            return 133 + 32 * (uint)Transactions.Length;
         }
 
         public SHA256 Hash()
