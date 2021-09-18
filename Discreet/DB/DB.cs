@@ -49,7 +49,18 @@ namespace Discreet.DB
      * 
      * Another note:
      * Block metadata is currently not being tracked since testnet blocks will all be minted by similar parties.
+     * Same goes for transaction metadata for now.
      */
+    public class U64
+    {
+        public ulong Value;
+
+        public U64(ulong value)
+        {
+            Value = value;
+        }
+    }
+
     public class DB
     {
         //WIP
@@ -95,10 +106,12 @@ namespace Discreet.DB
 
         private string Folder;
 
-        private ulong indexer_tx;
-        private ulong indexer_output;
+        private U64 indexer_tx = new U64(0);
+        private U64 indexer_output = new U64(0);
 
-        private ulong height;
+        private U64 height = new U64(0);
+
+        private U64 previouslySeenTimestamp = new U64((ulong)DateTime.Now.Ticks);
 
 
         public void Open(string filename)
@@ -136,6 +149,8 @@ namespace Discreet.DB
             BlockHeights = txn.OpenDatabase(BLOCK_HEIGHTS, config);
             Blocks = txn.OpenDatabase(BLOCKS, config);
 
+            txn.Commit();
+
             /*
             CursorSpentKeys = txn.CreateCursor(SpentKeys);
             CursorTXPoolMeta = txn.CreateCursor(TXPoolMeta);
@@ -153,9 +168,62 @@ namespace Discreet.DB
         {
             using var txn = Environment.BeginTransaction();
 
-            
+            var result = txn.Get(Blocks, Serialization.UInt64(blk.Height));
+
+            if (result.resultCode.HasFlag(MDBResultCode.Success))
+            {
+                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} (height {blk.Height}) already in database!");
+            }
+
+            result = txn.Get(BlockHeights, blk.PreviousBlock.Bytes);
+
+            if (!result.resultCode.HasFlag(MDBResultCode.Success))
+            {
+                throw new Exception($"Discreet.DB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not found");
+            }
+
+            ulong prevBlockHeight = Serialization.GetUInt64(result.value.CopyToNewArray(), 0);
+            if (prevBlockHeight != height.Value)
+            {
+                throw new Exception($"Discreet.DB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not previous one in sequence (at height {prevBlockHeight})");
+            }
+
+            lock (previouslySeenTimestamp) {
+                if (previouslySeenTimestamp.Value >= blk.Timestamp)
+                {
+                    throw new Exception($"Discreet.DB.AddBlock: Block timestamp {blk.Timestamp} not occurring after previously seen timestamp {previouslySeenTimestamp.Value}");
+                }
+                previouslySeenTimestamp.Value = blk.Timestamp;
+            }
+
+            lock (height)
+            {
+                if (blk.Height != height.Value + 1)
+                {
+                    throw new Exception($"Discreeet.DB.AddBlock: block height {blk.Height} not in sequence!");
+                }
+
+                height.Value++;
+            }
+
+            var resCode = txn.Put(BlockHeights, blk.BlockHash.Bytes, Serialization.UInt64(blk.Height));
+
+            if (!resCode.HasFlag(MDBResultCode.Success))
+            {
+                throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
+            }
+
+            resCode = txn.Put(Blocks, Serialization.UInt64(blk.Height), blk.Marshal());
+
+            if (!resCode.HasFlag(MDBResultCode.Success))
+            {
+                throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
+            }
 
             txn.Commit();
+
+            /* TODO: pull transactions from txpool and commit to their respective databases */
+
         }
     }
 }

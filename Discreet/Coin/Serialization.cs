@@ -54,6 +54,54 @@ namespace Discreet.Coin
             Array.Copy(data, 0, bytes, offset, sizeof(ulong));
         }
 
+        public static byte[] Int32(int value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return data;
+        }
+
+        public static byte[] UInt32(uint value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return data;
+        }
+
+        public static byte[] Int64(long value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return data;
+        }
+
+        public static byte[] UInt64(ulong value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return data;
+        }
+
         public static int GetInt32(byte[] bytes, uint offset)
         {
             byte[] data = new byte[sizeof(int)];
