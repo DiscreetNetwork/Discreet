@@ -435,5 +435,15 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DB.AddOutput: database update exception: {resultCode}");
             }
         }
+
+        public void AddTXToPool(Transaction tx)
+        {
+            /* the following information is checked:
+             *   - if TX is already in pool
+             *   - if TXPoolSpentKeys contains input key images
+             *   - if SpentKeys contains input key images
+             */
+            
+        }
     }
 }
