@@ -164,9 +164,6 @@ namespace Discreet.DB
 
             if (Environment.MapSize == 0)
             {
-
-                Console.WriteLine("what");
-                /* csharp is officially the worst programming language in existence. */
                 Environment.MapSize = 1024 * 1024 * 1024;
             }
             mapsize = Environment.MapSize;
