@@ -62,6 +62,16 @@ namespace Discreet.DB
         }
     }
 
+    public class U32
+    {
+        public uint Value;
+
+        public U32(uint value)
+        {
+            Value = value;
+        }
+    }
+
     public class DB
     {
         //WIP
@@ -111,7 +121,7 @@ namespace Discreet.DB
         private string Folder;
 
         private U64 indexer_tx = new U64(0);
-        private U64 indexer_output = new U64(0);
+        private U32 indexer_output = new U32(0);
 
         private U64 height = new U64(0);
 
@@ -146,6 +156,7 @@ namespace Discreet.DB
             SpentKeys = txn.OpenDatabase(SPENT_KEYS, config);
             TXPoolMeta = txn.OpenDatabase(TX_POOL_META, config);
             TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB, config);
+            TXPoolSpentKeys = txn.OpenDatabase(TX_POOL_SPENT_KEYS, config);
             Outputs = txn.OpenDatabase(OUTPUTS, config);
             TXIndices = txn.OpenDatabase(TX_INDICES, config);
             TXs = txn.OpenDatabase(TXS, config);
@@ -239,12 +250,12 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
             }
 
-            resCode = txn.Commit();
+            /*resCode = txn.Commit();
 
             if (resCode != MDBResultCode.Success)
             {
                 throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
-            }
+            }*/
 
             if (blk.NumTXs != blk.Transactions.Length)
             {
@@ -299,6 +310,13 @@ namespace Discreet.DB
             for (int i = 0; i < blk.NumTXs; i++)
             {
                 AddTransactionFromPool(sortedTransactions[i], txn);
+            }
+
+            resCode = txn.Commit();
+
+            if (resCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
             }
         }
 
@@ -366,12 +384,12 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DB.AddTransactionFromPool: database update exception: {resultCode}");
             }
 
-            resultCode = txn.Commit();
+            /*resultCode = txn.Commit();
 
             if (resultCode != MDBResultCode.Success)
             {
                 throw new Exception($"Discreet.DB.AddTransactionFromPool: database update exception: {resultCode}");
-            }
+            }*/
 
             /* Add outputs */
             Transaction tx = new Transaction();
@@ -385,7 +403,7 @@ namespace Discreet.DB
             /* Add spent keys */
             if (SpentKeys == null || !SpentKeys.IsOpened)
             {
-                txn.OpenDatabase(SPENT_KEYS);
+                SpentKeys = txn.OpenDatabase(SPENT_KEYS);
             }
 
             for (int i = 0; i < tx.NumInputs; i++)
@@ -398,22 +416,22 @@ namespace Discreet.DB
                 }
             }
 
-            resultCode = txn.Commit();
+            /*resultCode = txn.Commit();
 
             if (resultCode != MDBResultCode.Success)
             {
                 throw new Exception($"Discreet.DB.AddTransactionFromPool: database update exception: {resultCode}");
-            }
+            }*/
         }
 
         private void AddOutput(TXOutput output, LightningTransaction txn)
         {
             if (Outputs == null || !Outputs.IsOpened)
             {
-                txn.OpenDatabase(OUTPUTS);
+                Outputs = txn.OpenDatabase(OUTPUTS);
             }
 
-            ulong outputIndex;
+            uint outputIndex;
 
             lock (indexer_output)
             {
@@ -421,19 +439,19 @@ namespace Discreet.DB
                 outputIndex = indexer_output.Value;
             }
 
-            var resultCode = txn.Put(Outputs, Serialization.UInt64(outputIndex), output.Marshal());
+            var resultCode = txn.Put(Outputs, Serialization.UInt32(outputIndex), output.Marshal());
 
             if (resultCode != MDBResultCode.Success)
             {
                 throw new Exception($"Discreet.DB.AddOutput: database update exception: {resultCode}");
             }
 
-            resultCode = txn.Commit();
+            /*resultCode = txn.Commit();
 
             if (resultCode != MDBResultCode.Success)
             {
                 throw new Exception($"Discreet.DB.AddOutput: database update exception: {resultCode}");
-            }
+            }*/
         }
 
         public void AddTXToPool(Transaction tx)
@@ -443,7 +461,246 @@ namespace Discreet.DB
              *   - if TXPoolSpentKeys contains input key images
              *   - if SpentKeys contains input key images
              */
-            
+            using var txn = Environment.BeginTransaction();
+
+            if (TXPoolBlob == null || !TXPoolBlob.IsOpened)
+            {
+                TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB);
+            }
+
+            if (SpentKeys == null || !SpentKeys.IsOpened)
+            {
+                SpentKeys = txn.OpenDatabase(SPENT_KEYS);
+            }
+
+            if (SpentKeys == null || !SpentKeys.IsOpened)
+            {
+                TXPoolSpentKeys = txn.OpenDatabase(TX_POOL_SPENT_KEYS);
+            }
+
+            Cipher.SHA256 txhash = tx.Hash();
+
+            if (txn.ContainsKey(TXPoolBlob, txhash.Bytes))
+            {
+                throw new Exception($"Discreet.DB.AddTXToPool: Transaction {txhash.ToHexShort()} already present in TXPool");
+            }
+
+            MDBResultCode resultCode;
+
+            /* now check if spentKeys contains our key images... if so, bad news. */
+            for (int i = 0; i < tx.NumInputs; i++)
+            {
+                if (txn.ContainsKey(SpentKeys, tx.Inputs[i].KeyImage.bytes))
+                {
+                    throw new Exception($"Discreet.DB.AddTXToPool: Key image {tx.Inputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                }
+
+                if (txn.ContainsKey(TXPoolSpentKeys, tx.Inputs[i].KeyImage.bytes))
+                {
+                    throw new Exception($"Discreet.DB.AddTXToPool: Key image {tx.Inputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                }
+
+                /* now we commit them */
+                resultCode = txn.Put(TXPoolSpentKeys, tx.Inputs[i].KeyImage.bytes, ZEROKEY);
+
+                if (resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB.AddTXToPool: database update exception: {resultCode}");
+                }
+            }
+
+            resultCode = txn.Put(TXPoolBlob, txhash.Bytes, tx.Marshal());
+
+            if (resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddTXToPool: database update exception: {resultCode}");
+            }
+
+            resultCode = txn.Commit();
+
+            if (resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddTXToPool: database update exception: {resultCode}");
+            }
+        }
+
+        public TXOutput GetOutput(uint index)
+        {
+            using var txn = Environment.BeginTransaction();
+
+            if (Outputs == null || !Outputs.IsOpened)
+            {
+                Outputs = txn.OpenDatabase(OUTPUTS);
+            }
+
+            var result = txn.Get(Outputs, Serialization.UInt32(index));
+
+            if (result.resultCode.HasFlag(MDBResultCode.NotFound))
+            {
+                throw new Exception($"Discreet.DB.GetOutput: No output exists with index {index}");
+            }
+
+            TXOutput output = new TXOutput();
+            output.Unmarshal(result.value.CopyToNewArray());
+            return output;
+        }
+
+        public Transaction GetTransaction(ulong txid)
+        {
+            using var txn = Environment.BeginTransaction();
+
+            if (TXs == null || !TXs.IsOpened)
+            {
+                TXs = txn.OpenDatabase(TXS);
+            }
+
+            var result = txn.Get(TXs, Serialization.UInt64(txid));
+
+            if (result.resultCode.HasFlag(MDBResultCode.NotFound))
+            {
+                throw new Exception($"Discreet.DB.GetTransaction: No transaction exists with index {txid}");
+            }
+
+            Transaction tx = new Transaction();
+            tx.Unmarshal(result.value.CopyToNewArray());
+            return tx;
+        }
+
+        public Transaction GetTransaction(Cipher.SHA256 txhash)
+        {
+            using var txn = Environment.BeginTransaction();
+
+            if (TXIndices == null || !TXIndices.IsOpened)
+            {
+                TXIndices = txn.OpenDatabase(TX_INDICES);
+            }
+
+            if (TXs == null || !TXs.IsOpened)
+            {
+                TXs = txn.OpenDatabase(TXS);
+            }
+
+            var result = txn.Get(TXIndices, txhash.Bytes);
+
+            if (result.resultCode.HasFlag(MDBResultCode.NotFound))
+            {
+                throw new Exception($"Discreet.DB.GetTransaction: No transaction exists with transaction hash {txhash.ToHexShort()}");
+            }
+
+            ulong txid = Serialization.GetUInt64(result.value.CopyToNewArray(), 0);
+
+            result = txn.Get(TXs, Serialization.UInt64(txid));
+
+            if (result.resultCode.HasFlag(MDBResultCode.NotFound))
+            {
+                throw new Exception($"Discreet.DB.GetTransaction: No transaction exists with index {txid}");
+            }
+
+            Transaction tx = new Transaction();
+            tx.Unmarshal(result.value.CopyToNewArray());
+            return tx;
+        }
+
+        public Block GetBlock(ulong height)
+        {
+            using var txn = Environment.BeginTransaction();
+
+            if (Blocks == null || !Blocks.IsOpened)
+            {
+                Blocks = txn.OpenDatabase(BLOCKS);
+            }
+
+            var result = txn.Get(Blocks, Serialization.UInt64(height));
+
+            if (result.resultCode.HasFlag(MDBResultCode.NotFound))
+            {
+                throw new Exception($"Discreet.DB.GetBlock: No block exists with height {height}");
+            }
+
+            Block blk = new Block();
+            blk.Unmarshal(result.value.CopyToNewArray());
+            return blk;
+        }
+
+        public Block GetBlock(Cipher.SHA256 blockHash)
+        {
+            using var txn = Environment.BeginTransaction();
+
+            if (BlockHeights == null || !BlockHeights.IsOpened)
+            {
+                BlockHeights = txn.OpenDatabase(BLOCK_HEIGHTS);
+            }
+
+            if (Blocks == null || !Blocks.IsOpened)
+            {
+                Blocks = txn.OpenDatabase(BLOCKS);
+            }
+
+            var result = txn.Get(BlockHeights, blockHash.Bytes);
+
+            if (result.resultCode.HasFlag(MDBResultCode.NotFound))
+            {
+                throw new Exception($"Discreet.DB.GetBlock: No block exists with block hash {blockHash.ToHexShort()}");
+            }
+
+            ulong height = Serialization.GetUInt64(result.value.CopyToNewArray(), 0);
+
+            result = txn.Get(Blocks, Serialization.UInt64(height));
+
+            if (result.resultCode.HasFlag(MDBResultCode.NotFound))
+            {
+                throw new Exception($"Discreet.DB.GetBlock: No block exists with height {height}");
+            }
+
+            Block blk = new Block();
+            blk.Unmarshal(result.value.CopyToNewArray());
+            return blk;
+        }
+
+        public uint GetOutputIndex()
+        {
+            lock (indexer_output)
+            {
+                return indexer_output.Value;
+            }
+        }
+
+        public ulong GetTransactionIndex(Cipher.SHA256 txhash)
+        {
+            using var txn = Environment.BeginTransaction();
+
+            if (TXIndices == null || !TXIndices.IsOpened)
+            {
+                TXIndices = txn.OpenDatabase(TX_INDICES);
+            }
+
+            var result = txn.Get(TXIndices, txhash.Bytes);
+
+            if (result.resultCode.HasFlag(MDBResultCode.NotFound))
+            {
+                throw new Exception($"Discreet.DB.GetTransactionIndex: No transaction exists with transaction hash {txhash.ToHexShort()}");
+            }
+
+            return Serialization.GetUInt64(result.value.CopyToNewArray(), 0);
+        }
+
+        public ulong GetBlockHeight(Cipher.SHA256 blockHash)
+        {
+            using var txn = Environment.BeginTransaction();
+
+            if (BlockHeights == null || !BlockHeights.IsOpened)
+            {
+                BlockHeights = txn.OpenDatabase(BLOCK_HEIGHTS);
+            }
+
+            var result = txn.Get(BlockHeights, blockHash.Bytes);
+
+            if (result.resultCode.HasFlag(MDBResultCode.NotFound))
+            {
+                throw new Exception($"Discreet.DB.GetBlockHeight: No block exists with block hash {blockHash.ToHexShort()}");
+            }
+
+            return Serialization.GetUInt64(result.value.CopyToNewArray(), 0);
         }
     }
 }
