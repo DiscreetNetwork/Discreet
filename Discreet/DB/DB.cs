@@ -162,15 +162,14 @@ namespace Discreet.DB
 
             Environment = new LightningEnvironment(filename, new EnvironmentConfiguration { MaxDatabases = 20 });
 
-            if (Environment.MapSize == 10485760)
+            if (Environment.MapSize == 0)
             {
+
+                Console.WriteLine("what");
                 /* csharp is officially the worst programming language in existence. */
-                Environment.MapSize = (long)1024 * 1024 * 1024 * 64;
+                Environment.MapSize = 1024 * 1024 * 1024;
             }
-            else
-            {
-                mapsize = Environment.MapSize;
-            }
+            mapsize = Environment.MapSize;
             
 
             Environment.Open();
