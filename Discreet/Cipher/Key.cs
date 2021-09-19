@@ -111,7 +111,7 @@ namespace Discreet.Cipher
 
         public string ToHexShort()
         {
-            return ToHex().Substring(0, 8);
+            return ToHex().Substring(0, 8) + "...";
         }
     }
 

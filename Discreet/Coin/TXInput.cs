@@ -73,10 +73,11 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes)
         {
+            Offsets = new uint[64];
             for (int i = 0; i < 64; i++)
             {
                 byte[] _offset = new byte[((Config.OutputVersion > 1) ? 8 : 4)];
-                Array.Copy(_offset, 0, bytes, ((Config.OutputVersion > 1) ? 8 : 4) * i, (Config.OutputVersion > 1) ? 8 : 4);
+                Array.Copy(bytes, ((Config.OutputVersion > 1) ? 8 : 4) * i, _offset, 0, (Config.OutputVersion > 1) ? 8 : 4);
                 if (BitConverter.IsLittleEndian)
                 {
                     Array.Reverse(_offset);
@@ -84,16 +85,19 @@ namespace Discreet.Coin
 
                 Offsets[i] = BitConverter.ToUInt32(_offset);
             }
+
+            KeyImage = new Key(new byte[32]);
 
             Array.Copy(bytes, ((Config.OutputVersion > 1) ? 8 : 4) * 64, KeyImage.bytes, 0, 32);
         }
 
         public void Unmarshal(byte[] bytes, uint offset)
         {
+            Offsets = new uint[64];
             for (int i = 0; i < 64; i++)
             {
                 byte[] _offset = new byte[((Config.OutputVersion > 1) ? 8 : 4)];
-                Array.Copy(_offset, 0, bytes, offset + ((Config.OutputVersion > 1) ? 8 : 4) * i, (Config.OutputVersion > 1) ? 8 : 4);
+                Array.Copy(bytes, offset + ((Config.OutputVersion > 1) ? 8 : 4) * i, _offset, 0, (Config.OutputVersion > 1) ? 8 : 4);
                 if (BitConverter.IsLittleEndian)
                 {
                     Array.Reverse(_offset);
@@ -101,6 +105,8 @@ namespace Discreet.Coin
 
                 Offsets[i] = BitConverter.ToUInt32(_offset);
             }
+
+            KeyImage = new Key(new byte[32]);
 
             Array.Copy(bytes, offset + ((Config.OutputVersion > 1) ? 8 : 4) * 64, KeyImage.bytes, 0, 32);
         }

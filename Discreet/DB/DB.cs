@@ -122,24 +122,68 @@ namespace Discreet.DB
 
         private U64 previouslySeenTimestamp = new U64((ulong)DateTime.Now.Ticks);
 
+        private long mapsize = 0;
+
+        public long Mapsize {
+            get { return mapsize; }
+        }
+
+
+        public void Open(string filename, long _mapsize)
+        {
+            if (Environment != null && Environment.IsOpened) return;
+
+            if (File.Exists(filename)) throw new Exception("Discreet.DB: Open() expects a valid directory path, not a file");
+
+            if (!Directory.Exists(filename))
+            {
+                Directory.CreateDirectory(filename);
+            }
+
+            Environment = new LightningEnvironment(filename, new EnvironmentConfiguration { MaxDatabases = 20 });
+
+            Environment.MapSize = _mapsize;
+
+            mapsize = _mapsize;
+
+            Environment.Open();
+        }
 
         public void Open(string filename)
         {
-            lock (Environment)
+            if (Environment != null && Environment.IsOpened) return;
+
+            if (File.Exists(filename)) throw new Exception("Discreet.DB: Open() expects a valid directory path, not a file");
+
+            if (!Directory.Exists(filename))
             {
-                if (Environment != null && Environment.IsOpened) return;
-
-                if (File.Exists(filename)) throw new Exception("Discreet.DB: Open() expects a valid directory path, not a file");
-
-                if (!Directory.Exists(filename))
-                {
-                    Directory.CreateDirectory(filename);
-                }
-
-                Environment = new LightningEnvironment(filename);
-                Environment.Open();
+                Directory.CreateDirectory(filename);
             }
+
+            Environment = new LightningEnvironment(filename, new EnvironmentConfiguration { MaxDatabases = 20 });
+
+            if (Environment.MapSize == 10485760)
+            {
+                /* csharp is officially the worst programming language in existence. */
+                Environment.MapSize = (long)1024 * 1024 * 1024 * 64;
+            }
+            else
+            {
+                mapsize = Environment.MapSize;
+            }
+            
+
+            Environment.Open();
         }
+
+        /*public void IncreaseDBSize()
+        {
+            Environment.Dispose();
+
+            mapsize *= 2;
+
+            Open(folder, mapsize);
+        }*/
 
         public DB(string path)
         {
@@ -147,6 +191,8 @@ namespace Discreet.DB
 
             using var txn = Environment.BeginTransaction();
             var config = new DatabaseConfiguration { Flags = DatabaseOpenFlags.Create };
+
+            
             
             SpentKeys = txn.OpenDatabase(SPENT_KEYS, config);
             TXPoolMeta = txn.OpenDatabase(TX_POOL_META, config);

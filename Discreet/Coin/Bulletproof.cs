@@ -115,6 +115,13 @@ namespace Discreet.Coin
 
             size = BitConverter.ToUInt32(sz);
 
+            A = new Key(new byte[32]);
+            S = new Key(new byte[32]);
+            T1 = new Key(new byte[32]);
+            T2 = new Key(new byte[32]);
+            taux = new Key(new byte[32]);
+            mu = new Key(new byte[32]);
+
             Array.Copy(bytes, 4, A.bytes, 0, 32);
             Array.Copy(bytes, 4 + 32, S.bytes, 0, 32);
             Array.Copy(bytes, 4 + 32 * 2, T1.bytes, 0, 32);
@@ -127,13 +134,19 @@ namespace Discreet.Coin
 
             for (int i = 0; i < size; i++)
             {
+                L[i] = new Key(new byte[32]);
                 Array.Copy(bytes, 4 + 32 * 6 + 32 * i, L[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < size; i++)
             {
+                R[i] = new Key(new byte[32]);
                 Array.Copy(bytes, 4 + 32 * 6 + L.Length * 32 + 32 * i, R[i].bytes, 0, 32);
             }
+
+            a = new Key(new byte[32]);
+            b = new Key(new byte[32]);
+            t = new Key(new byte[32]);
 
             Array.Copy(bytes, 4 + 32 * 6 + 2 * L.Length * 32, a.bytes, 0, 32);
             Array.Copy(bytes, 4 + 32 * 6 + 2 * L.Length * 32 + 32, b.bytes, 0, 32);
@@ -151,6 +164,13 @@ namespace Discreet.Coin
 
             size = BitConverter.ToUInt32(sz);
 
+            A = new Key(new byte[32]);
+            S = new Key(new byte[32]);
+            T1 = new Key(new byte[32]);
+            T2 = new Key(new byte[32]);
+            taux = new Key(new byte[32]);
+            mu = new Key(new byte[32]);
+
             Array.Copy(bytes, offset + 4, A.bytes, 0, 32);
             Array.Copy(bytes, offset + 4 + 32, S.bytes, 0, 32);
             Array.Copy(bytes, offset + 4 + 32 * 2, T1.bytes, 0, 32);
@@ -163,13 +183,19 @@ namespace Discreet.Coin
 
             for (int i = 0; i < size; i++)
             {
+                L[i] = new Key(new byte[32]);
                 Array.Copy(bytes, offset + 4 + 32 * 6 + 32 * i, L[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < size; i++)
             {
+                R[i] = new Key(new byte[32]);
                 Array.Copy(bytes, offset + 4 + 32 * 6 + L.Length * 32 + 32 * i, R[i].bytes, 0, 32);
             }
+
+            a = new Key(new byte[32]);
+            b = new Key(new byte[32]);
+            t = new Key(new byte[32]);
 
             Array.Copy(bytes, offset + 4 + 32 * 6 + 2 * L.Length * 32, a.bytes, 0, 32);
             Array.Copy(bytes, offset + 4 + 32 * 6 + 2 * L.Length * 32 + 32, b.bytes, 0, 32);

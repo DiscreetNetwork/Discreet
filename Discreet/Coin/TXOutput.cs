@@ -111,6 +111,9 @@ namespace Discreet.Coin
             Array.Copy(bytes, 0, transactionSrc, 0, 32);
             TransactionSrc = new SHA256(transactionSrc, false);
 
+            UXKey = new Key(new byte[32]);
+            Commitment = new Key(new byte[32]);
+
             Array.Copy(bytes, 32, UXKey.bytes, 0, 32);
             Array.Copy(bytes, 64, Commitment.bytes, 0, 32);
 
@@ -130,6 +133,9 @@ namespace Discreet.Coin
             Array.Copy(bytes, offset, transactionSrc, 0, 32);
             TransactionSrc = new SHA256(transactionSrc, false);
 
+            UXKey = new Key(new byte[32]);
+            Commitment = new Key(new byte[32]);
+
             Array.Copy(bytes, offset + 32, UXKey.bytes, 0, 32);
             Array.Copy(bytes, offset + 64, Commitment.bytes, 0, 32);
 
@@ -145,6 +151,9 @@ namespace Discreet.Coin
 
         public void TXUnmarshal(byte[] bytes)
         {
+            UXKey = new Key(new byte[32]);
+            Commitment = new Key(new byte[32]);
+
             Array.Copy(bytes, 0, UXKey.bytes, 0, 32);
             Array.Copy(bytes, 0, Commitment.bytes, 0, 32);
 
@@ -160,6 +169,9 @@ namespace Discreet.Coin
 
         public void TXUnmarshal(byte[] bytes, uint offset)
         {
+            UXKey = new Key(new byte[32]);
+            Commitment = new Key(new byte[32]);
+
             Array.Copy(bytes, offset, UXKey.bytes, 0, 32);
             Array.Copy(bytes, offset + 32, Commitment.bytes, 0, 32);
 

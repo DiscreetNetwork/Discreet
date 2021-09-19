@@ -52,7 +52,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < 6; i++)
             {
-                Array.Copy(Y[i].bytes, 0, bytes, 32 * 18 + 32 * i, 32);
+                Array.Copy(f[i].bytes, 0, bytes, 32 * 18 + 32 * i, 32);
             }
 
             Array.Copy(zA.bytes, 0, bytes, 24 * 32, 32);
@@ -119,6 +119,13 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes)
         {
+            J = new Key(new byte[32]);
+            K = new Key(new byte[32]);
+            A = new Key(new byte[32]);
+            B = new Key(new byte[32]);
+            C = new Key(new byte[32]);
+            D = new Key(new byte[32]);
+
             Array.Copy(bytes, 0, J.bytes, 0, 32);
             Array.Copy(bytes, 32, K.bytes, 0, 32);
             Array.Copy(bytes, 32 * 2, A.bytes, 0, 32);
@@ -132,18 +139,26 @@ namespace Discreet.Coin
 
             for (int i = 0; i < 6; i++)
             {
+                X[i] = new Key(new byte[32]);
+
                 Array.Copy(bytes, 32 * 6 + 32 * i, X[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
+                Y[i] = new Key(new byte[32]);
                 Array.Copy(bytes, 32 * 12 + 32 * i, Y[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
-                Array.Copy(bytes, 32 * 18 + 32 * i, Y[i].bytes, 0, 32);
+                f[i] = new Key(new byte[32]);
+                Array.Copy(bytes, 32 * 18 + 32 * i, f[i].bytes, 0, 32);
             }
+
+            zA = new Key(new byte[32]);
+            zC = new Key(new byte[32]);
+            z = new Key(new byte[32]);
 
             Array.Copy(bytes, 24 * 32, zA.bytes, 0, 32);
             Array.Copy(bytes, 25 * 32, zC.bytes, 0, 32);
@@ -152,6 +167,13 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes, uint offset)
         {
+            J = new Key(new byte[32]);
+            K = new Key(new byte[32]);
+            A = new Key(new byte[32]);
+            B = new Key(new byte[32]);
+            C = new Key(new byte[32]);
+            D = new Key(new byte[32]);
+
             Array.Copy(bytes, offset, J.bytes, 0, 32);
             Array.Copy(bytes, offset + 32, K.bytes, 0, 32);
             Array.Copy(bytes, offset + 32 * 2, A.bytes, 0, 32);
@@ -165,18 +187,26 @@ namespace Discreet.Coin
 
             for (int i = 0; i < 6; i++)
             {
+                X[i] = new Key(new byte[32]);
+
                 Array.Copy(bytes, offset + 32 * 6 + 32 * i, X[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
+                Y[i] = new Key(new byte[32]);
                 Array.Copy(bytes, offset + 32 * 12 + 32 * i, Y[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
-                Array.Copy(bytes, offset + 32 * 18 + 32 * i, Y[i].bytes, 0, 32);
+                f[i] = new Key(new byte[32]);
+                Array.Copy(bytes, offset + 32 * 18 + 32 * i, f[i].bytes, 0, 32);
             }
+
+            zA = new Key(new byte[32]);
+            zC = new Key(new byte[32]);
+            z = new Key(new byte[32]);
 
             Array.Copy(bytes, offset + 24 * 32, zA.bytes, 0, 32);
             Array.Copy(bytes, offset + 25 * 32, zC.bytes, 0, 32);

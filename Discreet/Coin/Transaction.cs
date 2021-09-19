@@ -241,54 +241,77 @@ namespace Discreet.Coin
 
             uint offset = 4;
 
+            Inputs = new TXInput[NumInputs];
+
             for (int i = 0; i < NumInputs; i++)
             {
+                Inputs[i] = new TXInput();
+
                 Inputs[i].Unmarshal(bytes, offset);
                 offset += TXInput.Size();
             }
 
+            Outputs = new TXOutput[NumOutputs];
+
             for (int i = 0; i < NumOutputs; i++)
             {
+                Outputs[i] = new TXOutput();
+
                 Outputs[i].TXUnmarshal(bytes, offset);
                 offset += 72;
             }
+
+            RangeProof = new Bulletproof();
 
             RangeProof.Unmarshal(bytes, offset);
             offset += RangeProof.Size();
 
             byte[] fee = new byte[8];
+
+            Array.Copy(bytes, offset, fee, 0, 8);
+
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(fee);
             }
 
-            Array.Copy(bytes, offset, fee, 0, 8);
             Fee = BitConverter.ToUInt64(fee);
             offset += 8;
 
+            Signatures = new Triptych[NumSigs];
+
             for (int i = 0; i < NumSigs; i++)
             {
+                Signatures[i] = new Triptych();
+
                 Signatures[i].Unmarshal(bytes, offset);
                 offset += Triptych.Size();
             }
 
+            PseudoOutputs = new Cipher.Key[NumSigs];
+
             for (int i = 0; i < NumSigs; i++)
             {
+                PseudoOutputs[i] = new Cipher.Key(new byte[32]);
+
                 Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
                 offset += 32;
             }
 
             byte[] extraLen = new byte[4];
+
+            Array.Copy(bytes, offset, extraLen, 0, 4);
+
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(extraLen);
             }
 
-            Array.Copy(bytes, offset, extraLen, 0, 4);
             ExtraLen = BitConverter.ToUInt32(extraLen);
             offset += 4;
 
-            Array.Copy(Extra, 0, bytes, offset, ExtraLen);
+            Extra = new byte[ExtraLen];
+            Array.Copy(bytes, offset, Extra, 0, ExtraLen);
         }
 
         public void Unmarshal(byte[] bytes, uint offset)
@@ -300,54 +323,77 @@ namespace Discreet.Coin
 
             offset += 4;
 
+            Inputs = new TXInput[NumInputs];
+
             for (int i = 0; i < NumInputs; i++)
             {
+                Inputs[i] = new TXInput();
+
                 Inputs[i].Unmarshal(bytes, offset);
                 offset += TXInput.Size();
             }
 
+            Outputs = new TXOutput[NumOutputs];
+
             for (int i = 0; i < NumOutputs; i++)
             {
+                Outputs[i] = new TXOutput();
+
                 Outputs[i].TXUnmarshal(bytes, offset);
                 offset += 72;
             }
+
+            RangeProof = new Bulletproof();
 
             RangeProof.Unmarshal(bytes, offset);
             offset += RangeProof.Size();
 
             byte[] fee = new byte[8];
+
+            Array.Copy(bytes, offset, fee, 0, 8);
+
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(fee);
             }
 
-            Array.Copy(bytes, offset, fee, 0, 8);
             Fee = BitConverter.ToUInt64(fee);
             offset += 8;
 
+            Signatures = new Triptych[NumSigs];
+
             for (int i = 0; i < NumSigs; i++)
             {
+                Signatures[i] = new Triptych();
+
                 Signatures[i].Unmarshal(bytes, offset);
                 offset += Triptych.Size();
             }
 
+            PseudoOutputs = new Cipher.Key[NumSigs];
+
             for (int i = 0; i < NumSigs; i++)
             {
+                PseudoOutputs[i] = new Cipher.Key(new byte[32]);
+
                 Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
                 offset += 32;
             }
 
             byte[] extraLen = new byte[4];
+            
+            Array.Copy(bytes, offset, extraLen, 0, 4);
+
             if (BitConverter.IsLittleEndian)
             {
                 Array.Reverse(extraLen);
             }
 
-            Array.Copy(bytes, offset, extraLen, 0, 4);
             ExtraLen = BitConverter.ToUInt32(extraLen);
             offset += 4;
 
-            Array.Copy(Extra, 0, bytes, offset, ExtraLen);
+            Extra = new byte[ExtraLen];
+            Array.Copy(bytes, offset, Extra, 0, ExtraLen);
         }
 
         public uint Size()
