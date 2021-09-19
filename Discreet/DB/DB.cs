@@ -87,21 +87,10 @@ namespace Discreet.DB
         public static string BLOCK_INFO = "block_info";
         public static string BLOCK_HEIGHTS = "block_heights";
         public static string BLOCKS = "blocks";
+        public static string META = "meta";
 
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
-
-        /* DB txn cursors */
-        private LightningCursor CursorSpentKeys;
-        private LightningCursor CursorTXPoolMeta;
-        private LightningCursor CursorTXPoolBlob;
-        private LightningCursor CursorTXPoolSpentKeys;
-        private LightningCursor CursorOutputs;
-        private LightningCursor CursorTXIndices;
-        private LightningCursor CursorTXs;
-        private LightningCursor CursorBlockInfo;
-        private LightningCursor CursorBlockHeights;
-        private LightningCursor CursorBlocks;
 
         /* Environment */
         private LightningEnvironment Environment;
@@ -117,8 +106,14 @@ namespace Discreet.DB
         private LightningDatabase BlockInfo;
         private LightningDatabase BlockHeights;
         private LightningDatabase Blocks;
+        private LightningDatabase Meta;
 
-        private string Folder;
+        public string Folder
+        {
+            get { return folder; }
+        }
+
+        private string folder;
 
         private U64 indexer_tx = new U64(0);
         private U32 indexer_output = new U32(0);
@@ -164,19 +159,49 @@ namespace Discreet.DB
             BlockHeights = txn.OpenDatabase(BLOCK_HEIGHTS, config);
             Blocks = txn.OpenDatabase(BLOCKS, config);
 
-            txn.Commit();
+            /* populate our indexers */
+            Meta = txn.OpenDatabase(META, config);
 
-            /*
-            CursorSpentKeys = txn.CreateCursor(SpentKeys);
-            CursorTXPoolMeta = txn.CreateCursor(TXPoolMeta);
-            CursorTXPoolBlob = txn.CreateCursor(TXPoolBlob);
-            CursorOutputs = txn.CreateCursor(Outputs);
-            CursorTXIndices = txn.CreateCursor(TXIndices);
-            CursorTXs = txn.CreateCursor(TXs);
-            CursorBlockInfo = txn.CreateCursor(BlockInfo);
-            CursorBlockHeights = txn.CreateCursor(BlockHeights);
-            CursorBlocks = txn.CreateCursor(Blocks);
-            */
+            if (!txn.ContainsKey(Meta, Encoding.ASCII.GetBytes("meta")))
+            {
+                /* completely empty and has just been created */
+                txn.Put(Meta, Encoding.ASCII.GetBytes("meta"), ZEROKEY);
+                txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value));
+                txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value));
+                txn.Put(Meta, Encoding.ASCII.GetBytes("height"), Serialization.UInt64(height.Value));
+            }
+            else {
+                var result = txn.Get(Meta, Encoding.ASCII.GetBytes("indexer_tx"));
+
+                if (result.resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB: Fatal error: {result.resultCode}");
+                }
+
+                indexer_tx.Value = Serialization.GetUInt64(result.value.CopyToNewArray(), 0);
+
+                result = txn.Get(Meta, Encoding.ASCII.GetBytes("indexer_output"));
+
+                if (result.resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB: Fatal error: {result.resultCode}");
+                }
+
+                indexer_output.Value = Serialization.GetUInt32(result.value.CopyToNewArray(), 0);
+
+                result = txn.Get(Meta, Encoding.ASCII.GetBytes("height"));
+
+                if (result.resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB: Fatal error: {result.resultCode}");
+                }
+
+                height.Value = Serialization.GetUInt64(result.value.CopyToNewArray(), 0);
+            }
+
+            folder = path;
+
+            txn.Commit();
         }
 
         public void AddBlock(Block blk)
@@ -296,7 +321,7 @@ namespace Discreet.DB
                 sortedTransactions[i] = temp;
             }
 
-            if(TXIndices == null || !TXIndices.IsOpened)
+            if (TXIndices == null || !TXIndices.IsOpened)
             {
                 TXIndices = txn.OpenDatabase(TX_INDICES);
             }
@@ -310,6 +335,41 @@ namespace Discreet.DB
             for (int i = 0; i < blk.NumTXs; i++)
             {
                 AddTransactionFromPool(sortedTransactions[i], txn);
+            }
+
+            /* update indexers */
+            if (Meta == null || !Meta.IsOpened)
+            {
+                Meta = txn.OpenDatabase(META);
+            }
+
+            lock (indexer_tx) {
+                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value));
+
+                if (resCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB: Error while updating transaction indexer: {resCode}");
+                }
+            }
+
+            lock (indexer_output)
+            {
+                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt64(indexer_output.Value));
+
+                if (resCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB: Error while updating output indexer: {resCode}");
+                }
+            }
+
+            lock (height)
+            {
+                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("height"), Serialization.UInt64(height.Value));
+
+                if (resCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB: Error while updating height indexer: {resCode}");
+                }
             }
 
             resCode = txn.Commit();
