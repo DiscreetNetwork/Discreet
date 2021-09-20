@@ -4,10 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Discreet.Network.Packets
+namespace Discreet.Network.Core
 {
     [Flags]
-    public enum WireMessageType : byte
+    public enum PeerState : byte
     {
         None = 0,
         Compressed = 1 << 0,    // 1

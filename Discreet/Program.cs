@@ -1,6 +1,5 @@
 ﻿using System;
 using Discreet.Cipher;
-using Discreet.Network.Helpers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;

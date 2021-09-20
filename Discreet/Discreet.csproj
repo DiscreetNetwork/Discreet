@@ -10,13 +10,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Cryptography.ECDSA.Secp256K1" Version="1.1.3" />
-    <PackageReference Include="LightningDB" Version="0.14.0" />
-    <PackageReference Include="xunit" Version="2.4.1" />
+    <Compile Remove="Network\Tests\**" />
+    <EmbeddedResource Remove="Network\Tests\**" />
+    <None Remove="Network\Tests\**" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Network\Tests\" />
+    <PackageReference Include="Cryptography.ECDSA.Secp256K1" Version="1.1.3" />
+    <PackageReference Include="LightningDB" Version="0.14.0" />
+    <PackageReference Include="xunit" Version="2.4.1" />
   </ItemGroup>
 
 </Project>

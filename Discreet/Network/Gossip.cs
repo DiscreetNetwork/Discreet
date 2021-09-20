@@ -1,3 +1,4 @@
+using Discreet.Network.Core;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -20,69 +21,62 @@ namespace Discreet.Network
          * Number of rounds til consistency: O(log n)
          */
 
-        public static Int64 MAX_MESSAGE_SIZE = 4000000; // 4 mb max packet size (test)
+        public static Int64 MAX_MESSAGE_SIZE = 16000000; // 16 mb max packet size (test)
 
         // used for netseek for corrupted packets, also used to identify network
         public static byte SPECIAL_BYTE_TESTNET = 0x00;
         public static byte SPECIAL_BYTE_MAINNET = 0x01;
 
-        private UdpClient _udpClient;
+        private TcpClient _tcpClient;
         private readonly Dictionary<IPEndPoint, Peer> _peers = new Dictionary<IPEndPoint, Peer>();
         private readonly Peer _self;
 
         public bool debug = true;
 
-        public Gossip(ushort port)
+        public Gossip(ushort port, ushort gossipPort)
         {
-            _self = new Peer(IPAddress.Any, port, SPECIAL_BYTE_MAINNET);
+            _self = new Peer(IPAddress.Any, port, SPECIAL_BYTE_MAINNET, PeerState.Alive, gossipPort);
         }
 
 
         public async Task StartWhisper()
         {
             if (debug) { Console.WriteLine($"Starting Discreet Gossip Network in debug mode."); }
-            InitializeUDPClient(_self.GossipEndpoint);
-
+            InitializeTCPClient(_self.GossipEndpoint);
+            ListenCallback();
 
 
         }
 
-        private UdpClient InitializeUDPClient(EndPoint listenEndPoint)
+        private TcpClient InitializeTCPClient(EndPoint listenEndPoint)
         {
-            var udpClient = new UdpClient();
+            var tcpClient = new TcpClient();
             try
             {
-                udpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-                udpClient.Client.Bind(listenEndPoint);
-                udpClient.DontFragment = true;
+                tcpClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                tcpClient.Client.Bind(listenEndPoint);
+    
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
             }
-            return udpClient;
+            return tcpClient;
         }
 
-        private async void Listener()
+        private async void ListenCallback()
         {
             while (true)
             {
                 try
                 {
-                    var request = await _udpClient.ReceiveAsync().ConfigureAwait(false);
-                    var receivedDateTime = DateTime.UtcNow;
-
-                    using (var stream = new MemoryStream(request.Buffer, false))
-                    {
-                        // Handle incoming packets...
-       
-                    }
+                    // Read TCP bytestream.
                 }
 
                 catch (SocketException socEx)
                 {
                     Console.WriteLine(socEx.Message);
-                    _udpClient = InitializeUDPClient(_self.GossipEndpoint);
+                    _tcpClient = InitializeTCPClient(_self.GossipEndpoint);
                 }
 
                 catch (Exception ex)
@@ -90,6 +84,11 @@ namespace Discreet.Network
                     Console.WriteLine(ex.Message);
                 }
             }
+        }
+
+        private async void ReceiveCallback(IAsyncResult result)
+        {
+           // Handle callback
         }
 
     }
