@@ -13,5 +13,7 @@ namespace Discreet.Coin
         public void Unmarshal(byte[] bytes);
         public void Unmarshal(byte[] bytes, uint offset);
         public static uint Size() { return 0; }
+
+        public void Verify();
     }
 }
