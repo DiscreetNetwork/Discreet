@@ -131,5 +131,10 @@ namespace Discreet.Coin
 
             return input;
         }
+
+        public VerifyException Verify()
+        {
+            return new VerifyException("TXInput", "UNIMPLEMENTED");
+        }
     }
 }

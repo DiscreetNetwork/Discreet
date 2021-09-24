@@ -233,5 +233,10 @@ namespace Discreet.Coin
 
             return bp;
         }
+
+        public VerifyException Verify()
+        {
+            return new VerifyException("Bulletproof", "UNIMPLEMENTED");
+        }
     }
 }

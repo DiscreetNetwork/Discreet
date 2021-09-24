@@ -128,5 +128,10 @@ namespace Discreet.Coin
         {
             throw new NotImplementedException();
         }
+
+        public VerifyException Verify()
+        {
+            return new VerifyException("Block", "UNIMPLEMENTED");
+        }
     }
 }

@@ -200,5 +200,10 @@ namespace Discreet.Coin
 
             return output;
         }
+
+        public VerifyException Verify()
+        {
+            return new VerifyException("TXOutput", "UNIMPLEMENTED");
+        }
     }
 }

@@ -246,5 +246,10 @@ namespace Discreet.Coin
 
             return proof;
         }
+
+        public VerifyException Verify()
+        {
+            return new VerifyException("Triptych", "UNIMPLEMENTED");
+        }
     }
 }

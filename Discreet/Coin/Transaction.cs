@@ -441,5 +441,10 @@ namespace Discreet.Coin
 
             return tx;
         }
+
+        public VerifyException Verify()
+        {
+            return new VerifyException("Transaction", "UNIMPLEMENTED");
+        }
     }
 }
