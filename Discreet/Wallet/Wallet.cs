@@ -159,7 +159,7 @@ namespace Discreet.Wallet
         public UTXO[] UTXOs;
 
         /* base wallet data */
-        public string Coin = "Discreet"; /* should always be Discreet */
+        public string CoinName = "Discreet"; /* should always be Discreet */
         public bool Encrypted;
         public bool IsEncrypted;
         public string Label;
@@ -206,6 +206,8 @@ namespace Discreet.Wallet
                     Array.Reverse(entropyChecksumBytes);
                 }
 
+                EncryptedEntropy = Cipher.AESCBC.Encrypt(Entropy, entropyEncryptionKey);
+
                 EntropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
             }
 
@@ -223,6 +225,8 @@ namespace Discreet.Wallet
                 {
                     Addresses[i] = new WalletAddress();
                 }
+
+                Addresses[i].Encrypt(Entropy);
             }
 
             IsEncrypted = false;
@@ -330,6 +334,45 @@ namespace Discreet.Wallet
             Entropy = Cipher.AESCBC.Decrypt(EncryptedEntropy, entropyEncryptionKey);
 
             IsEncrypted = false;
+        }
+
+        public string JSON()
+        {
+            Encrypt();
+
+            string rv = $"{{\"Label\":\"{Label}\",\"CoinName\":\"{CoinName}\",\"Encrypted\":{Encrypted},\"Timestamp\":{Timestamp},\"Version\":\"{Version}\",\"Entropy\":";
+
+            if (Encrypted)
+            {
+                rv += $"\"{Coin.Printable.Hexify(EncryptedEntropy)}\",";
+            }
+            else
+            {
+                rv += $"\"{Coin.Printable.Hexify(Entropy)}\",";
+            }
+
+            rv += $"\"EntropyLen\":{EntropyLen},";
+
+            if (Encrypted)
+            {
+                rv += $"\"EntropyChecksum\":{EntropyChecksum},";
+            }
+
+            rv += "\"Addresses\":[";
+
+            for (int i = 0; i < Addresses.Length; i++)
+            {
+                rv += $"{{\"EncryptedSecSpendKey\":\"{Coin.Printable.Hexify(Addresses[i].EncryptedSecSpendKey)}\",\"EncryptedSecViewKey\":\"{Coin.Printable.Hexify(Addresses[i].EncryptedSecViewKey)}\",\"PubSpendKey\":\"{Addresses[i].PubSpendKey.ToHex()}\",\"PubViewKey\":\"{Addresses[i].PubViewKey.ToHex()}\",\"Address\":\"{Addresses[i].Address}\"}}";
+
+                if (i < Addresses.Length - 1)
+                {
+                    rv += ",";
+                }
+            }
+
+            rv += "]}";
+
+            return rv;
         }
     }
 }

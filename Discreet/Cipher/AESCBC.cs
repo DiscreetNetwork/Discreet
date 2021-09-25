@@ -8,7 +8,7 @@ namespace Discreet.Cipher
 {
     public static class AESCBC
     {
-        public static byte[] Encrypt(byte[] plainText, byte[] Key, int keySize = 256)
+        public static byte[] Encrypt(byte[] plainText, byte[] Key, int keySize = 256, PaddingMode mode = PaddingMode.PKCS7)
         {
             byte[] encrypted;
             byte[] IV;
@@ -17,25 +17,25 @@ namespace Discreet.Cipher
             {
                 scheme.Key = Key;
                 scheme.KeySize = keySize;
+                scheme.BlockSize = 128;
 
                 scheme.GenerateIV();
                 IV = scheme.IV;
 
                 scheme.Mode = CipherMode.CBC;
 
+                scheme.Padding = mode;
+
                 var encryptor = scheme.CreateEncryptor(scheme.Key, scheme.IV);
 
-                // Create the streams used for encryption. 
-                using (var msEncrypt = new MemoryStream())
+                using (var ms = new MemoryStream())
                 {
-                    using (var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write))
+                    using (var cryptoStream = new CryptoStream(ms, encryptor, CryptoStreamMode.Write))
                     {
-                        using (var bwEncrypt = new BinaryWriter(csEncrypt))
-                        {
-                            //Write all data to the stream.
-                            bwEncrypt.Write(plainText);
-                        }
-                        encrypted = msEncrypt.ToArray();
+                        cryptoStream.Write(plainText, 0, plainText.Length);
+                        cryptoStream.FlushFinalBlock();
+
+                        encrypted = ms.ToArray();
                     }
                 }
             }
@@ -49,7 +49,7 @@ namespace Discreet.Cipher
 
         }
 
-        public static byte[] Decrypt(byte[] cipherTextCombined, byte[] Key, int keySize = 256)
+        public static byte[] Decrypt(byte[] cipherTextCombined, byte[] Key, int keySize = 256, PaddingMode mode = PaddingMode.PKCS7)
         {
 
             byte[] rv = null;
@@ -60,6 +60,7 @@ namespace Discreet.Cipher
             {
                 scheme.Key = Key;
                 scheme.KeySize = keySize;
+                scheme.BlockSize = 128;
 
                 byte[] IV = new byte[scheme.BlockSize / 8];
                 byte[] cipherText = new byte[cipherTextCombined.Length - IV.Length];
@@ -71,21 +72,20 @@ namespace Discreet.Cipher
 
                 scheme.Mode = CipherMode.CBC;
 
+                scheme.Padding = mode;
+
                 // Create a decrytor to perform the stream transform.
                 ICryptoTransform decryptor = scheme.CreateDecryptor(scheme.Key, scheme.IV);
 
                 // Create the streams used for decryption. 
-                using (var msDecrypt = new MemoryStream(cipherText))
+                using (var ms = new MemoryStream(cipherText))
                 {
-                    using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
+                    using (var cryptoStream = new CryptoStream(ms, decryptor, CryptoStreamMode.Write))
                     {
-                        using (var brDecrypt = new BinaryReader(csDecrypt))
-                        {
+                        cryptoStream.Write(cipherText, 0, cipherText.Length);
+                        cryptoStream.FlushFinalBlock();
 
-                            // Read the decrypted bytes from the decrypting stream
-                            // and place them in a string.
-                            rv = brDecrypt.ReadBytes((int)csDecrypt.Length);
-                        }
+                        rv = ms.ToArray();
                     }
                 }
 

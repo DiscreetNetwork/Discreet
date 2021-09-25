@@ -9,6 +9,7 @@ using System.Diagnostics;
 using Cryptography.ECDSA;
 using Discreet.Cipher.Mnemonics;
 using Discreet.Coin;
+using Discreet.Wallet;
 
 namespace Discreet
 {
@@ -434,7 +435,7 @@ namespace Discreet
 				Console.WriteLine(BitConverter.ToString(check.GetEntropy()).Replace("-", string.Empty).ToLower());
 			}*/
 
-			DB.DB db = new DB.DB("discreet/test");
+			/*DB.DB db = new DB.DB("discreet/test");
 
 			Transaction[] txs = new Transaction[1000];
 
@@ -489,7 +490,41 @@ namespace Discreet
 			catch (Exception e)
             {
                 Console.WriteLine(e.Message);
+            }*/
+
+			Wallet.Wallet wallet = new Wallet.Wallet("brap", "password123!");
+
+			byte[] magic = new byte[32];
+
+			byte[] passhash = Cipher.SHA512.HashData(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes("password123!")).Bytes).Bytes;
+			Cipher.KeyDerivation.PBKDF2(magic, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
+
+			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
+
+            Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
+
+            Console.WriteLine(Printable.Prettify(wallet.JSON()));
+
+			byte[] decrypted = AESCBC.Decrypt(wallet.EncryptedEntropy, magic);
+
+            Console.WriteLine("decrypted: " + Printable.Hexify(decrypted));
+
+			/*byte[] bytes = Randomness.Random(1024);
+
+			for (int i = 0; i < bytes.Length / 32; i++)
+            {
+                Console.WriteLine(BitConverter.ToString(bytes[(i*32)..((i+1)*32)]).Replace("-", String.Empty).ToLower());
             }
+
+            Console.WriteLine(Printable.Hexify(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes("nigger")).Bytes));*/
+
+			//Key specvw = KeyOps.GenerateSeckey();
+
+			//Coin.StealthAddress specaddr = new Coin.StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey());
+
+            //Console.WriteLine(specaddr.ToString());
+
+			//Console.WriteLine(Cipher.Base58.Encode(Randomness.Random(69)));
 
 			/*Transaction tx1 = Transaction.GenerateMock();
 			string tx1s = Printable.Hexify(tx1.Marshal());

@@ -37,17 +37,19 @@ namespace Discreet.Cipher
             }
 
 			byte[] rv = new byte[8];
-			Array.Copy(bytes, 0, rv, 0, bytes.Length);
+			Array.Copy(bytes, 0, rv, (8 - bytes.Length), bytes.Length);
 			return rv;
         }
 
 		public static string EncodeChunk(byte[] raw, int padding)
         {
 			raw = PadTo8(raw);
+
 			if (BitConverter.IsLittleEndian)
 			{
 				Array.Reverse(raw);
 			}
+
 			ulong remainder = BitConverter.ToUInt64(raw);
 			ulong bigZero = 0;
 			ulong bigBase = 58;
