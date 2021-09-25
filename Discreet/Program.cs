@@ -43,7 +43,7 @@ namespace Discreet
 
 				ulong i = 0;
 
-				while (eval(addr.String()))
+				while (eval(addr.ToString()))
 				{
 					KeyOps.GenerateKeypair(ref vw, ref VW);
 					KeyOps.GenerateKeypair(ref sp, ref SP);
@@ -55,7 +55,7 @@ namespace Discreet
 						Console.WriteLine($"Private spend key:  {BitConverter.ToString(sp.bytes).Replace("-", string.Empty).ToLower()}");
 						Console.WriteLine($"Public view key:  {BitConverter.ToString(VW.bytes).Replace("-", string.Empty).ToLower()}");
 						Console.WriteLine($"Public spend key:  {BitConverter.ToString(SP.bytes).Replace("-", string.Empty).ToLower()}");
-						Console.WriteLine($"qqq???: {addr.String()}\nppp???: {addr.String().Length}");
+						Console.WriteLine($"qqq???: {addr.ToString()}\nppp???: {addr.ToString().Length}");
 
 						Console.WriteLine($"{i} addresses checked.");
 					}
@@ -123,7 +123,7 @@ namespace Discreet
 
 			Discreet.Coin.IAddress addr = new Discreet.Coin.StealthAddress(vw, sp);
 
-			Console.WriteLine(i.ToString() + ": " + addr.String());
+			Console.WriteLine(i.ToString() + ": " + addr.ToString());
 
 			//Console.WriteLine($"Public key:  {BitConverter.ToString(pk.bytes).Replace("-", string.Empty).ToLower()}");
 		}
@@ -150,7 +150,7 @@ namespace Discreet
 			Console.WriteLine($"Private spend key:  {BitConverter.ToString(rv.sp.bytes).Replace("-", string.Empty).ToLower()}");
 			Console.WriteLine($"Public view key:  {BitConverter.ToString(rv.VW.bytes).Replace("-", string.Empty).ToLower()}");
 			Console.WriteLine($"Public spend key:  {BitConverter.ToString(rv.SP.bytes).Replace("-", string.Empty).ToLower()}");
-			Console.WriteLine($"Address: {rv.addr.String()}");
+			Console.WriteLine($"Address: {rv.addr.ToString()}");
 			Console.WriteLine($"Estimated # of attempts: {rv.i} * 16 = {rv.i * 16}");
 		}
 		public static bool eval(string arg)
@@ -373,7 +373,7 @@ namespace Discreet
 				Console.WriteLine($"Private spend key:  {BitConverter.ToString(sp.bytes).Replace("-", string.Empty).ToLower()}");
 				Console.WriteLine($"Public view key:  {BitConverter.ToString(VW.bytes).Replace("-", string.Empty).ToLower()}");
 				Console.WriteLine($"Public spend key:  {BitConverter.ToString(SP.bytes).Replace("-", string.Empty).ToLower()}");
-				Console.WriteLine($"Address: {addr.String()}");
+				Console.WriteLine($"Address: {addr.ToString()}");
 			}*/
 
 			/*Key specvw = new Key(Coin.Printable.Byteify("0f3fe9c20b24a11bf4d6d1acd335c6a80543f1f0380590d7323caf1390c78e88"));
@@ -389,7 +389,7 @@ namespace Discreet
 			Console.WriteLine($"Public spend key:  {BitConverter.ToString(specSP.bytes).Replace("-", string.Empty).ToLower()}");
 			Console.WriteLine($"checksum:  {BitConverter.ToString(specaddr.checksum).Replace("-", string.Empty).ToLower()}");
 			Console.WriteLine($"Version: {specaddr.version}");
-			Console.WriteLine($"Special Address: {specaddr.String()}");
+			Console.WriteLine($"Special Address: {specaddr.ToString()}");
 
 			//Console.WriteLine($"Special time: {BitConverter.ToString(Keccak.HashData(Coin.Printable.Byteify("0f3fe9c20b24a11bf4d6d1acd335c6a80543f1f0380590d7323caf1390c78e88")).Bytes).Replace("-", string.Empty).ToLower()}");
 
@@ -410,7 +410,7 @@ namespace Discreet
 
 			Console.WriteLine($"recomputed checksum: {BitConverter.ToString(newchecksum).Replace("-", string.Empty).ToLower()}");
 			Console.WriteLine($"Version: {addr.version}");
-			Console.WriteLine($"Special Address: {addr.String()}");*/
+			Console.WriteLine($"Special Address: {addr.ToString()}");*/
 
 			/*
 

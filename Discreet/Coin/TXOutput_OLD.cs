@@ -244,7 +244,7 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            return $"{{\"TransactionSrc\":\"{TransactionSrc.ToHex()}\",\"Address\":\"{Address.String()}\",\"Value\":\"{Value}\"}}";
+            return $"{{\"TransactionSrc\":\"{TransactionSrc.ToHex()}\",\"Address\":\"{Address.ToString()}\",\"Value\":\"{Value}\"}}";
         }
 
         public static uint Size()

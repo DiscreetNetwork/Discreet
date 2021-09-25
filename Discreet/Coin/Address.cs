@@ -8,7 +8,7 @@ namespace Discreet.Coin
     public interface IAddress
     {
         public byte[] Bytes();
-        public string String();
+        public string ToString();
         public byte[] Checksum();
         public byte Version();
         public uint Size();
@@ -90,7 +90,7 @@ namespace Discreet.Coin
             Array.Copy(bytes, 21, checksum, 0, 4);
         }
 
-        public string String()
+        public override string ToString()
         {
             return Discreet.Cipher.Base58.Encode(Bytes());
         }
@@ -193,7 +193,7 @@ namespace Discreet.Coin
             return rv;
         }
 
-        public string String()
+        public override string ToString()
         {
             return Discreet.Cipher.Base58.Encode(Bytes());
         }
