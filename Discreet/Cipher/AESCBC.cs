@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Discreet.Coin;
+using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -21,6 +22,12 @@ namespace Discreet.Cipher
                 Padding = value;
             }
         }
+
+        public override string ToString()
+        {
+            return $"{{\"Key:\"{Printable.Hexify(Key)}\",\"IV\": \"{Printable.Hexify(IV)}\"}}";
+        }
+
     }
 
     public static class AESCBC
@@ -55,6 +62,7 @@ namespace Discreet.Cipher
 
             return plainBytes;
         }
+
 
 
     }

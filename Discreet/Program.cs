@@ -496,19 +496,32 @@ namespace Discreet
 			byte[] magic = new byte[32] {0x17, 0x33, 0x50, 0x8c, 0xbe, 0x39, 0xf1, 0xe0, 0xac, 0x81, 0x84, 0xf4, 0x64, 0x18, 0x6f, 0x46, 0x61, 0x75, 0x1d, 0x94, 0x83, 0x64, 0xa6, 0x76, 0xc6, 0x69, 0xa7, 0x89, 0x77, 0x38, 0x47, 0x79};
 
 
-			CipherObject initSettings = new CipherObject { Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
+			CipherObject initSettings = new CipherObject { Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
 
-			Console.WriteLine("Encryption Key: " + BitConverter.ToString(magic));
+			//Console.WriteLine("Encryption Key: " + BitConverter.ToString(magic));
+			//         Console.WriteLine(	initSettings.IV);
 
-			byte[] encrypted = AESCBC.Encrypt(Encoding.UTF8.GetBytes("This is a really long test string that will use multiple block ciphers for encryption to show that our AES encryption scheme supports ciphers of any lengths and can output digests of any length."), initSettings);
-			Console.WriteLine("Encrypted bytes: " + BitConverter.ToString(encrypted));
-			Console.WriteLine("Encrypted bytes length: " + encrypted.Length);
+			//byte[] encrypted = AESCBC.Encrypt(Encoding.UTF8.GetBytes("This is a really long test string that will use multiple block ciphers for encryption to show that our AES encryption scheme supports ciphers of any lengths and can output digests of any length."), initSettings);
+			//Console.WriteLine("Encrypted bytes: " + BitConverter.ToString(encrypted));
+			//Console.WriteLine("Encrypted bytes length: " + encrypted.Length);
 
 
-			byte[] decrypted = AESCBC.Decrypt(encrypted, initSettings);
+			//byte[] decrypted = AESCBC.Decrypt(encrypted, initSettings);
 
-            Console.WriteLine("Decrypted: " + Encoding.ASCII.GetString(decrypted));
+			//         Console.WriteLine("Decrypted: " + Encoding.ASCII.GetString(decrypted));
 
+			Wallet.Wallet wallet = new Wallet.Wallet("wrap", "password123!");
+			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
+
+			Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
+
+			Console.WriteLine(Printable.Prettify(wallet.JSON()));
+
+			byte[] decrypted = AESCBC.Decrypt(wallet.EncryptedEntropy, initSettings);
+            Console.WriteLine("encrypted hex: " + Printable.Hexify(wallet.EncryptedEntropy));
+
+			Console.WriteLine("decrypted: " + Printable.Hexify(decrypted));
+			Console.WriteLine(Printable.Prettify(initSettings.ToString()));
 
 
 
@@ -525,7 +538,7 @@ namespace Discreet
 
 			//Coin.StealthAddress specaddr = new Coin.StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey());
 
-            //Console.WriteLine(specaddr.ToString());
+			//Console.WriteLine(specaddr.ToString());
 
 			//Console.WriteLine(Cipher.Base58.Encode(Randomness.Random(69)));
 
