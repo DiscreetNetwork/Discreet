@@ -27,8 +27,6 @@ namespace Discreet.Wallet
 
         public string Address;
 
-        // TODO[Brandon]: Remove this, store the IV and the key.
-        CipherObject initSettings = new CipherObject { IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
 
         public WalletAddress()
         {
@@ -100,7 +98,11 @@ namespace Discreet.Wallet
         {
             if (Encrypted) return;
             // TODO[Brandon]: Store the CipherObject on disk. Remove line below.
-            initSettings.Key = key;
+
+
+            CipherObject cipherObj = new CipherObject();
+            cipherObj.Key = key;
+
 
 
             EncryptedSecSpendKey = Cipher.AESCBC.Encrypt(SecSpendKey.bytes, initSettings);
@@ -123,8 +125,7 @@ namespace Discreet.Wallet
         {
             if (!Encrypted) return;
 
-            // TODO[Brandon]: Store the CipherObject on disk. Remove line below.
-            initSettings.Key = key;
+
 
             byte[] unencryptedSpendKey = Cipher.AESCBC.Decrypt(EncryptedSecSpendKey, initSettings);
             byte[] unencryptedViewKey = Cipher.AESCBC.Decrypt(EncryptedSecViewKey, initSettings);
@@ -182,9 +183,6 @@ namespace Discreet.Wallet
         public uint EntropyLen; /* currently can be 128 or 256 bits */
 
         public ulong EntropyChecksum;
-
-        // TODO[Brandon]: Remove this, store the IV and the key.
-        CipherObject initSettings = new CipherObject { IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } };
 
         public WalletAddress[] Addresses;
 
@@ -259,9 +257,12 @@ namespace Discreet.Wallet
 
             if (Encrypted)
             {
+
                 byte[] entropyEncryptionKey = new byte[32];
                 byte[] passhash = Cipher.SHA512.HashData(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
                 Cipher.KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
+
+                CipherObject cipherObj = AESCBC.GenerateCipherObject(passphrase);
 
                 byte[] entropyChecksumFull = Cipher.SHA256.HashData(Cipher.SHA256.HashData(entropyEncryptionKey).Bytes).Bytes;
 
@@ -273,9 +274,10 @@ namespace Discreet.Wallet
                     Array.Reverse(entropyChecksumBytes);
                 }
 
-                // TODO[Brandon]: Store the CipherObject on disk. Remove line below.
-                initSettings.Key = entropyEncryptionKey;
-                EncryptedEntropy = Cipher.AESCBC.Encrypt(Entropy, initSettings);
+                byte[] encryptedEntropyBytes = Cipher.AESCBC.Encrypt(Entropy, cipherObj);
+                EncryptedEntropy = new byte[16 + encryptedEntropyBytes.Length];
+                Array.Copy(cipherObj.IV, EncryptedEntropy, 16);
+                Array.Copy(encryptedEntropyBytes, 0, EncryptedEntropy, 16, encryptedEntropyBytes.Length);
 
                 EntropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
             }
