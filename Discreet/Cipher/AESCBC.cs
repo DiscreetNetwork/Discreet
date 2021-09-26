@@ -5,11 +5,22 @@ using System.Text;
 
 namespace Discreet.Cipher
 {
-
+    // Store CipherObject as JSON file on disk. We need initialization vectors (IV) to successfully decrypt encrypted data.
     public class CipherObject
     {
         public byte[] Key { get; set; }
         public byte[] IV { get; set; }
+        public PaddingMode Padding
+        {
+            get
+            {
+                return PaddingMode.ISO10126;
+            }
+            set
+            {
+                Padding = value;
+            }
+        }
     }
 
     public static class AESCBC
@@ -18,8 +29,7 @@ namespace Discreet.Cipher
         {
             Aes cipher = Aes.Create();
             cipher.Mode = CipherMode.CBC;  
-
-            cipher.Padding = PaddingMode.ISO10126;
+            cipher.Padding = encryptionParams.Padding;
             cipher.Key = encryptionParams.Key;
             cipher.IV = encryptionParams.IV;
 
@@ -36,8 +46,7 @@ namespace Discreet.Cipher
 
             Aes cipher = Aes.Create();
             cipher.Mode = CipherMode.CBC; 
-
-            cipher.Padding = PaddingMode.ISO10126;
+            cipher.Padding = encryptionParams.Padding;
             cipher.Key = encryptionParams.Key;
             cipher.IV = encryptionParams.IV;
 
