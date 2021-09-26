@@ -70,6 +70,8 @@ namespace Discreet.Coin
 
         public static string Hexify(byte[] bytes)
         {
+            if (bytes == null) return "";
+
             string rv = "";
 
             for(int i = 0; i < bytes.Length; i++)
@@ -101,6 +103,8 @@ namespace Discreet.Coin
 
         public static byte[] Byteify(string hex)
         {
+            if (hex == null) return new byte[0];
+
             if (!IsHex(hex))
             {
                 throw new Exception("Discreet.Coin.Printable: Byteify expects a hex string; this is not a hex string: " + hex);

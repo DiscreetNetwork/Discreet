@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Discreet.Wallet
+namespace Discreet.Wallets
 {
     /**
      * <summary>The interface specifying the functions a discreet wallet must provide.</summary>

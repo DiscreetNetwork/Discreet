@@ -3,9 +3,33 @@ using System.Collections.Generic;
 using System.Text;
 using System.Security.Cryptography;
 using Discreet.Cipher;
+using System.Text.Json;
+using System.IO;
 
-namespace Discreet.Wallet
+namespace Discreet.Wallets
 {
+    public class ReadableWalletAddress
+    {
+        public string EncryptedSecSpendKey { get; set; }
+        public string EncryptedSecViewKey { get; set; }
+        public string PubSpendKey { get; set; }
+        public string PubViewKey { get; set; }
+        public string Address { get; set; }
+    }
+
+    public class ReadableWallet
+    {
+        public string Label { get; set; }
+        public string CoinName { get; set; }
+        public bool Encrypted { get; set; }
+        public ulong Timestamp { get; set; }
+        public string Version { get; set; }
+        public string Entropy { get; set; }
+        public uint EntropyLen { get; set; }
+        public ulong EntropyChecksum { get; set; }
+        public List<ReadableWalletAddress> Addresses { get; set; }
+    }
+
     /**
      * <summary>
      * Wallet addresses are generated either deterministically or randomly.
@@ -27,16 +51,22 @@ namespace Discreet.Wallet
 
         public string Address;
 
-        public WalletAddress()
+        public WalletAddress(bool random)
         {
-            SecSpendKey = Cipher.KeyOps.GenerateSeckey();
-            SecViewKey = Cipher.KeyOps.GenerateSeckey();
+            if (random)
+            {
+                SecSpendKey = Cipher.KeyOps.GenerateSeckey();
+                SecViewKey = Cipher.KeyOps.GenerateSeckey();
 
-            PubSpendKey = Cipher.KeyOps.ScalarmultBase(ref SecSpendKey);
-            PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
+                PubSpendKey = Cipher.KeyOps.ScalarmultBase(ref SecSpendKey);
+                PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
 
-            Address = new Coin.StealthAddress(PubViewKey, PubSpendKey).ToString();
+                Address = new Coin.StealthAddress(PubViewKey, PubSpendKey).ToString();
+            }
         }
+
+        /* default constructor, used for falling back on JSON deserialize */
+        public WalletAddress() { }
 
         /**
          * hash is set to zero first.
@@ -183,8 +213,11 @@ namespace Discreet.Wallet
 
         public WalletAddress[] Addresses;
 
+        /* default constructor */
+        public Wallet() { }
+
         /* WIP */
-        public Wallet(string label, string passphrase, bool encrypted = true, bool deterministic = true, uint bip39 = 24, uint numAddresses = 1)
+        public Wallet(string label, string passphrase, uint bip39 = 24, bool encrypted = true, bool deterministic = true, uint numAddresses = 1)
         {
             Timestamp = (ulong)DateTime.Now.Ticks;
             Encrypted = encrypted;
@@ -234,7 +267,7 @@ namespace Discreet.Wallet
                 }
                 else
                 {
-                    Addresses[i] = new WalletAddress();
+                    Addresses[i] = new WalletAddress(true);
                 }
 
                 Addresses[i].Encrypt(Entropy);
@@ -290,29 +323,36 @@ namespace Discreet.Wallet
                 }
                 else
                 {
-                    Addresses[i] = new WalletAddress();
+                    Addresses[i] = new WalletAddress(true);
                 }
 
                 Addresses[i].Encrypt(Entropy);
             }
+
+            IsEncrypted = false;
         }
 
         public string GetMnemonic()
         {
+            if (IsEncrypted)
+            {
+                throw new Exception("Discreet.Wallets.Wallet.GetMnemonic: wallet is encrypted");
+            }
+
             Cipher.Mnemonics.Mnemonic mnemonic = new Cipher.Mnemonics.Mnemonic(Entropy);
             return mnemonic.GetMnemonic();
         }
 
         public void Encrypt()
         {
-            if (!Encrypted) return;
-
             if (IsEncrypted) return;
 
             for (int i = 0; i < Addresses.Length; i++)
             {
                 Addresses[i].EncryptDropKeys();
             }
+
+            if (!Encrypted) return;
 
             Array.Clear(Entropy, 0, (int)EntropyLen);
 
@@ -345,7 +385,7 @@ namespace Discreet.Wallet
 
             if (entropyChecksum != EntropyChecksum)
             {
-                throw new Exception("Discreet.Wallet.Wallet.Decrypt: Wrong passphrase!");
+                throw new Exception("Discreet.Wallets.Wallet.Decrypt: Wrong passphrase!");
             }
 
             (CipherObject cipherObj, byte[] encryptedEntropyBytes) = CipherObject.GetFromPrependedArray(entropyEncryptionKey, EncryptedEntropy);
@@ -359,11 +399,11 @@ namespace Discreet.Wallet
             IsEncrypted = false;
         }
 
-        public string JSON()
+        private string JSON()
         {
             Encrypt();
 
-            string rv = $"{{\"Label\":\"{Label}\",\"CoinName\":\"{CoinName}\",\"Encrypted\":{Encrypted},\"Timestamp\":{Timestamp},\"Version\":\"{Version}\",\"Entropy\":";
+            string rv = $"{{\"Label\":\"{Label}\",\"CoinName\":\"{CoinName}\",\"Encrypted\":{(Encrypted ? "true" : "false")},\"Timestamp\":{Timestamp},\"Version\":\"{Version}\",\"Entropy\":";
 
             if (Encrypted)
             {
@@ -396,6 +436,87 @@ namespace Discreet.Wallet
             rv += "]}";
 
             return rv;
+        }
+
+        /**
+         * <summary>
+         * This encrypts the wallet (if encrypted is set to true) and returns the resulting JSON string.
+         * </summary>
+         */
+        public string ToJSON()
+        {
+            return JSON();
+        }
+
+        public static Wallet FromFile(string path)
+        {
+            if (!File.Exists(path))
+            {
+                throw new Exception($"Discreet.Wallets.Wallet.FromFile: no wallet found at path \"{path}\"");
+            }
+
+            string json = File.ReadAllText(path);
+
+            try
+            {
+                return Wallet.FromJSON(json);
+            }
+            catch (Exception e)
+            {
+                throw new Exception($"Discreet.Wallets.Wallet.FromFile: an exception occurred when parsing data from \"{path}\": " + e.Message);
+            }
+        }
+
+        public void ToFile(string path)
+        {
+            File.WriteAllText(path, Coin.Printable.Prettify(JSON()));
+        }
+
+        public static Wallet FromJSON(string json)
+        {
+            var jsonWallet = JsonSerializer.Deserialize<ReadableWallet>(json);
+
+            Wallet wallet = new Wallet
+            {
+                Label = jsonWallet.Label,
+                CoinName = jsonWallet.CoinName,
+                Encrypted = jsonWallet.Encrypted,
+                IsEncrypted = jsonWallet.Encrypted,
+                Timestamp = jsonWallet.Timestamp,
+                Version = jsonWallet.Version,
+            };
+
+            if (wallet.Encrypted)
+            {
+                wallet.EncryptedEntropy = Coin.Printable.Byteify(jsonWallet.Entropy);
+                wallet.EntropyChecksum = jsonWallet.EntropyChecksum;
+            }
+            else
+            {
+                wallet.Entropy = Coin.Printable.Byteify(jsonWallet.Entropy);
+            }
+
+            wallet.Addresses = new WalletAddress[jsonWallet.Addresses.Count];
+
+            for (int i = 0; i < wallet.Addresses.Length; i++)
+            {
+                wallet.Addresses[i] = new WalletAddress
+                {
+                    Encrypted = true,
+                    EncryptedSecSpendKey = Coin.Printable.Byteify(jsonWallet.Addresses[i].EncryptedSecSpendKey),
+                    EncryptedSecViewKey = Coin.Printable.Byteify(jsonWallet.Addresses[i].EncryptedSecViewKey),
+                    PubSpendKey = new Key(Coin.Printable.Byteify(jsonWallet.Addresses[i].PubSpendKey)),
+                    PubViewKey = new Key(Coin.Printable.Byteify(jsonWallet.Addresses[i].PubViewKey)),
+                    Address = jsonWallet.Addresses[i].Address,
+                };
+
+                if (!wallet.Encrypted)
+                {
+                    wallet.Addresses[i].Decrypt(wallet.Entropy);
+                }
+            }
+
+            return wallet;
         }
     }
 }

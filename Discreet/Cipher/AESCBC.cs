@@ -110,6 +110,7 @@ namespace Discreet.Cipher
             cipher.Mode = CipherMode.CBC;  
             cipher.Padding = encryptionParams.Mode;
             cipher.Key = encryptionParams.Key;
+            //cipher.KeySize = encryptionParams.Key.Length * 8;
             cipher.IV = encryptionParams.IV;
 
 
@@ -127,6 +128,7 @@ namespace Discreet.Cipher
             cipher.Mode = CipherMode.CBC; 
             cipher.Padding = encryptionParams.Mode;
             cipher.Key = encryptionParams.Key;
+            //cipher.KeySize = encryptionParams.Key.Length * 8;
             cipher.IV = encryptionParams.IV;
 
             ICryptoTransform cryptTransform = cipher.CreateDecryptor();

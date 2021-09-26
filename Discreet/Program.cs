@@ -9,7 +9,7 @@ using System.Diagnostics;
 using Cryptography.ECDSA;
 using Discreet.Cipher.Mnemonics;
 using Discreet.Coin;
-using Discreet.Wallet;
+using Discreet.Wallets;
 
 namespace Discreet
 {
@@ -499,12 +499,12 @@ namespace Discreet
 			// CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
 
 
-			Wallet.Wallet wallet = new Wallet.Wallet("wrap", "password123!");
+			Wallet wallet = new Wallet("wrap", "password123!");
 			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
 
 			Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
 
-			Console.WriteLine(Printable.Prettify(wallet.JSON()));
+			Console.WriteLine(Printable.Prettify(wallet.ToJSON()));
 
 			CipherObject entropyKeyObj = AESCBC.GenerateCipherObject("password123!");
 
@@ -529,15 +529,31 @@ namespace Discreet
             Console.WriteLine("Decrypted: " + Encoding.ASCII.GetString(decwypted));
 			Console.WriteLine(Printable.Prettify(encryptionParams.ToString()));
 
-			//Key specvw = KeyOps.GenerateSeckey();
+			Wallet checkWalletJSON = Wallet.FromJSON(wallet.ToJSON());
 
-			//Coin.StealthAddress specaddr = new Coin.StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey());
+            Console.WriteLine(Printable.Prettify(checkWalletJSON.ToJSON()));
 
-			//Console.WriteLine(specaddr.ToString());
+			wallet.ToFile("test.wlt");
 
-			//Console.WriteLine(Cipher.Base58.Encode(Randomness.Random(69)));
+			Wallet okAgain = Wallet.FromFile("test.wlt");
 
-			/*Transaction tx1 = Transaction.GenerateMock();
+            Console.WriteLine(Printable.Prettify(okAgain.ToJSON()));
+
+			Wallet testWallet = new Wallet("test", "test123!", 12, true);
+
+            //Console.WriteLine(Printable.Prettify(testWallet.JSON()));
+
+            Console.WriteLine(testWallet.GetMnemonic());
+
+            //Key specvw = KeyOps.GenerateSeckey();
+
+            //Coin.StealthAddress specaddr = new Coin.StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey());
+
+            //Console.WriteLine(specaddr.ToString());
+
+            //Console.WriteLine(Cipher.Base58.Encode(Randomness.Random(69)));
+
+            /*Transaction tx1 = Transaction.GenerateMock();
 			string tx1s = Printable.Hexify(tx1.Marshal());
 
 			byte[] txb = tx1.Marshal();
