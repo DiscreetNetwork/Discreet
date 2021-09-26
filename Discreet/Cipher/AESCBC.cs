@@ -5,7 +5,6 @@ using System.Text;
 
 namespace Discreet.Cipher
 {
-    // Store CipherObject as JSON file on disk. We need initialization vectors (IV) to successfully decrypt encrypted data.
     public class CipherObject
     {
         public byte[] Key { get; set; }
