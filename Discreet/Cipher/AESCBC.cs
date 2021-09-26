@@ -11,20 +11,26 @@ namespace Discreet.Cipher
         public byte[] Key { get; set; } // 32 bytes
         public byte[] IV { get; set; } // 16 bytes
 
+
+
+        public PaddingMode Mode { get; set; }
+
         public CipherObject()
         {
-
+            Mode = PaddingMode.ISO10126;
         }
         public CipherObject(byte[] key, byte[] iv)
         {
             Key = key;
             IV = iv;
+            Mode = PaddingMode.ISO10126;
         }
 
         public CipherObject(byte[] bytes)
         {
             Key = bytes[0..16];
             IV = bytes[16..48];
+            Mode = PaddingMode.ISO10126;
         }
 
         public byte[] ToBytes()
@@ -47,9 +53,11 @@ namespace Discreet.Cipher
 
         public static (CipherObject, byte[]) GetFromPrependedArray(byte[] key, byte[] bytes)
         {
-            CipherObject cipherObject = new CipherObject();
-            cipherObject.Key = key;
-            cipherObject.IV = new byte[16];
+            CipherObject cipherObject = new CipherObject
+            {
+                Key = key,
+                IV = new byte[16]
+            };
 
             Array.Copy(bytes, cipherObject.IV, 16);
             byte[] ct = new byte[bytes.Length - 16];
@@ -100,7 +108,7 @@ namespace Discreet.Cipher
         {
             Aes cipher = Aes.Create();
             cipher.Mode = CipherMode.CBC;  
-            cipher.Padding = PaddingMode.PKCS7;
+            cipher.Padding = encryptionParams.Mode;
             cipher.Key = encryptionParams.Key;
             cipher.IV = encryptionParams.IV;
 
@@ -117,7 +125,7 @@ namespace Discreet.Cipher
 
             Aes cipher = Aes.Create();
             cipher.Mode = CipherMode.CBC; 
-            cipher.Padding = PaddingMode.PKCS7;
+            cipher.Padding = encryptionParams.Mode;
             cipher.Key = encryptionParams.Key;
             cipher.IV = encryptionParams.IV;
 
