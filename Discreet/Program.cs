@@ -501,18 +501,20 @@ namespace Discreet
 			// CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
 
 
-			//Wallet.Wallet wallet = new Wallet.Wallet("wrap", "password123!");
-			//Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
+			Wallet.Wallet wallet = new Wallet.Wallet("wrap", "password123!");
+			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
 
-			//Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
+			Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
 
-			//Console.WriteLine(Printable.Prettify(wallet.JSON()));
+			Console.WriteLine(Printable.Prettify(wallet.JSON()));
 
-			//byte[] decrypted = AESCBC.Decrypt(wallet.EncryptedEntropy, initSettings);
-			//         Console.WriteLine("encrypted hex: " + Printable.Hexify(wallet.EncryptedEntropy));
+			CipherObject entropyKeyObj = AESCBC.GenerateCipherObject("password123!");
 
-			//Console.WriteLine("decrypted: " + Printable.Hexify(decrypted));
-			//Console.WriteLine(Printable.Prettify(initSettings.ToString()));
+			(CipherObject cipherObj, byte[] encryptedBytes) = CipherObject.GetFromPrependedArray(entropyKeyObj.Key, wallet.EncryptedEntropy);
+			byte[] decrypted = AESCBC.Decrypt(encryptedBytes, cipherObj);
+			Console.WriteLine("encrypted hex: " + Printable.Hexify(wallet.EncryptedEntropy));
+
+			Console.WriteLine("decrypted: " + Printable.Hexify(decrypted));
 
 			CipherObject encryptionParams = AESCBC.GenerateCipherObject("");
 

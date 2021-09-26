@@ -35,10 +35,34 @@ namespace Discreet.Cipher
 
             return rv;
         }
+
+        public byte[] PrependIV(byte[] bytes)
+        {
+            byte[] rv = new byte[16 + bytes.Length];
+            Array.Copy(IV, rv, 16);
+            Array.Copy(bytes, 0, rv, 16, bytes.Length);
+
+            return rv;
+        }
+
+        public static (CipherObject, byte[]) GetFromPrependedArray(byte[] key, byte[] bytes)
+        {
+            CipherObject cipherObject = new CipherObject();
+            cipherObject.Key = key;
+            cipherObject.IV = new byte[16];
+
+            Array.Copy(bytes, cipherObject.IV, 16);
+            byte[] ct = new byte[bytes.Length - 16];
+            Array.Copy(bytes, 16, ct, 0, bytes.Length - 16);
+
+            return (cipherObject, ct);
+        }
+
         public override string ToString()
         {
             return $"{{\"Key:\"{Printable.Hexify(Key)}\",\"IV\": \"{Printable.Hexify(IV)}\"}}";
         }
+
 
     }
 
@@ -61,7 +85,16 @@ namespace Discreet.Cipher
             };
         }
 
+        public static CipherObject GenerateCipherObject(byte[] key)
+        {
+            using RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
+            {
+                byte[] tmpIV = new byte[16];
+                rng.GetBytes(tmpIV);
 
+                return new CipherObject(key, tmpIV);
+            };
+        }
 
         public static byte[] Encrypt(byte[] unencryptedCipher, CipherObject encryptionParams)
         {
