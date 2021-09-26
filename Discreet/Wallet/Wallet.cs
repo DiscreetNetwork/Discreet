@@ -27,7 +27,6 @@ namespace Discreet.Wallet
 
         public string Address;
 
-
         public WalletAddress()
         {
             SecSpendKey = Cipher.KeyOps.GenerateSeckey();
