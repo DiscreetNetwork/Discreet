@@ -531,15 +531,6 @@ namespace Discreet
             Console.WriteLine("Decrypted: " + Encoding.ASCII.GetString(decwypted));
 			Console.WriteLine(Printable.Prettify(encryptionParams.ToString()));
 
-			/*byte[] bytes = Randomness.Random(1024);
-
-			for (int i = 0; i < bytes.Length / 32; i++)
-            {
-                Console.WriteLine(BitConverter.ToString(bytes[(i*32)..((i+1)*32)]).Replace("-", String.Empty).ToLower());
-            }
-
-            Console.WriteLine(Printable.Hexify(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes("nigger")).Bytes));*/
-
 			//Key specvw = KeyOps.GenerateSeckey();
 
 			//Coin.StealthAddress specaddr = new Coin.StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey());
