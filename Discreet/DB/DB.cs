@@ -74,7 +74,26 @@ namespace Discreet.DB
 
     public class DB
     {
-        //WIP
+        static DB db;
+
+        public static DB GetDB()
+        {
+            if (db == null) Initialize();
+
+            return db;
+        }
+
+        public static DB Initialize()
+        {
+            lock (db)
+            {
+                if (db != null) return db;
+
+                string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
+                db = new DB(Path.Combine(homePath, ".discreet"));
+                return db;
+            }
+        }
 
         /* table keys */
         public static string SPENT_KEYS = "spent_keys";
@@ -93,7 +112,7 @@ namespace Discreet.DB
         public static byte[] ZEROKEY = new byte[8];
 
         /* Environment */
-        private LightningEnvironment Environment;
+        private LightningEnvironment Env;
 
         /* Databases */
         private LightningDatabase SpentKeys;
@@ -131,7 +150,7 @@ namespace Discreet.DB
 
         public void Open(string filename, long _mapsize)
         {
-            if (Environment != null && Environment.IsOpened) return;
+            if (Env != null && Env.IsOpened) return;
 
             if (File.Exists(filename)) throw new Exception("Discreet.DB: Open() expects a valid directory path, not a file");
 
@@ -140,18 +159,18 @@ namespace Discreet.DB
                 Directory.CreateDirectory(filename);
             }
 
-            Environment = new LightningEnvironment(filename, new EnvironmentConfiguration { MaxDatabases = 20 });
+            Env = new LightningEnvironment(filename, new EnvironmentConfiguration { MaxDatabases = 20 });
 
-            Environment.MapSize = _mapsize;
+            Env.MapSize = _mapsize;
 
             mapsize = _mapsize;
 
-            Environment.Open();
+            Env.Open();
         }
 
         public void Open(string filename)
         {
-            if (Environment != null && Environment.IsOpened) return;
+            if (Env != null && Env.IsOpened) return;
 
             if (File.Exists(filename)) throw new Exception("Discreet.DB: Open() expects a valid directory path, not a file");
 
@@ -160,16 +179,16 @@ namespace Discreet.DB
                 Directory.CreateDirectory(filename);
             }
 
-            Environment = new LightningEnvironment(filename, new EnvironmentConfiguration { MaxDatabases = 20 });
+            Env = new LightningEnvironment(filename, new EnvironmentConfiguration { MaxDatabases = 20 });
 
-            if (Environment.MapSize == 0)
+            if (Env.MapSize == 0)
             {
-                Environment.MapSize = 1024 * 1024 * 1024;
+                Env.MapSize = 1024 * 1024 * 1024;
             }
-            mapsize = Environment.MapSize;
+            mapsize = Env.MapSize;
             
 
-            Environment.Open();
+            Env.Open();
         }
 
         /*public void IncreaseDBSize()
@@ -185,7 +204,7 @@ namespace Discreet.DB
         {
             Open(path);
 
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
             var config = new DatabaseConfiguration { Flags = DatabaseOpenFlags.Create };
 
             
@@ -248,7 +267,7 @@ namespace Discreet.DB
 
         public void AddBlock(Block blk)
         {
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (BlockHeights == null || !BlockHeights.IsOpened)
             {
@@ -563,7 +582,7 @@ namespace Discreet.DB
              *   - if TXPoolSpentKeys contains input key images
              *   - if SpentKeys contains input key images
              */
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (TXPoolBlob == null || !TXPoolBlob.IsOpened)
             {
@@ -628,7 +647,7 @@ namespace Discreet.DB
 
         public TXOutput GetOutput(uint index)
         {
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (Outputs == null || !Outputs.IsOpened)
             {
@@ -649,7 +668,7 @@ namespace Discreet.DB
 
         public Transaction GetTransaction(ulong txid)
         {
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (TXs == null || !TXs.IsOpened)
             {
@@ -670,7 +689,7 @@ namespace Discreet.DB
 
         public Transaction GetTransaction(Cipher.SHA256 txhash)
         {
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (TXIndices == null || !TXIndices.IsOpened)
             {
@@ -705,7 +724,7 @@ namespace Discreet.DB
 
         public Block GetBlock(ulong height)
         {
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (Blocks == null || !Blocks.IsOpened)
             {
@@ -726,7 +745,7 @@ namespace Discreet.DB
 
         public Block GetBlock(Cipher.SHA256 blockHash)
         {
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (BlockHeights == null || !BlockHeights.IsOpened)
             {
@@ -769,7 +788,7 @@ namespace Discreet.DB
 
         public ulong GetTransactionIndex(Cipher.SHA256 txhash)
         {
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (TXIndices == null || !TXIndices.IsOpened)
             {
@@ -788,7 +807,7 @@ namespace Discreet.DB
 
         public ulong GetBlockHeight(Cipher.SHA256 blockHash)
         {
-            using var txn = Environment.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (BlockHeights == null || !BlockHeights.IsOpened)
             {

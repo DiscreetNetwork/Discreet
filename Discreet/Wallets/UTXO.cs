@@ -21,9 +21,10 @@ namespace Discreet.Wallets
         /* for all types */
         public Cipher.SHA256 TransactionSrc;
         public ulong TXIndex;
-        public ulong BlockHeight;
-        public Cipher.SHA256 BlockHash;
-        public ulong Timestamp;
+        public ulong DecodedAmount;
+        public ulong Amount;
+
+        public bool Encrypted;
 
         /* stealth transactions */
         public uint Index;
@@ -31,9 +32,17 @@ namespace Discreet.Wallets
         public Cipher.Key Commitment;
 
         /* default constructor always sets UTXOType to STEALTH */
-        public UTXO()
+        public UTXO(uint index, Coin.TXOutput output)
         {
             Type = UTXOType.STEALTH;
+            TXIndex = index;
+            TransactionSrc = output.TransactionSrc;
+            UXKey = output.UXKey;
+            Commitment = output.Commitment;
+            Amount = output.Amount;
+            DecodedAmount = 0;
+
+            Encrypted = true;
         }
     }
 }

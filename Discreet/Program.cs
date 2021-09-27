@@ -10,6 +10,7 @@ using Cryptography.ECDSA;
 using Discreet.Cipher.Mnemonics;
 using Discreet.Coin;
 using Discreet.Wallets;
+using System.IO;
 
 namespace Discreet
 {
@@ -545,15 +546,18 @@ namespace Discreet
 
             Console.WriteLine(testWallet.GetMnemonic());
 
-            //Key specvw = KeyOps.GenerateSeckey();
+			string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
+			Console.WriteLine(Path.Combine(homePath, ".discreet"));
 
-            //Coin.StealthAddress specaddr = new Coin.StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey());
+			//Key specvw = KeyOps.GenerateSeckey();
 
-            //Console.WriteLine(specaddr.ToString());
+			//Coin.StealthAddress specaddr = new Coin.StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey());
 
-            //Console.WriteLine(Cipher.Base58.Encode(Randomness.Random(69)));
+			//Console.WriteLine(specaddr.ToString());
 
-            /*Transaction tx1 = Transaction.GenerateMock();
+			//Console.WriteLine(Cipher.Base58.Encode(Randomness.Random(69)));
+
+			/*Transaction tx1 = Transaction.GenerateMock();
 			string tx1s = Printable.Hexify(tx1.Marshal());
 
 			byte[] txb = tx1.Marshal();

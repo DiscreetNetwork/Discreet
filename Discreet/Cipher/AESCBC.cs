@@ -70,8 +70,6 @@ namespace Discreet.Cipher
         {
             return $"{{\"Key:\"{Printable.Hexify(Key)}\",\"IV\": \"{Printable.Hexify(IV)}\"}}";
         }
-
-
     }
 
     public static class AESCBC
