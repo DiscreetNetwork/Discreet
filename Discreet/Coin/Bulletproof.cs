@@ -234,9 +234,17 @@ namespace Discreet.Coin
             return bp;
         }
 
-        public VerifyException Verify()
+        /* needs to recover the commitments from tx's outputs */
+        public VerifyException Verify(Transaction tx)
         {
-            return new VerifyException("Bulletproof", "UNIMPLEMENTED");
+            Cipher.Bulletproof bp = new Cipher.Bulletproof(this, tx.GetCommitments());
+
+            if(!Cipher.Bulletproof.Verify(bp))
+            {
+                return new VerifyException("Bulletproof", "Bulletproof is invalid!");
+            }
+
+            return null;
         }
     }
 }

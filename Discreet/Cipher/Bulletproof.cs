@@ -53,5 +53,29 @@ namespace Discreet.Cipher
         [DllImport(@"DiscreetCore.dll", EntryPoint = "bulletproof_VERIFY", CallingConvention = CallingConvention.StdCall)]
             [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool Verify(Bulletproof bp);
+
+        public Bulletproof(Coin.Bulletproof bp, Key[] comms)
+        {
+            A = bp.A;
+            S = bp.S;
+            T1 = bp.T1;
+            T2 = bp.T2;
+            taux = bp.taux;
+            mu = bp.mu;
+            L = bp.L;
+            R = bp.R;
+            a = bp.a;
+            b = bp.b;
+            t = bp.t;
+
+            V = new Key[16];
+
+            for (int i = 0; i < comms.Length; i++)
+            {
+                V[i] = comms[i];
+            }
+
+            size = (ulong)L.Length;
+        }
     }
 }

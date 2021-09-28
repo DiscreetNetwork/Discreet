@@ -43,8 +43,7 @@ namespace Discreet.Wallets
     {
         public bool Encrypted;
 
-        public 
-            Key PubSpendKey;
+        public Key PubSpendKey;
         public Key PubViewKey;
 
         public Key SecSpendKey;

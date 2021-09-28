@@ -314,6 +314,18 @@ namespace Discreet.Coin
             Array.Copy(bytes, offset, Extra, 0, ExtraLen);
         }
 
+        internal Cipher.Key[] GetCommitments()
+        {
+            Cipher.Key[] comms = new Cipher.Key[NumOutputs];
+            
+            for (int i = 0; i < NumOutputs; i++)
+            {
+                comms[i] = Outputs[i].Commitment;
+            }
+
+            return comms;
+        }
+
         public void Unmarshal(byte[] bytes, uint offset)
         {
             Version = bytes[offset];
