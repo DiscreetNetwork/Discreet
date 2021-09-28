@@ -17,20 +17,20 @@ namespace Discreet.Cipher
 
         public CipherObject()
         {
-            Mode = PaddingMode.ISO10126;
+            Mode = PaddingMode.PKCS7;
         }
         public CipherObject(byte[] key, byte[] iv)
         {
             Key = key;
             IV = iv;
-            Mode = PaddingMode.ISO10126;
+            Mode = PaddingMode.PKCS7;
         }
 
         public CipherObject(byte[] bytes)
         {
             Key = bytes[0..16];
             IV = bytes[16..48];
-            Mode = PaddingMode.ISO10126;
+            Mode = PaddingMode.PKCS7;
         }
 
         public byte[] ToBytes()
