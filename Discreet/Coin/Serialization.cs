@@ -6,6 +6,31 @@ namespace Discreet.Coin
 {
     public static class Serialization
     {
+        public static byte[] UInt32Array(uint[] arr)
+        {
+            byte[] bytes = new byte[arr.Length * 4 + 4];
+            CopyData(bytes, 0, arr.Length);
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                CopyData(bytes, (uint)(i + 1) * 4, arr[i]);
+            }
+
+            return bytes;
+        }
+
+        public static uint[] GetUInt32Array(byte[] bytes)
+        {
+            uint[] arr = new uint[bytes.Length / 4 - 1];
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                arr[i] = GetUInt32(bytes, (uint)(i + 1) * 4);
+            }
+
+            return arr;
+        }
+
         public static void CopyData(byte[] bytes, uint offset, int value)
         {
             byte[] data = BitConverter.GetBytes(value);

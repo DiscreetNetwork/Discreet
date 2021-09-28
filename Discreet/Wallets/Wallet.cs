@@ -17,7 +17,7 @@ namespace Discreet.Wallets
         public string PubViewKey { get; set; }
         public string Address { get; set; }
 
-        public List<uint> UTXOs { get; set; }
+        public List<int> UTXOs { get; set; }
     }
 
     public class ReadableWallet
@@ -43,11 +43,12 @@ namespace Discreet.Wallets
     {
         public bool Encrypted;
 
-        public Cipher.Key PubSpendKey;
-        public Cipher.Key PubViewKey;
+        public 
+            Key PubSpendKey;
+        public Key PubViewKey;
 
-        public Cipher.Key SecSpendKey;
-        public Cipher.Key SecViewKey;
+        public Key SecSpendKey;
+        public Key SecViewKey;
 
         public byte[] EncryptedSecSpendKey;
         public byte[] EncryptedSecViewKey;
@@ -61,8 +62,8 @@ namespace Discreet.Wallets
         {
             if (random)
             {
-                SecSpendKey = Cipher.KeyOps.GenerateSeckey();
-                SecViewKey = Cipher.KeyOps.GenerateSeckey();
+                SecSpendKey = KeyOps.GenerateSeckey();
+                SecViewKey = KeyOps.GenerateSeckey();
 
                 PubSpendKey = Cipher.KeyOps.ScalarmultBase(ref SecSpendKey);
                 PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
@@ -144,6 +145,11 @@ namespace Discreet.Wallets
             Array.Clear(SecSpendKey.bytes, 0, 32);
             Array.Clear(SecViewKey.bytes, 0, 32);
 
+            for (int i = 0; i < UTXOs.Length; i++)
+            {
+                UTXOs[i].Encrypt();
+            }
+
             Encrypted = true;
         }
 
@@ -165,6 +171,11 @@ namespace Discreet.Wallets
             (CipherObject cipherObjView, byte[] encryptedSecViewKeyBytes) = CipherObject.GetFromPrependedArray(key, EncryptedSecViewKey);
             byte[] unencryptedViewKey = AESCBC.Decrypt(encryptedSecViewKeyBytes, cipherObjView);
             Array.Copy(unencryptedViewKey, SecViewKey.bytes, 32);
+
+            for (int i = 0; i < UTXOs.Length; i++)
+            {
+                UTXOs[i].Decrypt(this);
+            }
 
             Array.Clear(unencryptedSpendKey, 0, unencryptedSpendKey.Length);
             Array.Clear(unencryptedViewKey, 0, unencryptedViewKey.Length);
@@ -429,12 +440,26 @@ namespace Discreet.Wallets
 
             for (int i = 0; i < Addresses.Length; i++)
             {
-                rv += $"{{\"EncryptedSecSpendKey\":\"{Printable.Hexify(Addresses[i].EncryptedSecSpendKey)}\",\"EncryptedSecViewKey\":\"{Printable.Hexify(Addresses[i].EncryptedSecViewKey)}\",\"PubSpendKey\":\"{Addresses[i].PubSpendKey.ToHex()}\",\"PubViewKey\":\"{Addresses[i].PubViewKey.ToHex()}\",\"Address\":\"{Addresses[i].Address}\"}}";
+                rv += $"{{\"EncryptedSecSpendKey\":\"{Printable.Hexify(Addresses[i].EncryptedSecSpendKey)}\",\"EncryptedSecViewKey\":\"{Printable.Hexify(Addresses[i].EncryptedSecViewKey)}\",\"PubSpendKey\":\"{Addresses[i].PubSpendKey.ToHex()}\",\"PubViewKey\":\"{Addresses[i].PubViewKey.ToHex()}\",\"Address\":\"{Addresses[i].Address}\",\"UTXOs\":[";
+
+                for (int j = 0; j < Addresses[i].UTXOs.Length; i++)
+                {
+                    rv += $"{Addresses[i].UTXOs[j].OwnedIndex}";
+
+                    if (j < Addresses[i].UTXOs.Length - 1)
+                    {
+                        rv += ",";
+                    }
+                }
+
+                rv += "]}";
 
                 if (i < Addresses.Length - 1)
                 {
                     rv += ",";
                 }
+
+                
             }
 
             rv += "]}";
@@ -478,6 +503,8 @@ namespace Discreet.Wallets
 
         public static Wallet FromJSON(string json)
         {
+            DB.DB db = DB.DB.GetDB();
+
             var jsonWallet = JsonSerializer.Deserialize<ReadableWallet>(json);
 
             Wallet wallet = new Wallet
@@ -512,7 +539,14 @@ namespace Discreet.Wallets
                     PubSpendKey = new Key(Printable.Byteify(jsonWallet.Addresses[i].PubSpendKey)),
                     PubViewKey = new Key(Printable.Byteify(jsonWallet.Addresses[i].PubViewKey)),
                     Address = jsonWallet.Addresses[i].Address,
+                    UTXOs = new UTXO[jsonWallet.Addresses[i].UTXOs.Count],
                 };
+
+                for (int j = 0; j < wallet.Addresses[i].UTXOs.Length; j++)
+                {
+                    wallet.Addresses[i].UTXOs[j] = db.GetWalletOutput(jsonWallet.Addresses[i].UTXOs[j]);
+                    wallet.Addresses[i].UTXOs[j].OwnedIndex = jsonWallet.Addresses[i].UTXOs[j];
+                }
 
                 if (!wallet.Encrypted)
                 {

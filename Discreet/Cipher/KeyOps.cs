@@ -15,10 +15,10 @@ namespace Discreet.Cipher
         public static extern void ScalarmultKey(ref Key ap, ref Key p, ref Key a);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "DKSAP", CallingConvention = CallingConvention.StdCall)]
-        public static extern void DKSAP(ref Key R, ref Key T, ref Key pv, ref Key ps);
+        public static extern void DKSAP(ref Key R, ref Key T, ref Key pv, ref Key ps, int index);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "DKSAPRecover", CallingConvention = CallingConvention.StdCall)]
-        public static extern void DKSAPRecover(ref Key t, ref Key R, ref Key sv, ref Key ss);
+        public static extern void DKSAPRecover(ref Key t, ref Key R, ref Key sv, ref Key ss, int index);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateSeckey1", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Struct)]
@@ -75,6 +75,18 @@ namespace Discreet.Cipher
         [DllImport(@"DiscreetCore.dll", EntryPoint = "Scalarmult81", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key Scalarmult8(ref Key p);
+
+        internal static ulong XOR8(ref Key g, ulong amount)
+        {
+            byte[] amountBytes = Coin.Serialization.UInt64(amount);
+
+            for (int i = 0; i < 8; i++)
+            {
+                amountBytes[i] ^= g.bytes[i];
+            }
+
+            return Coin.Serialization.GetUInt64(amountBytes, 0);
+        }
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "InMainSubgroup", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Bool)]
