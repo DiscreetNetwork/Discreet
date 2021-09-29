@@ -17,14 +17,14 @@ namespace Discreet.RPC
             public string jsonrpc { get { return "2.0"; } }
             public string method { get; set; }
             public object[] @params { get; set; }
-            public int id { get; set; }
+            public string id { get; set; }
         }
 
         public class RPCResponse
         {
             public string jsonrpc { get { return "2.0"; } }
             public object result { get; set; }
-            public int id { get; set; }
+            public string id { get; set; }
         }
 
         enum JSONRPCType
@@ -38,7 +38,7 @@ namespace Discreet.RPC
         {
      
             RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest);
-            object result = ExecuteInternal(request.method);
+            object result = ExecuteInternal(request.method, request.@params);
             RPCResponse response = CreateResponse(request, result);
 
             return CreateResponseJSON(response);

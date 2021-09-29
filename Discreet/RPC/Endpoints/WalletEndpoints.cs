@@ -20,5 +20,11 @@ namespace Discreet.RPC.Endpoints
         {
             return new StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey()).ToString();
         }
+
+        [RPCEndpoint(endpoint_name: "rpc_test_mutiply")]
+        public static int TestFunction(int mult)
+        {
+            return 4 * mult;
+        }
     }
 }
