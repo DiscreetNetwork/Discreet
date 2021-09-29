@@ -20,8 +20,14 @@ namespace Discreet.RPC
         public class RPCResponse
         {
             public string jsonrpc { get { return "2.0"; } }
-            public int result { get; set; }
+            public object result { get; set; }
             public int id { get; set; }
+        }
+
+        enum JSONRPCType
+        {
+            Request = 1,
+            Notification = 2 // Has no id field set.
         }
 
         public object ProcessRemoteCall(string rpcJsonRequest)
@@ -31,7 +37,7 @@ namespace Discreet.RPC
 
             Type testType = typeof(RPCEndpoints);
             ConstructorInfo ctor = testType.GetConstructor(System.Type.EmptyTypes);
-           
+
             if (ctor != null)
             {
                 object instance = ctor.Invoke(null);
@@ -39,7 +45,7 @@ namespace Discreet.RPC
                 switch (request.method)
                 {
                     case "test_getStealthAddress":
-                        Console.WriteLine("RPC: invoking test_getStealthAddress");
+                        Console.WriteLine($"[{DateTime.Now} RPC]: test_getStealthAddress executed");
                         methodInfo = testType.GetMethod("test_getStealthAddress");
                         break;
 
@@ -53,15 +59,25 @@ namespace Discreet.RPC
 
                 object result = methodInfo.Invoke(instance, null);
 
-                return result;
+                RPCResponse response = CreateResponse(request, result);
+
+                return CreateResponseJSON(response);
             }
 
             throw new Exception("Unable to resolve endpoint");
         }
 
-        public RPCResponse CreateResponse(string response)
+        public RPCResponse CreateResponse(RPCRequest request, object result)
         {
-            return null;
+            RPCResponse response = new RPCResponse();
+            response.id = request.id;
+            response.result = result;
+            return response;
+        }
+        public string CreateResponseJSON(RPCResponse response)
+        {
+            string request = JsonSerializer.Serialize<RPCResponse>(response);
+            return request;
         }
 
 
