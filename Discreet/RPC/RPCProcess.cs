@@ -1,4 +1,7 @@
-﻿using System;
+﻿using Discreet.Cipher;
+using Discreet.Coin;
+using Discreet.RPC.Common;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
@@ -30,41 +33,23 @@ namespace Discreet.RPC
             Notification = 2 // Has no id field set.
         }
 
+
         public object ProcessRemoteCall(string rpcJsonRequest)
         {
-            RPCEndpoints endpoints = new RPCEndpoints();
+     
             RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest);
+            object result = ExecuteInternal(request.method);
+            RPCResponse response = CreateResponse(request, result);
 
-            Type testType = typeof(RPCEndpoints);
-            ConstructorInfo ctor = testType.GetConstructor(System.Type.EmptyTypes);
-
-            if (ctor != null)
-            {
-                object instance = ctor.Invoke(null);
-                MethodInfo methodInfo;
-                switch (request.method)
-                {
-                    case "test_getStealthAddress":
-                        Console.WriteLine($"[{DateTime.Now} RPC]: test_getStealthAddress executed");
-                        methodInfo = testType.GetMethod("test_getStealthAddress");
-                        break;
-
-                    case "test_getMnemonic":
-                        methodInfo = testType.GetMethod("test_getMnemonic");
-                        break;
-
-                    default:
-                        throw new Exception("Invalid RPC call");
-                }
-
-                object result = methodInfo.Invoke(instance, null);
-
-                RPCResponse response = CreateResponse(request, result);
-
-                return CreateResponseJSON(response);
-            }
+            return CreateResponseJSON(response);
 
             throw new Exception("Unable to resolve endpoint");
+        }
+
+        private object ExecuteInternal(string endpoint, params object[] args)
+        {
+            object result = RPCEndpointResolver.GetEndpoint(endpoint).DynamicInvoke(args);
+            return result;
         }
 
         public RPCResponse CreateResponse(RPCRequest request, object result)

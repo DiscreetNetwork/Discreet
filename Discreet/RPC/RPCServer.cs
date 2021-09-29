@@ -8,11 +8,12 @@ using System.Threading.Tasks;
 namespace Discreet.RPC
 {
     public class RPCServer
-    {
+    {   
         private readonly HttpListener _listener;
 
         public RPCServer(int portNumber)
         {
+            RPCEndpointResolver.ReflectEndpoints();
             _listener = new HttpListener();
             _listener.Prefixes.Add($"http://localhost:{portNumber}/");
         }
