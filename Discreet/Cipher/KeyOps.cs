@@ -88,6 +88,30 @@ namespace Discreet.Cipher
             return Coin.Serialization.GetUInt64(amountBytes, 0);
         }
 
+        public static ulong GenAmountMask(ref Key r, ref Key pv, int i, ulong amount)
+        {
+            byte[] cdata = new byte[36];
+            Array.Copy(ScalarmultKey(ref pv, ref r).bytes, cdata, 32);
+            Coin.Serialization.CopyData(cdata, 32, i);
+
+            Key c = new Key(new byte[32]);
+            HashOps.HashToScalar(ref c, cdata, 36);
+
+            byte[] gdata = new byte[38];
+            gdata[0] = (byte)'a';
+            gdata[1] = (byte)'m';
+            gdata[2] = (byte)'o';
+            gdata[3] = (byte)'u';
+            gdata[4] = (byte)'n';
+            gdata[5] = (byte)'t';
+            Array.Copy(c.bytes, 0, gdata, 6, 32);
+
+            Key g = new Key(new byte[32]);
+            HashOps.HashData(ref g, gdata, 38);
+
+            return XOR8(ref g, amount);
+        }
+
         [DllImport(@"DiscreetCore.dll", EntryPoint = "InMainSubgroup", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool InMainSubgroup(ref Key a);
@@ -130,6 +154,38 @@ namespace Discreet.Cipher
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "GenCommitmentMask", CallingConvention = CallingConvention.StdCall)]
         public static extern void GenCommitmentMask(ref Key rv, ref Key sk);
+
+        public static Key GenCommitmentMask(ref Key r, ref Key pv, int i)
+        {
+            byte[] cdata = new byte[36];
+            Array.Copy(ScalarmultKey(ref pv, ref r).bytes, cdata, 32);
+            Coin.Serialization.CopyData(cdata, 32, i);
+
+            Key c = new Key(new byte[32]);
+            HashOps.HashToScalar(ref c, cdata, 36);
+
+            Key rv = new Key(new byte[32]);
+
+            GenCommitmentMask(ref rv, ref c);
+
+            return rv;
+        }
+
+        public static Key GenCommitmentMaskRecover(ref Key R, ref Key sv, int i)
+        {
+            byte[] cdata = new byte[36];
+            Array.Copy(ScalarmultKey(ref R, ref sv).bytes, cdata, 32);
+            Coin.Serialization.CopyData(cdata, 32, i);
+
+            Key c = new Key(new byte[32]);
+            HashOps.HashToScalar(ref c, cdata, 36);
+
+            Key rv = new Key(new byte[32]);
+
+            GenCommitmentMask(ref rv, ref c);
+
+            return rv;
+        }
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "ECDHEncode", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Struct)]
@@ -204,6 +260,63 @@ namespace Discreet.Cipher
             sig.e = new Key();
             SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref m);
             return sig;
+        }
+
+        public static void DKSAP(ref Key r, ref Key R, Key[] T, Key[] pv, Key[] ps)
+        {
+            r = new Key(new byte[32]);
+            R = new Key(new byte[32]);
+
+            T = new Key[pv.Length];
+
+            GenerateKeypair(ref r, ref R);
+
+            for (uint i = 0; i < ps.Length; i++)
+            {
+                Key cscalar = ScalarmultKey(ref pv[i], ref r);
+
+                byte[] txbytes = new byte[36];
+                Array.Copy(cscalar.bytes, txbytes, 32);
+                txbytes[32] = (byte)(i >> 24);
+                txbytes[33] = (byte)((i >> 16) & 0xFF);
+                txbytes[34] = (byte)((i >> 8) & 0xFF);
+                txbytes[35] = (byte)(i & 0xFF);
+
+                Key c = new Key(new byte[32]);
+                HashOps.HashToScalar(ref c, txbytes, 36);
+
+                T[i] = new Key(new byte[32]);
+                AGB(ref T[i], ref c, ref ps[i]);
+            }
+        }
+
+        public static Key[] DKSAP(ref Key r, ref Key R, Key[] pv, Key[] ps)
+        {
+            Key[] T = new Key[pv.Length];
+
+            DKSAP(ref r, ref R, T, pv, ps);
+
+            return T;
+        }
+
+        public static Key DKSAP(ref Key r, Key pv, Key ps, int i)
+        {
+            Key cscalar = ScalarmultKey(ref pv, ref r);
+
+            byte[] txbytes = new byte[36];
+            Array.Copy(cscalar.bytes, txbytes, 32);
+            txbytes[32] = (byte)(i >> 24);
+            txbytes[33] = (byte)((i >> 16) & 0xFF);
+            txbytes[34] = (byte)((i >> 8) & 0xFF);
+            txbytes[35] = (byte)(i & 0xFF);
+
+            Key c = new Key(new byte[32]);
+            HashOps.HashToScalar(ref c, txbytes, 36);
+
+            Key T = new Key(new byte[32]);
+            AGB(ref T, ref c, ref ps);
+
+            return T;
         }
     }
 }

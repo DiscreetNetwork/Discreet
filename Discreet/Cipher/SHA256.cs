@@ -123,5 +123,10 @@ namespace Discreet.Cipher
                 return -1;
             }
         }
+
+        internal Key ToKey()
+        {
+            return new Key(bytes);
+        }
     }
 }

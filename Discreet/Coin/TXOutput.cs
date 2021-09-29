@@ -15,8 +15,13 @@ namespace Discreet.Coin
         public Discreet.Cipher.Key UXKey;
         [MarshalAs(UnmanagedType.Struct)]
         public Discreet.Cipher.Key Commitment;
+        [MarshalAs(UnmanagedType.Struct)]
+        public Discreet.Cipher.Key PseudoOutput;
         [MarshalAs(UnmanagedType.U8)]
         public ulong Amount;
+
+        [MarshalAs(UnmanagedType.U4)]
+        public uint Index; /* unused mostly except for CreateTransaction() */
 
         public TXOutput()
         {
@@ -32,6 +37,15 @@ namespace Discreet.Coin
             UXKey = uxKey;
             Commitment = commitment;
             Amount = amount;
+        }
+
+        public TXOutput(SHA256 transactionSrc, Key uxKey, Key commitment, ulong amount, Key pseudoOutput)
+        {
+            TransactionSrc = transactionSrc;
+            UXKey = uxKey;
+            Commitment = commitment;
+            Amount = amount;
+            PseudoOutput = pseudoOutput;
         }
 
         public SHA256 Hash()
@@ -55,6 +69,8 @@ namespace Discreet.Coin
 
             Array.Copy(amount, 0, rv, 96, 8);
 
+            Array.Copy(PseudoOutput.bytes, 0, rv, 104, 32);
+
             return rv;
         }
 
@@ -67,7 +83,7 @@ namespace Discreet.Coin
 
         public byte[] TXMarshal()
         {
-            byte[] rv = new byte[72];
+            byte[] rv = new byte[72 + 32];
 
             Array.Copy(UXKey.bytes, 0, rv, 0, 32);
             Array.Copy(Commitment.bytes, 0, rv, 32, 32);
@@ -80,6 +96,8 @@ namespace Discreet.Coin
 
             Array.Copy(amount, 0, rv, 64, 8);
 
+            Array.Copy(PseudoOutput.bytes, 0, rv, 72, 32);
+
             return rv;
         }
 
@@ -87,22 +105,22 @@ namespace Discreet.Coin
         {
             byte[] rv = TXMarshal();
 
-            Array.Copy(rv, 0, bytes, offset, 72);
+            Array.Copy(rv, 0, bytes, offset, 72 + 32);
         }
 
         public string Readable()
         {
-            return $"{{\"TransactionSrc\": \"{TransactionSrc.ToHex()}\",\"UXKey\":\"{UXKey.ToHex()}\",\"Commitment\":\"{Commitment.ToHex()}\",\"Amount\":{Amount:x}}}";
+            return $"{{\"TransactionSrc\": \"{TransactionSrc.ToHex()}\",\"UXKey\":\"{UXKey.ToHex()}\",\"Commitment\":\"{Commitment.ToHex()}\",\"Amount\":{Amount:x},\"PseudoOutput\":\"{PseudoOutput.ToHex()}\"}}";
         }
 
         public string TXReadable()
         {
-            return $"{{\"UXKey\":\"{UXKey.ToHex()}\",\"Commitment\":\"{Commitment.ToHex()}\",\"Amount\":{Amount:x}}}";
+            return $"{{\"UXKey\":\"{UXKey.ToHex()}\",\"Commitment\":\"{Commitment.ToHex()}\",\"Amount\":{Amount:x},\"PseudoOutput\":\"{PseudoOutput.ToHex()}\"}}";
         }
 
         public static uint Size()
         {
-            return 104;
+            return 104 + 32;
         }
 
         public void Unmarshal(byte[] bytes)
@@ -125,6 +143,10 @@ namespace Discreet.Coin
             }
 
             Amount = BitConverter.ToUInt64(amount);
+
+            PseudoOutput = new Key(new byte[32]);
+
+            Array.Copy(bytes, 104, PseudoOutput.bytes, 0, 32);
         }
 
         public void Unmarshal(byte[] bytes, uint offset)
@@ -147,6 +169,10 @@ namespace Discreet.Coin
             }
 
             Amount = BitConverter.ToUInt64(amount);
+
+            PseudoOutput = new Key(new byte[32]);
+
+            Array.Copy(bytes, offset + 104, PseudoOutput.bytes, 0, 32);
         }
 
         public void TXUnmarshal(byte[] bytes)
@@ -165,6 +191,10 @@ namespace Discreet.Coin
             }
 
             Amount = BitConverter.ToUInt64(amount);
+
+            PseudoOutput = new Key(new byte[32]);
+
+            Array.Copy(bytes, 72, PseudoOutput.bytes, 0, 32);
         }
 
         public void TXUnmarshal(byte[] bytes, uint offset)
@@ -183,6 +213,10 @@ namespace Discreet.Coin
             }
 
             Amount = BitConverter.ToUInt64(amount);
+
+            PseudoOutput = new Key(new byte[32]);
+
+            Array.Copy(bytes, offset + 72, PseudoOutput.bytes, 0, 32);
         }
 
         public static TXOutput GenerateMock()
@@ -197,6 +231,8 @@ namespace Discreet.Coin
             output.UXKey = Cipher.KeyOps.GeneratePubkey();
             output.Commitment = Cipher.KeyOps.GeneratePubkey();
             output.TransactionSrc = new Cipher.SHA256(new byte[32], false);
+
+            output.PseudoOutput = Cipher.KeyOps.GeneratePubkey();
 
             return output;
         }

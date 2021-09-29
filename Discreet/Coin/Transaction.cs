@@ -32,9 +32,6 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
         public Triptych[] Signatures;
 
-        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
-        public Cipher.Key[] PseudoOutputs;
-
         [MarshalAs(UnmanagedType.U4)]
         public uint ExtraLen;
 
@@ -129,12 +126,6 @@ namespace Discreet.Coin
                 offset += Triptych.Size();
             }
 
-            for (int i = 0; i < NumSigs; i++)
-            {
-                Array.Copy(PseudoOutputs[i].bytes, 0, bytes, offset, 32);
-                offset += 32;
-            }
-
             byte[] extraLen = BitConverter.GetBytes(ExtraLen);
             if (BitConverter.IsLittleEndian)
             {
@@ -198,18 +189,6 @@ namespace Discreet.Coin
                 rv += Signatures[i].Readable();
 
                 if (i < Signatures.Length - 1)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += "],\"PseudoOutputs\":[";
-
-            for (int i = 0; i < PseudoOutputs.Length; i++)
-            {
-                rv += $"\"{PseudoOutputs[i].ToHex()}\"";
-
-                if (i < PseudoOutputs.Length - 1)
                 {
                     rv += ",";
                 }
@@ -286,16 +265,6 @@ namespace Discreet.Coin
 
                 Signatures[i].Unmarshal(bytes, offset);
                 offset += Triptych.Size();
-            }
-
-            PseudoOutputs = new Cipher.Key[NumSigs];
-
-            for (int i = 0; i < NumSigs; i++)
-            {
-                PseudoOutputs[i] = new Cipher.Key(new byte[32]);
-
-                Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
-                offset += 32;
             }
 
             byte[] extraLen = new byte[4];
@@ -382,16 +351,6 @@ namespace Discreet.Coin
                 offset += Triptych.Size();
             }
 
-            PseudoOutputs = new Cipher.Key[NumSigs];
-
-            for (int i = 0; i < NumSigs; i++)
-            {
-                PseudoOutputs[i] = new Cipher.Key(new byte[32]);
-
-                Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
-                offset += 32;
-            }
-
             byte[] extraLen = new byte[4];
             
             Array.Copy(bytes, offset, extraLen, 0, 4);
@@ -410,7 +369,7 @@ namespace Discreet.Coin
 
         public uint Size()
         {
-            return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + PseudoOutputs.Length * 32 + 4 + Extra.Length);
+            return (uint)(4 + TXInput.Size() * Inputs.Length + 104 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 4 + Extra.Length);
         }
 
         public static Transaction GenerateMock()
@@ -424,14 +383,12 @@ namespace Discreet.Coin
             tx.Inputs = new TXInput[2];
             tx.Outputs = new TXOutput[2];
             tx.Signatures = new Triptych[2];
-            tx.PseudoOutputs = new Cipher.Key[2];
 
             for (int i = 0; i < 2; i++)
             {
                 tx.Inputs[i] = TXInput.GenerateMock();
                 tx.Outputs[i] = TXOutput.GenerateMock();
                 tx.Signatures[i] = Triptych.GenerateMock();
-                tx.PseudoOutputs[i] = Cipher.KeyOps.GeneratePubkey();
             }
 
             tx.RangeProof = Bulletproof.GenerateMock();

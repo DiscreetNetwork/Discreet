@@ -29,6 +29,26 @@ namespace Discreet.Coin
             return SHA256.HashData(Marshal());
         }
 
+        public Triptych() { }
+
+        public Triptych(Cipher.Triptych proof)
+        {
+            J = proof.J;
+            K = proof.K;
+            A = proof.A;
+            B = proof.B;
+            C = proof.C;
+            D = proof.D;
+
+            X = proof.X;
+            Y = proof.Y;
+            f = proof.f;
+
+            zA = proof.zA;
+            zC = proof.zC;
+            z = proof.z;
+        }
+
         public byte[] Marshal()
         {
             byte[] bytes = new byte[Size()];
@@ -247,9 +267,22 @@ namespace Discreet.Coin
             return proof;
         }
 
+        public VerifyException Verify(Key[] M, Key[] P, Key C_offset, Key message)
+        {
+            Cipher.Triptych proof = new Cipher.Triptych(this);
+
+            if (!Cipher.Triptych.Verify(proof, M, P, C_offset, message))
+            {
+                throw new VerifyException("Triptych", "Triptych proof is invalid!");
+            }
+
+            return null;
+        }
+
+        /* UNUSED. Use Verify(Key[] M, Key[] P, Key C_offset, Key message) instead */
         public VerifyException Verify()
         {
-            return new VerifyException("Triptych", "UNIMPLEMENTED");
+            return null;
         }
     }
 }

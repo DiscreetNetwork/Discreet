@@ -23,6 +23,14 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.Struct)]
         public Key a, b, t;
 
+        public int Size()
+        {
+            int i = 0;
+            while (!(V[i].bytes == null || V[i].Equals(Key.Z))) i++;
+
+            return i;
+        }
+
         [DllImport(@"DiscreetCore.dll", EntryPoint = "bulletproof_PROVE", CallingConvention = CallingConvention.StdCall)]
         private static extern void bulletproof_PROVE([In, Out] Bulletproof bp, [MarshalAs(UnmanagedType.LPArray, SizeConst = 16, ArraySubType = UnmanagedType.U8)] ulong[] v, [MarshalAs(UnmanagedType.LPArray, SizeConst = 16, ArraySubType = UnmanagedType.Struct)] Key[] gamma, [MarshalAs(UnmanagedType.U4)] uint size);
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using LightningDB;
+using System.Linq;
 using System.Threading;
 using Discreet.Coin;
 using System.IO;
@@ -195,7 +196,7 @@ namespace Discreet.DB
                 Env.MapSize = 1024 * 1024 * 1024;
             }
             mapsize = Env.MapSize;
-            
+
 
             Env.Open();
         }
@@ -216,8 +217,8 @@ namespace Discreet.DB
             using var txn = Env.BeginTransaction();
             var config = new DatabaseConfiguration { Flags = DatabaseOpenFlags.Create };
 
-            
-            
+
+
             SpentKeys = txn.OpenDatabase(SPENT_KEYS, config);
             TXPoolMeta = txn.OpenDatabase(TX_POOL_META, config);
             TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB, config);
@@ -792,6 +793,189 @@ namespace Discreet.DB
             TXOutput output = new TXOutput();
             output.Unmarshal(result.value.CopyToNewArray());
             return output;
+        }
+
+        public TXOutput[] GetMixins(uint[] index)
+        {
+            var txn = Env.BeginTransaction();
+
+            TXOutput[] rv = new TXOutput[index.Length];
+
+            if (Outputs == null || !Outputs.IsOpened)
+            {
+                Outputs = txn.OpenDatabase(OUTPUTS);
+            }
+
+            for (int i = 0; i < index.Length; i++)
+            {
+                byte[] key = Serialization.UInt32(index[i]);
+
+                var result = txn.Get(Outputs, key);
+
+                if (result.resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB.GetMixins: could not get output at index {index[i]}: {result.resultCode}");
+                }
+
+                rv[i] = new TXOutput();
+                rv[i].Unmarshal(result.value.CopyToNewArray());
+            }
+
+            return rv;
+        }
+
+        public (TXOutput[], int) GetMixins(uint index)
+        {
+            var txn = Env.BeginTransaction();
+
+            TXOutput[] rv = new TXOutput[64];
+
+            if (Outputs == null || !Outputs.IsOpened)
+            {
+                Outputs = txn.OpenDatabase(OUTPUTS);
+            }
+
+            uint max = GetOutputIndex();
+
+            Random rng = new Random();
+
+            SortedSet<uint> chosen = new SortedSet<uint>();
+
+            chosen.Add(index);
+
+            int i = 0;
+
+            /* the first 31 mixins are chosen uniformly from the possible set */
+            for (; i < 32; )
+            {
+                uint rindex = (uint)rng.Next(0, (int)max);
+                if (chosen.Contains(rindex)) continue;
+
+                byte[] key = Serialization.UInt32(rindex);
+
+                var result = txn.Get(Outputs, key);
+
+                if (result.resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB.GetMixins: could not get output at index {rindex}: {result.resultCode}");
+                }
+
+                rv[i] = new TXOutput();
+                rv[i].Unmarshal(result.value.CopyToNewArray());
+
+                rv[i].Index = rindex;
+
+                chosen.Add(rindex);
+                i++;
+            }
+
+            /* next set of mixins are chosen randomly from the triangular distribution where a = 3/4 * max and b=c=max */
+            for (; i < 63; )
+            {
+                double uniformVariate = rng.NextDouble();
+                double frac = 3.0 / 4.0 * Math.Sqrt(uniformVariate * (1.0 / 4.0) * (1.0 / 4.0));
+                uint rindex = (uint)Math.Floor(frac * max);
+                if (chosen.Contains(rindex)) continue;
+
+                byte[] key = Serialization.UInt32(rindex);
+
+                var result = txn.Get(Outputs, key);
+
+                if (result.resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB.GetMixins: could not get output at index {rindex}: {result.resultCode}");
+                }
+
+                rv[i] = new TXOutput();
+                rv[i].Unmarshal(result.value.CopyToNewArray());
+
+                rv[i].Index = rindex;
+
+                chosen.Add(rindex);
+                i++;
+            }
+
+            byte[] ikey = Serialization.UInt32(index);
+
+            var iresult = txn.Get(Outputs, ikey);
+
+            if (iresult.resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.GetMixins: could not get output at index {index}: {iresult.resultCode}");
+            }
+
+            var OutAtIndex = rv[i] = new TXOutput();
+            rv[i].Unmarshal(iresult.value.CopyToNewArray());
+
+            rv[i].Index = index;
+
+            /* randomly shuffle */
+            var rvEnumerated = rv.OrderBy(x => rng.Next(0, 64)).ToList();
+            return (rvEnumerated.ToArray(), rvEnumerated.IndexOf(OutAtIndex));
+        }
+
+        public (TXOutput[], int) GetMixinsUniform(uint index)
+        {
+            var txn = Env.BeginTransaction();
+
+            TXOutput[] rv = new TXOutput[64];
+
+            if (Outputs == null || !Outputs.IsOpened)
+            {
+                Outputs = txn.OpenDatabase(OUTPUTS);
+            }
+
+            uint max = GetOutputIndex();
+
+            Random rng = new Random();
+
+            SortedSet<uint> chosen = new SortedSet<uint>();
+
+            chosen.Add(index);
+
+            int i = 0;
+
+            /* the first 31 mixins are chosen uniformly from the possible set */
+            for (; i < 63;)
+            {
+                uint rindex = (uint)rng.Next(0, (int)max);
+                if (chosen.Contains(rindex)) continue;
+
+                byte[] key = Serialization.UInt32(rindex);
+
+                var result = txn.Get(Outputs, key);
+
+                if (result.resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB.GetMixinsUniform: could not get output at index {rindex}: {result.resultCode}");
+                }
+
+                rv[i] = new TXOutput();
+                rv[i].Unmarshal(result.value.CopyToNewArray());
+
+                rv[i].Index = rindex;
+
+                chosen.Add(rindex);
+                i++;
+            }
+
+            byte[] ikey = Serialization.UInt32(index);
+
+            var iresult = txn.Get(Outputs, ikey);
+
+            if (iresult.resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.GetMixinsUniform: could not get output at index {index}: {iresult.resultCode}");
+            }
+
+            var OutAtIndex = rv[i] = new TXOutput();
+            rv[i].Unmarshal(iresult.value.CopyToNewArray());
+
+            rv[i].Index = index;
+
+            /* randomly shuffle */
+            var rvEnumerated = rv.OrderBy(x => rng.Next(0, 64)).ToList();
+            return (rvEnumerated.ToArray(), rvEnumerated.IndexOf(OutAtIndex));
         }
 
         public Transaction GetTransaction(ulong txid)

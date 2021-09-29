@@ -21,6 +21,25 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.Struct)]
         public Key a, b, t;
 
+        public Bulletproof() { }
+
+        public Bulletproof(Cipher.Bulletproof bp)
+        {
+            A = bp.A;
+            S = bp.S;
+            T1 = bp.T1;
+            T2 = bp.T2;
+            taux = bp.taux;
+            mu = bp.mu;
+            L = bp.L;
+            R = bp.R;
+            a = bp.a;
+            b = bp.b;
+            t = bp.t;
+
+            size = (uint)bp.Size();
+        }
+
         public SHA256 Hash()
         {
             return SHA256.HashData(Marshal());
@@ -244,6 +263,12 @@ namespace Discreet.Coin
                 return new VerifyException("Bulletproof", "Bulletproof is invalid!");
             }
 
+            return null;
+        }
+
+        /* UNUSED. Use Verify(Transaction tx) instead */
+        public VerifyException Verify()
+        {
             return null;
         }
     }

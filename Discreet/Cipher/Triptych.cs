@@ -23,6 +23,24 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.Struct)]
         public Key zA, zC, z;
 
+        public Triptych(Coin.Triptych proof)
+        {
+            J = proof.J;
+            K = proof.K;
+            A = proof.A;
+            B = proof.B;
+            C = proof.C;
+            D = proof.D;
+
+            X = proof.X;
+            Y = proof.Y;
+            f = proof.f;
+
+            zA = proof.zA;
+            zC = proof.zC;
+            z = proof.z;
+        }
+
         [DllImport(@"DiscreetCore.dll", EntryPoint = "triptych_prove", CallingConvention = CallingConvention.StdCall)]
         private static extern void triptych_prove(
                 [In, Out] Triptych bp,
@@ -45,7 +63,7 @@ namespace Discreet.Cipher
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "triptych_verify", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool Verify(
+        public static extern bool Verify(
                 [In, Out] Triptych bp,
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] M,
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] P,
