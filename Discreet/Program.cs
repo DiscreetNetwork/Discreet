@@ -11,6 +11,7 @@ using Discreet.Cipher.Mnemonics;
 using Discreet.Coin;
 using Discreet.Wallets;
 using System.IO;
+using Discreet.RPC;
 
 namespace Discreet
 {
@@ -199,7 +200,7 @@ namespace Discreet
 			return rv;
         }*/
 
-		public static void Main(string[] args)
+		public static async Task Main(string[] args)
 		{
 			/*Key bv = new Key();
 			Key BV = new Key();
@@ -499,7 +500,7 @@ namespace Discreet
 
 			// CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
 
-
+			/*
 			Wallet wallet = new Wallet("wrap", "password123!");
 			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
 
@@ -548,6 +549,13 @@ namespace Discreet
 
 			string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
 			Console.WriteLine(Path.Combine(homePath, ".discreet"));
+			*/
+
+
+			RPCServer process = new RPCServer(8350);
+			await process.Start();
+			await Task.Delay(-1);
+
 
 			//Key specvw = KeyOps.GenerateSeckey();
 

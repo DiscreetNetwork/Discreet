@@ -246,5 +246,10 @@ namespace Discreet.Coin
 
             return null;
         }
+
+        public VerifyException Verify()
+        {
+            throw new NotImplementedException();
+        }
     }
 }
