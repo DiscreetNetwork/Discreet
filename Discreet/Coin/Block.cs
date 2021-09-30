@@ -94,7 +94,7 @@ namespace Discreet.Coin
             }
         }
 
-        public void Unmarshal(byte[] bytes, uint _offset)
+        public uint Unmarshal(byte[] bytes, uint _offset)
         {
             int offset = (int)_offset;
             Version = bytes[offset];
@@ -117,6 +117,8 @@ namespace Discreet.Coin
             {
                 Transactions[i] = new SHA256(bytes[(offset + 133 + i * 32)..(offset + 133 + (i + 1) * 32)], false);
             }
+
+            return _offset + Size();
         }
 
         public uint Size()

@@ -644,9 +644,9 @@ namespace Discreet.Wallets
                 Key mask = KeyOps.GenCommitmentMask(ref r, ref to[i].view, i);
                 KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref mask, amount[i]);
                 Key maskG = KeyOps.ScalarmultBase(ref mask);
-                tx.Outputs[i].PseudoOutput = new Key(new byte[32]);
+                tx.Outputs[i].COffset = new Key(new byte[32]);
                 /* PseudoOutput = Commitment - mask * G */
-                KeyOps.SubKeys(ref tx.Outputs[i].PseudoOutput, ref tx.Outputs[i].Commitment, ref maskG);
+                KeyOps.SubKeys(ref tx.Outputs[i].COffset, ref tx.Outputs[i].Commitment, ref maskG);
                 tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref to[i].view, i, amount[i]);
                 gammas[i] = mask;
             }
@@ -658,9 +658,9 @@ namespace Discreet.Wallets
             Key rmask = KeyOps.GenCommitmentMask(ref r, ref addr.PubViewKey, i);
             KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref rmask, amount[i]);
             Key rmaskG = KeyOps.ScalarmultBase(ref rmask);
-            tx.Outputs[i].PseudoOutput = new Key(new byte[32]);
+            tx.Outputs[i].COffset = new Key(new byte[32]);
             /* PseudoOutput = Commitment - mask * G */
-            KeyOps.SubKeys(ref tx.Outputs[i].PseudoOutput, ref tx.Outputs[i].Commitment, ref rmaskG);
+            KeyOps.SubKeys(ref tx.Outputs[i].COffset, ref tx.Outputs[i].Commitment, ref rmaskG);
             tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref addr.PubViewKey, i, neededAmount - totalAmount);
             gammas[i] = rmask;
 
@@ -672,18 +672,48 @@ namespace Discreet.Wallets
             tx.Inputs = new TXInput[inputs.Count];
             tx.Signatures = new Coin.Triptych[inputs.Count];
 
+            tx.PseudoOutputs = new Key[inputs.Count];
+
+            Key[] blindingFactors = new Key[inputs.Count - 1];
+
+            Key sum = new Key(new byte[32]);
+
+            for (i = 0; i < inputs.Count - 1; i++)
+            {
+                Key tmp = KeyOps.GenCommitmentMaskRecover(ref R, ref addr.SecViewKey, inputs[i].DecodeIndex);
+                KeyOps.ScalarAdd(ref sum, ref sum, ref tmp);
+                blindingFactors[i] = KeyOps.GenerateSeckey();
+                tx.PseudoOutputs[i] = new Key(new byte[32]);
+                KeyOps.GenCommitment(ref tx.PseudoOutputs[i], ref blindingFactors[i], inputs[i].DecodedAmount);
+            }
+
+            Key ptmp = KeyOps.GenCommitmentMaskRecover(ref R, ref addr.SecViewKey, inputs[i].DecodeIndex);
+            KeyOps.ScalarAdd(ref sum, ref sum, ref ptmp);
+
+            Key dif = new Key(new byte[32]);
+
+            for (int k = 0; k < blindingFactors.Length; k++)
+            {
+                KeyOps.ScalarAdd(ref dif, ref dif, ref blindingFactors[k]);
+            }
+
+            Key xm = new Key(new byte[32]);
+            KeyOps.ScalarSub(ref xm, ref sum, ref dif);
+            tx.PseudoOutputs[i] = new Key(new byte[32]);
+            KeyOps.GenCommitment(ref tx.PseudoOutputs[i], ref xm, inputs[i].DecodedAmount);
+
             for (i = 0; i < inputs.Count; i++)
             {
                 /* get mixins */
-                (TXOutput[] anonymitySet, int l) = db.GetMixins(addr.UTXOs[i].Index);
+                (TXOutput[] anonymitySet, int l) = db.GetMixins(inputs[i].Index);
 
                 /* get ringsig params */
                 Key[] M = new Key[64];
                 Key[] P = new Key[64];
-                Key C_offset = anonymitySet[l].PseudoOutput;
+                Key C_offset = anonymitySet[l].COffset;
                 Key sign_r = new Key(new byte[32]);
-                KeyOps.DKSAPRecover(ref sign_r, ref R, ref addr.SecViewKey, ref addr.SecSpendKey, addr.UTXOs[i].DecodeIndex);
-                Key sign_s = KeyOps.GenCommitmentMaskRecover(ref R, ref addr.SecViewKey, addr.UTXOs[i].DecodeIndex);
+                KeyOps.DKSAPRecover(ref sign_r, ref R, ref addr.SecViewKey, ref addr.SecSpendKey, inputs[i].DecodeIndex);
+                Key sign_s = KeyOps.GenCommitmentMaskRecover(ref R, ref addr.SecViewKey, inputs[i].DecodeIndex);
 
                 /* signatures */
                 Cipher.Triptych ringsig = Cipher.Triptych.Prove(M, P, C_offset, (uint)l, sign_r, sign_s, tx.SigningHash().ToKey());

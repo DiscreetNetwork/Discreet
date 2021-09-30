@@ -32,6 +32,9 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
         public Triptych[] Signatures;
 
+        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
+        public Cipher.Key[] PseudoOutputs;
+
         [MarshalAs(UnmanagedType.U4)]
         public uint ExtraLen;
 
@@ -87,57 +90,94 @@ namespace Discreet.Coin
 
         public byte[] Marshal()
         {
-            byte[] bytes = new byte[Size()];
-
-            bytes[0] = Version;
-            bytes[1] = NumInputs;
-            bytes[2] = NumOutputs;
-            bytes[3] = NumSigs;
-
             uint offset = 4;
 
-            for (int i = 0; i < Inputs.Length; i++)
+            if (Version == 0)
             {
-                Inputs[i].Marshal(bytes, offset);
-                offset += TXInput.Size();
-            }
+                byte[] bytes = new byte[4 + 4 + Extra.Length + NumOutputs * 104];
 
-            for (int i = 0; i < Outputs.Length; i++)
+                bytes[0] = Version;
+                bytes[1] = NumInputs;
+                bytes[2] = NumOutputs;
+                bytes[3] = NumSigs;
+
+                for (int i = 0; i < Outputs.Length; i++)
+                {
+                    Outputs[i].TXMarshal(bytes, offset);
+                    offset += 104;
+                }
+
+                byte[] extraLen = BitConverter.GetBytes(ExtraLen);
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(extraLen);
+                }
+
+                Array.Copy(extraLen, 0, bytes, offset, 4);
+                offset += 4;
+
+                Array.Copy(Extra, 0, bytes, offset, Extra.Length);
+
+                return bytes;
+            }
+            else
             {
-                Outputs[i].TXMarshal(bytes, offset);
-                offset += 72;
+                byte[] bytes = new byte[Size()];
+
+                bytes[0] = Version;
+                bytes[1] = NumInputs;
+                bytes[2] = NumOutputs;
+                bytes[3] = NumSigs;
+
+                for (int i = 0; i < Inputs.Length; i++)
+                {
+                    Inputs[i].Marshal(bytes, offset);
+                    offset += TXInput.Size();
+                }
+
+                for (int i = 0; i < Outputs.Length; i++)
+                {
+                    Outputs[i].TXMarshal(bytes, offset);
+                    offset += 104;
+                }
+
+                RangeProof.Marshal(bytes, offset);
+                offset += RangeProof.Size();
+
+                byte[] fee = BitConverter.GetBytes(Fee);
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(fee);
+                }
+
+                Array.Copy(fee, 0, bytes, offset, 8);
+                offset += 8;
+
+                for (int i = 0; i < NumSigs; i++)
+                {
+                    Signatures[i].Marshal(bytes, offset);
+                    offset += Triptych.Size();
+                }
+
+                for (int i = 0; i < PseudoOutputs.Length; i++)
+                {
+                    Array.Copy(PseudoOutputs[i].bytes, 0, bytes, offset, 32);
+                    offset += 32;
+                }
+
+                byte[] extraLen = BitConverter.GetBytes(ExtraLen);
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(extraLen);
+                }
+
+                Array.Copy(extraLen, 0, bytes, offset, 4);
+                offset += 4;
+
+                Array.Copy(Extra, 0, bytes, offset, Extra.Length);
+
+                return bytes;
             }
-
-            RangeProof.Marshal(bytes, offset);
-            offset += RangeProof.Size();
-
-            byte[] fee = BitConverter.GetBytes(Fee);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Array.Copy(fee, 0, bytes, offset, 8);
-            offset += 8;
-
-            for (int i = 0; i < NumSigs; i++)
-            {
-                Signatures[i].Marshal(bytes, offset);
-                offset += Triptych.Size();
-            }
-
-            byte[] extraLen = BitConverter.GetBytes(ExtraLen);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(extraLen);
-            }
-
-            Array.Copy(extraLen, 0, bytes, offset, 4);
-            offset += 4;
-
-            Array.Copy(Extra, 0, bytes, offset, Extra.Length);
-
-            return bytes;
         }
 
         public void Marshal(byte[] bytes, uint offset)
@@ -149,138 +189,234 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            string rv = "{";
-
-            rv += $"\"Version:\":{Version},";
-            rv += $"\"NumInputs:\":{NumInputs},";
-            rv += $"\"NumOutputs:\":{NumOutputs},";
-            rv += $"\"NumSigs:\":{NumSigs},";
-
-            rv += "\"Inputs\":[";
-
-            for (int i = 0; i < Inputs.Length; i++)
+            if (Version == 0)
             {
-                rv += Inputs[i].Readable();
+                string rv = "{";
 
-                if (i < Inputs.Length - 1)
+                rv += $"\"Version:\":{Version},";
+                rv += $"\"NumInputs:\":{NumInputs},";
+                rv += $"\"NumOutputs:\":{NumOutputs},";
+                rv += $"\"NumSigs:\":{NumSigs},";
+
+                rv += "\"Outputs\":[";
+
+                for (int i = 0; i < Outputs.Length; i++)
                 {
-                    rv += ",";
+                    rv += Outputs[i].TXReadable();
+
+                    if (i < Outputs.Length - 1)
+                    {
+                        rv += ",";
+                    }
                 }
+
+                rv += $"],\"ExtraLen\":{ExtraLen},\"Extra\":[";
+
+                for (int i = 0; i < Extra.Length; i++)
+                {
+                    rv += $"{Extra[i]}";
+
+                    if (i < Extra.Length - 1)
+                    {
+                        rv += ",";
+                    }
+                }
+
+                rv += "]}";
+
+                return rv;
             }
-
-            rv += "],\"Outputs\":[";
-
-            for (int i = 0; i < Outputs.Length; i++)
+            else
             {
-                rv += Outputs[i].TXReadable();
+                string rv = "{";
 
-                if (i < Outputs.Length - 1)
+                rv += $"\"Version:\":{Version},";
+                rv += $"\"NumInputs:\":{NumInputs},";
+                rv += $"\"NumOutputs:\":{NumOutputs},";
+                rv += $"\"NumSigs:\":{NumSigs},";
+
+                rv += "\"Inputs\":[";
+
+                for (int i = 0; i < Inputs.Length; i++)
                 {
-                    rv += ",";
+                    rv += Inputs[i].Readable();
+
+                    if (i < Inputs.Length - 1)
+                    {
+                        rv += ",";
+                    }
                 }
-            }
 
-            rv += "],\"RangeProof\":" + RangeProof.Readable();
-            rv += $",\"Fee\":{Fee}";
-            rv += ",\"Signatures\":[";
+                rv += "],\"Outputs\":[";
 
-            for (int i = 0; i < Signatures.Length; i++)
-            {
-                rv += Signatures[i].Readable();
-
-                if (i < Signatures.Length - 1)
+                for (int i = 0; i < Outputs.Length; i++)
                 {
-                    rv += ",";
+                    rv += Outputs[i].TXReadable();
+
+                    if (i < Outputs.Length - 1)
+                    {
+                        rv += ",";
+                    }
                 }
-            }
 
-            rv += $"],\"ExtraLen\":{ExtraLen},\"Extra\":[";
+                rv += "],\"RangeProof\":" + RangeProof.Readable();
+                rv += $",\"Fee\":{Fee}";
+                rv += ",\"Signatures\":[";
 
-            for (int i = 0; i < Extra.Length; i++)
-            {
-                rv += $"{Extra[i]}";
-
-                if (i < Extra.Length - 1)
+                for (int i = 0; i < Signatures.Length; i++)
                 {
-                    rv += ",";
+                    rv += Signatures[i].Readable();
+
+                    if (i < Signatures.Length - 1)
+                    {
+                        rv += ",";
+                    }
                 }
+
+                rv += "],\"PseudoOutputs\":";
+
+                for (int i = 0; i < PseudoOutputs.Length; i++)
+                {
+                    rv += PseudoOutputs[i].ToHex();
+
+                    if (i < PseudoOutputs.Length - 1)
+                    {
+                        rv += ",";
+                    }
+                }
+
+                rv += $"],\"ExtraLen\":{ExtraLen},\"Extra\":[";
+
+                for (int i = 0; i < Extra.Length; i++)
+                {
+                    rv += $"{Extra[i]}";
+
+                    if (i < Extra.Length - 1)
+                    {
+                        rv += ",";
+                    }
+                }
+
+                rv += "]}";
+
+                return rv;
             }
-
-            rv += "]}";
-
-            return rv;
         }
 
         public void Unmarshal(byte[] bytes)
         {
-            Version = bytes[0];
-            NumInputs = bytes[1];
-            NumOutputs = bytes[2];
-            NumSigs = bytes[3];
-
-            uint offset = 4;
-
-            Inputs = new TXInput[NumInputs];
-
-            for (int i = 0; i < NumInputs; i++)
+            if (bytes[0] == 0)
             {
-                Inputs[i] = new TXInput();
+                Version = bytes[0];
+                NumInputs = bytes[1];
+                NumOutputs = bytes[2];
+                NumSigs = bytes[3];
 
-                Inputs[i].Unmarshal(bytes, offset);
-                offset += TXInput.Size();
+                uint offset = 4;
+
+                Outputs = new TXOutput[NumOutputs];
+
+                for (int i = 0; i < NumOutputs; i++)
+                {
+                    Outputs[i] = new TXOutput();
+
+                    Outputs[i].TXUnmarshal(bytes, offset);
+                    offset += 104;
+                }
+
+                byte[] extraLen = new byte[4];
+
+                Array.Copy(bytes, offset, extraLen, 0, 4);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(extraLen);
+                }
+
+                ExtraLen = BitConverter.ToUInt32(extraLen);
+                offset += 4;
+
+                Extra = new byte[ExtraLen];
+                Array.Copy(bytes, offset, Extra, 0, ExtraLen);
             }
-
-            Outputs = new TXOutput[NumOutputs];
-
-            for (int i = 0; i < NumOutputs; i++)
+            else
             {
-                Outputs[i] = new TXOutput();
+                Version = bytes[0];
+                NumInputs = bytes[1];
+                NumOutputs = bytes[2];
+                NumSigs = bytes[3];
 
-                Outputs[i].TXUnmarshal(bytes, offset);
-                offset += 72;
+                uint offset = 4;
+
+                Inputs = new TXInput[NumInputs];
+
+                for (int i = 0; i < NumInputs; i++)
+                {
+                    Inputs[i] = new TXInput();
+
+                    Inputs[i].Unmarshal(bytes, offset);
+                    offset += TXInput.Size();
+                }
+
+                Outputs = new TXOutput[NumOutputs];
+
+                for (int i = 0; i < NumOutputs; i++)
+                {
+                    Outputs[i] = new TXOutput();
+
+                    Outputs[i].TXUnmarshal(bytes, offset);
+                    offset += 104;
+                }
+
+                RangeProof = new Bulletproof();
+
+                RangeProof.Unmarshal(bytes, offset);
+                offset += RangeProof.Size();
+
+                byte[] fee = new byte[8];
+
+                Array.Copy(bytes, offset, fee, 0, 8);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(fee);
+                }
+
+                Fee = BitConverter.ToUInt64(fee);
+                offset += 8;
+
+                Signatures = new Triptych[NumSigs];
+
+                for (int i = 0; i < NumSigs; i++)
+                {
+                    Signatures[i] = new Triptych();
+
+                    Signatures[i].Unmarshal(bytes, offset);
+                    offset += Triptych.Size();
+                }
+
+                for (int i = 0; i < NumInputs; i++)
+                {
+                    PseudoOutputs[i] = new Cipher.Key(new byte[32]);
+                    Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
+                    offset += 32;
+                }
+
+                byte[] extraLen = new byte[4];
+
+                Array.Copy(bytes, offset, extraLen, 0, 4);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(extraLen);
+                }
+
+                ExtraLen = BitConverter.ToUInt32(extraLen);
+                offset += 4;
+
+                Extra = new byte[ExtraLen];
+                Array.Copy(bytes, offset, Extra, 0, ExtraLen);
             }
-
-            RangeProof = new Bulletproof();
-
-            RangeProof.Unmarshal(bytes, offset);
-            offset += RangeProof.Size();
-
-            byte[] fee = new byte[8];
-
-            Array.Copy(bytes, offset, fee, 0, 8);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Fee = BitConverter.ToUInt64(fee);
-            offset += 8;
-
-            Signatures = new Triptych[NumSigs];
-
-            for (int i = 0; i < NumSigs; i++)
-            {
-                Signatures[i] = new Triptych();
-
-                Signatures[i].Unmarshal(bytes, offset);
-                offset += Triptych.Size();
-            }
-
-            byte[] extraLen = new byte[4];
-
-            Array.Copy(bytes, offset, extraLen, 0, 4);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(extraLen);
-            }
-
-            ExtraLen = BitConverter.ToUInt32(extraLen);
-            offset += 4;
-
-            Extra = new byte[ExtraLen];
-            Array.Copy(bytes, offset, Extra, 0, ExtraLen);
         }
 
         internal Cipher.Key[] GetCommitments()
@@ -295,81 +431,136 @@ namespace Discreet.Coin
             return comms;
         }
 
-        public void Unmarshal(byte[] bytes, uint offset)
+        public uint Unmarshal(byte[] bytes, uint offset)
         {
-            Version = bytes[offset];
-            NumInputs = bytes[offset + 1];
-            NumOutputs = bytes[offset + 2];
-            NumSigs = bytes[offset + 3];
-
-            offset += 4;
-
-            Inputs = new TXInput[NumInputs];
-
-            for (int i = 0; i < NumInputs; i++)
+            if (bytes[0] == 0)
             {
-                Inputs[i] = new TXInput();
+                Version = bytes[0];
+                NumInputs = bytes[1];
+                NumOutputs = bytes[2];
+                NumSigs = bytes[3];
 
-                Inputs[i].Unmarshal(bytes, offset);
-                offset += TXInput.Size();
+                offset += 4;
+
+                Outputs = new TXOutput[NumOutputs];
+
+                for (int i = 0; i < NumOutputs; i++)
+                {
+                    Outputs[i] = new TXOutput();
+
+                    Outputs[i].TXUnmarshal(bytes, offset);
+                    offset += 104;
+                }
+
+                byte[] extraLen = new byte[4];
+
+                Array.Copy(bytes, offset, extraLen, 0, 4);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(extraLen);
+                }
+
+                ExtraLen = BitConverter.ToUInt32(extraLen);
+                offset += 4;
+
+                Extra = new byte[ExtraLen];
+                Array.Copy(bytes, offset, Extra, 0, ExtraLen);
+
+                return offset;
             }
-
-            Outputs = new TXOutput[NumOutputs];
-
-            for (int i = 0; i < NumOutputs; i++)
+            else
             {
-                Outputs[i] = new TXOutput();
+                Version = bytes[offset];
+                NumInputs = bytes[offset + 1];
+                NumOutputs = bytes[offset + 2];
+                NumSigs = bytes[offset + 3];
 
-                Outputs[i].TXUnmarshal(bytes, offset);
-                offset += 72;
+                offset += 4;
+
+                Inputs = new TXInput[NumInputs];
+
+                for (int i = 0; i < NumInputs; i++)
+                {
+                    Inputs[i] = new TXInput();
+
+                    Inputs[i].Unmarshal(bytes, offset);
+                    offset += TXInput.Size();
+                }
+
+                Outputs = new TXOutput[NumOutputs];
+
+                for (int i = 0; i < NumOutputs; i++)
+                {
+                    Outputs[i] = new TXOutput();
+
+                    Outputs[i].TXUnmarshal(bytes, offset);
+                    offset += 104;
+                }
+
+                RangeProof = new Bulletproof();
+
+                RangeProof.Unmarshal(bytes, offset);
+                offset += RangeProof.Size();
+
+                byte[] fee = new byte[8];
+
+                Array.Copy(bytes, offset, fee, 0, 8);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(fee);
+                }
+
+                Fee = BitConverter.ToUInt64(fee);
+                offset += 8;
+
+                Signatures = new Triptych[NumSigs];
+
+                for (int i = 0; i < NumSigs; i++)
+                {
+                    Signatures[i] = new Triptych();
+
+                    Signatures[i].Unmarshal(bytes, offset);
+                    offset += Triptych.Size();
+                }
+
+                PseudoOutputs = new Cipher.Key[NumInputs];
+
+                for (int i = 0; i < NumInputs; i++)
+                {
+                    PseudoOutputs[i] = new Cipher.Key(new byte[32]);
+                    Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
+                    offset += 32;
+                }
+
+                byte[] extraLen = new byte[4];
+
+                Array.Copy(bytes, offset, extraLen, 0, 4);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(extraLen);
+                }
+
+                ExtraLen = BitConverter.ToUInt32(extraLen);
+                offset += 4;
+
+                Extra = new byte[ExtraLen];
+                Array.Copy(bytes, offset, Extra, 0, ExtraLen);
+
+                return offset;
             }
-
-            RangeProof = new Bulletproof();
-
-            RangeProof.Unmarshal(bytes, offset);
-            offset += RangeProof.Size();
-
-            byte[] fee = new byte[8];
-
-            Array.Copy(bytes, offset, fee, 0, 8);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Fee = BitConverter.ToUInt64(fee);
-            offset += 8;
-
-            Signatures = new Triptych[NumSigs];
-
-            for (int i = 0; i < NumSigs; i++)
-            {
-                Signatures[i] = new Triptych();
-
-                Signatures[i].Unmarshal(bytes, offset);
-                offset += Triptych.Size();
-            }
-
-            byte[] extraLen = new byte[4];
-            
-            Array.Copy(bytes, offset, extraLen, 0, 4);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(extraLen);
-            }
-
-            ExtraLen = BitConverter.ToUInt32(extraLen);
-            offset += 4;
-
-            Extra = new byte[ExtraLen];
-            Array.Copy(bytes, offset, Extra, 0, ExtraLen);
         }
 
         public uint Size()
         {
-            return (uint)(4 + TXInput.Size() * Inputs.Length + 104 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 4 + Extra.Length);
+            if (Version == 0)
+            {
+                return (uint)(4 + 4 + Extra.Length + 104 * Outputs.Length);
+            }
+
+            return (uint)(4 + TXInput.Size() * Inputs.Length + 104 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 4 + Extra.Length);
         }
 
         public static Transaction GenerateMock()
@@ -413,6 +604,124 @@ namespace Discreet.Coin
 
         public VerifyException Verify()
         {
+            /* this function is the most important one for coin logic. We must verify everything. */
+            if (NumInputs != Inputs.Length)
+            {
+                return new VerifyException("Transaction", $"Input length mismatch: expected {NumInputs}, but got {Inputs.Length}");
+            }
+
+            if (NumOutputs != Outputs.Length)
+            {
+                return new VerifyException("Transaction", $"Output length mismatch: expected {NumOutputs}, but got {Outputs.Length}");
+            }
+
+            if (NumOutputs > 16)
+            {
+                return new VerifyException("Transaction", $"Transactions cannot have more than 16 outputs");
+            }
+
+            if (NumSigs != Signatures.Length)
+            {
+                return new VerifyException("Transaction", $"Signature length mismatch: expected {NumSigs}, but got {Signatures.Length}");
+            }
+
+            if (NumSigs != NumInputs)
+            {
+                return new VerifyException("Transaction", $"Transactions must have the same number of signatures as inputs ({NumInputs} inputs, but {NumSigs} sigs)");
+            }
+
+            if (Config.DEBUG && Version == 0 && NumInputs > 0)
+            {
+                return new VerifyException("Transaction", $"Genesis transactions cannot take in inputs!");
+            }
+
+            if (!Config.DEBUG && NumInputs == 0)
+            {
+                return new VerifyException("Transaction", $"Transaction has no inputs!");
+            }
+
+            if (NumOutputs == 0)
+            {
+                return new VerifyException("Transaction", $"Transaction has no outputs!");
+            }
+
+            /* this will need to be changed as Version changes */
+            if (!Config.DEBUG && Version != 1)
+            {
+                return new VerifyException("Transaction", $"Unknown transaction version: {Version} (currently only private transactions, version 1, are supported)");
+            }
+
+            if (ExtraLen != Extra.Length)
+            {
+                return new VerifyException("Transaction", $"Extra field length mismatch: expected {ExtraLen}, but got {Extra.Length}");
+            }
+            
+            if (ExtraLen < 34)
+            {
+                return new VerifyException("Transaction", $"Extra field length must be at least 34 bytes! (got {ExtraLen})");
+            }
+
+            if (Extra[0] != 1)
+            {
+                return new VerifyException("Transaction", $"Extra field must begin with 1! (got {Extra[0]})");
+            }
+
+            /* We currently only support Extra[1] == 0, indicating the following 32 bytes are populated with the transaction key */
+            if (Extra[1] != 0)
+            {
+                return new VerifyException("Transaction", $"Extra field: currently Extra field only accepts an encoded transaction key (field type 0); got {Extra[1]}");
+            }
+
+            for (int i = 0; i < NumOutputs; i++)
+            {
+                if (Outputs[i].Amount == 0)
+                {
+                    return new VerifyException("Transaction", $"Amount field in output at index {i} is not set!");
+                }
+
+                if (Outputs[i].Commitment.Equals(Cipher.Key.Z))
+                {
+                    return new VerifyException("Transaction", $"Commitment field in output at index {i} is not set!");
+                }
+
+                if (Outputs[i].COffset.Equals(Cipher.Key.Z))
+                {
+                    return new VerifyException("Transaction", $"PseudoOutput field in output at index {i} is not set!");
+                }
+            }
+
+            if (Version == 0)
+            {
+                /* should be all set */
+                return null;
+            }
+            else
+            {
+                /* First validate inputs */
+
+                DB.DB db = DB.DB.GetDB();
+
+                for (int i = 0; i < NumInputs; i++)
+                {
+                    if (Inputs[i].Offsets.Length != 64)
+                    {
+                        return new VerifyException("Transaction", $"Input at index {i} has an anonymity set of size {Inputs[i].Offsets.Length}; expected 64");
+                    }
+
+                    TXOutput[] mixins;
+                    try
+                    {
+                        mixins = db.GetMixins(Inputs[i].Offsets);
+                    }
+                    catch (Exception e)
+                    {
+                        return new VerifyException("Transaction", $"Got error when getting mixin data at input at index {i}: " + e.Message);
+                    }
+                }
+            }
+
+            //WIP
+
             return new VerifyException("Transaction", "UNIMPLEMENTED");
         }
     }

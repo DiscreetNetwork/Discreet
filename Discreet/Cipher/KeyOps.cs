@@ -318,5 +318,11 @@ namespace Discreet.Cipher
 
             return T;
         }
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarAdd", CallingConvention = CallingConvention.StdCall)]
+        public static extern void ScalarAdd(ref Key res, ref Key a, ref Key b);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarSub", CallingConvention = CallingConvention.StdCall)]
+        public static extern void ScalarSub(ref Key res, ref Key a, ref Key b);
     }
 }

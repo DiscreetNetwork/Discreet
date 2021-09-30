@@ -11,7 +11,7 @@ namespace Discreet.Coin
         public byte[] Marshal();
         public void Marshal(byte[] bytes, uint offset);
         public void Unmarshal(byte[] bytes);
-        public void Unmarshal(byte[] bytes, uint offset);
+        public uint Unmarshal(byte[] bytes, uint offset);
         public static uint Size() { return 0; }
 
         public VerifyException Verify();
