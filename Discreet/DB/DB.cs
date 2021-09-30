@@ -728,7 +728,7 @@ namespace Discreet.DB
                 SpentKeys = txn.OpenDatabase(SPENT_KEYS);
             }
 
-            if (SpentKeys == null || !SpentKeys.IsOpened)
+            if (TXPoolSpentKeys == null || !TXPoolSpentKeys.IsOpened)
             {
                 TXPoolSpentKeys = txn.OpenDatabase(TX_POOL_SPENT_KEYS);
             }
@@ -777,6 +777,23 @@ namespace Discreet.DB
             {
                 throw new Exception($"Discreet.DB.AddTXToPool: database update exception: {resultCode}");
             }
+        }
+
+        public bool CheckSpentKey(Cipher.Key j)
+        {
+            var txn = Env.BeginTransaction();
+
+            if (TXPoolSpentKeys == null || !TXPoolSpentKeys.IsOpened)
+            {
+                TXPoolSpentKeys = txn.OpenDatabase(TX_POOL_SPENT_KEYS);
+            }
+
+            if (txn.ContainsKey(TXPoolSpentKeys, j.bytes))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         public TXOutput GetOutput(uint index)

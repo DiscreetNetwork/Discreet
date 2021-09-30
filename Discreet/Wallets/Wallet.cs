@@ -704,8 +704,14 @@ namespace Discreet.Wallets
                 /* get ringsig params */
                 Key[] M = new Key[64];
                 Key[] P = new Key[64];
-                Key C_offset = new Key(new byte[32]);
-                KeyOps.SubKeys(ref C_offset, ref anonymitySet[l].Commitment, ref tx.PseudoOutputs[i]);
+
+                for (int k = 0; k < 64; k++)
+                {
+                    M[i] = anonymitySet[k].UXKey;
+                    P[i] = anonymitySet[k].Commitment;
+                }
+
+                Key C_offset = tx.PseudoOutputs[i];
                 Key sign_r = new Key(new byte[32]);
                 KeyOps.DKSAPRecover(ref sign_r, ref R, ref addr.SecViewKey, ref addr.SecSpendKey, inputs[i].DecodeIndex);
                 /* s = zt = xt - x't */
