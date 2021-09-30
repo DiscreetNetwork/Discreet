@@ -17,7 +17,6 @@ namespace Discreet.RPC
             RPCEndpointResolver.ReflectEndpoints();
             _listener = new HttpListener();
             _listener.Prefixes.Add($"http://localhost:{portNumber}/");
-
         }
 
         public async Task Start()
@@ -27,26 +26,19 @@ namespace Discreet.RPC
             while (true)
             {
                 var ctx = await _listener.GetContextAsync();
-#pragma warning disable CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-                Task.Run(async () => HandleRequest(ctx));
-#pragma warning restore CS4014 // Because this call is not awaited, execution of the current method continues before the call is completed
-            }
-        }
+                var ss = ctx.Request.InputStream;
 
-        public async Task HandleRequest(HttpListenerContext ctx)
-        {
-            var ss = ctx.Request.InputStream;
+                StreamReader reader = new StreamReader(ss);
 
-            StreamReader reader = new StreamReader(ss);
+                RPCProcess processor = new RPCProcess();
+                object result =  processor.ProcessRemoteCall(reader.ReadToEnd());
+                
 
-            RPCProcess processor = new RPCProcess();
-            object result = processor.ProcessRemoteCall(reader.ReadToEnd());
-
-
-            using (var sw = new StreamWriter(ctx.Response.OutputStream))
-            {
-                await sw.WriteAsync((string)result);
-                await sw.FlushAsync();
+                using (var sw = new StreamWriter(ctx.Response.OutputStream))
+                {
+                    await sw.WriteAsync((string)result);
+                    await sw.FlushAsync();
+                }
             }
         }
 
