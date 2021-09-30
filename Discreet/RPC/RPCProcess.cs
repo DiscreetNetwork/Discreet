@@ -54,6 +54,13 @@ namespace Discreet.RPC
 
         public RPCResponse CreateResponse(RPCRequest request, object result)
         {
+
+            /* https://www.jsonrpc.org/specification
+            * ID: 
+            * This member is REQUIRED.
+            * It MUST be the same as the value of the id member in the Request Object.
+            * If there was an error in detecting the id in the Request object (e.g. Parse error/Invalid Request), it MUST be Null
+            */
             RPCResponse response = new RPCResponse();
             response.id = request.id;
             response.result = result;
