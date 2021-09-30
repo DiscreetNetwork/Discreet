@@ -78,24 +78,29 @@ namespace Discreet.DB
 
     public class DB
     {
-        static DB db;
+        private static DB db;
+
+        private static object db_lock = new object();
 
         public static DB GetDB()
         {
-            if (db == null) Initialize();
-
-            lock (db)
+            lock (db_lock)
             {
+                if (db == null) Initialize();
+
                 return db;
             }
         }
 
         public static void Initialize()
         {
-            if (db == null)
+            lock (db_lock)
             {
-                string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
-                db = new DB(Path.Combine(homePath, ".discreet"));
+                if (db == null)
+                {
+                    string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
+                    db = new DB(Path.Combine(homePath, ".discreet"));
+                }
             }
         }
 
