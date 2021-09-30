@@ -91,7 +91,7 @@ namespace Discreet.Coin
             Array.Copy(bytes, ((Config.OutputVersion > 1) ? 8 : 4) * 64, KeyImage.bytes, 0, 32);
         }
 
-        public void Unmarshal(byte[] bytes, uint offset)
+        public uint Unmarshal(byte[] bytes, uint offset)
         {
             Offsets = new uint[64];
             for (int i = 0; i < 64; i++)
@@ -109,6 +109,9 @@ namespace Discreet.Coin
             KeyImage = new Key(new byte[32]);
 
             Array.Copy(bytes, offset + ((Config.OutputVersion > 1) ? 8 : 4) * 64, KeyImage.bytes, 0, 32);
+
+            /* C# is broken; we need to cast to avoid compilation errors */
+            return (uint)(offset + ((((Config.OutputVersion > 1) ? 8 : 4) * 64) + 32));
         }
 
         public static uint Size()

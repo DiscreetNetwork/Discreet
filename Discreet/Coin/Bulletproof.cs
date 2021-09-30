@@ -172,7 +172,7 @@ namespace Discreet.Coin
             Array.Copy(bytes, 4 + 32 * 6 + 2 * L.Length * 32 + 64, t.bytes, 0, 32);
         }
 
-        public void Unmarshal(byte[] bytes, uint offset)
+        public uint Unmarshal(byte[] bytes, uint offset)
         {
             byte[] sz = new byte[4];
             Array.Copy(bytes, offset, sz, 0, 4);
@@ -219,6 +219,8 @@ namespace Discreet.Coin
             Array.Copy(bytes, offset + 4 + 32 * 6 + 2 * L.Length * 32, a.bytes, 0, 32);
             Array.Copy(bytes, offset + 4 + 32 * 6 + 2 * L.Length * 32 + 32, b.bytes, 0, 32);
             Array.Copy(bytes, offset + 4 + 32 * 6 + 2 * L.Length * 32 + 64, t.bytes, 0, 32);
+
+            return offset + Size();
         }
 
         public uint Size()
