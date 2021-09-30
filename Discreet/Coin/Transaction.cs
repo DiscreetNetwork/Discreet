@@ -138,7 +138,7 @@ namespace Discreet.Coin
                 for (int i = 0; i < Outputs.Length; i++)
                 {
                     Outputs[i].TXMarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 RangeProof.Marshal(bytes, offset);
@@ -321,7 +321,7 @@ namespace Discreet.Coin
                     Outputs[i] = new TXOutput();
 
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 byte[] extraLen = new byte[4];
@@ -365,7 +365,7 @@ namespace Discreet.Coin
                     Outputs[i] = new TXOutput();
 
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 RangeProof = new Bulletproof();
@@ -449,7 +449,7 @@ namespace Discreet.Coin
                     Outputs[i] = new TXOutput();
 
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 byte[] extraLen = new byte[4];
@@ -495,7 +495,7 @@ namespace Discreet.Coin
                     Outputs[i] = new TXOutput();
 
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 RangeProof = new Bulletproof();
@@ -557,10 +557,10 @@ namespace Discreet.Coin
         {
             if (Version == 0)
             {
-                return (uint)(4 + 4 + Extra.Length + 104 * Outputs.Length);
+                return (uint)(4 + 4 + Extra.Length + 72 * Outputs.Length);
             }
 
-            return (uint)(4 + TXInput.Size() * Inputs.Length + 104 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 4 + Extra.Length);
+            return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 4 + Extra.Length);
         }
 
         public static Transaction GenerateMock()
@@ -683,11 +683,6 @@ namespace Discreet.Coin
                 {
                     return new VerifyException("Transaction", $"Commitment field in output at index {i} is not set!");
                 }
-
-                if (Outputs[i].COffset.Equals(Cipher.Key.Z))
-                {
-                    return new VerifyException("Transaction", $"PseudoOutput field in output at index {i} is not set!");
-                }
             }
 
             if (Version == 0)
@@ -697,8 +692,35 @@ namespace Discreet.Coin
             }
             else
             {
-                /* First validate inputs */
+                /* validate amounts */
+                if (PseudoOutputs.Length != NumInputs)
+                {
+                    return new VerifyException("Transaction", $"PseudoOutput length mismatch: expected {NumInputs}, but got {PseudoOutputs.Length}");
+                }
 
+                Cipher.Key sumPseudos = new Cipher.Key(new byte[32]);
+
+                for (int i = 0; i < PseudoOutputs.Length; i++)
+                {
+                    sumPseudos = Cipher.KeyOps.AddKeys(ref sumPseudos, ref PseudoOutputs[i]);
+                }
+
+                Cipher.Key sumComms = new Cipher.Key(new byte[32]);
+
+                for (int i = 0; i < Outputs.Length; i++)
+                {
+                    sumComms = Cipher.KeyOps.AddKeys(ref sumComms, ref Outputs[i].Commitment);
+                }
+
+                Cipher.Key dif = new Cipher.Key(new byte[32]);
+                Cipher.KeyOps.SubKeys(ref dif, ref sumPseudos, ref sumComms);
+
+                if (!dif.Equals(Cipher.Key.Z))
+                {
+                    return new VerifyException("Transaction", $"Transaction does not balance! (sumC'a - sumCb != 0)");
+                }
+
+                /* validate inputs */
                 DB.DB db = DB.DB.GetDB();
 
                 for (int i = 0; i < NumInputs; i++)
