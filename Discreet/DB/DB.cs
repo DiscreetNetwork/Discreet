@@ -84,18 +84,18 @@ namespace Discreet.DB
         {
             if (db == null) Initialize();
 
-            return db;
-        }
-
-        public static DB Initialize()
-        {
             lock (db)
             {
-                if (db != null) return db;
+                return db;
+            }
+        }
 
+        public static void Initialize()
+        {
+            if (db == null)
+            {
                 string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
                 db = new DB(Path.Combine(homePath, ".discreet"));
-                return db;
             }
         }
 

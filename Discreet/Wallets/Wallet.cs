@@ -71,6 +71,8 @@ namespace Discreet.Wallets
                 PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
 
                 Address = new StealthAddress(PubViewKey, PubSpendKey).ToString();
+
+                UTXOs = new List<UTXO>();
             }
         }
 
@@ -123,6 +125,8 @@ namespace Discreet.Wallets
             PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
 
             Address = new StealthAddress(PubViewKey, PubSpendKey).ToString();
+
+            UTXOs = new List<UTXO>();
         }
 
         public void MustEncrypt(byte[] key)

@@ -500,8 +500,7 @@ namespace Discreet
 
             // CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
 
-            /*
-			Wallet wallet = new Wallet("wrap", "password123!");
+			/*Wallet wallet = new Wallet("wrap", "password123!");
 			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
 
 			Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
@@ -548,8 +547,7 @@ namespace Discreet
             Console.WriteLine(testWallet.GetMnemonic());
 
 			string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
-			Console.WriteLine(Path.Combine(homePath, ".discreet"));
-			*/
+			Console.WriteLine(Path.Combine(homePath, ".discreet"));*/
 
 
             RPCServer process = new RPCServer(8350);
