@@ -37,15 +37,22 @@ namespace Discreet.RPC
 
         public object ProcessRemoteCall(string rpcJsonRequest)
         {
-            var serializeOptions = new JsonSerializerOptions();
+            try
+            {
+             var serializeOptions = new JsonSerializerOptions();
             serializeOptions.Converters.Add(new StringConverter());
             RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest, serializeOptions);
             object result = ExecuteInternal(request.method, request.@params);
             RPCResponse response = CreateResponse(request, result);
 
             return CreateResponseJSON(response);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Discreet.RPC: parsing RPC request failed {ex.Message}");
+            }
 
-            throw new Exception("Unable to resolve endpoint");
+            return null;
         }
 
         private object ExecuteInternal(string endpoint, params object[] args)

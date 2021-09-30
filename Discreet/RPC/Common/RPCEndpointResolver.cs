@@ -26,7 +26,7 @@ namespace Discreet.RPC
 
             foreach (MethodInfo method in methods)
             {
-
+                // Get delegate for method/action
                 Delegate methodDelegate = CreateMethod(method);
                 RPCEndpoint RPCMethodName = (RPCEndpoint)method.GetCustomAttributes(typeof(RPCEndpoint), true)[0];
                 endpoints.Add(RPCMethodName.endpoint_name, methodDelegate);
