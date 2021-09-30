@@ -643,10 +643,6 @@ namespace Discreet.Wallets
                 tx.Outputs[i].Commitment = new Key(new byte[32]);
                 Key mask = KeyOps.GenCommitmentMask(ref r, ref to[i].view, i);
                 KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref mask, amount[i]);
-                Key maskG = KeyOps.ScalarmultBase(ref mask);
-                tx.Outputs[i].COffset = new Key(new byte[32]);
-                /* PseudoOutput = Commitment - mask * G */
-                KeyOps.SubKeys(ref tx.Outputs[i].COffset, ref tx.Outputs[i].Commitment, ref maskG);
                 tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref to[i].view, i, amount[i]);
                 gammas[i] = mask;
             }
@@ -657,10 +653,6 @@ namespace Discreet.Wallets
             tx.Outputs[i].Commitment = new Key(new byte[32]);
             Key rmask = KeyOps.GenCommitmentMask(ref r, ref addr.PubViewKey, i);
             KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref rmask, amount[i]);
-            Key rmaskG = KeyOps.ScalarmultBase(ref rmask);
-            tx.Outputs[i].COffset = new Key(new byte[32]);
-            /* PseudoOutput = Commitment - mask * G */
-            KeyOps.SubKeys(ref tx.Outputs[i].COffset, ref tx.Outputs[i].Commitment, ref rmaskG);
             tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref addr.PubViewKey, i, neededAmount - totalAmount);
             gammas[i] = rmask;
 
@@ -674,21 +666,21 @@ namespace Discreet.Wallets
 
             tx.PseudoOutputs = new Key[inputs.Count];
 
-            Key[] blindingFactors = new Key[inputs.Count - 1];
+            Key[] blindingFactors = new Key[inputs.Count];
 
             Key sum = new Key(new byte[32]);
 
             for (i = 0; i < inputs.Count - 1; i++)
             {
-                Key tmp = KeyOps.GenCommitmentMaskRecover(ref R, ref addr.SecViewKey, inputs[i].DecodeIndex);
-                KeyOps.ScalarAdd(ref sum, ref sum, ref tmp);
                 blindingFactors[i] = KeyOps.GenerateSeckey();
                 tx.PseudoOutputs[i] = new Key(new byte[32]);
                 KeyOps.GenCommitment(ref tx.PseudoOutputs[i], ref blindingFactors[i], inputs[i].DecodedAmount);
             }
 
-            Key ptmp = KeyOps.GenCommitmentMaskRecover(ref R, ref addr.SecViewKey, inputs[i].DecodeIndex);
-            KeyOps.ScalarAdd(ref sum, ref sum, ref ptmp);
+            for (int k = 0; k < tx.Outputs.Length; k++)
+            {
+                KeyOps.AddKeys(ref sum, ref sum, ref gammas[k]);
+            }
 
             Key dif = new Key(new byte[32]);
 
@@ -702,6 +694,8 @@ namespace Discreet.Wallets
             tx.PseudoOutputs[i] = new Key(new byte[32]);
             KeyOps.GenCommitment(ref tx.PseudoOutputs[i], ref xm, inputs[i].DecodedAmount);
 
+            blindingFactors[i] = xm;
+
             for (i = 0; i < inputs.Count; i++)
             {
                 /* get mixins */
@@ -710,10 +704,19 @@ namespace Discreet.Wallets
                 /* get ringsig params */
                 Key[] M = new Key[64];
                 Key[] P = new Key[64];
-                Key C_offset = anonymitySet[l].COffset;
+
+                for (int k = 0; k < 64; k++)
+                {
+                    M[i] = anonymitySet[k].UXKey;
+                    P[i] = anonymitySet[k].Commitment;
+                }
+
+                Key C_offset = tx.PseudoOutputs[i];
                 Key sign_r = new Key(new byte[32]);
                 KeyOps.DKSAPRecover(ref sign_r, ref R, ref addr.SecViewKey, ref addr.SecSpendKey, inputs[i].DecodeIndex);
+                /* s = zt = xt - x't */
                 Key sign_s = KeyOps.GenCommitmentMaskRecover(ref R, ref addr.SecViewKey, inputs[i].DecodeIndex);
+                KeyOps.ScalarSub(ref sign_s, ref sign_s, ref blindingFactors[i]);
 
                 /* signatures */
                 Cipher.Triptych ringsig = Cipher.Triptych.Prove(M, P, C_offset, (uint)l, sign_r, sign_s, tx.SigningHash().ToKey());

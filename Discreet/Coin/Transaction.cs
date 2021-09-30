@@ -138,7 +138,7 @@ namespace Discreet.Coin
                 for (int i = 0; i < Outputs.Length; i++)
                 {
                     Outputs[i].TXMarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 RangeProof.Marshal(bytes, offset);
@@ -321,7 +321,7 @@ namespace Discreet.Coin
                     Outputs[i] = new TXOutput();
 
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 byte[] extraLen = new byte[4];
@@ -365,7 +365,7 @@ namespace Discreet.Coin
                     Outputs[i] = new TXOutput();
 
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 RangeProof = new Bulletproof();
@@ -449,7 +449,7 @@ namespace Discreet.Coin
                     Outputs[i] = new TXOutput();
 
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 byte[] extraLen = new byte[4];
@@ -495,7 +495,7 @@ namespace Discreet.Coin
                     Outputs[i] = new TXOutput();
 
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 RangeProof = new Bulletproof();
@@ -557,10 +557,10 @@ namespace Discreet.Coin
         {
             if (Version == 0)
             {
-                return (uint)(4 + 4 + Extra.Length + 104 * Outputs.Length);
+                return (uint)(4 + 4 + Extra.Length + 72 * Outputs.Length);
             }
 
-            return (uint)(4 + TXInput.Size() * Inputs.Length + 104 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 4 + Extra.Length);
+            return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 4 + Extra.Length);
         }
 
         public static Transaction GenerateMock()
@@ -602,8 +602,11 @@ namespace Discreet.Coin
             return tx;
         }
 
+        /* this function must be run PRIOR to adding a transaction to the TXPool. */
         public VerifyException Verify()
         {
+            DB.DB db = DB.DB.GetDB();
+
             /* this function is the most important one for coin logic. We must verify everything. */
             if (NumInputs != Inputs.Length)
             {
@@ -683,24 +686,43 @@ namespace Discreet.Coin
                 {
                     return new VerifyException("Transaction", $"Commitment field in output at index {i} is not set!");
                 }
-
-                if (Outputs[i].COffset.Equals(Cipher.Key.Z))
-                {
-                    return new VerifyException("Transaction", $"PseudoOutput field in output at index {i} is not set!");
-                }
             }
 
             if (Version == 0)
             {
                 /* should be all set */
-                return null;
             }
             else
             {
-                /* First validate inputs */
+                /* validate amounts */
+                if (PseudoOutputs.Length != NumInputs)
+                {
+                    return new VerifyException("Transaction", $"PseudoOutput length mismatch: expected {NumInputs}, but got {PseudoOutputs.Length}");
+                }
 
-                DB.DB db = DB.DB.GetDB();
+                Cipher.Key sumPseudos = new Cipher.Key(new byte[32]);
 
+                for (int i = 0; i < PseudoOutputs.Length; i++)
+                {
+                    sumPseudos = Cipher.KeyOps.AddKeys(ref sumPseudos, ref PseudoOutputs[i]);
+                }
+
+                Cipher.Key sumComms = new Cipher.Key(new byte[32]);
+
+                for (int i = 0; i < Outputs.Length; i++)
+                {
+                    sumComms = Cipher.KeyOps.AddKeys(ref sumComms, ref Outputs[i].Commitment);
+                }
+
+                Cipher.Key dif = new Cipher.Key(new byte[32]);
+                Cipher.KeyOps.SubKeys(ref dif, ref sumPseudos, ref sumComms);
+
+                if (!dif.Equals(Cipher.Key.Z))
+                {
+                    return new VerifyException("Transaction", $"Transaction does not balance! (sumC'a - sumCb != 0)");
+                }
+
+                /* validate inputs */
                 for (int i = 0; i < NumInputs; i++)
                 {
                     if (Inputs[i].Offsets.Length != 64)
@@ -717,12 +739,39 @@ namespace Discreet.Coin
                     {
                         return new VerifyException("Transaction", $"Got error when getting mixin data at input at index {i}: " + e.Message);
                     }
+
+                    Cipher.Key[] M = new Cipher.Key[64];
+                    Cipher.Key[] P = new Cipher.Key[64];
+
+                    for (int k = 0; k < 64; k++)
+                    {
+                        M[i] = mixins[k].UXKey;
+                        P[i] = mixins[k].Commitment;
+                    }
+
+                    var sigexc = Signatures[i].Verify(M, P, PseudoOutputs[i], SigningHash().ToKey());
+
+                    if (sigexc != null)
+                    {
+                        return sigexc;
+                    }
+
+                    if (!db.CheckSpentKey(Inputs[i].KeyImage))
+                    {
+                        return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
+                    }
+                }
+
+                /* validate range sig */
+                var bpexc = RangeProof.Verify(this);
+
+                if (bpexc != null)
+                {
+                    return bpexc;
                 }
             }
 
-            //WIP
-
-            return new VerifyException("Transaction", "UNIMPLEMENTED");
+            return null;
         }
     }
 }
