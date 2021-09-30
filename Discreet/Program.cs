@@ -530,7 +530,7 @@ namespace Discreet
             Console.WriteLine("Decrypted: " + Encoding.ASCII.GetString(decwypted));
 			Console.WriteLine(Printable.Prettify(encryptionParams.ToString()));
 
-			Wallet checkWalletJSON = Wallet.FromJSON(wallet.ToJSON());
+			Wallet checkWalletJSON = Wallet.FromJSON(wallet.ToJSON());	
 
             Console.WriteLine(Printable.Prettify(checkWalletJSON.ToJSON()));
 

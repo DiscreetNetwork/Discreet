@@ -9,6 +9,7 @@ namespace Discreet.RPC.Endpoints
 {
     class WalletEndpoints
     {
+
         [RPCEndpoint(endpoint_name: "getStealthAddressTest")]
         public static string test_getStealthAddress()
         {

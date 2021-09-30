@@ -13,6 +13,7 @@ namespace Discreet.RPC
 
         public RPCServer(int portNumber)
         {
+            Console.WriteLine("Server running...");
             RPCEndpointResolver.ReflectEndpoints();
             _listener = new HttpListener();
             _listener.Prefixes.Add($"http://localhost:{portNumber}/");
