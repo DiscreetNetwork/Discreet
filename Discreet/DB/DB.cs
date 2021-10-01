@@ -709,6 +709,99 @@ namespace Discreet.DB
             return utxo;
         }
 
+        public Transaction GetTXFromPool(Cipher.SHA256 txhash)
+        {
+            using var txn = Env.BeginTransaction();
+
+            if (TXPoolBlob == null || !TXPoolBlob.IsOpened)
+            {
+                TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB);
+            }
+
+            if (txn.ContainsKey(TXPoolBlob, txhash.Bytes))
+            {
+                var result = txn.Get(TXPoolBlob, txhash.Bytes);
+
+                if (result.resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB.GetTXFromPool: database get exception: {result.resultCode}");
+                }
+
+                Transaction tx = new Transaction();
+                tx.Unmarshal(result.value.CopyToNewArray());
+
+                return tx;
+            }
+
+            return null;
+        }
+
+        public Transaction[] GetTXsFromPool(Cipher.SHA256[] txhashs)
+        {
+            using var txn = Env.BeginTransaction();
+
+            Transaction[] txs = new Transaction[txhashs.Length];
+
+            if (TXPoolBlob == null || !TXPoolBlob.IsOpened)
+            {
+                TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB);
+            }
+
+            for (int i = 0; i < txhashs.Length; i++)
+            {
+                if (txn.ContainsKey(TXPoolBlob, txhashs[i].Bytes))
+                {
+                    var result = txn.Get(TXPoolBlob, txhashs[i].Bytes);
+
+                    if (result.resultCode != MDBResultCode.Success)
+                    {
+                        throw new Exception($"Discreet.DB.GetTXsFromPool: database get exception: {result.resultCode}");
+                    }
+
+                    Transaction tx = new Transaction();
+                    tx.Unmarshal(result.value.CopyToNewArray());
+
+                    txs[i] = tx;
+                }
+                else
+                {
+                    txs[i] = null;
+                }
+            }
+
+            return txs;
+        }
+
+        public List<Transaction> GetTXPool()
+        {
+            List<Transaction> pool = new List<Transaction>();
+
+            var txn = Env.BeginTransaction();
+
+            if (TXPoolBlob == null || !TXPoolBlob.IsOpened)
+            {
+                TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB);
+            }
+
+            LightningCursor txPoolCursor = txn.CreateCursor(TXPoolBlob);
+
+            var resultCode = txPoolCursor.First();
+
+            if (resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.GetTXPool: database get exception: {resultCode}");
+            }
+
+            var values = txPoolCursor.AsEnumerable().Select((k, i) => k.Item2).ToList();
+            foreach (var value in values)
+            {
+                Transaction tx = new Transaction();
+                tx.Unmarshal(value.CopyToNewArray());
+            }
+
+            return pool;
+        }
+
         public void AddTXToPool(Transaction tx)
         {
             /* the following information is checked:

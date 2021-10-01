@@ -106,7 +106,7 @@ namespace Discreet.Cipher
             {
                 if (a.bytes[i] != b.bytes[i])
                 {
-                    
+                    break;
                 }
             }
 
@@ -122,6 +122,11 @@ namespace Discreet.Cipher
             {
                 return -1;
             }
+        }
+
+        public bool Equals(SHA256 b)
+        {
+            return Compare(this, b) == 0;
         }
 
         internal Key ToKey()

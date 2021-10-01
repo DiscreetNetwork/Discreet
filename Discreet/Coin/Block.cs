@@ -271,6 +271,27 @@ namespace Discreet.Coin
             return size;
         }
 
+        /* for testing purposes only */
+        public static Block BuildRandom(StealthAddress[] addresses, int[] numOutputs)
+        {
+            List<Transaction> txs = new List<Transaction>();
+
+            for (int i = 0; i < addresses.Length; i++)
+            {
+                for (int j = 0; j < numOutputs[i] / 16; j++)
+                {
+                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], 16));
+                }
+
+                if (numOutputs[i] % 16 != 0)
+                {
+                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], numOutputs[i] % 16));
+                }
+            }
+
+            return Build(txs, null);
+        }
+
         public static Block Build(List<Transaction> txs, StealthAddress miner)
         {
             Block block = new Block();
@@ -291,14 +312,14 @@ namespace Discreet.Coin
 
             DB.DB db = DB.DB.GetDB();
 
-            block.Height = db.GetChainHeight();
+            block.Height = db.GetChainHeight() + 1;
 
             if (block.Height > 0)
             {
                 block.PreviousBlock = db.GetBlock(block.Height - 1).BlockHash;
             }
 
-            if (block.Fee > 0)
+            if (block.Fee > 0 && miner != null)
             {
                 /* Construct miner TX */
                 Transaction minertx = new Transaction();
@@ -372,6 +393,28 @@ namespace Discreet.Coin
             return hashes[0];
         }
 
+        public SHA256 GetMerkleRoot()
+        {
+            if (Transactions == null && transactions != null)
+            {
+                Transactions = new SHA256[transactions.Length];
+
+                for (int k = 0; k < transactions.Length; k++)
+                {
+                    Transactions[k] = transactions[k].Hash();
+                }
+            }
+
+            List<SHA256> hashes = new List<SHA256>(Transactions);
+
+            while (hashes.Count > 1)
+            {
+                hashes = getMerkleRoot(hashes);
+            }
+
+            return hashes[0];
+        }
+
         private static List<SHA256> getMerkleRoot(List<SHA256> hashes)
         {
             List<SHA256> newHashes = new List<SHA256>();
@@ -410,7 +453,189 @@ namespace Discreet.Coin
 
         public VerifyException Verify()
         {
-            return new VerifyException("Block", "UNIMPLEMENTED");
+            /* Verify does the following:
+             *   - ensures Height is equal to db.GetChainHeight() + 1
+             *   - ensures MerkleRoot is proper
+             *   - ensures PreviousBlock is the result of db.GetBlock(block.Height - 1).BlockHash
+             *   - ensures BlockHash is proper
+             *   - ensures BlockSize, NumOutputs, NumTXs, and Fee are proper
+             *   - verifies all transactions in the block
+             *   
+             * Verify() should be used for full blocks only. Validating previous blocks 
+             * is not needed, as blocks are always processed in order.
+             */
+
+            DB.DB db = DB.DB.GetDB();
+
+            if (Height != db.GetChainHeight() + 1)
+            {
+                return new VerifyException("Block", $"Block is not next in sequence (expected {db.GetChainHeight() + 1}, but got {Height})");
+            }
+
+            if (transactions == null)
+            {
+                return new VerifyException("Block", $"Block does not contain full transaction information (malformed)");
+            }
+
+            if (NumTXs != transactions.Length)
+            {
+                return new VerifyException("Block", $"Transaction count mismatch: expected {NumTXs}, but got {Transactions.Length})");
+            }
+
+            SHA256 merkleRoot = GetMerkleRoot();
+
+            if(!merkleRoot.Equals(MerkleRoot))
+            {
+                return new VerifyException("Block", $"Merkle root mismatch: expected {MerkleRoot.ToHexShort()}, but got {merkleRoot.ToHexShort()}");
+            }
+
+            SHA256 prevBlockHash = db.GetBlock(Height - 1).BlockHash;
+
+            if (!prevBlockHash.Equals(PreviousBlock))
+            {
+                return new VerifyException("Block", $"previous block mismatch: expected {prevBlockHash.ToHexShort()} (previous block in database), but got {PreviousBlock.ToHexShort()}");
+            }
+
+            SHA256 blockHash = Hash();
+
+            if (!blockHash.Equals(BlockHash))
+            {
+                return new VerifyException("Block", $"block hash mismatch: expected {BlockHash.ToHexShort()}, but got {blockHash.ToHexShort()}");
+            }
+
+            ulong fee = 0;
+            uint numOutputs = 0;
+            uint blockSize = 133;
+
+            for (int i = 0; i < transactions.Length; i++)
+            {
+                fee += transactions[i].Fee;
+                numOutputs += transactions[i].NumOutputs;
+                blockSize += transactions[i].Size();
+            }
+
+            if (fee != Fee)
+            {
+                return new VerifyException("Block", $"block fee mismatch: expected {Fee} as included in block, but got {fee} from calculations");
+            }
+
+            if (numOutputs != NumOutputs)
+            {
+                return new VerifyException("Block", $"block output count mismatch: expected {NumOutputs} as included in block, but got {numOutputs} from calculations");
+            }
+
+            if (blockSize != BlockSize)
+            {
+                return new VerifyException("Block", $"block size (in bytes) mismatch: expected {BlockSize} as included in block, but got {blockSize} from calculations");
+            }
+
+            for (int i = 0; i < transactions.Length; i++)
+            {
+                var txexc = transactions[i].Verify();
+
+                if (txexc != null)
+                {
+                    return txexc;
+                }
+            }
+
+            return null;
+        }
+
+        public VerifyException VerifyIncoming()
+        {
+            /* VerifyIncoming does the following:
+             *   - ensures Height is equal to db.GetChainHeight() + 1
+             *   - ensures all transactions are present in TXPool 
+             *   - ensures MerkleRoot is proper
+             *   - ensures PreviousBlock is the result of db.GetBlock(block.Height - 1).BlockHash
+             *   - ensures BlockHash is proper
+             *   - ensures BlockSize, NumOutputs, NumTXs and Fee are proper
+             *   
+             * VerifyIncoming() should be used for incoming blocks only. Validating previous blocks 
+             * is not needed, as blocks are always processed in order.
+             */
+
+            DB.DB db = DB.DB.GetDB();
+
+            if (Height != db.GetChainHeight() + 1)
+            {
+                return new VerifyException("Block", "Incoming", $"Block is not next in sequence (expected {db.GetChainHeight() + 1}, but got {Height})");
+            }
+
+            if (transactions == null)
+            {
+                try
+                {
+                    transactions = db.GetTXsFromPool(Transactions);
+                }
+                catch (Exception e)
+                {
+                    return new VerifyException("Block", "Incoming", $"Error while getting transactions from TXPool: " + e.Message);
+                }
+
+                for (int i = 0; i < Transactions.Length; i++)
+                {
+                    if (transactions[i] == null)
+                    {
+                        return new VerifyException("Block", "Incoming", $"Not all transactions in block are in TXPool: first tx not present is {Transactions[i].ToHexShort()}");
+                    }
+                }
+            }
+
+            if (NumTXs != transactions.Length)
+            {
+                return new VerifyException("Block", "Incoming", $"Transaction count mismatch: expected {NumTXs}, but got {Transactions.Length})");
+            }
+
+            SHA256 merkleRoot = GetMerkleRoot();
+
+            if (!merkleRoot.Equals(MerkleRoot))
+            {
+                return new VerifyException("Block", "Incoming", $"Merkle root mismatch: expected {MerkleRoot.ToHexShort()}, but got {merkleRoot.ToHexShort()}");
+            }
+
+            SHA256 prevBlockHash = db.GetBlock(Height - 1).BlockHash;
+
+            if (!prevBlockHash.Equals(PreviousBlock))
+            {
+                return new VerifyException("Block", "Incoming", $"previous block mismatch: expected {prevBlockHash.ToHexShort()} (previous block in database), but got {PreviousBlock.ToHexShort()}");
+            }
+
+            SHA256 blockHash = Hash();
+
+            if (!blockHash.Equals(BlockHash))
+            {
+                return new VerifyException("Block", "Incoming", $"block hash mismatch: expected {BlockHash.ToHexShort()}, but got {blockHash.ToHexShort()}");
+            }
+
+            ulong fee = 0;
+            uint numOutputs = 0;
+            uint blockSize = 133;
+
+            for (int i = 0; i < transactions.Length; i++)
+            {
+                fee += transactions[i].Fee;
+                numOutputs += transactions[i].NumOutputs;
+                blockSize += transactions[i].Size();
+            }
+
+            if (fee != Fee)
+            {
+                return new VerifyException("Block", "Incoming", $"block fee mismatch: expected {Fee} as included in block, but got {fee} from calculations");
+            }
+
+            if (numOutputs != NumOutputs)
+            {
+                return new VerifyException("Block", "Incoming", $"block output count mismatch: expected {NumOutputs} as included in block, but got {numOutputs} from calculations");
+            }
+
+            if (blockSize != BlockSize)
+            {
+                return new VerifyException("Block", "Incoming", $"block size (in bytes) mismatch: expected {BlockSize} as included in block, but got {blockSize} from calculations");
+            }
+
+            return null;
         }
     }
 }

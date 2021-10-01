@@ -419,6 +419,45 @@ namespace Discreet.Coin
             }
         }
 
+        /* for testing purposes only */
+        public static Transaction GenerateRandomNoSpend(StealthAddress to, int numOutputs)
+        {
+            Transaction tx = new Transaction();
+
+            tx.Version = 0;
+            tx.NumInputs = 0;
+            tx.NumOutputs = (byte)numOutputs;
+            tx.NumSigs = 0;
+
+            tx.ExtraLen = 34;
+            tx.Extra = new byte[34];
+            tx.Extra[0] = 1;
+            tx.Extra[1] = 0;
+
+            Cipher.Key r = new Cipher.Key(new byte[32]);
+            Cipher.Key R = new Cipher.Key(new byte[32]);
+
+            Cipher.KeyOps.GenerateKeypair(ref r, ref R);
+
+            tx.Outputs = new TXOutput[numOutputs];
+
+            for (int i = 0; i < numOutputs; i++)
+            {
+                tx.Outputs[i] = new TXOutput();
+                tx.Outputs[i].Commitment = new Cipher.Key(new byte[32]);
+                Cipher.Key mask = Cipher.KeyOps.GenCommitmentMask(ref r, ref to.view, i);
+                /* the amount is randomly generated between 1 and 100 DIS (droplet size is 10^10) */
+                ulong amnt = 1_000_000_000_0 + Cipher.KeyOps.RandomDisAmount(99_000_000_000_0);
+                Cipher.KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref mask, amnt);
+                tx.Outputs[i].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, i);
+                tx.Outputs[i].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, i, amnt);
+            }
+
+            Array.Copy(R.bytes, 0, tx.Extra, 2, 32);
+
+            return tx;
+        }
+
         internal Cipher.Key[] GetCommitments()
         {
             Cipher.Key[] comms = new Cipher.Key[NumOutputs];
@@ -602,16 +641,16 @@ namespace Discreet.Coin
             return tx;
         }
 
-        /* this function must be run PRIOR to adding a transaction to the TXPool. */
+        /* this function must be run PRIOR to adding a transaction to the TXPool. 
+         * This is not run, and should never be run, on transactions already present in the TXPool.
+         * This is definitely never used for transactions already assigned an ID in the database.
+         */
         public VerifyException Verify()
         {
             DB.DB db = DB.DB.GetDB();
 
             /* this function is the most important one for coin logic. We must verify everything. */
-            if (NumInputs != Inputs.Length)
-            {
-                return new VerifyException("Transaction", $"Input length mismatch: expected {NumInputs}, but got {Inputs.Length}");
-            }
+            
 
             if (NumOutputs != Outputs.Length)
             {
@@ -623,9 +662,27 @@ namespace Discreet.Coin
                 return new VerifyException("Transaction", $"Transactions cannot have more than 16 outputs");
             }
 
-            if (NumSigs != Signatures.Length)
+            if (NumOutputs == 0)
             {
-                return new VerifyException("Transaction", $"Signature length mismatch: expected {NumSigs}, but got {Signatures.Length}");
+                return new VerifyException("Transaction", "Transactions cannot have zero outputs");
+            }
+
+            if (Version != 0)
+            {
+                if (NumInputs != Inputs.Length)
+                {
+                    return new VerifyException("Transaction", $"Input length mismatch: expected {NumInputs}, but got {Inputs.Length}");
+                }
+
+                if (NumSigs != Signatures.Length)
+                {
+                    return new VerifyException("Transaction", $"Signature length mismatch: expected {NumSigs}, but got {Signatures.Length}");
+                }
+
+                if (Version != 0 && NumInputs == 0)
+                {
+                    return new VerifyException("Transaction", $"Transaction has no inputs!");
+                }
             }
 
             if (NumSigs != NumInputs)
@@ -633,14 +690,9 @@ namespace Discreet.Coin
                 return new VerifyException("Transaction", $"Transactions must have the same number of signatures as inputs ({NumInputs} inputs, but {NumSigs} sigs)");
             }
 
-            if (Config.DEBUG && Version == 0 && NumInputs > 0)
+            if (Version == 0 && NumInputs > 0)
             {
-                return new VerifyException("Transaction", $"Genesis transactions cannot take in inputs!");
-            }
-
-            if (!Config.DEBUG && NumInputs == 0)
-            {
-                return new VerifyException("Transaction", $"Transaction has no inputs!");
+                return new VerifyException("Transaction", $"Coinbase transactions cannot take in inputs!");
             }
 
             if (NumOutputs == 0)
@@ -649,9 +701,9 @@ namespace Discreet.Coin
             }
 
             /* this will need to be changed as Version changes */
-            if (!Config.DEBUG && Version != 1)
+            if (Version != 1 && Version != 0)
             {
-                return new VerifyException("Transaction", $"Unknown transaction version: {Version} (currently only private transactions, version 1, are supported)");
+                return new VerifyException("Transaction", $"Unknown transaction version: {Version} (currently only private transactions, version 1, and coinbase transactions, version 0, are supported)");
             }
 
             if (ExtraLen != Extra.Length)
