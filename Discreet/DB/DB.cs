@@ -1120,6 +1120,14 @@ namespace Discreet.DB
             }
         }
 
+        public ulong GetChainHeight()
+        {
+            lock (height)
+            {
+                return height.Value;
+            }
+        }
+
         public ulong GetTransactionIndex(Cipher.SHA256 txhash)
         {
             using var txn = Env.BeginTransaction();

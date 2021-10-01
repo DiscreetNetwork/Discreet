@@ -94,7 +94,7 @@ namespace Discreet.Coin
 
             if (Version == 0)
             {
-                byte[] bytes = new byte[4 + 4 + Extra.Length + NumOutputs * 104];
+                byte[] bytes = new byte[4 + 4 + Extra.Length + NumOutputs * 72];
 
                 bytes[0] = Version;
                 bytes[1] = NumInputs;
@@ -104,7 +104,7 @@ namespace Discreet.Coin
                 for (int i = 0; i < Outputs.Length; i++)
                 {
                     Outputs[i].TXMarshal(bytes, offset);
-                    offset += 104;
+                    offset += 72;
                 }
 
                 byte[] extraLen = BitConverter.GetBytes(ExtraLen);
