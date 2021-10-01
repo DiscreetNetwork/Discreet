@@ -13,6 +13,7 @@ namespace Discreet.RPC
 
         public RPCServer(int portNumber)
         {
+            Console.WriteLine("Server running...");
             RPCEndpointResolver.ReflectEndpoints();
             _listener = new HttpListener();
             _listener.Prefixes.Add($"http://localhost:{portNumber}/");
@@ -20,7 +21,16 @@ namespace Discreet.RPC
 
         public async Task Start()
         {
-            _listener.Start();
+            try
+            {
+                _listener.Start();
+            }
+            catch (HttpListenerException ex)
+            {
+
+                Console.WriteLine($"Discreet.RPC: {ex.Message}");
+            }
+          
 
             while (true)
             {

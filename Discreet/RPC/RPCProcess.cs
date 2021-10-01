@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using static Discreet.RPC.Common.Utilities;
 
 namespace Discreet.RPC
 {
@@ -24,7 +25,7 @@ namespace Discreet.RPC
         {
             public string jsonrpc { get { return "2.0"; } }
             public object result { get; set; }
-            public string id { get; set; }
+            public object id { get; set; }
         }
 
         enum JSONRPCType
@@ -36,14 +37,22 @@ namespace Discreet.RPC
 
         public object ProcessRemoteCall(string rpcJsonRequest)
         {
-     
-            RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest);
+            try
+            {
+             var serializeOptions = new JsonSerializerOptions();
+            serializeOptions.Converters.Add(new StringConverter());
+            RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest, serializeOptions);
             object result = ExecuteInternal(request.method, request.@params);
             RPCResponse response = CreateResponse(request, result);
 
             return CreateResponseJSON(response);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Discreet.RPC: parsing RPC request failed {ex.Message}");
+            }
 
-            throw new Exception("Unable to resolve endpoint");
+            return null;
         }
 
         private object ExecuteInternal(string endpoint, params object[] args)
@@ -55,14 +64,21 @@ namespace Discreet.RPC
         public RPCResponse CreateResponse(RPCRequest request, object result)
         {
 
-            /* https://www.jsonrpc.org/specification
-            * ID: 
+            /* Per: 
             * This member is REQUIRED.
             * It MUST be the same as the value of the id member in the Request Object.
             * If there was an error in detecting the id in the Request object (e.g. Parse error/Invalid Request), it MUST be Null
             */
             RPCResponse response = new RPCResponse();
-            response.id = request.id;
+            if(request.id == "")
+            {
+                request.id = null;
+            } else
+            {
+                response.id = request.id;
+            }
+
+            
             response.result = result;
             return response;
         }
