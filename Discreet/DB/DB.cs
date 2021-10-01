@@ -98,8 +98,8 @@ namespace Discreet.DB
             {
                 if (db == null)
                 {
-                    string homePath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
-                    db = new DB(Path.Combine(homePath, ".discreet"));
+                    
+                    db = new DB(Visor.VisorConfig.GetDefault().DBPath, Visor.VisorConfig.GetDefault().DBSize);
                 }
             }
         }
@@ -158,12 +158,13 @@ namespace Discreet.DB
 
         private U32 indexer_owned_outputs = new U32(0);
 
-        public long Mapsize {
+        public long Mapsize 
+        {
             get { return mapsize; }
         }
 
 
-        public void Open(string filename, long _mapsize)
+        public void OpenWithSize(string filename, long _mapsize)
         {
             if (Env != null && Env.IsOpened) return;
 
@@ -183,7 +184,7 @@ namespace Discreet.DB
             Env.Open();
         }
 
-        public void Open(string filename)
+        public void Open(string filename, long dbsize)
         {
             if (Env != null && Env.IsOpened) return;
 
@@ -198,7 +199,7 @@ namespace Discreet.DB
 
             if (Env.MapSize == 0)
             {
-                Env.MapSize = 1024 * 1024 * 1024;
+                Env.MapSize = dbsize;
             }
             mapsize = Env.MapSize;
 
@@ -215,9 +216,9 @@ namespace Discreet.DB
             Open(folder, mapsize);
         }*/
 
-        public DB(string path)
+        public DB(string path, long dbsize)
         {
-            Open(path);
+            Open(path, dbsize);
 
             using var txn = Env.BeginTransaction();
             var config = new DatabaseConfiguration { Flags = DatabaseOpenFlags.Create };
