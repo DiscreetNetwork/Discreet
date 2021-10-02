@@ -7,6 +7,11 @@ using System.Reflection;
 
 namespace Discreet.Utilities
 {
+    /**
+     * <summary>
+     * This attribute is used by the JsonSerializer to recognize complete Jsonable objects.
+     * </summary>
+     */
     [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct)]
     public class JsonObject: Attribute
     {
@@ -18,6 +23,11 @@ namespace Discreet.Utilities
         }
     }
 
+    /**
+     * <summary>
+     * Specifies type information used by the JsonSerializer.
+     * </summary>
+     */
     public enum JsonType
     {
         None,
@@ -35,6 +45,13 @@ namespace Discreet.Utilities
         Array,
     }
 
+    /**
+     * <summary>
+     * This attribute is used by the JsonSerializer.
+     * the name field is  the json key.
+     * JsonTypes are used for subtype (for collections) and main type.
+     * </summary>
+     */
     [AttributeUsage(AttributeTargets.Field)]
     public class JsonElement: Attribute
     {
@@ -63,6 +80,11 @@ namespace Discreet.Utilities
         }
     }
 
+    /**
+     * <summary>
+     * This attribute is used by JsonSerializer to ignore serialization of a field.
+     * </summary>
+     */
     [AttributeUsage(AttributeTargets.Field)]
     public class JsonIgnore : Attribute
     {
@@ -71,6 +93,12 @@ namespace Discreet.Utilities
 
     public static class JsonSerializer
     {
+        /**
+        * <summary>
+        * Attempts to serialize the object into the specified type.
+        * If attributes are not used, the object is serialized according to type information.
+        * </summary>
+        */
         public static string Serialize<T>(object o)
         {
             if (o == null) return "";

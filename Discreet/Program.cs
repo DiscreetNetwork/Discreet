@@ -555,17 +555,27 @@ namespace Discreet
             await process.Start();
             await Task.Delay(-1);*/
 
+
+			/**
+			 * test the json serializer
+			 */
             Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(Transaction.GenerateMock())));
 
-            //Key specvw = KeyOps.GenerateSeckey();
+			Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(TXInput.GenerateMock())));
 
-            //Coin.StealthAddress specaddr = new Coin.StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey());
+			Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(TXOutput.GenerateMock())));
 
-            //Console.WriteLine(specaddr.ToString());
+			Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(new Key(new byte[32]))));
 
-            //Console.WriteLine(Cipher.Base58.Encode(Randomness.Random(69)));
+			//Key specvw = KeyOps.GenerateSeckey();
 
-            /*Transaction tx1 = Transaction.GenerateMock();
+			//Coin.StealthAddress specaddr = new Coin.StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey());
+
+			//Console.WriteLine(specaddr.ToString());
+
+			//Console.WriteLine(Cipher.Base58.Encode(Randomness.Random(69)));
+
+			/*Transaction tx1 = Transaction.GenerateMock();
 			string tx1s = Printable.Hexify(tx1.Marshal());
 
 			byte[] txb = tx1.Marshal();
@@ -580,7 +590,7 @@ namespace Discreet
             {
                 Console.WriteLine("uh oh spaghettio");
             }*/
-        }
+		}
 
 	}
 }
