@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
+using Discreet.Utilities;
 
 namespace Discreet.Coin
 {
     [StructLayout(LayoutKind.Sequential)]
     public class TXOutput : ICoin
     {
-        [MarshalAs(UnmanagedType.Struct)]
+        [MarshalAs(UnmanagedType.Struct), JsonIgnore]
         public Discreet.Cipher.SHA256 TransactionSrc;
         [MarshalAs(UnmanagedType.Struct)]
         public Discreet.Cipher.Key UXKey;
@@ -18,7 +19,7 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.U8)]
         public ulong Amount;
 
-        [MarshalAs(UnmanagedType.U4)]
+        [MarshalAs(UnmanagedType.U4), JsonIgnore]
         public uint Index; /* unused mostly except for CreateTransaction() */
 
         public TXOutput()

@@ -12,6 +12,7 @@ using Discreet.Coin;
 using Discreet.Wallets;
 using System.IO;
 using Discreet.RPC;
+using Discreet.Utilities;
 
 namespace Discreet
 {
@@ -500,7 +501,7 @@ namespace Discreet
 
             // CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
 
-			/*Wallet wallet = new Wallet("wrap", "password123!");
+            /*Wallet wallet = new Wallet("wrap", "password123!");
 			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
 
 			Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
@@ -550,12 +551,11 @@ namespace Discreet
 			Console.WriteLine(Path.Combine(homePath, ".discreet"));*/
 
 
-            RPCServer process = new RPCServer(8350);
+            /*RPCServer process = new RPCServer(8350);
             await process.Start();
-            await Task.Delay(-1);
+            await Task.Delay(-1);*/
 
-
-
+            Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(Transaction.GenerateMock())));
 
             //Key specvw = KeyOps.GenerateSeckey();
 
