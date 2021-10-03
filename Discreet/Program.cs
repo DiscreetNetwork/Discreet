@@ -551,21 +551,21 @@ namespace Discreet
 			Console.WriteLine(Path.Combine(homePath, ".discreet"));*/
 
 
-            /*RPCServer process = new RPCServer(8350);
+            RPCServer process = new RPCServer(8350);
             await process.Start();
-            await Task.Delay(-1);*/
+            await Task.Delay(-1);
 
 
 			/**
 			 * test the json serializer
 			 */
-            Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(Transaction.GenerateMock())));
+			//Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(Transaction.GenerateMock())));
 
-			Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(TXInput.GenerateMock())));
+			//Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(TXInput.GenerateMock())));
 
-			Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(TXOutput.GenerateMock())));
+			//Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(TXOutput.GenerateMock())));
 
-			Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(new Key(new byte[32]))));
+			//Console.WriteLine(Printable.Prettify(JsonSerializer.Serialize(new Key(new byte[32]))));
 
 			//Key specvw = KeyOps.GenerateSeckey();
 

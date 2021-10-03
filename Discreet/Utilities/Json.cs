@@ -240,5 +240,11 @@ namespace Discreet.Utilities
 
             return $"[{String.Join(',', valueStrings)}]";
         }
+
+
+        public static T Deserialize<T>(string json)
+        {
+            throw new NotImplementedException("To be implemented.");
+        }
     }
 }
