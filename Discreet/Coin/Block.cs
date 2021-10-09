@@ -274,7 +274,7 @@ namespace Discreet.Coin
         /* for testing purposes only */
         public static Block BuildRandom(StealthAddress[] addresses, int[] numOutputs)
         {
-            List<Transaction> txs = new List<Transaction>();
+            List<Transaction> txs = new();
 
             for (int i = 0; i < addresses.Length; i++)
             {
@@ -294,7 +294,7 @@ namespace Discreet.Coin
 
         public static Block Build(List<Transaction> txs, StealthAddress miner)
         {
-            Block block = new Block();
+            Block block = new();
             block.Timestamp = (ulong)DateTime.Now.Ticks;
             block.NumTXs = (uint)txs.Count;
             block.Version = 0;
@@ -322,7 +322,7 @@ namespace Discreet.Coin
             if (block.Fee > 0 && miner != null)
             {
                 /* Construct miner TX */
-                Transaction minertx = new Transaction();
+                Transaction minertx = new();
                 minertx.Version = 0;
                 minertx.NumInputs = 0;
                 minertx.NumOutputs = 1;
@@ -333,8 +333,8 @@ namespace Discreet.Coin
                 minertx.Extra[0] = 1;
                 minertx.Extra[1] = 0;
 
-                Key R = new Key(new byte[32]);
-                Key r = new Key(new byte[32]);
+                Key R = new(new byte[32]);
+                Key r = new(new byte[32]);
 
                 KeyOps.GenerateKeypair(ref r, ref R);
 
@@ -344,7 +344,7 @@ namespace Discreet.Coin
                 Key c = new Key(new byte[32]);
                 HashOps.HashToScalar(ref c, tmp, 36);*/
 
-                TXOutput minerOutput = new TXOutput();
+                TXOutput minerOutput = new();
                 minerOutput.Commitment = new Key(new byte[32]);
                 Key mask = KeyOps.GenCommitmentMask(ref r, ref miner.view, 0);
                 KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, block.Fee);
@@ -378,7 +378,7 @@ namespace Discreet.Coin
 
         public static SHA256 GetMerkleRoot(List<Transaction> txs)
         {
-            List<SHA256> hashes = new List<SHA256>();
+            List<SHA256> hashes = new();
 
             for (int k = 0; k < txs.Count; k++)
             {
@@ -387,7 +387,7 @@ namespace Discreet.Coin
 
             while (hashes.Count > 1)
             {
-                hashes = getMerkleRoot(hashes);
+                hashes = GetMerkleRoot(hashes);
             }
 
             return hashes[0];
@@ -405,19 +405,19 @@ namespace Discreet.Coin
                 }
             }
 
-            List<SHA256> hashes = new List<SHA256>(Transactions);
+            List<SHA256> hashes = new(Transactions);
 
             while (hashes.Count > 1)
             {
-                hashes = getMerkleRoot(hashes);
+                hashes = GetMerkleRoot(hashes);
             }
 
             return hashes[0];
         }
 
-        private static List<SHA256> getMerkleRoot(List<SHA256> hashes)
+        private static List<SHA256> GetMerkleRoot(List<SHA256> hashes)
         {
-            List<SHA256> newHashes = new List<SHA256>();
+            List<SHA256> newHashes = new();
 
             for (int i = 0; i < hashes.Count / 2; i++)
             {
@@ -429,7 +429,7 @@ namespace Discreet.Coin
 
             if (hashes.Count % 2 != 0)
             {
-                newHashes.Add(SHA256.HashData(hashes[hashes.Count - 1].Bytes));
+                newHashes.Add(SHA256.HashData(hashes[^1].Bytes));
             }
 
             return newHashes;

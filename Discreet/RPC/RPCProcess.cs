@@ -69,7 +69,7 @@ namespace Discreet.RPC
             * It MUST be the same as the value of the id member in the Request Object.
             * If there was an error in detecting the id in the Request object (e.g. Parse error/Invalid Request), it MUST be Null
             */
-            RPCResponse response = new RPCResponse();
+            RPCResponse response = new();
             if(request.id == "")
             {
                 request.id = null;

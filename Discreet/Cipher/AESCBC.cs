@@ -53,7 +53,7 @@ namespace Discreet.Cipher
 
         public static (CipherObject, byte[]) GetFromPrependedArray(byte[] key, byte[] bytes)
         {
-            CipherObject cipherObject = new CipherObject
+            CipherObject cipherObject = new()
             {
                 Key = key,
                 IV = new byte[16]
@@ -76,7 +76,7 @@ namespace Discreet.Cipher
     {
         public static CipherObject GenerateCipherObject(string passphrase)
         {
-            using RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
+            using RNGCryptoServiceProvider rng = new();
             {
 
                 byte[] tmpKey = new byte[32];
@@ -93,7 +93,7 @@ namespace Discreet.Cipher
 
         public static CipherObject GenerateCipherObject(byte[] key)
         {
-            using RNGCryptoServiceProvider rng = new RNGCryptoServiceProvider();
+            using RNGCryptoServiceProvider rng = new();
             {
                 byte[] tmpIV = new byte[16];
                 rng.GetBytes(tmpIV);

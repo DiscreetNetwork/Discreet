@@ -47,12 +47,12 @@ namespace Discreet.RPC
 
             if (!method.IsStatic)
             {
-                throw new ArgumentException("Discreet.RPC: The supplied method must be static (stateless).", "method");
+                throw new ArgumentException("Discreet.RPC: The supplied method must be static (stateless).", nameof(method));
             }
 
             if (method.IsGenericMethod)
             {
-                throw new ArgumentException("Discreet.RPC: The supplied method must not be generic.", "method");
+                throw new ArgumentException("Discreet.RPC: The supplied method must not be generic.", nameof(method));
             }
 
             var parameters = method.GetParameters()

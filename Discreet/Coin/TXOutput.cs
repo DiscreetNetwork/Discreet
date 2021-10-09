@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
-using Discreet.Utilities;
+using System.Text.Json.Serialization;
 
 namespace Discreet.Coin
 {
@@ -195,8 +195,8 @@ namespace Discreet.Coin
 
         public static TXOutput GenerateMock()
         {
-            TXOutput output = new TXOutput();
-            Random rng = new Random();
+            TXOutput output = new();
+            Random rng = new();
 
             ulong v1 = ((ulong)rng.Next(0, Int32.MaxValue)) << 32;
             ulong v2 = (ulong)rng.Next(0, int.MaxValue);

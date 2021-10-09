@@ -103,7 +103,7 @@ namespace Discreet.Coin
 
         public static byte[] Byteify(string hex)
         {
-            if (hex == null) return new byte[0];
+            if (hex == null) return Array.Empty<byte>();
 
             if (!IsHex(hex))
             {

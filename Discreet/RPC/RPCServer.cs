@@ -37,17 +37,15 @@ namespace Discreet.RPC
                 var ctx = await _listener.GetContextAsync();
                 var ss = ctx.Request.InputStream;
 
-                StreamReader reader = new StreamReader(ss);
+                StreamReader reader = new(ss);
 
-                RPCProcess processor = new RPCProcess();
+                RPCProcess processor = new();
                 object result =  processor.ProcessRemoteCall(reader.ReadToEnd());
-                
 
-                using (var sw = new StreamWriter(ctx.Response.OutputStream))
-                {
-                    await sw.WriteAsync((string)result);
-                    await sw.FlushAsync();
-                }
+
+                using var sw = new StreamWriter(ctx.Response.OutputStream);
+                await sw.WriteAsync((string)result);
+                await sw.FlushAsync();
             }
         }
 

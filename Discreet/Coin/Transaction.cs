@@ -422,20 +422,21 @@ namespace Discreet.Coin
         /* for testing purposes only */
         public static Transaction GenerateRandomNoSpend(StealthAddress to, int numOutputs)
         {
-            Transaction tx = new Transaction();
+            Transaction tx = new()
+            {
+                Version = 0,
+                NumInputs = 0,
+                NumOutputs = (byte)numOutputs,
+                NumSigs = 0,
 
-            tx.Version = 0;
-            tx.NumInputs = 0;
-            tx.NumOutputs = (byte)numOutputs;
-            tx.NumSigs = 0;
-
-            tx.ExtraLen = 34;
-            tx.Extra = new byte[34];
+                ExtraLen = 34,
+                Extra = new byte[34]
+            };
             tx.Extra[0] = 1;
             tx.Extra[1] = 0;
 
-            Cipher.Key r = new Cipher.Key(new byte[32]);
-            Cipher.Key R = new Cipher.Key(new byte[32]);
+            Cipher.Key r = new(new byte[32]);
+            Cipher.Key R = new(new byte[32]);
 
             Cipher.KeyOps.GenerateKeypair(ref r, ref R);
 
@@ -443,8 +444,10 @@ namespace Discreet.Coin
 
             for (int i = 0; i < numOutputs; i++)
             {
-                tx.Outputs[i] = new TXOutput();
-                tx.Outputs[i].Commitment = new Cipher.Key(new byte[32]);
+                tx.Outputs[i] = new TXOutput
+                {
+                    Commitment = new Cipher.Key(new byte[32])
+                };
                 Cipher.Key mask = Cipher.KeyOps.GenCommitmentMask(ref r, ref to.view, i);
                 /* the amount is randomly generated between 1 and 100 DIS (droplet size is 10^10) */
                 ulong amnt = 1_000_000_000_0 + Cipher.KeyOps.RandomDisAmount(99_000_000_000_0);
@@ -604,7 +607,7 @@ namespace Discreet.Coin
 
         public static Transaction GenerateMock()
         {
-            Transaction tx = new Transaction();
+            Transaction tx = new();
             tx.Version = 1;
             tx.NumInputs = 2;
             tx.NumOutputs = 2;
@@ -752,21 +755,21 @@ namespace Discreet.Coin
                     return new VerifyException("Transaction", $"PseudoOutput length mismatch: expected {NumInputs}, but got {PseudoOutputs.Length}");
                 }
 
-                Cipher.Key sumPseudos = new Cipher.Key(new byte[32]);
+                Cipher.Key sumPseudos = new(new byte[32]);
 
                 for (int i = 0; i < PseudoOutputs.Length; i++)
                 {
                     sumPseudos = Cipher.KeyOps.AddKeys(ref sumPseudos, ref PseudoOutputs[i]);
                 }
 
-                Cipher.Key sumComms = new Cipher.Key(new byte[32]);
+                Cipher.Key sumComms = new(new byte[32]);
 
                 for (int i = 0; i < Outputs.Length; i++)
                 {
                     sumComms = Cipher.KeyOps.AddKeys(ref sumComms, ref Outputs[i].Commitment);
                 }
 
-                Cipher.Key dif = new Cipher.Key(new byte[32]);
+                Cipher.Key dif = new(new byte[32]);
                 Cipher.KeyOps.SubKeys(ref dif, ref sumPseudos, ref sumComms);
 
                 if (!dif.Equals(Cipher.Key.Z))
