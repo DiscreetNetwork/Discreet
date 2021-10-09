@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Coin;
+using Discreet.Common.Exceptions;
 
 namespace Discreet.Visor
 {
@@ -79,6 +80,27 @@ namespace Discreet.Visor
             pool.Add(tx);
 
             return null;
+        }
+
+        /**
+         * Grabs transactions from the pool and packs them into a block.
+         * Currently just returns the entire TXpool.
+         */
+        public List<Transaction> GetTransactionsForBlock()
+        {
+            return pool;
+        }
+
+        /* */
+        public void UpdatePool(List<Transaction> blockTxs)
+        {
+            foreach (Transaction tx in blockTxs)
+            {
+                if(!pool.Remove(tx))
+                {
+                    Logger.Log($"Discreet.Visor.TXPool.UpdatePool: transaction with hash {tx.Hash()} not present in txpool");
+                }
+            }
         }
     }
 }

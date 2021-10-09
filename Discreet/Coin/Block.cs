@@ -489,11 +489,21 @@ namespace Discreet.Coin
                 return new VerifyException("Block", $"Merkle root mismatch: expected {MerkleRoot.ToHexShort()}, but got {merkleRoot.ToHexShort()}");
             }
 
-            SHA256 prevBlockHash = db.GetBlock(Height - 1).BlockHash;
-
-            if (!prevBlockHash.Equals(PreviousBlock))
+            if (Height == 0)
             {
-                return new VerifyException("Block", $"previous block mismatch: expected {prevBlockHash.ToHexShort()} (previous block in database), but got {PreviousBlock.ToHexShort()}");
+                if (!PreviousBlock.Equals(new SHA256(new byte[32], false)))
+                {
+                    return new VerifyException("Block", $"genesis block should point to zero hash, but got {PreviousBlock.ToHexShort()}");
+                }
+            }
+            else
+            {
+                SHA256 prevBlockHash = db.GetBlock(Height - 1).BlockHash;
+
+                if (!prevBlockHash.Equals(PreviousBlock))
+                {
+                    return new VerifyException("Block", $"previous block mismatch: expected {prevBlockHash.ToHexShort()} (previous block in database), but got {PreviousBlock.ToHexShort()}");
+                }
             }
 
             SHA256 blockHash = Hash();
@@ -542,6 +552,7 @@ namespace Discreet.Coin
             return null;
         }
 
+        /* Should not be called on genesis block. */
         public VerifyException VerifyIncoming()
         {
             /* VerifyIncoming does the following:
