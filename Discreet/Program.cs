@@ -200,7 +200,7 @@ namespace Discreet
 			return rv;
         }*/
 
-		public static async Task Main(string[] args)
+		public static void Main(string[] args)
 		{
 			/*Key bv = new Key();
 			Key BV = new Key();
@@ -498,9 +498,9 @@ namespace Discreet
 			byte[] magic = new byte[32] {0x17, 0x33, 0x50, 0x8c, 0xbe, 0x39, 0xf1, 0xe0, 0xac, 0x81, 0x84, 0xf4, 0x64, 0x18, 0x6f, 0x46, 0x61, 0x75, 0x1d, 0x94, 0x83, 0x64, 0xa6, 0x76, 0xc6, 0x69, 0xa7, 0x89, 0x77, 0x38, 0x47, 0x79};
 
 
-            // CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
+			// CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
 
-            /*Wallet wallet = new Wallet("wrap", "password123!");
+			/*Wallet wallet = new Wallet("wrap", "password123!");
 			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
 
 			Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
@@ -550,9 +550,74 @@ namespace Discreet
 			Console.WriteLine(Path.Combine(homePath, ".discreet"));*/
 
 
-            RPCServer process = new RPCServer(8350);
-            await process.Start();
-            await Task.Delay(-1);
+			//RPCServer process = new RPCServer(8350);
+			//await process.Start();
+			//await Task.Delay(-1);
+
+			DB.DB db = DB.DB.GetDB();
+
+			//db.DropAll();
+
+			//db = DB.DB.GetDB();
+
+			Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
+
+			/* generate test wallet */
+			int numTestWallets = 2;
+			int numTestUTXOs = 2;
+
+			Wallets.Wallet wallet = new Wallets.Wallet("test", "password123!", "tackle target response forget ethics spider smoke deputy never record aisle tissue sell security shed hat coin unfair capital loud motion diary sheriff excess", true, true, 24, (uint)numTestWallets);
+
+			wallet.Decrypt("password123!");
+
+			Wallets.Wallet receiver = new Wallets.Wallet("test_receive", "password1234!", "shy reason torch similar people ball false shuffle wet pitch inflict hood trash silent legend diary myself field popular loan donor copy own blind");
+
+			StealthAddress[] addresses = new StealthAddress[numTestWallets];
+			int[] numOutputs = new int[numTestWallets];
+
+			for (int i = 0; i < numTestWallets; i++)
+            {
+				addresses[i] = wallet.Addresses[i].GetAddress();
+				numOutputs[i] = numTestUTXOs;
+			}
+
+			Block genesis = new Block();
+
+			genesis.UnmarshalFull(Printable.Byteify("0008d98c03d8c61f0100000000000000010000000000000000ae6e8af41f17db50306c5c43c1589f88c11cf8d561693b6b07e4fefcd7a165da793c0de253254f4f3abb0a89660d3fbb8c2adc7585161737cdd51438d9bdcff2dfb58bad456f2a8e29f7bba5c09d0de0041fc23530f46012ca54ed8cc8e64acd00000002000001f90000000400000200c32424bd0c4b807cbe43e5128e5e829a909dc530c487bf0db444d58c443f3c0d53fcf5fef567d929815259bf6d97e1115d726db4e750c7c039036b2cce35b066507afac96ff80792eb8bd0756e855752b7359456173c05bae7c6332ab7e4a0b7675632a65f3f693087d2dc5b19a1ad0e53735f2c2079a47192ea87a04402b4fec48b2428ba4771efb68d95eb73039ca0000000220100cd281c6ff6a28a6b39670fe1459cd5637b1f367c514cf92addc24206cd04054800000200027d9a0e7d8f65a478ff7a5e9eb331b42e6a2c0b919e2ecd0e7d2f8f8dded6ef333b9330a1b35fe9fc456dd0a1f97dfe7a5f6c2384360deac5a480132b8e3a73121009d33ac5af528908eb894dfbfb9f245bd385392aff4744b68bde7baa5b23facb12fc82cc78050333a830aaeccdb573c0f12cf7b7b8d68045cca8b9df3b83a840b6e46836f75b80e13ee527b6173e000000220100ccf868498837f01efb9668f8247941a1474dc52c25576bd9f39c1d57f0375074"));
+
+			/*Block genesis = Block.BuildRandom(addresses, numOutputs);
+
+            Console.WriteLine(genesis.MarshalFull().Length);
+
+			wallet.ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, wallet.Label + ".dis"));
+
+			var err = genesis.Verify();
+
+			if (err != null)
+            {
+				throw err;
+            }
+
+            Console.WriteLine("\n\n\n" + Printable.Hexify(genesis.MarshalFull()) + "\n\n\n");*/
+
+			Console.WriteLine(Printable.Prettify(genesis.ReadableFull()));
+
+			Visor.Visor visor = new(wallet);
+
+			
+
+			//visor.ProcessBlock(genesis);
+			//receiver.ProcessBlock(genesis);
+
+			wallet.ProcessBlock(genesis);
+
+			wallet.ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, wallet.Label + ".dis"));
+
+			//db.AddBlock(genesis);
+
+			//Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
+
+			//Block.BuildRandom()
 
 
 			/**

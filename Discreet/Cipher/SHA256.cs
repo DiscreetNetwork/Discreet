@@ -129,7 +129,7 @@ namespace Discreet.Cipher
             return Compare(this, b) == 0;
         }
 
-        internal Key ToKey()
+        public Key ToKey()
         {
             return new Key(bytes);
         }

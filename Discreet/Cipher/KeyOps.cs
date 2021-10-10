@@ -61,9 +61,12 @@ namespace Discreet.Cipher
         [return: MarshalAs(UnmanagedType.U8)]
         public static extern ulong RandomDisAmount([MarshalAs(UnmanagedType.U8)] ulong limit);
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultKey1", CallingConvention = CallingConvention.StdCall)]
-        [return: MarshalAs(UnmanagedType.Struct)]
-        public static extern Key ScalarmultKey(ref Key p, ref Key a);
+        public static Key ScalarmultKey(ref Key p, ref Key a)
+        {
+            Key ap = new Key(new byte[32]);
+            ScalarmultKey(ref ap, ref p, ref a);
+            return ap;
+        }
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarmultH", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Struct)]
@@ -76,7 +79,7 @@ namespace Discreet.Cipher
         [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key Scalarmult8(ref Key p);
 
-        internal static ulong XOR8(ref Key g, ulong amount)
+        public static ulong XOR8(ref Key g, ulong amount)
         {
             byte[] amountBytes = Coin.Serialization.UInt64(amount);
 
@@ -288,6 +291,26 @@ namespace Discreet.Cipher
                 T[i] = new Key(new byte[32]);
                 AGB(ref T[i], ref c, ref ps[i]);
             }
+        }
+
+        public static Key DKSAPRecover(ref Key R, ref Key sv, ref Key ss, int i)
+        {
+            Key cscalar = ScalarmultKey(ref R, ref sv);
+
+            byte[] txbytes = new byte[36];
+            Array.Copy(cscalar.bytes, txbytes, 32);
+            txbytes[32] = (byte)(i >> 24);
+            txbytes[33] = (byte)((i >> 16) & 0xFF);
+            txbytes[34] = (byte)((i >> 8) & 0xFF);
+            txbytes[35] = (byte)(i & 0xFF);
+
+            Key c = new Key(new byte[32]);
+            HashOps.HashToScalar(ref c, txbytes, 36);
+
+            Key t = new Key(new byte[32]);
+            ScalarAdd(ref t, ref c, ref ss);
+
+            return t;
         }
 
         public static Key[] DKSAP(ref Key r, ref Key R, Key[] pv, Key[] ps)

@@ -60,6 +60,11 @@ namespace Discreet.Wallets
         /* UTXO data for the wallet. Stored in a local JSON database. */
         public List<UTXO> UTXOs;
 
+        public StealthAddress GetAddress()
+        {
+            return new StealthAddress(PubViewKey, PubSpendKey);
+        }
+
         public WalletAddress(bool random)
         {
             if (random)
@@ -298,7 +303,7 @@ namespace Discreet.Wallets
                 Addresses[i].Encrypt(Entropy);
             }
 
-            IsEncrypted = false;
+            IsEncrypted = encrypted;
         }
 
         public Wallet(string label, string passphrase, string mnemonic, bool encrypted = true, bool deterministic = true, uint bip39 = 24, uint numAddresses = 1)
@@ -354,7 +359,7 @@ namespace Discreet.Wallets
                 Addresses[i].Encrypt(Entropy);
             }
 
-            IsEncrypted = false;
+            IsEncrypted = encrypted;
         }
 
         public string GetMnemonic()
@@ -508,6 +513,8 @@ namespace Discreet.Wallets
 
         public void ToFile(string path)
         {
+            Encrypt();
+
             File.WriteAllText(path, Printable.Prettify(JSON()));
         }
 
@@ -734,6 +741,40 @@ namespace Discreet.Wallets
             }
 
             return tx;
+        }
+
+        public void ProcessBlock(Block block)
+        {
+            if (IsEncrypted) throw new Exception("Do not call if wallet is encrypted!");
+
+            foreach (Transaction transaction in block.transactions)
+            {
+                for (int i = 0; i < transaction.NumOutputs; i++)
+                {
+                    for (int j = 0; j < Addresses.Length; j++)
+                    {
+                        Key outputSecKey = new Key(new byte[32]);
+                        Key txKey = transaction.GetTXKey();
+                        KeyOps.DKSAPRecover(ref outputSecKey, ref txKey, ref Addresses[j].SecViewKey, ref Addresses[j].SecSpendKey, i);
+                        Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+                        if (transaction.Outputs[i].UXKey.Equals(outputPubKey))
+                        {
+                            ProcessOutput(transaction, i, j);
+                        }
+                    }
+                }
+            }
+        }
+
+        internal void ProcessOutput(Transaction transaction, int i, int walletIndex)
+        {
+            DB.DB db = DB.DB.GetDB();
+
+            (int index, UTXO utxo) = db.AddWalletOutput(transaction, i);
+
+            utxo.OwnedIndex = index;
+
+            Addresses[walletIndex].UTXOs.Add(utxo);
         }
     }
 }

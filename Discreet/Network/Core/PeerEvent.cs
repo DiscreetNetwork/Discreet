@@ -27,7 +27,7 @@ namespace Discreet.Network.Core
         {
         }
 
-        internal PeerEvent(IPEndPoint senderGossipEndPoint, DateTime receivedDateTime, IPAddress ip, ushort gossipPort, PeerState state, byte generation)
+        public PeerEvent(IPEndPoint senderGossipEndPoint, DateTime receivedDateTime, IPAddress ip, ushort gossipPort, PeerState state, byte generation)
         {
             SenderGossipEndPoint = senderGossipEndPoint;
             ReceivedDateTime = receivedDateTime;
@@ -38,7 +38,7 @@ namespace Discreet.Network.Core
             Generation = generation;
         }
 
-        internal PeerEvent(IPEndPoint senderGossipEndPoint, DateTime receivedDateTime, Peer peer)
+        public PeerEvent(IPEndPoint senderGossipEndPoint, DateTime receivedDateTime, Peer peer)
         {
             SenderGossipEndPoint = senderGossipEndPoint;
             ReceivedDateTime = receivedDateTime;
@@ -50,7 +50,7 @@ namespace Discreet.Network.Core
             Service = peer.Service;
         }
 
-        internal static PeerEvent ReadFrom(IPEndPoint senderGossipEndPoint, DateTime receivedDateTime, Stream stream, bool isSender = false)
+        public static PeerEvent ReadFrom(IPEndPoint senderGossipEndPoint, DateTime receivedDateTime, Stream stream, bool isSender = false)
         {
             if (stream.Position >= stream.Length)
             {

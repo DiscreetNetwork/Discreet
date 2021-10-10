@@ -65,43 +65,36 @@ namespace Discreet.Cipher
         public static Key INV_EIGHT = new Key(new byte[] { 0x79, 0x2f, 0xdc, 0xe2, 0x29, 0xe5, 0x06, 0x61, 0xd0, 0xda, 0x1c, 0x7d, 0xb3, 0x9d, 0xd3, 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06 });
         public static Key H = new Key(new byte[] { 0x8b, 0x65, 0x59, 0x70, 0x15, 0x37, 0x99, 0xaf, 0x2a, 0xea, 0xdc, 0x9f, 0xf1, 0xad, 0xd0, 0xea, 0x6c, 0x72, 0x51, 0xd5, 0x41, 0x54, 0xcf, 0xa9, 0x2c, 0x17, 0x3a, 0x0d, 0xd3, 0x9c, 0x1f, 0x94 });
 
-        /* based on crypto_verify_32 (in DiscreetCore/src/crypto/verify.c) */
+        /* a > b => 1, a == b => 0, a < b => -1 */
+        public static int Compare(Key a, Key b)
+        {
+            int i;
+
+            for (i = 0; i < 32; i++)
+            {
+                if (a.bytes[i] != b.bytes[i])
+                {
+                    break;
+                }
+            }
+
+            if (i == 32)
+            {
+                return 0;
+            }
+            else if (a.bytes[i] > b.bytes[i])
+            {
+                return 1;
+            }
+            else
+            {
+                return -1;
+            }
+        }
+
         public bool Equals(Key b)
         {
-            int diff = 0;
-            diff |= (int)bytes[0] ^ (int)b.bytes[0];
-            diff |= (int)bytes[1] ^ (int)b.bytes[1];
-            diff |= (int)bytes[2] ^ (int)b.bytes[2];
-            diff |= (int)bytes[3] ^ (int)b.bytes[3];
-            diff |= (int)bytes[4] ^ (int)b.bytes[4];
-            diff |= (int)bytes[5] ^ (int)b.bytes[5];
-            diff |= (int)bytes[6] ^ (int)b.bytes[6];
-            diff |= (int)bytes[7] ^ (int)b.bytes[7];
-            diff |= (int)bytes[8] ^ (int)b.bytes[8];
-            diff |= (int)bytes[9] ^ (int)b.bytes[9];
-            diff |= (int)bytes[10] ^ (int)b.bytes[10];
-            diff |= (int)bytes[11] ^ (int)b.bytes[11];
-            diff |= (int)bytes[12] ^ (int)b.bytes[12];
-            diff |= (int)bytes[13] ^ (int)b.bytes[13];
-            diff |= (int)bytes[14] ^ (int)b.bytes[14];
-            diff |= (int)bytes[15] ^ (int)b.bytes[15];
-            diff |= (int)bytes[16] ^ (int)b.bytes[16];
-            diff |= (int)bytes[17] ^ (int)b.bytes[17];
-            diff |= (int)bytes[18] ^ (int)b.bytes[18];
-            diff |= (int)bytes[19] ^ (int)b.bytes[19];
-            diff |= (int)bytes[20] ^ (int)b.bytes[20];
-            diff |= (int)bytes[21] ^ (int)b.bytes[21];
-            diff |= (int)bytes[22] ^ (int)b.bytes[22];
-            diff |= (int)bytes[23] ^ (int)b.bytes[23];
-            diff |= (int)bytes[24] ^ (int)b.bytes[24];
-            diff |= (int)bytes[25] ^ (int)b.bytes[25];
-            diff |= (int)bytes[26] ^ (int)b.bytes[26];
-            diff |= (int)bytes[27] ^ (int)b.bytes[27];
-            diff |= (int)bytes[28] ^ (int)b.bytes[28];
-            diff |= (int)bytes[29] ^ (int)b.bytes[29];
-            diff |= (int)bytes[30] ^ (int)b.bytes[30];
-            diff |= (int)bytes[31] ^ (int)b.bytes[31];
-            return (1 & ((diff - 1) >> 8) - 1) != 0;
+            return Compare(this, b) == 0;
         }
 
         public string ToHex()

@@ -29,7 +29,7 @@ namespace Discreet.Visor
 
             ConfigPath = Path.Combine(VisorPath, "config.json");
 
-            DBSize = 4294967296; // 4gb
+            DBSize = 4294967296/4; // 1gb
         }
 
         public static VisorConfig GetDefault()

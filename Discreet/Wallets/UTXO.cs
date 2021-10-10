@@ -95,6 +95,12 @@ namespace Discreet.Wallets
             DecodeIndex = i;
         }
 
+        public UTXO(uint index, Coin.TXOutput output, Key txKey, int i) : this(index, output)
+        {
+            TransactionKey = txKey;
+            DecodeIndex = i;
+        }
+
         public void Encrypt()
         {
             DecodedAmount = 0;

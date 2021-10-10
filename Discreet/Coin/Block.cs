@@ -20,7 +20,7 @@ namespace Discreet.Coin
         public byte Version;
 
         public ulong Timestamp;
-        public ulong Height;
+        public long Height;
         public ulong Fee;      // 25
 
         public Cipher.SHA256 PreviousBlock;
@@ -146,7 +146,7 @@ namespace Discreet.Coin
             Version = bytes[0];
 
             Timestamp = Serialization.GetUInt64(bytes, 1);
-            Height = Serialization.GetUInt64(bytes, 9);
+            Height = Serialization.GetInt64(bytes, 9);
             Fee = Serialization.GetUInt64(bytes, 17);
 
             PreviousBlock = new SHA256(bytes[25..57], false);
@@ -170,7 +170,7 @@ namespace Discreet.Coin
             Version = bytes[0];
 
             Timestamp = Serialization.GetUInt64(bytes, 1);
-            Height = Serialization.GetUInt64(bytes, 9);
+            Height = Serialization.GetInt64(bytes, 9);
             Fee = Serialization.GetUInt64(bytes, 17);
 
             PreviousBlock = new SHA256(bytes[25..57], false);
@@ -184,6 +184,8 @@ namespace Discreet.Coin
             Transactions = new Cipher.SHA256[NumTXs];
 
             uint _offset = 133;
+
+            transactions = new Transaction[NumTXs];
 
             for (int i = 0; i < NumTXs; i++)
             {
@@ -200,7 +202,7 @@ namespace Discreet.Coin
             Version = bytes[offset];
 
             Timestamp = Serialization.GetUInt64(bytes, _offset + 1);
-            Height = Serialization.GetUInt64(bytes, _offset + 9);
+            Height = Serialization.GetInt64(bytes, _offset + 9);
             Fee = Serialization.GetUInt64(bytes, _offset + 17);
 
             PreviousBlock = new SHA256(bytes[(offset + 25)..(offset + 57)], false);
@@ -227,7 +229,7 @@ namespace Discreet.Coin
             Version = bytes[offset];
 
             Timestamp = Serialization.GetUInt64(bytes, _offset + 1);
-            Height = Serialization.GetUInt64(bytes, _offset + 9);
+            Height = Serialization.GetInt64(bytes, _offset + 9);
             Fee = Serialization.GetUInt64(bytes, _offset + 17);
 
             PreviousBlock = new SHA256(bytes[(offset + 25)..(offset + 57)], false);
@@ -317,6 +319,10 @@ namespace Discreet.Coin
             if (block.Height > 0)
             {
                 block.PreviousBlock = db.GetBlock(block.Height - 1).BlockHash;
+            }
+            else
+            {
+                block.PreviousBlock = new SHA256(new byte[32], false);
             }
 
             if (block.Fee > 0 && miner != null)

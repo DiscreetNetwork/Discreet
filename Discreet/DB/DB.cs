@@ -66,6 +66,16 @@ namespace Discreet.DB
         }
     }
 
+    public class L64
+    {
+        public long Value;
+
+        public L64(long value)
+        {
+            Value = value;
+        }
+    }
+
     public class U32
     {
         public uint Value;
@@ -150,7 +160,7 @@ namespace Discreet.DB
         private U64 indexer_tx = new U64(0);
         private U32 indexer_output = new U32(0);
 
-        private U64 height = new U64(0);
+        private L64 height = new L64(-1);
 
         private U64 previouslySeenTimestamp = new U64((ulong)DateTime.Now.Ticks);
 
@@ -247,7 +257,7 @@ namespace Discreet.DB
                 txn.Put(Meta, Encoding.ASCII.GetBytes("meta"), ZEROKEY);
                 txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value));
                 txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value));
-                txn.Put(Meta, Encoding.ASCII.GetBytes("height"), Serialization.UInt64(height.Value));
+                txn.Put(Meta, Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value));
                 txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt32(indexer_owned_outputs.Value));
             }
             else {
@@ -276,7 +286,7 @@ namespace Discreet.DB
                     throw new Exception($"Discreet.DB: Fatal error: {result.resultCode}");
                 }
 
-                height.Value = Serialization.GetUInt64(result.value.CopyToNewArray(), 0);
+                height.Value = Serialization.GetInt64(result.value.CopyToNewArray(), 0);
 
                 result = txn.Get(Meta, Encoding.ASCII.GetBytes("indexer_owned_outputs"));
 
@@ -291,6 +301,46 @@ namespace Discreet.DB
             folder = path;
 
             txn.Commit();
+        }
+
+        /** 
+         * <summary>Disposes of all data in the database, then disposes of the database class.<br />WARNING: DATA WILL NOT BE RECOVERED AND THE BLOCKCHAIN WILL BE LOST.</summary>
+         */
+        public void DropAll()
+        {
+            using var txn = Env.BeginTransaction();
+
+            var config = new DatabaseConfiguration { Flags = DatabaseOpenFlags.Create };
+
+            SpentKeys = txn.OpenDatabase(SPENT_KEYS, config);
+            TXPoolMeta = txn.OpenDatabase(TX_POOL_META, config);
+            TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB, config);
+            TXPoolSpentKeys = txn.OpenDatabase(TX_POOL_SPENT_KEYS, config);
+            Outputs = txn.OpenDatabase(OUTPUTS, config);
+            TXIndices = txn.OpenDatabase(TX_INDICES, config);
+            TXs = txn.OpenDatabase(TXS, config);
+            BlockInfo = txn.OpenDatabase(BLOCK_INFO, config);
+            BlockHeights = txn.OpenDatabase(BLOCK_HEIGHTS, config);
+            Blocks = txn.OpenDatabase(BLOCKS, config);
+            OutputIndices = txn.OpenDatabase(OUTPUT_INDICES, config);
+            OwnedOutputs = txn.OpenDatabase(OWNED_OUTPUTS, config);
+            Meta = txn.OpenDatabase(META, config);
+
+            txn.DropDatabase(SpentKeys);
+            txn.DropDatabase(TXPoolMeta);
+            txn.DropDatabase(TXPoolBlob);
+            txn.DropDatabase(TXPoolSpentKeys);
+            txn.DropDatabase(Outputs);
+            txn.DropDatabase(TXIndices);
+            txn.DropDatabase(TXs);
+            txn.DropDatabase(BlockInfo);
+            txn.DropDatabase(BlockHeights);
+            txn.DropDatabase(Blocks);
+            txn.DropDatabase(OutputIndices);
+            txn.DropDatabase(OwnedOutputs);
+            txn.DropDatabase(Meta);
+
+            db = null;
         }
 
         public void AddBlock(Block blk)
@@ -312,24 +362,27 @@ namespace Discreet.DB
                 TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB);
             }
 
-            var result = txn.Get(Blocks, Serialization.UInt64(blk.Height));
+            var result = txn.Get(Blocks, Serialization.Int64(blk.Height));
 
-            if (result.resultCode != MDBResultCode.Success)
+            if (result.resultCode == MDBResultCode.Success)
             {
                 throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} (height {blk.Height}) already in database!");
             }
 
-            result = txn.Get(BlockHeights, blk.PreviousBlock.Bytes);
-
-            if (result.resultCode != MDBResultCode.Success)
+            if (blk.Height > 0)
             {
-                throw new Exception($"Discreet.DB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not found");
-            }
+                result = txn.Get(BlockHeights, blk.PreviousBlock.Bytes);
 
-            ulong prevBlockHeight = Serialization.GetUInt64(result.value.CopyToNewArray(), 0);
-            if (prevBlockHeight != height.Value)
-            {
-                throw new Exception($"Discreet.DB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not previous one in sequence (at height {prevBlockHeight})");
+                if (result.resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not found");
+                }
+
+                long prevBlockHeight = Serialization.GetInt64(result.value.CopyToNewArray(), 0);
+                if (prevBlockHeight != height.Value)
+                {
+                    throw new Exception($"Discreet.DB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not previous one in sequence (at height {prevBlockHeight})");
+                }
             }
 
             lock (previouslySeenTimestamp) {
@@ -350,14 +403,14 @@ namespace Discreet.DB
                 height.Value++;
             }
 
-            var resCode = txn.Put(BlockHeights, blk.BlockHash.Bytes, Serialization.UInt64(blk.Height));
+            var resCode = txn.Put(BlockHeights, blk.BlockHash.Bytes, Serialization.Int64(blk.Height));
 
             if (resCode != MDBResultCode.Success)
             {
                 throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
             }
 
-            resCode = txn.Put(Blocks, Serialization.UInt64(blk.Height), blk.Marshal());
+            resCode = txn.Put(Blocks, Serialization.Int64(blk.Height), blk.Marshal());
 
             if (resCode != MDBResultCode.Success)
             {
@@ -379,35 +432,10 @@ namespace Discreet.DB
             /* We check if all transactions exist in TXPool; if not, we complain */
             for (int i = 0; i < blk.NumTXs; i++)
             {
-                if (!txn.ContainsKey(TXPoolBlob, blk.Transactions[i].Bytes))
+                if (blk.Height > 0 && !txn.ContainsKey(TXPoolBlob, blk.Transactions[i].Bytes))
                 {
                     throw new Exception($"Discreet.DB.AddBlock: Transaction in block {blk.BlockHash.ToHexShort()} ({blk.Transactions[i].ToHexShort()}) not in transaction pool");
                 }
-            }
-
-            /* We currently sort by transaction hash to order transactions. */
-            Cipher.SHA256[] sortedTransactions = new Cipher.SHA256[blk.NumTXs];
-            for (int i = 0; i < blk.NumTXs; i++)
-            {
-                sortedTransactions[i] = new Cipher.SHA256(blk.Transactions[i].GetBytes(), false);
-            }
-
-            /* Ugly ass selection sort lmao */
-            for (int i = 0; i < blk.NumTXs - 1; i++)
-            {
-                int idx = i;
-                for (int j = i + 1; j < blk.NumTXs; j++)
-                {
-                    int cmpval = Cipher.SHA256.Compare(sortedTransactions[j], sortedTransactions[idx]);
-                    if (cmpval == 0)
-                    {
-                        throw new Exception($"Discreet.DB.AddBlock: Duplicate transaction found in block {blk.BlockHash.ToHexShort()} ({blk.Transactions[idx].ToHexShort()})");
-                    }
-                }
-
-                Cipher.SHA256 temp = sortedTransactions[idx];
-                sortedTransactions[idx] = sortedTransactions[i];
-                sortedTransactions[i] = temp;
             }
 
             if (TXIndices == null || !TXIndices.IsOpened)
@@ -420,10 +448,44 @@ namespace Discreet.DB
                 TXs = txn.OpenDatabase(TXS);
             }
 
-            /* Now we add transactions from transaction pool */
-            for (int i = 0; i < blk.NumTXs; i++)
+            if (blk.Height > 0)
             {
-                AddTransactionFromPool(sortedTransactions[i], txn);
+                /* We currently sort by transaction hash to order transactions. */
+                Cipher.SHA256[] sortedTransactions = new Cipher.SHA256[blk.NumTXs];
+                for (int i = 0; i < blk.NumTXs; i++)
+                {
+                    sortedTransactions[i] = new Cipher.SHA256(blk.Transactions[i].GetBytes(), false);
+                }
+
+                /* Ugly ass selection sort lmao */
+                for (int i = 0; i < blk.NumTXs - 1; i++)
+                {
+                    int idx = i;
+                    for (int j = i + 1; j < blk.NumTXs; j++)
+                    {
+                        int cmpval = Cipher.SHA256.Compare(sortedTransactions[j], sortedTransactions[idx]);
+                        if (cmpval == 0)
+                        {
+                            throw new Exception($"Discreet.DB.AddBlock: Duplicate transaction found in block {blk.BlockHash.ToHexShort()} ({blk.Transactions[idx].ToHexShort()})");
+                        }
+                    }
+
+                    Cipher.SHA256 temp = sortedTransactions[idx];
+                    sortedTransactions[idx] = sortedTransactions[i];
+                    sortedTransactions[i] = temp;
+                }
+
+                for (int i = 0; i < blk.NumTXs; i++)
+                {
+                    AddTransactionFromPool(sortedTransactions[i], txn);
+                }
+            }
+            else
+            {
+                for (int i = 0; i < blk.NumTXs; i++)
+                {
+                    AddTransaction(blk.transactions[i], txn);
+                }
             }
 
             /* update indexers */
@@ -453,7 +515,7 @@ namespace Discreet.DB
 
             lock (height)
             {
-                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("height"), Serialization.UInt64(height.Value));
+                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value));
 
                 if (resCode != MDBResultCode.Success)
                 {
@@ -466,6 +528,87 @@ namespace Discreet.DB
             if (resCode != MDBResultCode.Success)
             {
                 throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
+            }
+        }
+
+        private void AddTransaction(Transaction tx, LightningTransaction txn)
+        {
+            Cipher.SHA256 txhash = tx.Hash();
+
+            if (TXIndices == null || !TXIndices.IsOpened)
+            {
+                TXIndices = txn.OpenDatabase(TX_INDICES);
+            }
+
+            if (TXs == null || !TXs.IsOpened)
+            {
+                TXs = txn.OpenDatabase(TXS);
+            }
+
+            if (txn.ContainsKey(TXIndices, txhash.Bytes))
+            {
+                throw new Exception($"Discreet.DB.AddTransactionFromPool: Transaction {txhash.ToHexShort()} already in TX table!");
+            }
+
+            ulong txIndex;
+
+            lock (indexer_tx)
+            {
+                indexer_tx.Value++;
+                txIndex = indexer_tx.Value;
+            }
+
+            var resultCode = txn.Put(TXIndices, txhash.Bytes, Serialization.UInt64(txIndex));
+
+            if (resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddTransactionFromPool: database update exception: {resultCode}");
+            }
+
+            byte[] txraw = tx.Marshal();
+
+            resultCode = txn.Put(TXs, Serialization.UInt64(txIndex), txraw);
+
+            if (resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddTransactionFromPool: database update exception: {resultCode}");
+            }
+
+            uint[] outputIndices = new uint[tx.NumOutputs];
+
+            for (int i = 0; i < tx.NumOutputs; i++)
+            {
+                outputIndices[i] = AddOutput(tx.Outputs[i], txn);
+            }
+
+            byte[] uintArr = Serialization.UInt32Array(outputIndices);
+
+            if (OutputIndices == null || !OutputIndices.IsOpened)
+            {
+                OutputIndices = txn.OpenDatabase(OUTPUT_INDICES);
+            }
+
+            resultCode = txn.Put(OutputIndices, txhash.Bytes, uintArr);
+
+            if (resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddTransactionFromPool: database update exception: {resultCode}");
+            }
+
+            /* Add spent keys */
+            if (SpentKeys == null || !SpentKeys.IsOpened)
+            {
+                SpentKeys = txn.OpenDatabase(SPENT_KEYS);
+            }
+
+            for (int i = 0; i < tx.NumInputs; i++)
+            {
+                resultCode = txn.Put(SpentKeys, tx.Inputs[i].KeyImage.bytes, ZEROKEY);
+
+                if (resultCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB.AddTransactionFromPool: database update exception: {resultCode}");
+                }
             }
         }
 
@@ -640,7 +783,7 @@ namespace Discreet.DB
             return outputIndices[i];
         }
 
-        public int AddWalletOutput(Transaction tx, int i)
+        public (int, Wallets.UTXO) AddWalletOutput(Transaction tx, int i)
         {
             var txn = Env.BeginTransaction();
 
@@ -685,7 +828,7 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DB.AddWalletOutput: database update exception: {resCode}");
             }
 
-            return outputIndex;
+            return (outputIndex, utxo);
         }
 
         public Wallets.UTXO GetWalletOutput(int index)
@@ -1150,7 +1293,7 @@ namespace Discreet.DB
             return tx;
         }
 
-        public Block GetBlock(ulong height)
+        public Block GetBlock(long height)
         {
             using var txn = Env.BeginTransaction();
 
@@ -1159,7 +1302,7 @@ namespace Discreet.DB
                 Blocks = txn.OpenDatabase(BLOCKS);
             }
 
-            var result = txn.Get(Blocks, Serialization.UInt64(height));
+            var result = txn.Get(Blocks, Serialization.Int64(height));
 
             if (result.resultCode.HasFlag(MDBResultCode.NotFound))
             {
@@ -1214,7 +1357,7 @@ namespace Discreet.DB
             }
         }
 
-        public ulong GetChainHeight()
+        public long GetChainHeight()
         {
             lock (height)
             {

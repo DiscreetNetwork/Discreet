@@ -46,6 +46,12 @@ namespace Discreet.Coin
             return Cipher.SHA256.HashData(Marshal());
         }
 
+        /* this should only be called on transactions which store a txkey */
+        public Cipher.Key GetTXKey()
+        {
+            return new Cipher.Key(Extra[2..34]);
+        }
+
         /**
          * This is the hash signed through signatures.
          * It is composed of:
@@ -461,7 +467,7 @@ namespace Discreet.Coin
             return tx;
         }
 
-        internal Cipher.Key[] GetCommitments()
+        public Cipher.Key[] GetCommitments()
         {
             Cipher.Key[] comms = new Cipher.Key[NumOutputs];
             
@@ -475,12 +481,12 @@ namespace Discreet.Coin
 
         public uint Unmarshal(byte[] bytes, uint offset)
         {
-            if (bytes[0] == 0)
+            if (bytes[offset] == 0)
             {
-                Version = bytes[0];
-                NumInputs = bytes[1];
-                NumOutputs = bytes[2];
-                NumSigs = bytes[3];
+                Version = bytes[offset];
+                NumInputs = bytes[offset + 1];
+                NumOutputs = bytes[offset + 2];
+                NumSigs = bytes[offset + 3];
 
                 offset += 4;
 

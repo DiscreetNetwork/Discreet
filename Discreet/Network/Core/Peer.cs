@@ -10,7 +10,7 @@ namespace Discreet.Network.Core
     {
         public PeerState State { get; private set; }
         public IPAddress IP { get; private set; }
-        public byte Version { get; internal set; }
+        public byte Version { get; set; }
         public ushort GossipPort { get; private set; }
         public byte Generation { get; private set; }
         public byte Service { get; private set; }
@@ -24,7 +24,7 @@ namespace Discreet.Network.Core
 
         }
 
-        internal IPEndPoint GossipEndpoint
+        public IPEndPoint GossipEndpoint
         {
             get
             {
