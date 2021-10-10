@@ -46,12 +46,7 @@ namespace Discreet.Coin
             return Cipher.SHA256.HashData(Marshal());
         }
 
-        /* this should only be called on transactions which store a txkey */
-        public Cipher.Key GetTXKey()
-        {
-            return new Cipher.Key(Extra[2..34]);
-        }
-
+        
         /**
          * This is the hash signed through signatures.
          * It is composed of:
@@ -425,6 +420,14 @@ namespace Discreet.Coin
             }
         }
 
+        /* this should only be called on transactions which store a txkey */
+        public Cipher.Key GetTXKey()
+        {
+            Cipher.Key rv = new(new byte[32]);
+            Array.Copy(Extra, 2, rv.bytes, 0, 32);
+            return rv;
+        }
+
         /* for testing purposes only */
         public static Transaction GenerateRandomNoSpend(StealthAddress to, int numOutputs)
         {
@@ -458,9 +461,13 @@ namespace Discreet.Coin
                 /* the amount is randomly generated between 1 and 100 DIS (droplet size is 10^10) */
                 ulong amnt = 1_000_000_000_0 + Cipher.KeyOps.RandomDisAmount(99_000_000_000_0);
                 Cipher.KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref mask, amnt);
+
                 tx.Outputs[i].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, i);
+
                 tx.Outputs[i].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, i, amnt);
             }
+
+            Console.WriteLine(R.ToHex());
 
             Array.Copy(R.bytes, 0, tx.Extra, 2, 32);
 

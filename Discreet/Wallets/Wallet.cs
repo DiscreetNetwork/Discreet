@@ -150,7 +150,7 @@ namespace Discreet.Wallets
             EncryptedSecSpendKey = cipherObjSpend.PrependIV(encryptedSecSpendKeyBytes);
 
             CipherObject cipherObjView = AESCBC.GenerateCipherObject(key);
-            byte[] encryptedSecViewKeyBytes = AESCBC.Encrypt(SecSpendKey.bytes, cipherObjView);
+            byte[] encryptedSecViewKeyBytes = AESCBC.Encrypt(SecViewKey.bytes, cipherObjView);
             EncryptedSecViewKey = cipherObjView.PrependIV(encryptedSecViewKeyBytes);
 
             Array.Clear(SecSpendKey.bytes, 0, 32);
@@ -194,9 +194,6 @@ namespace Discreet.Wallets
 
             Array.Clear(unencryptedSpendKey, 0, unencryptedSpendKey.Length);
             Array.Clear(unencryptedViewKey, 0, unencryptedViewKey.Length);
-
-            Array.Clear(EncryptedSecSpendKey, 0, EncryptedSecSpendKey.Length);
-            Array.Clear(EncryptedSecViewKey, 0, EncryptedSecViewKey.Length);
         }
 
         public void EncryptDropKeys()
@@ -379,7 +376,7 @@ namespace Discreet.Wallets
 
             for (int i = 0; i < Addresses.Length; i++)
             {
-                Addresses[i].EncryptDropKeys();
+                Addresses[i].Encrypt(Entropy);
             }
 
             if (!Encrypted) return;
@@ -394,8 +391,6 @@ namespace Discreet.Wallets
             if (!Encrypted) return;
 
             if (!IsEncrypted) return;
-
-            
 
             byte[] entropyEncryptionKey = new byte[32];
             byte[] passhash = Cipher.SHA512.HashData(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
@@ -457,7 +452,7 @@ namespace Discreet.Wallets
             {
                 rv += $"{{\"EncryptedSecSpendKey\":\"{Printable.Hexify(Addresses[i].EncryptedSecSpendKey)}\",\"EncryptedSecViewKey\":\"{Printable.Hexify(Addresses[i].EncryptedSecViewKey)}\",\"PubSpendKey\":\"{Addresses[i].PubSpendKey.ToHex()}\",\"PubViewKey\":\"{Addresses[i].PubViewKey.ToHex()}\",\"Address\":\"{Addresses[i].Address}\",\"UTXOs\":[";
 
-                for (int j = 0; j < Addresses[i].UTXOs.Count; i++)
+                for (int j = 0; j < Addresses[i].UTXOs.Count; j++)
                 {
                     rv += $"{Addresses[i].UTXOs[j].OwnedIndex}";
 
@@ -513,8 +508,6 @@ namespace Discreet.Wallets
 
         public void ToFile(string path)
         {
-            Encrypt();
-
             File.WriteAllText(path, Printable.Prettify(JSON()));
         }
 
@@ -749,24 +742,29 @@ namespace Discreet.Wallets
 
             foreach (Transaction transaction in block.transactions)
             {
-                for (int i = 0; i < transaction.NumOutputs; i++)
+                ProcessTransaction(transaction);
+            }
+        }
+
+        private void ProcessTransaction(Transaction transaction)
+        {
+            for (int i = 0; i < transaction.NumOutputs; i++)
+            {
+                for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
                 {
-                    for (int j = 0; j < Addresses.Length; j++)
+                    Key txKey = transaction.GetTXKey();
+                    Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[addrIndex].SecViewKey, ref Addresses[addrIndex].SecSpendKey, i);
+                    Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+                    if (transaction.Outputs[i].UXKey.Equals(outputPubKey))
                     {
-                        Key outputSecKey = new Key(new byte[32]);
-                        Key txKey = transaction.GetTXKey();
-                        KeyOps.DKSAPRecover(ref outputSecKey, ref txKey, ref Addresses[j].SecViewKey, ref Addresses[j].SecSpendKey, i);
-                        Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
-                        if (transaction.Outputs[i].UXKey.Equals(outputPubKey))
-                        {
-                            ProcessOutput(transaction, i, j);
-                        }
+
+                        ProcessOutput(transaction, i, addrIndex);
                     }
                 }
             }
         }
 
-        internal void ProcessOutput(Transaction transaction, int i, int walletIndex)
+        private void ProcessOutput(Transaction transaction, int i, int walletIndex)
         {
             DB.DB db = DB.DB.GetDB();
 

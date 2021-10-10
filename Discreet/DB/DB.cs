@@ -773,7 +773,7 @@ namespace Discreet.DB
 
             var result = txn.Get(OutputIndices, tx.Hash().Bytes);
 
-            if (result.resultCode == MDBResultCode.Success)
+            if (result.resultCode != MDBResultCode.Success)
             {
                 throw new Exception($"Discreet.DB.GetTXOutputIndex: database get exception: {result.resultCode}");
             }
