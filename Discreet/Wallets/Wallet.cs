@@ -508,7 +508,15 @@ namespace Discreet.Wallets
 
         public void ToFile(string path)
         {
-            File.WriteAllText(path, Printable.Prettify(JSON()));
+            if(File.Exists(path))
+            {
+                File.WriteAllText(path, Printable.Prettify(JSON()));
+            } else
+            {
+                File.Create(path);
+                File.WriteAllText(path, Printable.Prettify(JSON()));
+            }
+           
         }
 
         public static Wallet FromJSON(string json)
