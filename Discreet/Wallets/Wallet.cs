@@ -755,6 +755,15 @@ namespace Discreet.Wallets
                     Key txKey = transaction.GetTXKey();
                     Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[addrIndex].SecViewKey, ref Addresses[addrIndex].SecSpendKey, i);
                     Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+
+                    for (int k = 0; k < Addresses[addrIndex].UTXOs.Count; k++)
+                    {
+                        if (Addresses[addrIndex].UTXOs[k].UXKey.Equals(transaction.Outputs[i].UXKey))
+                        {
+                            throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
+                        }
+                    }
+
                     if (transaction.Outputs[i].UXKey.Equals(outputPubKey))
                     {
 

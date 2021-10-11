@@ -294,6 +294,26 @@ namespace Discreet.Coin
             return Build(txs, null);
         }
 
+        public static Block BuildRandomPlus(StealthAddress[] addresses, int[] numOutputs, List<Transaction> txExtras)
+        {
+            List<Transaction> txs = txExtras;
+
+            for (int i = 0; i < addresses.Length; i++)
+            {
+                for (int j = 0; j < numOutputs[i] / 16; j++)
+                {
+                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], 16));
+                }
+
+                if (numOutputs[i] % 16 != 0)
+                {
+                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], numOutputs[i] % 16));
+                }
+            }
+
+            return Build(txs, null);
+        }
+
         public static Block Build(List<Transaction> txs, StealthAddress miner)
         {
             Block block = new();

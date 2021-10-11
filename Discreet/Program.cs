@@ -200,6 +200,116 @@ namespace Discreet
 			return rv;
         }*/
 
+		public static void GenerateGenesis()
+        {
+			DB.DB db = DB.DB.GetDB();
+
+			//db.DropAll();
+
+			//db = DB.DB.GetDB();
+
+			//Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
+
+			/* generate test wallet */
+			int numTestWallets = 256;
+			int numTestUTXOs = 16;
+
+			Stopwatch stopwatch = new Stopwatch();
+
+			stopwatch.Start();
+
+			Wallets.Wallet[] wallets  = new Wallets.Wallet[numTestWallets];
+
+			for (int i = 0; i < numTestWallets; i++)
+			{
+				wallets[i] = new Wallets.Wallet("test" + i, "password123!", new Mnemonic(Randomness.Random(32)).GetMnemonic(), true, true, 24, 1);
+				wallets[i].Decrypt("password123!");
+                Console.WriteLine("Test wallet " + i + " generated.");
+			}
+
+            Console.WriteLine("Wallets generated. ");
+
+			//Console.WriteLine(wallet.Addresses[0].PubSpendKey.ToHex());
+			//Console.WriteLine(KeyOps.ScalarmultBase(ref wallet.Addresses[0].SecSpendKey).ToHex());
+
+			Wallets.Wallet myWallet = new Wallets.Wallet("myWallet", "password123!", "shy reason torch similar people ball false shuffle wet pitch inflict hood trash silent legend diary myself field popular loan donor copy own blind");
+
+			StealthAddress[] addresses = new StealthAddress[numTestWallets];
+			int[] numOutputs = new int[numTestWallets];
+
+			for (int i = 0; i < numTestWallets; i++)
+            {
+				addresses[i] = wallets[i].Addresses[0].GetAddress();
+				numOutputs[i] = numTestUTXOs;
+			}
+
+			//Console.WriteLine(addresses[0].ToString());
+			//Console.WriteLine(wallet.Addresses[0].Address);
+
+
+			//Block genesis = new Block();
+
+			//genesis.UnmarshalFull(Printable.Byteify("0008d98c0b21fad6c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000499966feda83e8fd282b370385ed920ab50c8462ea6b0ae128a1a60491523c3a3e496d2916ab829985fd925166ed34260156cc592feccf046e24e7f302f8303600000002000001f9000000040000020059df0c54799de6f03730afc59ccb54a881d23a1f2a1ce9b049b821a1ff12674af6f1e05293fce69098f4b32ed334175a26a6f34065bcb612777736fb2381267b2cdfd0430daf7d8032e485269ea91a2b50dbea95467df7ddf880d15161f1b4c278d35bf850bead71c8ba08c8297f48ef267fc56314c64ac1f2084cfe05e65b1fe7106bc27e1879e361c3d5400c24d59b000000220100915a7369011743affd2fe844b0be62874864dcc26abceeed04e40f131377033d00000200a94e3d4e5c8f8107266eaf3bc5a5f86c8fce6156c38855d7961df516099f64a0cde994adf37c1182797edb9ff7f444ee8b7491cee6d3f770dbc1732b53d79e01a3642d69e2a8922f72e2ec0a08d5b9da014d6a1bfbd513ab516ef40d6f3072fb660bcbf966d33985ef79dbcde148ce235d2238aef8c1d909908adbde2eabcf258ed49c1ceeb998b861cbf2363d987f5e000000220100fec30641956c9280b46ba6a62acbe99c7bc06408ff54ed2e805843702c70a0ac"));
+
+
+
+			List<Transaction> genesisTXsPlus = new List<Transaction>();
+			genesisTXsPlus.Add(Transaction.GenerateTransactionNoSpend(myWallet.Addresses[0].GetAddress(), (ulong)6_000_000 * 1_000_000_000_0));
+			Block genesis = Block.BuildRandomPlus(addresses, numOutputs, genesisTXsPlus);
+
+            Console.WriteLine(genesis.MarshalFull().Length);
+
+			Console.WriteLine("Genesis block generated. ");
+
+			for (int i = 0; i < numTestWallets; i++)
+            {
+				wallets[i].ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, wallets[i].Label + ".dis"));
+				wallets[i].Decrypt("password123!");
+			}
+
+			myWallet.ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, myWallet.Label + ".dis"));
+			myWallet.Decrypt("password123!");
+
+			var err = genesis.Verify();
+
+			if (err != null)
+            {
+				throw err;
+            }
+
+			Console.WriteLine("Genesis block verified. ");
+
+			File.WriteAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "genesis_block.json"), Printable.Prettify(genesis.ReadableFull()));
+
+			Console.WriteLine("Genesis block printed to file. ");
+
+
+			Visor.Visor visor = new(myWallet);
+
+			visor.ProcessBlock(genesis);
+
+			myWallet.ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, myWallet.Label + ".dis"));
+			//myWallet.Decrypt("password123!");
+
+			for (int i = 0; i < numTestWallets; i++)
+            {
+				wallets[i].ProcessBlock(genesis);
+				wallets[i].ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, wallets[i].Label + ".dis"));
+                Console.WriteLine("Test wallet " + i + " has processed genesis block.");
+			}
+
+			//receiver.ProcessBlock(genesis);
+
+			//myWallet.ProcessBlock(genesis);
+			
+
+			Console.WriteLine("All wallets processed genesis block. ");
+
+			stopwatch.Stop();
+
+            Console.WriteLine(stopwatch.ElapsedMilliseconds);
+		}
+
 		public static void Main(string[] args)
 		{
 			/*Key bv = new Key();
@@ -554,72 +664,7 @@ namespace Discreet
 			//await process.Start();
 			//await Task.Delay(-1);
 
-			DB.DB db = DB.DB.GetDB();
-
-			//db.DropAll();
-
-			//db = DB.DB.GetDB();
-
-			Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
-
-			/* generate test wallet */
-			int numTestWallets = 2;
-			int numTestUTXOs = 2;
-
-			Wallets.Wallet wallet = new Wallets.Wallet("test", "password123!", "tackle target response forget ethics spider smoke deputy never record aisle tissue sell security shed hat coin unfair capital loud motion diary sheriff excess", true, true, 24, (uint)numTestWallets);
-
-			wallet.Decrypt("password123!");
-
-			Console.WriteLine(wallet.Addresses[0].PubSpendKey.ToHex());
-			Console.WriteLine(KeyOps.ScalarmultBase(ref wallet.Addresses[0].SecSpendKey).ToHex());
-
-			Wallets.Wallet receiver = new Wallets.Wallet("test_receive", "password1234!", "shy reason torch similar people ball false shuffle wet pitch inflict hood trash silent legend diary myself field popular loan donor copy own blind");
-
-			StealthAddress[] addresses = new StealthAddress[numTestWallets];
-			int[] numOutputs = new int[numTestWallets];
-
-			for (int i = 0; i < numTestWallets; i++)
-            {
-				addresses[i] = wallet.Addresses[i].GetAddress();
-				numOutputs[i] = numTestUTXOs;
-			}
-
-            Console.WriteLine(addresses[0].ToString());
-            Console.WriteLine(wallet.Addresses[0].Address);
-
-
-			//Block genesis = new Block();
-
-			//genesis.UnmarshalFull(Printable.Byteify("0008d98c0b21fad6c0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000499966feda83e8fd282b370385ed920ab50c8462ea6b0ae128a1a60491523c3a3e496d2916ab829985fd925166ed34260156cc592feccf046e24e7f302f8303600000002000001f9000000040000020059df0c54799de6f03730afc59ccb54a881d23a1f2a1ce9b049b821a1ff12674af6f1e05293fce69098f4b32ed334175a26a6f34065bcb612777736fb2381267b2cdfd0430daf7d8032e485269ea91a2b50dbea95467df7ddf880d15161f1b4c278d35bf850bead71c8ba08c8297f48ef267fc56314c64ac1f2084cfe05e65b1fe7106bc27e1879e361c3d5400c24d59b000000220100915a7369011743affd2fe844b0be62874864dcc26abceeed04e40f131377033d00000200a94e3d4e5c8f8107266eaf3bc5a5f86c8fce6156c38855d7961df516099f64a0cde994adf37c1182797edb9ff7f444ee8b7491cee6d3f770dbc1732b53d79e01a3642d69e2a8922f72e2ec0a08d5b9da014d6a1bfbd513ab516ef40d6f3072fb660bcbf966d33985ef79dbcde148ce235d2238aef8c1d909908adbde2eabcf258ed49c1ceeb998b861cbf2363d987f5e000000220100fec30641956c9280b46ba6a62acbe99c7bc06408ff54ed2e805843702c70a0ac"));
-
-			Block genesis = Block.BuildRandom(addresses, numOutputs);
-
-            Console.WriteLine(genesis.MarshalFull().Length);
-
-			wallet.ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, wallet.Label + ".dis"));
-
-			wallet.Decrypt("password123!");
-
-			var err = genesis.Verify();
-
-			if (err != null)
-            {
-				throw err;
-            }
-
-            Console.WriteLine("\n\n\n" + Printable.Hexify(genesis.MarshalFull()) + "\n\n\n");
-
-			Console.WriteLine(Printable.Prettify(genesis.ReadableFull()));
-
-			Visor.Visor visor = new(wallet);
-
-			visor.ProcessBlock(genesis);
-			//receiver.ProcessBlock(genesis);
-
-			//wallet.ProcessBlock(genesis);
-
-			wallet.ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, wallet.Label + ".dis"));
-
+			
 			//db.AddBlock(genesis);
 
 			//Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());

@@ -461,13 +461,45 @@ namespace Discreet.Coin
                 /* the amount is randomly generated between 1 and 100 DIS (droplet size is 10^10) */
                 ulong amnt = 1_000_000_000_0 + Cipher.KeyOps.RandomDisAmount(99_000_000_000_0);
                 Cipher.KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref mask, amnt);
-
                 tx.Outputs[i].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, i);
-
                 tx.Outputs[i].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, i, amnt);
             }
 
-            Console.WriteLine(R.ToHex());
+            Array.Copy(R.bytes, 0, tx.Extra, 2, 32);
+
+            return tx;
+        }
+
+        public static Transaction GenerateTransactionNoSpend(StealthAddress to, ulong amnt)
+        {
+            Transaction tx = new()
+            {
+                Version = 0,
+                NumInputs = 0,
+                NumOutputs = 1,
+                NumSigs = 0,
+
+                ExtraLen = 34,
+                Extra = new byte[34]
+            };
+            tx.Extra[0] = 1;
+            tx.Extra[1] = 0;
+
+            Cipher.Key r = new(new byte[32]);
+            Cipher.Key R = new(new byte[32]);
+
+            Cipher.KeyOps.GenerateKeypair(ref r, ref R);
+
+            tx.Outputs = new TXOutput[1];
+
+            tx.Outputs[0] = new TXOutput
+            {
+                Commitment = new Cipher.Key(new byte[32])
+            };
+            Cipher.Key mask = Cipher.KeyOps.GenCommitmentMask(ref r, ref to.view, 0);
+            Cipher.KeyOps.GenCommitment(ref tx.Outputs[0].Commitment, ref mask, amnt);
+            tx.Outputs[0].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, 0);
+            tx.Outputs[0].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, 0, amnt);
 
             Array.Copy(R.bytes, 0, tx.Extra, 2, 32);
 
