@@ -13,7 +13,7 @@ namespace Discreet.Coin
         {
             NULL = 0, /* coinbase and genesis */
             STANDARD = 1, /* triptych and bulletproof */
-
+            BP_PLUS = 2, /* triptych and bulletproof+ */
         }
 
         /* DEBUG must be set to false outside of tests. */

@@ -673,7 +673,7 @@ namespace Discreet
 
 			//GenerateGenesis();
 
-			Stopwatch stopwatch = new Stopwatch();
+			/*Stopwatch stopwatch = new Stopwatch();
 
 			
 
@@ -682,9 +682,25 @@ namespace Discreet
 
 			Wallet receiver = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test0.dis"));
 
-			
+			List<Transaction> txs = new List<Transaction>();
 
-			Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver.Addresses[0].GetAddress() }, new ulong[] { 1_000_000_000_0 });
+            Console.WriteLine("starting tx creation profile");
+
+			stopwatch.Start();
+
+			for (int i = 0; i < 100; i++)
+            {
+				Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver.Addresses[0].GetAddress() }, new ulong[] { 1_000_000_000_0 }, 2);
+				txs.Add(testtx);
+
+			}
+
+			stopwatch.Stop();
+
+            Console.WriteLine("100 transactions created in " + stopwatch.ElapsedMilliseconds + "ms");
+
+			stopwatch.Reset();
+
 
 			//Console.WriteLine(Printable.Prettify(testtx.Readable()));
 
@@ -693,16 +709,48 @@ namespace Discreet
 
 			stopwatch.Start();
 
-			var err = testtx.Verify();
-
-			if (err != null)
+			for (int i = 0; i < 100; i++)
             {
-				throw err;
-            }
+				var err = txs[i].Verify();
+
+				if (err != null)
+				{
+					throw err;
+				}
+			}
 
 			stopwatch.Stop();
 
-            Console.WriteLine(stopwatch.ElapsedMilliseconds);
+            Console.WriteLine("100 transactions verified in " + stopwatch.ElapsedMilliseconds + "ms");*/
+
+			Wallet wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test0.dis"));
+			wallet.Decrypt("password123!");
+
+            Console.WriteLine(wallet.Addresses[0].Balance);
+			
+			Wallet receiver1 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "myWallet.dis"));
+			/*
+			Wallet receiver2 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test1.dis"));
+
+			Wallet receiver3 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test2.dis"));
+
+			Wallet receiver4 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test3.dis"));
+
+			Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress(), receiver2.Addresses[0].GetAddress(), receiver3.Addresses[0].GetAddress(), receiver4.Addresses[0].GetAddress() }, new ulong[] { 5_000_000_000_0, 100_000_000_000_0, 250_000_000_000_0, 200_000_000_000_0 }, 2);
+			*/
+
+			Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress() }, new ulong[] { 69_000_000_000_0 }, 2);
+
+			Console.WriteLine(Printable.Prettify(testtx.Readable()));
+			Console.WriteLine(testtx.Marshal().Length);
+
+			var err = testtx.Verify();
+
+			if (err != null)
+			{
+				throw err;
+			}
+
 
 			/* testing DKSAP */
 

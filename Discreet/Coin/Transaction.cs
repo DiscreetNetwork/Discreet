@@ -26,6 +26,9 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.Struct)]
         public Bulletproof RangeProof;
 
+        [MarshalAs(UnmanagedType.Struct)]
+        public BulletproofPlus RangeProofPlus;
+
         [MarshalAs(UnmanagedType.U8)]
         public ulong Fee;
 
@@ -142,8 +145,16 @@ namespace Discreet.Coin
                     offset += 72;
                 }
 
-                RangeProof.Marshal(bytes, offset);
-                offset += RangeProof.Size();
+                if (Version == 2)
+                {
+                    RangeProofPlus.Marshal(bytes, offset);
+                    offset += RangeProofPlus.Size();
+                }
+                else
+                {
+                    RangeProof.Marshal(bytes, offset);
+                    offset += RangeProof.Size();
+                }
 
                 byte[] fee = BitConverter.GetBytes(Fee);
                 if (BitConverter.IsLittleEndian)
@@ -260,7 +271,15 @@ namespace Discreet.Coin
                     }
                 }
 
-                rv += "],\"RangeProof\":" + RangeProof.Readable();
+                if (Version == 2)
+                {
+                    rv += "],\"RangeProofPlus\":" + RangeProofPlus.Readable();
+                }
+                else
+                {
+                    rv += "],\"RangeProof\":" + RangeProof.Readable();
+                }
+
                 rv += $",\"Fee\":{Fee}";
                 rv += ",\"Signatures\":[";
 
@@ -369,10 +388,21 @@ namespace Discreet.Coin
                     offset += 72;
                 }
 
-                RangeProof = new Bulletproof();
+                if (Version == 2)
+                {
+                    RangeProofPlus = new BulletproofPlus();
 
-                RangeProof.Unmarshal(bytes, offset);
-                offset += RangeProof.Size();
+                    RangeProofPlus.Unmarshal(bytes, offset);
+                    offset += RangeProofPlus.Size();
+                }
+                else
+                {
+                    RangeProof = new Bulletproof();
+
+                    RangeProof.Unmarshal(bytes, offset);
+                    offset += RangeProof.Size();
+                }
+                
 
                 byte[] fee = new byte[8];
 
@@ -585,10 +615,20 @@ namespace Discreet.Coin
                     offset += 72;
                 }
 
-                RangeProof = new Bulletproof();
+                if (Version == 2)
+                {
+                    RangeProofPlus = new BulletproofPlus();
 
-                RangeProof.Unmarshal(bytes, offset);
-                offset += RangeProof.Size();
+                    RangeProofPlus.Unmarshal(bytes, offset);
+                    offset += RangeProofPlus.Size();
+                }
+                else
+                {
+                    RangeProof = new Bulletproof();
+
+                    RangeProof.Unmarshal(bytes, offset);
+                    offset += RangeProof.Size();
+                }
 
                 byte[] fee = new byte[8];
 
@@ -646,7 +686,10 @@ namespace Discreet.Coin
             {
                 return (uint)(4 + 4 + Extra.Length + 72 * Outputs.Length);
             }
-
+            else if (Version == 2)
+            {
+                return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProofPlus.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 4 + Extra.Length);
+            }
             return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 4 + Extra.Length);
         }
 
@@ -727,7 +770,7 @@ namespace Discreet.Coin
                     return new VerifyException("Transaction", $"Signature length mismatch: expected {NumSigs}, but got {Signatures.Length}");
                 }
 
-                if (Version != 0 && NumInputs == 0)
+                if (NumInputs == 0)
                 {
                     return new VerifyException("Transaction", $"Transaction has no inputs!");
                 }
@@ -749,9 +792,9 @@ namespace Discreet.Coin
             }
 
             /* this will need to be changed as Version changes */
-            if (Version != 1 && Version != 0)
+            if (Version != 1 && Version != 0 && Version != 2)
             {
-                return new VerifyException("Transaction", $"Unknown transaction version: {Version} (currently only private transactions, version 1, and coinbase transactions, version 0, are supported)");
+                return new VerifyException("Transaction", $"Unknown transaction version: {Version} (currently only private transactions, version 1 and 2, and coinbase transactions, version 0, are supported)");
             }
 
             if (ExtraLen != Extra.Length)
@@ -826,7 +869,17 @@ namespace Discreet.Coin
                 }
 
                 /* validate range sig */
-                var bpexc = RangeProof.Verify(this);
+                VerifyException bpexc = null;
+
+                if (Version == 2)
+                {
+                    bpexc = RangeProofPlus.Verify(this);
+                }
+                else
+                {
+                    bpexc = RangeProof.Verify(this);
+                }
+                
 
                 if (bpexc != null)
                 {
@@ -860,7 +913,7 @@ namespace Discreet.Coin
                         P[k] = mixins[k].Commitment;
                     }
 
-                    var sigexc = Signatures[i].Verify(M, P, PseudoOutputs[i], SigningHash().ToKey());
+                    var sigexc = Signatures[i].Verify(M, P, PseudoOutputs[i], SigningHash().ToKey(), Inputs[i].KeyImage);
 
                     if (sigexc != null)
                     {

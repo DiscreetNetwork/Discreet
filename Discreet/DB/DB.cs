@@ -1144,7 +1144,7 @@ namespace Discreet.DB
                 double uniformVariate = rng.NextDouble();
                 double frac = 3.0 / 4.0 * Math.Sqrt(uniformVariate * (1.0 / 4.0) * (1.0 / 4.0));
                 uint rindex = (uint)Math.Floor(frac * max);
-                if (chosen.Contains(rindex)) continue;
+                if (chosen.Contains(rindex) || rindex == 0) continue;
 
                 byte[] key = Serialization.UInt32(rindex);
 

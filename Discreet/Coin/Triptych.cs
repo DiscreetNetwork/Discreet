@@ -10,9 +10,6 @@ namespace Discreet.Coin
     public class Triptych : ICoin
     {
         [MarshalAs(UnmanagedType.Struct)]
-        public Key J;
-
-        [MarshalAs(UnmanagedType.Struct)]
         public Key K;
 
         [MarshalAs(UnmanagedType.Struct)]
@@ -33,7 +30,6 @@ namespace Discreet.Coin
 
         public Triptych(Cipher.Triptych proof)
         {
-            J = proof.J;
             K = proof.K;
             A = proof.A;
             B = proof.B;
@@ -53,31 +49,30 @@ namespace Discreet.Coin
         {
             byte[] bytes = new byte[Size()];
 
-            Array.Copy(J.bytes, 0, bytes, 0, 32);
-            Array.Copy(K.bytes, 0, bytes, 32, 32);
-            Array.Copy(A.bytes, 0, bytes, 32 * 2, 32);
-            Array.Copy(B.bytes, 0, bytes, 32 * 3, 32);
-            Array.Copy(C.bytes, 0, bytes, 32 * 4, 32);
-            Array.Copy(D.bytes, 0, bytes, 32 * 5, 32);
+            Array.Copy(K.bytes, 0, bytes, 0, 32);
+            Array.Copy(A.bytes, 0, bytes, 32, 32);
+            Array.Copy(B.bytes, 0, bytes, 32 * 2, 32);
+            Array.Copy(C.bytes, 0, bytes, 32 * 3, 32);
+            Array.Copy(D.bytes, 0, bytes, 32 * 4, 32);
 
             for (int i = 0; i < 6; i++)
             {
-                Array.Copy(X[i].bytes, 0, bytes, 32 * 6 + 32 * i, 32);
+                Array.Copy(X[i].bytes, 0, bytes, 32 * 5 + 32 * i, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
-                Array.Copy(Y[i].bytes, 0, bytes, 32 * 12 + 32 * i, 32);
+                Array.Copy(Y[i].bytes, 0, bytes, 32 * 11 + 32 * i, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
-                Array.Copy(f[i].bytes, 0, bytes, 32 * 18 + 32 * i, 32);
+                Array.Copy(f[i].bytes, 0, bytes, 32 * 17 + 32 * i, 32);
             }
 
-            Array.Copy(zA.bytes, 0, bytes, 24 * 32, 32);
-            Array.Copy(zC.bytes, 0, bytes, 25 * 32, 32);
-            Array.Copy(z.bytes, 0, bytes, 26 * 32, 32);
+            Array.Copy(zA.bytes, 0, bytes, 23 * 32, 32);
+            Array.Copy(zC.bytes, 0, bytes, 24 * 32, 32);
+            Array.Copy(z.bytes, 0, bytes, 25 * 32, 32);
 
             return bytes;
         }
@@ -91,7 +86,6 @@ namespace Discreet.Coin
         public string Readable()
         {
             string rv = "{";
-            rv += $"\"J\":\"{J.ToHex()}\",";
             rv += $"\"K\":\"{K.ToHex()}\",";
             rv += $"\"A\":\"{A.ToHex()}\",";
             rv += $"\"B\":\"{B.ToHex()}\",";
@@ -139,19 +133,17 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes)
         {
-            J = new Key(new byte[32]);
             K = new Key(new byte[32]);
             A = new Key(new byte[32]);
             B = new Key(new byte[32]);
             C = new Key(new byte[32]);
             D = new Key(new byte[32]);
 
-            Array.Copy(bytes, 0, J.bytes, 0, 32);
-            Array.Copy(bytes, 32, K.bytes, 0, 32);
-            Array.Copy(bytes, 32 * 2, A.bytes, 0, 32);
-            Array.Copy(bytes, 32 * 3, B.bytes, 0, 32);
-            Array.Copy(bytes, 32 * 4, C.bytes, 0, 32);
-            Array.Copy(bytes, 32 * 5, D.bytes, 0, 32);
+            Array.Copy(bytes, 0, K.bytes, 0, 32);
+            Array.Copy(bytes, 32, A.bytes, 0, 32);
+            Array.Copy(bytes, 32 * 2, B.bytes, 0, 32);
+            Array.Copy(bytes, 32 * 3, C.bytes, 0, 32);
+            Array.Copy(bytes, 32 * 4, D.bytes, 0, 32);
 
             X = new Key[6];
             Y = new Key[6];
@@ -161,45 +153,43 @@ namespace Discreet.Coin
             {
                 X[i] = new Key(new byte[32]);
 
-                Array.Copy(bytes, 32 * 6 + 32 * i, X[i].bytes, 0, 32);
+                Array.Copy(bytes, 32 * 5 + 32 * i, X[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
                 Y[i] = new Key(new byte[32]);
-                Array.Copy(bytes, 32 * 12 + 32 * i, Y[i].bytes, 0, 32);
+                Array.Copy(bytes, 32 * 11 + 32 * i, Y[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
                 f[i] = new Key(new byte[32]);
-                Array.Copy(bytes, 32 * 18 + 32 * i, f[i].bytes, 0, 32);
+                Array.Copy(bytes, 32 * 17 + 32 * i, f[i].bytes, 0, 32);
             }
 
             zA = new Key(new byte[32]);
             zC = new Key(new byte[32]);
             z = new Key(new byte[32]);
 
-            Array.Copy(bytes, 24 * 32, zA.bytes, 0, 32);
-            Array.Copy(bytes, 25 * 32, zC.bytes, 0, 32);
-            Array.Copy(bytes, 26 * 32, z.bytes, 0, 32);
+            Array.Copy(bytes, 23 * 32, zA.bytes, 0, 32);
+            Array.Copy(bytes, 24 * 32, zC.bytes, 0, 32);
+            Array.Copy(bytes, 25 * 32, z.bytes, 0, 32);
         }
 
         public uint Unmarshal(byte[] bytes, uint offset)
         {
-            J = new Key(new byte[32]);
             K = new Key(new byte[32]);
             A = new Key(new byte[32]);
             B = new Key(new byte[32]);
             C = new Key(new byte[32]);
             D = new Key(new byte[32]);
 
-            Array.Copy(bytes, offset, J.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32, K.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32 * 2, A.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32 * 3, B.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32 * 4, C.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32 * 5, D.bytes, 0, 32);
+            Array.Copy(bytes, offset, K.bytes, 0, 32);
+            Array.Copy(bytes, offset + 32, A.bytes, 0, 32);
+            Array.Copy(bytes, offset + 32 * 2, B.bytes, 0, 32);
+            Array.Copy(bytes, offset + 32 * 3, C.bytes, 0, 32);
+            Array.Copy(bytes, offset + 32 * 4, D.bytes, 0, 32);
 
             X = new Key[6];
             Y = new Key[6];
@@ -209,42 +199,41 @@ namespace Discreet.Coin
             {
                 X[i] = new Key(new byte[32]);
 
-                Array.Copy(bytes, offset + 32 * 6 + 32 * i, X[i].bytes, 0, 32);
+                Array.Copy(bytes, offset + 32 * 5 + 32 * i, X[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
                 Y[i] = new Key(new byte[32]);
-                Array.Copy(bytes, offset + 32 * 12 + 32 * i, Y[i].bytes, 0, 32);
+                Array.Copy(bytes, offset + 32 * 11 + 32 * i, Y[i].bytes, 0, 32);
             }
 
             for (int i = 0; i < 6; i++)
             {
                 f[i] = new Key(new byte[32]);
-                Array.Copy(bytes, offset + 32 * 18 + 32 * i, f[i].bytes, 0, 32);
+                Array.Copy(bytes, offset + 32 * 17 + 32 * i, f[i].bytes, 0, 32);
             }
 
             zA = new Key(new byte[32]);
             zC = new Key(new byte[32]);
             z = new Key(new byte[32]);
 
-            Array.Copy(bytes, offset + 24 * 32, zA.bytes, 0, 32);
-            Array.Copy(bytes, offset + 25 * 32, zC.bytes, 0, 32);
-            Array.Copy(bytes, offset + 26 * 32, z.bytes, 0, 32);
+            Array.Copy(bytes, offset + 23 * 32, zA.bytes, 0, 32);
+            Array.Copy(bytes, offset + 24 * 32, zC.bytes, 0, 32);
+            Array.Copy(bytes, offset + 25 * 32, z.bytes, 0, 32);
 
             return offset + Size();
         }
 
         public static uint Size()
         {
-            return 18*32 + 9*32;
+            return 18*32 + 8*32;
         }
 
         public static Triptych GenerateMock()
         {
             Triptych proof = new Triptych();
 
-            proof.J = Cipher.KeyOps.GeneratePubkey();
             proof.K = Cipher.KeyOps.GeneratePubkey();
             proof.A = Cipher.KeyOps.GeneratePubkey();
             proof.B = Cipher.KeyOps.GeneratePubkey();
@@ -269,13 +258,13 @@ namespace Discreet.Coin
             return proof;
         }
 
-        public VerifyException Verify(Key[] M, Key[] P, Key C_offset, Key message)
+        public VerifyException Verify(Key[] M, Key[] P, Key C_offset, Key message, Key linkingTag)
         {
-            Cipher.Triptych proof = new Cipher.Triptych(this);
+            Cipher.Triptych proof = new Cipher.Triptych(this, linkingTag);
 
             if (!Cipher.Triptych.Verify(proof, M, P, C_offset, message))
             {
-                throw new VerifyException("Triptych", "Triptych proof is invalid!");
+                return new VerifyException("Triptych", "Triptych proof is invalid!");
             }
 
             return null;

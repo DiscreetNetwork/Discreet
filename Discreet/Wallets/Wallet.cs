@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.IO;
 using System.Linq;
 using Discreet.Coin;
+using System.Runtime.InteropServices;
 
 namespace Discreet.Wallets
 {
@@ -572,8 +573,21 @@ namespace Discreet.Wallets
             return wallet;
         }
 
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GetLastException", CallingConvention = CallingConvention.StdCall)]
+        private static extern void get_last_exception([In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 4096)] byte[] data);
+
         public Transaction CreateTransaction(int walletIndex, StealthAddress[] to, ulong[] amount)
         {
+            return CreateTransaction(walletIndex, to, amount, (byte)Config.TransactionVersions.STANDARD);
+        }
+
+        public Transaction CreateTransaction(int walletIndex, StealthAddress[] to, ulong[] amount, byte version)
+        {
+            if (version != 1 && version != 2)
+            {
+                throw new Exception($"Discreet.Wallets.Wallet.CreateTransaction: version cannot be {version}; currently supporting 1 and 2");
+            }
+
             DB.DB db = DB.DB.GetDB();
 
             /* mahjick happens now. */
@@ -619,7 +633,7 @@ namespace Discreet.Wallets
                 i++;
             }
 
-            tx.Version = (byte)Config.TransactionVersion;
+            tx.Version = version;
             tx.NumInputs = (byte)inputs.Count;
             tx.NumOutputs = (byte)(to.Length + 1);
             tx.NumSigs = tx.NumInputs;
@@ -669,9 +683,17 @@ namespace Discreet.Wallets
             amounts[i] = neededAmount - totalAmount;
 
             /* assemble range proof */
-            Cipher.Bulletproof bp = Cipher.Bulletproof.Prove(amounts, gammas);
-            tx.RangeProof = new Coin.Bulletproof(bp);
-
+            if (tx.Version == 2)
+            {
+                Cipher.BulletproofPlus bp = Cipher.BulletproofPlus.Prove(amounts, gammas);
+                tx.RangeProofPlus = new Coin.BulletproofPlus(bp);
+            }
+            else
+            {
+                Cipher.Bulletproof bp = Cipher.Bulletproof.Prove(amounts, gammas);
+                tx.RangeProof = new Coin.Bulletproof(bp);
+            }
+            
             /* generate inputs and signatures */
             tx.Inputs = new TXInput[inputs.Count];
             tx.Signatures = new Coin.Triptych[inputs.Count];
@@ -739,7 +761,7 @@ namespace Discreet.Wallets
                 }
 
                 Key sign_r = new Key(new byte[32]);
-                KeyOps.DKSAPRecover(ref sign_r, ref R, ref addr.SecViewKey, ref addr.SecSpendKey, inputs[i].DecodeIndex);
+                KeyOps.DKSAPRecover(ref sign_r, ref inputs[i].TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, inputs[i].DecodeIndex);
 
                 tx.Inputs[i].KeyImage = new Key(new byte[32]);
                 KeyOps.GenerateLinkingTag(ref tx.Inputs[i].KeyImage, ref sign_r);
@@ -759,6 +781,7 @@ namespace Discreet.Wallets
                 Key C_offset = tx.PseudoOutputs[i];
                 Key sign_r = new Key(new byte[32]);
                 KeyOps.DKSAPRecover(ref sign_r, ref inputs[i].TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, inputs[i].DecodeIndex);
+
                 Key sign_x = KeyOps.GenCommitmentMaskRecover(ref inputs[i].TransactionKey, ref addr.SecViewKey, inputs[i].DecodeIndex);
                 Key sign_s = new(new byte[32]);
                 /* s = zt = xt - x't */
@@ -766,8 +789,6 @@ namespace Discreet.Wallets
 
                 Cipher.Triptych ringsig = Cipher.Triptych.Prove(M, P, C_offset, (uint)l, sign_r, sign_s, tx.SigningHash().ToKey());
                 tx.Signatures[i] = new Coin.Triptych(ringsig);
-
-                
             }
 
             return tx;

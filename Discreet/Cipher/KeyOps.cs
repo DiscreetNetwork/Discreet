@@ -211,6 +211,10 @@ namespace Discreet.Cipher
         [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateLinkingTag", CallingConvention = CallingConvention.StdCall)]
         public static extern void GenerateLinkingTag(ref Key J, ref Key r);
 
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateLinkingTag1", CallingConvention = CallingConvention.StdCall)]
+        [return: MarshalAs(UnmanagedType.Struct)]
+        public static extern Key GenerateLinkingTag(ref Key r);
+
         public static Key SHA256ToKey(SHA256 h)
         {
             return new Key(h.GetBytes());
