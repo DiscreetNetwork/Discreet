@@ -573,9 +573,6 @@ namespace Discreet.Wallets
             return wallet;
         }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "GetLastException", CallingConvention = CallingConvention.StdCall)]
-        private static extern void get_last_exception([In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 4096)] byte[] data);
-
         public Transaction CreateTransaction(int walletIndex, StealthAddress[] to, ulong[] amount)
         {
             return CreateTransaction(walletIndex, to, amount, (byte)Config.TransactionVersions.STANDARD);
