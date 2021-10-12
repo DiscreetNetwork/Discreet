@@ -605,7 +605,7 @@ namespace Discreet
             }*/
 
 			// PBKDF2 for "password123!" inputting any other 
-			byte[] magic = new byte[32] {0x17, 0x33, 0x50, 0x8c, 0xbe, 0x39, 0xf1, 0xe0, 0xac, 0x81, 0x84, 0xf4, 0x64, 0x18, 0x6f, 0x46, 0x61, 0x75, 0x1d, 0x94, 0x83, 0x64, 0xa6, 0x76, 0xc6, 0x69, 0xa7, 0x89, 0x77, 0x38, 0x47, 0x79};
+			byte[] magic = new byte[32] { 0x17, 0x33, 0x50, 0x8c, 0xbe, 0x39, 0xf1, 0xe0, 0xac, 0x81, 0x84, 0xf4, 0x64, 0x18, 0x6f, 0x46, 0x61, 0x75, 0x1d, 0x94, 0x83, 0x64, 0xa6, 0x76, 0xc6, 0x69, 0xa7, 0x89, 0x77, 0x38, 0x47, 0x79 };
 
 
 			// CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
@@ -664,13 +664,45 @@ namespace Discreet
 			//await process.Start();
 			//await Task.Delay(-1);
 
-			
+
 			//db.AddBlock(genesis);
 
 			//Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
 
 			//Block.BuildRandom()
 
+			//GenerateGenesis();
+
+			Stopwatch stopwatch = new Stopwatch();
+
+			
+
+			Wallet wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "myWallet.dis"));
+			wallet.Decrypt("password123!");
+
+			Wallet receiver = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test0.dis"));
+
+			
+
+			Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver.Addresses[0].GetAddress() }, new ulong[] { 1_000_000_000_0 });
+
+			//Console.WriteLine(Printable.Prettify(testtx.Readable()));
+
+			//Console.WriteLine(wallet.Addresses[0].Balance);
+			//Console.WriteLine(wallet.Addresses[0].UTXOs.Count);
+
+			stopwatch.Start();
+
+			var err = testtx.Verify();
+
+			if (err != null)
+            {
+				throw err;
+            }
+
+			stopwatch.Stop();
+
+            Console.WriteLine(stopwatch.ElapsedMilliseconds);
 
 			/* testing DKSAP */
 

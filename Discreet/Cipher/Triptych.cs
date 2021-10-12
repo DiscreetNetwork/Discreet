@@ -41,9 +41,33 @@ namespace Discreet.Cipher
             z = proof.z;
         }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "triptych_prove", CallingConvention = CallingConvention.StdCall)]
-        private static extern void triptych_prove(
-                [In, Out] Triptych bp,
+        public Triptych(bool ignored_param)
+        {
+            J = new(new byte[32]);
+            K = new(new byte[32]);
+            A = new(new byte[32]);
+            B = new(new byte[32]);
+            C = new(new byte[32]);
+            D = new(new byte[32]);
+
+            X = new Key[6];
+            Y = new Key[6];
+            f = new Key[6];
+
+            for (int i = 0; i < 6; i++)
+            {
+                X[i] = new(new byte[32]);
+                Y[i] = new(new byte[32]);
+                f[i] = new(new byte[32]);
+            }
+
+            zA = new(new byte[32]);
+            zC = new(new byte[32]);
+            z = new(new byte[32]);
+        }
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "triptych_PROVE", CallingConvention = CallingConvention.StdCall)]
+        private static extern Triptych triptych_prove(
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] M,
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] P,
                 [MarshalAs(UnmanagedType.Struct)] Key C_offset,
@@ -52,22 +76,63 @@ namespace Discreet.Cipher
                 [MarshalAs(UnmanagedType.Struct)] Key s,
                 [MarshalAs(UnmanagedType.Struct)] Key message);
 
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GetLastException", CallingConvention = CallingConvention.StdCall)]
+        private static extern void get_last_exception([In, Out] [MarshalAs(UnmanagedType.LPArray, SizeConst = 4096)] byte[] data);
+
         public static Triptych Prove(Key[] M, Key[] P, Key C_offset, uint l, Key r, Key s, Key message)
         {
-            Triptych proof = new Triptych();
+            Triptych proof = new Triptych(false);
 
-            triptych_prove(proof, M, P, C_offset, l, r, s, message);
+            try
+            {
+                proof = triptych_prove(M, P, C_offset, l, r, s, message);
+            }
+            catch(Exception e)
+            {
+                if (e is SEHException)
+                {
+                    byte[] dat = new byte[4096];
+                    get_last_exception(dat);
 
+                    string s_Excp = Encoding.ASCII.GetString(dat);
+
+                    throw new Exception(s_Excp);
+                }
+            }
             return proof;
         }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "triptych_verify", CallingConvention = CallingConvention.StdCall)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "triptych_VERIFY", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool Verify(
+        public static extern bool triptych_VERIFY(
                 [In, Out] Triptych bp,
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] M,
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] P,
                 [MarshalAs(UnmanagedType.Struct)] Key C_offset,
                 [MarshalAs(UnmanagedType.Struct)] Key message);
+
+        public static bool Verify(Triptych bp, Key[] M, Key[] P, Key C_offset, Key message)
+        {
+            bool rv = false;
+
+            try
+            {
+                rv = triptych_VERIFY(bp, M, P, C_offset, message);
+            }
+            catch (Exception e)
+            {
+                if (e is SEHException)
+                {
+                    byte[] dat = new byte[4096];
+                    get_last_exception(dat);
+
+                    string s_Excp = Encoding.ASCII.GetString(dat);
+
+                    throw new Exception(s_Excp);
+                }
+            }
+
+            return rv;
+        }
     }
 }

@@ -508,15 +508,7 @@ namespace Discreet.Wallets
 
         public void ToFile(string path)
         {
-            if(File.Exists(path))
-            {
-                File.WriteAllText(path, Printable.Prettify(JSON()));
-            } else
-            {
-                File.Create(path);
-                File.WriteAllText(path, Printable.Prettify(JSON()));
-            }
-           
+            File.WriteAllText(path, Printable.Prettify(JSON()));
         }
 
         public static Wallet FromJSON(string json)
@@ -558,9 +550,11 @@ namespace Discreet.Wallets
                     PubViewKey = new Key(Printable.Byteify(jsonWallet.Addresses[i].PubViewKey)),
                     Address = jsonWallet.Addresses[i].Address,
                     UTXOs = new List<UTXO>(),
+                    SecSpendKey = new(new byte[32]),
+                    SecViewKey = new(new byte[32])
                 };
 
-                for (int j = 0; j < wallet.Addresses[i].UTXOs.Count; j++)
+                for (int j = 0; j < jsonWallet.Addresses[i].UTXOs.Count; j++)
                 {
                     wallet.Addresses[i].UTXOs.Add(db.GetWalletOutput(jsonWallet.Addresses[i].UTXOs[j]));
                     wallet.Addresses[i].UTXOs[j].OwnedIndex = jsonWallet.Addresses[i].UTXOs[j];
@@ -617,6 +611,7 @@ namespace Discreet.Wallets
 
             List<UTXO> inputs = new List<UTXO>();
             ulong neededAmount = 0;
+            i = 0;
             while (neededAmount < totalAmount)
             {
                 neededAmount += addr.UTXOs[i].DecodedAmount;
@@ -636,7 +631,7 @@ namespace Discreet.Wallets
             tx.ExtraLen = 34;
             tx.Extra = new byte[34];
             tx.Extra[0] = 1; // first byte is always 1.
-            tx.Extra[0] = 0; // next byte indicates that no extra data besides TXKey is used in Extra.
+            tx.Extra[1] = 0; // next byte indicates that no extra data besides TXKey is used in Extra.
             Array.Copy(R.bytes, 0, tx.Extra, 2, 32);
 
             /* assemble outputs */
@@ -660,12 +655,21 @@ namespace Discreet.Wallets
             tx.Outputs[i].UXKey = KeyOps.DKSAP(ref r, addr.PubViewKey, addr.PubSpendKey, i);
             tx.Outputs[i].Commitment = new Key(new byte[32]);
             Key rmask = KeyOps.GenCommitmentMask(ref r, ref addr.PubViewKey, i);
-            KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref rmask, amount[i]);
+            KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref rmask, neededAmount - totalAmount);
             tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref addr.PubViewKey, i, neededAmount - totalAmount);
             gammas[i] = rmask;
 
+            ulong[] amounts = new ulong[to.Length + 1];
+            
+            for (i = 0; i < to.Length; i++)
+            {
+                amounts[i] = amount[i];
+            }
+
+            amounts[i] = neededAmount - totalAmount;
+
             /* assemble range proof */
-            Cipher.Bulletproof bp = Cipher.Bulletproof.Prove(amount, gammas);
+            Cipher.Bulletproof bp = Cipher.Bulletproof.Prove(amounts, gammas);
             tx.RangeProof = new Coin.Bulletproof(bp);
 
             /* generate inputs and signatures */
@@ -677,6 +681,7 @@ namespace Discreet.Wallets
             Key[] blindingFactors = new Key[inputs.Count];
 
             Key sum = new Key(new byte[32]);
+            Key tmp = new Key(new byte[32]);
 
             for (i = 0; i < inputs.Count - 1; i++)
             {
@@ -685,16 +690,19 @@ namespace Discreet.Wallets
                 KeyOps.GenCommitment(ref tx.PseudoOutputs[i], ref blindingFactors[i], inputs[i].DecodedAmount);
             }
 
+            /* tmp = sum + gammas[k]; sum = tmp; */
             for (int k = 0; k < tx.Outputs.Length; k++)
             {
-                KeyOps.AddKeys(ref sum, ref sum, ref gammas[k]);
+                KeyOps.ScalarAdd(ref tmp, ref sum, ref gammas[k]);
+                Array.Copy(tmp.bytes, sum.bytes, 32);
             }
 
             Key dif = new Key(new byte[32]);
 
             for (int k = 0; k < blindingFactors.Length; k++)
             {
-                KeyOps.ScalarAdd(ref dif, ref dif, ref blindingFactors[k]);
+                KeyOps.ScalarAdd(ref tmp, ref dif, ref blindingFactors[k]);
+                Array.Copy(tmp.bytes, dif.bytes, 32);
             }
 
             Key xm = new Key(new byte[32]);
@@ -704,9 +712,12 @@ namespace Discreet.Wallets
 
             blindingFactors[i] = xm;
 
+            List<Key[]> Ms = new List<Key[]>();
+            List<Key[]> Ps = new List<Key[]>();
+            List<int> Ls = new List<int>();
+
             for (i = 0; i < inputs.Count; i++)
             {
-                /* get mixins */
                 (TXOutput[] anonymitySet, int l) = db.GetMixins(inputs[i].Index);
 
                 /* get ringsig params */
@@ -715,20 +726,9 @@ namespace Discreet.Wallets
 
                 for (int k = 0; k < 64; k++)
                 {
-                    M[i] = anonymitySet[k].UXKey;
-                    P[i] = anonymitySet[k].Commitment;
+                    M[k] = anonymitySet[k].UXKey;
+                    P[k] = anonymitySet[k].Commitment;
                 }
-
-                Key C_offset = tx.PseudoOutputs[i];
-                Key sign_r = new Key(new byte[32]);
-                KeyOps.DKSAPRecover(ref sign_r, ref R, ref addr.SecViewKey, ref addr.SecSpendKey, inputs[i].DecodeIndex);
-                /* s = zt = xt - x't */
-                Key sign_s = KeyOps.GenCommitmentMaskRecover(ref R, ref addr.SecViewKey, inputs[i].DecodeIndex);
-                KeyOps.ScalarSub(ref sign_s, ref sign_s, ref blindingFactors[i]);
-
-                /* signatures */
-                Cipher.Triptych ringsig = Cipher.Triptych.Prove(M, P, C_offset, (uint)l, sign_r, sign_s, tx.SigningHash().ToKey());
-                tx.Signatures[i] = new Coin.Triptych(ringsig);
 
                 /* generate inputs */
                 tx.Inputs[i] = new TXInput();
@@ -738,7 +738,36 @@ namespace Discreet.Wallets
                     tx.Inputs[i].Offsets[k] = anonymitySet[k].Index;
                 }
 
-                tx.Inputs[i].KeyImage = tx.Signatures[i].J;
+                Key sign_r = new Key(new byte[32]);
+                KeyOps.DKSAPRecover(ref sign_r, ref R, ref addr.SecViewKey, ref addr.SecSpendKey, inputs[i].DecodeIndex);
+
+                tx.Inputs[i].KeyImage = new Key(new byte[32]);
+                KeyOps.GenerateLinkingTag(ref tx.Inputs[i].KeyImage, ref sign_r);
+
+                Ms.Add(M);
+                Ps.Add(P);
+                Ls.Add(l);
+            }
+
+            for (i = 0; i < inputs.Count; i++)
+            {
+                /* get mixins */
+                Key[] M = Ms[i];
+                Key[] P = Ps[i];
+                int l = Ls[i];
+
+                Key C_offset = tx.PseudoOutputs[i];
+                Key sign_r = new Key(new byte[32]);
+                KeyOps.DKSAPRecover(ref sign_r, ref inputs[i].TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, inputs[i].DecodeIndex);
+                Key sign_x = KeyOps.GenCommitmentMaskRecover(ref inputs[i].TransactionKey, ref addr.SecViewKey, inputs[i].DecodeIndex);
+                Key sign_s = new(new byte[32]);
+                /* s = zt = xt - x't */
+                KeyOps.ScalarSub(ref sign_s, ref sign_x, ref blindingFactors[i]);
+
+                Cipher.Triptych ringsig = Cipher.Triptych.Prove(M, P, C_offset, (uint)l, sign_r, sign_s, tx.SigningHash().ToKey());
+                tx.Signatures[i] = new Coin.Triptych(ringsig);
+
+                
             }
 
             return tx;

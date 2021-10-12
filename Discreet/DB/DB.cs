@@ -233,8 +233,6 @@ namespace Discreet.DB
             using var txn = Env.BeginTransaction();
             var config = new DatabaseConfiguration { Flags = DatabaseOpenFlags.Create };
 
-
-
             SpentKeys = txn.OpenDatabase(SPENT_KEYS, config);
             TXPoolMeta = txn.OpenDatabase(TX_POOL_META, config);
             TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB, config);
@@ -505,7 +503,7 @@ namespace Discreet.DB
 
             lock (indexer_output)
             {
-                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt64(indexer_output.Value));
+                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value));
 
                 if (resCode != MDBResultCode.Success)
                 {
@@ -813,7 +811,7 @@ namespace Discreet.DB
 
             lock (indexer_owned_outputs)
             {
-                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt64(indexer_owned_outputs.Value));
+                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt32(indexer_owned_outputs.Value));
 
                 if (resCode != MDBResultCode.Success)
                 {
@@ -851,6 +849,18 @@ namespace Discreet.DB
             utxo.Unmarshal(result.value.CopyToNewArray());
 
             return utxo;
+        }
+
+        public bool TXPoolContains(Cipher.SHA256 txhash)
+        {
+            using var txn = Env.BeginTransaction();
+
+            if (TXPoolBlob == null || !TXPoolBlob.IsOpened)
+            {
+                TXPoolBlob = txn.OpenDatabase(TX_POOL_BLOB);
+            }
+
+            return txn.ContainsKey(TXPoolBlob, txhash.Bytes);
         }
 
         public Transaction GetTXFromPool(Cipher.SHA256 txhash)
@@ -1107,7 +1117,7 @@ namespace Discreet.DB
             /* the first 31 mixins are chosen uniformly from the possible set */
             for (; i < 32; )
             {
-                uint rindex = (uint)rng.Next(0, (int)max);
+                uint rindex = (uint)rng.Next(1, (int)max);
                 if (chosen.Contains(rindex)) continue;
 
                 byte[] key = Serialization.UInt32(rindex);

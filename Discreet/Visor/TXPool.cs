@@ -82,6 +82,33 @@ namespace Discreet.Visor
             return null;
         }
 
+        public Exception ProcessIncoming(Transaction tx)
+        {
+            /* verify transaction */
+            var err = tx.Verify();
+
+            if (err != null)
+            {
+                return err;
+            }
+
+            /* try adding to database */
+            DB.DB db = DB.DB.GetDB();
+            try
+            {
+                db.AddTXToPool(tx);
+            }
+            catch (Exception e)
+            {
+                return new DatabaseException("Discreet.Visor.TXPool.ProcessIncoming", e.Message);
+            }
+
+            /* no errors, so add TX to pool */
+            pool.Add(tx);
+
+            return null;
+        }
+
         /**
          * Grabs transactions from the pool and packs them into a block.
          * Currently just returns the entire TXpool.
@@ -89,6 +116,13 @@ namespace Discreet.Visor
         public List<Transaction> GetTransactionsForBlock()
         {
             return pool;
+        }
+
+        public bool Contains(Cipher.SHA256 txhash)
+        {
+            DB.DB db = DB.DB.GetDB();
+
+            return db.TXPoolContains(txhash);
         }
 
         /* */

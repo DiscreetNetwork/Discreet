@@ -15,28 +15,81 @@ namespace Discreet.Cipher
         public Key[] V;
 
         [MarshalAs(UnmanagedType.Struct)]
-        public Key A, S, T1, T2, taux, mu;
+        public Key A;
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key S;
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key T1;
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key T2;
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key taux;
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key mu;
 
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10, ArraySubType = UnmanagedType.Struct)]
-        public Key[] L, R;
+        public Key[] L;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 10, ArraySubType = UnmanagedType.Struct)]
+        public Key[] R;
 
         [MarshalAs(UnmanagedType.Struct)]
-        public Key a, b, t;
+        public Key a;
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key b;
+        [MarshalAs(UnmanagedType.Struct)]
+        public Key t;
 
         public int Size()
         {
             int i = 0;
-            while (!(V[i].bytes == null || V[i].Equals(Key.Z))) i++;
+
+            while (i < 16 && V[i].bytes != null && !V[i].Equals(Key.Z)) i++;
 
             return i;
         }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "bulletproof_PROVE", CallingConvention = CallingConvention.StdCall)]
-        private static extern void bulletproof_PROVE([In, Out] Bulletproof bp, [MarshalAs(UnmanagedType.LPArray, SizeConst = 16, ArraySubType = UnmanagedType.U8)] ulong[] v, [MarshalAs(UnmanagedType.LPArray, SizeConst = 16, ArraySubType = UnmanagedType.Struct)] Key[] gamma, [MarshalAs(UnmanagedType.U4)] uint size);
+        public Bulletproof(ulong sz)
+        {
+            size = sz;
+
+            V = new Key[16];
+
+            for (int i = 0; i < 16; i++)
+            {
+                V[i] = new(new byte[32]);
+            }
+
+            A = new(new byte[32]);
+            S = new(new byte[32]);
+            T1 = new(new byte[32]);
+            T2 = new(new byte[32]);
+            taux = new(new byte[32]);
+            mu = new(new byte[32]);
+
+            L = new Key[10];
+            R = new Key[10];
+
+            for (int i = 0; i < 10; i++)
+            {
+                L[i] = new(new byte[32]);
+                R[i] = new(new byte[32]);
+            }
+
+            a = new(new byte[32]);
+            b = new(new byte[32]);
+            t = new(new byte[32]);
+        }
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "bulletproof_prove", CallingConvention = CallingConvention.StdCall)]
+        [return: MarshalAs(UnmanagedType.Struct)]
+        private static extern Bulletproof bulletproof_PROVE([MarshalAs(UnmanagedType.LPArray, SizeConst = 16, ArraySubType = UnmanagedType.U8)] ulong[] v, [MarshalAs(UnmanagedType.LPArray, SizeConst = 16, ArraySubType = UnmanagedType.Struct)] Key[] gamma, [MarshalAs(UnmanagedType.U8)] ulong size);
+
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GetLastException", CallingConvention = CallingConvention.StdCall)]
+        private static extern void get_last_exception([In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 4096)] byte[] data);
 
         public static Bulletproof Prove(ulong[] v, Key[] gamma)
         {
-            Bulletproof bp = new Bulletproof();
+            Bulletproof bp = new Bulletproof((ulong)v.Length);
 
             ulong[] vArg = new ulong[16];
             Key[] gammaArg = new Key[16];
@@ -46,7 +99,29 @@ namespace Discreet.Cipher
                 gammaArg[i] = gamma[i];
             }
 
-            bulletproof_PROVE(bp, vArg, gammaArg, (uint)v.Length);
+            for (int i = v.Length; i < 16; i++)
+            {
+                vArg[i] = 0;
+                gammaArg[i] = new(new byte[32]);
+            }
+
+            try
+            {
+                bp = bulletproof_PROVE(vArg, gammaArg, (ulong)v.Length);
+            }
+            catch (Exception e)
+            {
+                if (e is SEHException)
+                {
+                    byte[] dat = new byte[4096];
+                    get_last_exception(dat);
+
+                    string s_Excp = Encoding.ASCII.GetString(dat);
+
+                    throw new Exception(s_Excp);
+                }
+            }
+
             return bp;
         }
 
@@ -58,9 +133,33 @@ namespace Discreet.Cipher
             return Prove(vArg, gammaArg);
         }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "bulletproof_VERIFY", CallingConvention = CallingConvention.StdCall)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "bulletproof_verify", CallingConvention = CallingConvention.StdCall)]
             [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool Verify(Bulletproof bp);
+        private static extern bool bulletproof_VERIFY(Bulletproof bp);
+
+        public static bool Verify(Bulletproof bp)
+        {
+            bool rv = false;
+            
+            try
+            {
+                rv = bulletproof_VERIFY(bp);
+            }
+            catch (Exception e)
+            {
+                if (e is SEHException)
+                {
+                    byte[] dat = new byte[4096];
+                    get_last_exception(dat);
+
+                    string s_Excp = Encoding.ASCII.GetString(dat);
+
+                    throw new Exception(s_Excp);
+                }
+            }
+
+            return rv;
+        }
 
         public Bulletproof(Coin.Bulletproof bp, Key[] comms)
         {
@@ -70,8 +169,22 @@ namespace Discreet.Cipher
             T2 = bp.T2;
             taux = bp.taux;
             mu = bp.mu;
-            L = bp.L;
-            R = bp.R;
+
+            L = new Key[10];
+            R = new Key[10];
+
+            for (int i = 0; i < bp.L.Length; i++)
+            {
+                L[i] = bp.L[i];
+                R[i] = bp.R[i];
+            }
+
+            for (int i = bp.L.Length; i < 10; i++)
+            {
+                L[i] = new(new byte[32]);
+                R[i] = new(new byte[32]);
+            }
+
             a = bp.a;
             b = bp.b;
             t = bp.t;
@@ -83,7 +196,12 @@ namespace Discreet.Cipher
                 V[i] = comms[i];
             }
 
-            size = (ulong)L.Length;
+            for (int i = comms.Length; i < 16; i++)
+            {
+                V[i] = new(new byte[32]);
+            }
+
+            size = (ulong)comms.Length;
         }
     }
 }

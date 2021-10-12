@@ -31,8 +31,16 @@ namespace Discreet.Coin
             T2 = bp.T2;
             taux = bp.taux;
             mu = bp.mu;
-            L = bp.L;
-            R = bp.R;
+
+            L = new Key[KeyOps.KeyArrayLength(bp.L)];
+            R = new Key[KeyOps.KeyArrayLength(bp.R)];
+
+            for (int i = 0; i < KeyOps.KeyArrayLength(bp.L); i++)
+            {
+                L[i] = bp.L[i];
+                R[i] = bp.R[i];
+            }
+            
             a = bp.a;
             b = bp.b;
             t = bp.t;
@@ -88,6 +96,7 @@ namespace Discreet.Coin
         public string Readable()
         {
             string rv = "{";
+            rv += $"\"size\":{size},";
             rv += $"\"A\":\"{A.ToHex()}\",";
             rv += $"\"S\":\"{S.ToHex()}\",";
             rv += $"\"T1\":\"{T1.ToHex()}\",";

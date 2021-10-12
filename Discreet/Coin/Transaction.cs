@@ -274,11 +274,11 @@ namespace Discreet.Coin
                     }
                 }
 
-                rv += "],\"PseudoOutputs\":";
+                rv += "],\"PseudoOutputs\":[";
 
                 for (int i = 0; i < PseudoOutputs.Length; i++)
                 {
-                    rv += PseudoOutputs[i].ToHex();
+                    rv += $"\"{PseudoOutputs[i].ToHex()}\"";
 
                     if (i < PseudoOutputs.Length - 1)
                     {
@@ -801,25 +801,36 @@ namespace Discreet.Coin
                 }
 
                 Cipher.Key sumPseudos = new(new byte[32]);
+                Cipher.Key tmp = new(new byte[32]);
 
                 for (int i = 0; i < PseudoOutputs.Length; i++)
                 {
-                    sumPseudos = Cipher.KeyOps.AddKeys(ref sumPseudos, ref PseudoOutputs[i]);
+                    Cipher.KeyOps.AddKeys(ref tmp, ref sumPseudos, ref PseudoOutputs[i]);
+                    Array.Copy(tmp.bytes, sumPseudos.bytes, 32);
                 }
 
                 Cipher.Key sumComms = new(new byte[32]);
 
                 for (int i = 0; i < Outputs.Length; i++)
                 {
-                    sumComms = Cipher.KeyOps.AddKeys(ref sumComms, ref Outputs[i].Commitment);
+                    Cipher.KeyOps.AddKeys(ref tmp, ref sumComms, ref Outputs[i].Commitment);
+                    Array.Copy(tmp.bytes, sumComms.bytes, 32);
                 }
 
-                Cipher.Key dif = new(new byte[32]);
-                Cipher.KeyOps.SubKeys(ref dif, ref sumPseudos, ref sumComms);
+                //Cipher.Key dif = new(new byte[32]);
+                //Cipher.KeyOps.SubKeys(ref dif, ref sumPseudos, ref sumComms);
 
-                if (!dif.Equals(Cipher.Key.Z))
+                if (!sumPseudos.Equals(sumComms))
                 {
-                    return new VerifyException("Transaction", $"Transaction does not balance! (sumC'a - sumCb != 0)");
+                    return new VerifyException("Transaction", $"Transaction does not balance! (sumC'a != sumCb)");
+                }
+
+                /* validate range sig */
+                var bpexc = RangeProof.Verify(this);
+
+                if (bpexc != null)
+                {
+                    return bpexc;
                 }
 
                 /* validate inputs */
@@ -845,8 +856,8 @@ namespace Discreet.Coin
 
                     for (int k = 0; k < 64; k++)
                     {
-                        M[i] = mixins[k].UXKey;
-                        P[i] = mixins[k].Commitment;
+                        M[k] = mixins[k].UXKey;
+                        P[k] = mixins[k].Commitment;
                     }
 
                     var sigexc = Signatures[i].Verify(M, P, PseudoOutputs[i], SigningHash().ToKey());
@@ -862,13 +873,7 @@ namespace Discreet.Coin
                     }
                 }
 
-                /* validate range sig */
-                var bpexc = RangeProof.Verify(this);
-
-                if (bpexc != null)
-                {
-                    return bpexc;
-                }
+                
             }
 
             return null;

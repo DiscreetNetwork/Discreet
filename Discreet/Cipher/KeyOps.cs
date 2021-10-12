@@ -75,6 +75,9 @@ namespace Discreet.Cipher
         [DllImport(@"DiscreetCore.dll", EntryPoint = "Scalarmult8", CallingConvention = CallingConvention.StdCall)]
         public static extern void Scalarmult8(ref GEP3 res, ref Key p);
 
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "scalarmult_8_correct", CallingConvention = CallingConvention.StdCall)]
+        public static extern void Scalarmult8(ref Key res, ref Key p);
+
         [DllImport(@"DiscreetCore.dll", EntryPoint = "Scalarmult81", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key Scalarmult8(ref Key p);
@@ -205,6 +208,9 @@ namespace Discreet.Cipher
         [return: MarshalAs(UnmanagedType.Bool)]
         public static extern bool SchnorrVerify(ref Key s, ref Key e, ref Key p, ref Key m);
 
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateLinkingTag", CallingConvention = CallingConvention.StdCall)]
+        public static extern void GenerateLinkingTag(ref Key J, ref Key r);
+
         public static Key SHA256ToKey(SHA256 h)
         {
             return new Key(h.GetBytes());
@@ -269,8 +275,6 @@ namespace Discreet.Cipher
         {
             r = new Key(new byte[32]);
             R = new Key(new byte[32]);
-
-            T = new Key[pv.Length];
 
             GenerateKeypair(ref r, ref R);
 
@@ -347,5 +351,14 @@ namespace Discreet.Cipher
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "ScalarSub", CallingConvention = CallingConvention.StdCall)]
         public static extern void ScalarSub(ref Key res, ref Key a, ref Key b);
+
+        public static int KeyArrayLength(Key[] k)
+        {
+            int i = 0;
+
+            while (i < k.Length && k[i].bytes != null && !k[i].Equals(Key.Z)) i++;
+
+            return i;
+        }
     }
 }
