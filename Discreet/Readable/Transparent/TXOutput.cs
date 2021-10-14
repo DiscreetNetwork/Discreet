@@ -8,7 +8,7 @@ using System.Text.Json;
 
 namespace Discreet.Readable.Transparent
 {
-    public class TXOutput
+    public class TXOutput: IReadable
     {
         public string TransactionSrc;
         public string Address;

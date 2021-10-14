@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace Discreet.Readable.Transparent
 {
-    public class Transaction
+    public class Transaction: IReadable
     {
         public byte Version;
         public byte NumInputs;

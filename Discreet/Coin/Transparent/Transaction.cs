@@ -92,7 +92,7 @@ namespace Discreet.Coin.Transparent
 
         public string Readable()
         {
-            throw new NotImplementedException();
+            return Discreet.Readable.Transparent.Transaction.ToReadable(this);
         }
 
         public void Unmarshal(byte[] bytes)
