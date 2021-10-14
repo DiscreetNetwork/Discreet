@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using Discreet.Coin;
 using System.Runtime.InteropServices;
+using Discreet.Common;
 
 namespace Discreet.Wallets
 {

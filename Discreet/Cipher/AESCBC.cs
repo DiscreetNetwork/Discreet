@@ -1,4 +1,5 @@
 ﻿using Discreet.Coin;
+using Discreet.Common;
 using System;
 using System.IO;
 using System.Security.Cryptography;

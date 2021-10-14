@@ -97,12 +97,100 @@ namespace Discreet.Coin.Transparent
 
         public void Unmarshal(byte[] bytes)
         {
-            throw new NotImplementedException();
+            Version = bytes[0];
+            NumInputs = bytes[1];
+            NumOutputs = bytes[2];
+            NumSigs = bytes[3];
+
+            InnerHash = new SHA256(new byte[32], false);
+            Array.Copy(bytes, 4, InnerHash.Bytes, 0, 32);
+
+            uint offset = 36;
+
+            Inputs = new TXOutput[NumInputs];
+
+            for (int i = 0; i < Inputs.Length; i++)
+            {
+                Inputs[i] = new TXOutput();
+                Inputs[i].TXUnmarshal(bytes, offset);
+                offset += 33;
+            }
+
+            Outputs = new TXOutput[NumOutputs];
+
+            for (int i = 0; i < Inputs.Length; i++)
+            {
+                Outputs[i] = new TXOutput();
+                Outputs[i].TXUnmarshal(bytes, offset);
+                offset += 33;
+            }
+
+            Signatures = new Signature[NumSigs];
+
+            for (int i = 0; i < Signatures.Length; i++)
+            {
+                Signatures[i] = new Signature(bytes, offset);
+                offset += 64;
+            }
+
+            byte[] fee = new byte[8];
+            Array.Copy(bytes, offset, fee, 0, 8);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(fee);
+            }
+
+            Fee = BitConverter.ToUInt64(fee);
         }
 
         public uint Unmarshal(byte[] bytes, uint offset)
         {
-            throw new NotImplementedException();
+            Version = bytes[offset];
+            NumInputs = bytes[offset + 1];
+            NumOutputs = bytes[offset + 2];
+            NumSigs = bytes[offset + 3];
+
+            InnerHash = new SHA256(new byte[32], false);
+            Array.Copy(bytes, offset + 4, InnerHash.Bytes, 0, 32);
+
+            offset += 36;
+
+            Inputs = new TXOutput[NumInputs];
+
+            for (int i = 0; i < Inputs.Length; i++)
+            {
+                Inputs[i] = new TXOutput();
+                Inputs[i].TXUnmarshal(bytes, offset);
+                offset += 33;
+            }
+
+            Outputs = new TXOutput[NumOutputs];
+
+            for (int i = 0; i < Inputs.Length; i++)
+            {
+                Outputs[i] = new TXOutput();
+                Outputs[i].TXUnmarshal(bytes, offset);
+                offset += 33;
+            }
+
+            Signatures = new Signature[NumSigs];
+
+            for (int i = 0; i < Signatures.Length; i++)
+            {
+                Signatures[i] = new Signature(bytes, offset);
+                offset += 64;
+            }
+
+            byte[] fee = new byte[8];
+            Array.Copy(bytes, offset, fee, 0, 8);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(fee);
+            }
+
+            Fee = BitConverter.ToUInt64(fee);
+
+            return offset + 8;
         }
 
         public uint Size()
