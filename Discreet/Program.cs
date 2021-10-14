@@ -726,18 +726,21 @@ namespace Discreet
 			Wallet wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test0.dis"));
 			wallet.Decrypt("password123!");
 
-            Console.WriteLine(wallet.Addresses[0].Balance);
 			
 			Wallet receiver1 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "myWallet.dis"));
-			/*
+			receiver1.Decrypt("password123!");
+
+			Console.WriteLine(receiver1.Addresses[0].Balance);
+
+
 			Wallet receiver2 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test1.dis"));
 
 			Wallet receiver3 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test2.dis"));
 
 			Wallet receiver4 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test3.dis"));
 
-			Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress(), receiver2.Addresses[0].GetAddress(), receiver3.Addresses[0].GetAddress(), receiver4.Addresses[0].GetAddress() }, new ulong[] { 5_000_000_000_0, 100_000_000_000_0, 250_000_000_000_0, 200_000_000_000_0 }, 2);
-			*/
+			//Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress(), receiver2.Addresses[0].GetAddress(), receiver3.Addresses[0].GetAddress(), receiver4.Addresses[0].GetAddress() }, new ulong[] { 5_000_000_000_0, 100_000_000_000_0, 250_000_000_000_0, 200_000_000_000_0 }, 2);
+			
 
 			Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress() }, new ulong[] { 69_000_000_000_0 }, 2);
 
@@ -750,6 +753,8 @@ namespace Discreet
 			{
 				throw err;
 			}
+
+            Console.WriteLine(Printable.Prettify(File.ReadAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "mon.txt"))));
 
 
 			/* testing DKSAP */

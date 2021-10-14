@@ -13,6 +13,24 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.Struct)]
         public Key e;
 
+        public Signature(byte[] bytes)
+        {
+            s = new Key(new byte[32]);
+            e = new Key(new byte[32]);
+            
+            Array.Copy(bytes, s.bytes, 32);
+            Array.Copy(bytes, 32, e.bytes, 0, 32);
+        }
+
+        public Signature(byte[] bytes, uint offset)
+        {
+            s = new Key(new byte[32]);
+            e = new Key(new byte[32]);
+
+            Array.Copy(bytes, offset, s.bytes, 00, 32);
+            Array.Copy(bytes, offset + 32, e.bytes, 0, 32);
+        }
+
         public Signature(bool blank)
         {
             s = new Key(new byte[32]);
@@ -82,6 +100,20 @@ namespace Discreet.Cipher
         public bool Verify(Key p, Key m)
         {
             return KeyOps.SchnorrVerify(ref s, ref e, ref p, ref m);
+        }
+
+        public byte[] ToBytes()
+        {
+            byte[] bytes = new byte[64];
+            Array.Copy(s.bytes, bytes, 32);
+            Array.Copy(e.bytes, 0, bytes, 32, 32);
+            return bytes;
+        }
+
+        public void ToBytes(byte[] bytes, uint offset)
+        {
+            Array.Copy(s.bytes, 0, bytes, offset, 32);
+            Array.Copy(e.bytes, 0, bytes, offset + 32, 32);
         }
     }
 }
