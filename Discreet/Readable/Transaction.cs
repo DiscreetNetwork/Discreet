@@ -1,13 +1,13 @@
-﻿using Discreet.Common;
-using Discreet.Common.Exceptions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
+using System.Text.Json;
+using Discreet.Common.Exceptions;
+using Discreet.Common;
 
-namespace Discreet.Readable.Transparent
+namespace Discreet.Readable
 {
     public class Transaction: IReadable
     {
@@ -16,13 +16,20 @@ namespace Discreet.Readable.Transparent
         public byte NumOutputs;
         public byte NumSigs;
 
-        public string InnerHash;
-
-        public List<TXOutput> Inputs;
+        public List<TXInput> Inputs;
         public List<TXOutput> Outputs;
-        public List<string> Signatures;
+
+        public Bulletproof RangeProof;
+        public BulletproofPlus RangeProofPlus;
 
         public ulong Fee;
+
+        public List<Triptych> Signatures;
+
+        public List<string> PseudoOutputs;
+
+        public uint ExtraLen;
+        public List<byte> Extra;
 
         public string JSON()
         {
@@ -41,14 +48,24 @@ namespace Discreet.Readable.Transparent
             NumInputs = transaction.NumInputs;
             NumOutputs = transaction.NumOutputs;
             NumSigs = transaction.NumSigs;
-            InnerHash = transaction.InnerHash;
+            
             Inputs = transaction.Inputs;
             Outputs = transaction.Outputs;
-            Signatures = transaction.Signatures;
+
+            RangeProof = transaction.RangeProof;
+            RangeProofPlus = transaction.RangeProofPlus;
+
             Fee = transaction.Fee;
+
+            Signatures = transaction.Signatures;
+
+            PseudoOutputs = transaction.PseudoOutputs;
+
+            ExtraLen = transaction.ExtraLen;
+            Extra = transaction.Extra;
         }
 
-        public Transaction(Coin.Transparent.Transaction obj)
+        public Transaction(Coin.Transaction obj)
         {
             FromObject(obj);
         }
@@ -60,10 +77,10 @@ namespace Discreet.Readable.Transparent
 
         public void FromObject<T>(T obj)
         {
-            if (typeof(T) == typeof(Coin.Transparent.Transaction))
+            if (typeof(T) == typeof(Coin.Transaction))
             {
                 dynamic t = obj;
-                FromObject((Coin.Transparent.Transaction)t);
+                FromObject((Coin.Transaction)t);
             }
             else
             {
@@ -71,21 +88,20 @@ namespace Discreet.Readable.Transparent
             }
         }
 
-        public void FromObject(Coin.Transparent.Transaction obj)
+        public void FromObject(Coin.Transaction obj)
         {
             Version = obj.Version;
             NumInputs = obj.NumInputs;
             NumOutputs = obj.NumOutputs;
             NumSigs = obj.NumSigs;
 
-            if (obj.InnerHash.Bytes != null) InnerHash = obj.InnerHash.ToHex();
             if (obj.Inputs != null)
             {
-                Inputs = new List<TXOutput>(obj.Inputs.Length);
+                Inputs = new List<TXInput>(obj.Inputs.Length);
 
                 for (int i = 0; i < obj.Inputs.Length; i++)
                 {
-                    Inputs.Add(new TXOutput(obj.Inputs[i]));
+                    Inputs.Add(new TXInput(obj.Inputs[i]));
                 }
             }
             if (obj.Outputs != null)
@@ -97,22 +113,47 @@ namespace Discreet.Readable.Transparent
                     Outputs.Add(new TXOutput(obj.Outputs[i]));
                 }
             }
+
+            if (obj.RangeProof != null) RangeProof = new Bulletproof(obj.RangeProof);
+            if (obj.RangeProofPlus != null) RangeProofPlus = new BulletproofPlus(obj.RangeProofPlus);
+
+            Fee = obj.Fee;
+
             if (obj.Signatures != null)
             {
-                Signatures = new List<string>(obj.Signatures.Length);
+                Signatures = new List<Triptych>(obj.Signatures.Length);
 
                 for (int i = 0; i < obj.Signatures.Length; i++)
                 {
-                    Signatures.Add(Printable.Hexify(obj.Signatures[i].ToBytes()));
+                    Signatures.Add(new Triptych(obj.Signatures[i]));
                 }
             }
 
-            Fee = obj.Fee;
+            if (obj.PseudoOutputs != null)
+            {
+                PseudoOutputs = new List<string>(obj.PseudoOutputs.Length);
+
+                for (int i = 0; i < obj.PseudoOutputs.Length; i++)
+                {
+                    PseudoOutputs.Add(obj.PseudoOutputs[i].ToHex());
+                }
+            }
+
+            ExtraLen = obj.ExtraLen;
+            if (obj.Extra != null)
+            {
+                Extra = new List<byte>(obj.Extra.Length);
+
+                for (int i = 0; i < obj.Extra.Length; i++)
+                {
+                    Extra.Add(obj.Extra[i]);
+                }
+            }
         }
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.Transparent.Transaction))
+            if (typeof(T) == typeof(Coin.Transaction))
             {
                 dynamic t = ToObject();
                 return (T)t;
@@ -124,19 +165,18 @@ namespace Discreet.Readable.Transparent
 
         }
 
-        public Coin.Transparent.Transaction ToObject()
+        public Coin.Transaction ToObject()
         {
-            Coin.Transparent.Transaction obj = new();
+            Coin.Transaction obj = new();
 
             obj.Version = Version;
             obj.NumInputs = NumInputs;
             obj.NumOutputs = NumOutputs;
             obj.NumSigs = NumSigs;
 
-            if (InnerHash != null && InnerHash != "") obj.InnerHash = Cipher.SHA256.FromHex(InnerHash);
             if (Inputs != null)
             {
-                obj.Inputs = new Coin.Transparent.TXOutput[Inputs.Count];
+                obj.Inputs = new Coin.TXInput[Inputs.Count];
 
                 for (int i = 0; i < Inputs.Count; i++)
                 {
@@ -145,34 +185,59 @@ namespace Discreet.Readable.Transparent
             }
             if (Outputs != null)
             {
-                obj.Outputs = new Coin.Transparent.TXOutput[Outputs.Count];
+                obj.Outputs = new Coin.TXOutput[Outputs.Count];
 
                 for (int i = 0; i < Outputs.Count; i++)
                 {
                     obj.Outputs[i] = Outputs[i].ToObject();
                 }
             }
+
+            if (RangeProof != null) obj.RangeProof = RangeProof.ToObject();
+            if (RangeProofPlus != null) obj.RangeProofPlus = RangeProofPlus.ToObject();
+
+            obj.Fee = Fee;
+
             if (Signatures != null)
             {
-                obj.Signatures = new Cipher.Signature[Signatures.Count];
+                obj.Signatures = new Coin.Triptych[Signatures.Count];
 
                 for (int i = 0; i < Signatures.Count; i++)
                 {
-                    obj.Signatures[i] = new Cipher.Signature(Printable.Byteify(Signatures[i]));
+                    obj.Signatures[i] = Signatures[i].ToObject();
                 }
             }
 
-            obj.Fee = Fee;
+            if (PseudoOutputs != null)
+            {
+                obj.PseudoOutputs = new Cipher.Key[PseudoOutputs.Count];
+
+                for (int i = 0; i < PseudoOutputs.Count; i++)
+                {
+                    obj.PseudoOutputs[i] = new Cipher.Key(Printable.Byteify(PseudoOutputs[i]));
+                }
+            }
+
+            obj.ExtraLen = ExtraLen;
+            if (Extra != null)
+            {
+                obj.Extra = new byte[Extra.Count];
+
+                for (int i = 0; i < Extra.Count; i++)
+                {
+                    obj.Extra[i] = Extra[i];
+                }
+            }
 
             return obj;
         }
 
-        public static Coin.Transparent.Transaction FromReadable(string json)
+        public static Coin.Transaction FromReadable(string json)
         {
             return new Transaction(json).ToObject();
         }
 
-        public static string ToReadable(Coin.Transparent.Transaction obj)
+        public static string ToReadable(Coin.Transaction obj)
         {
             return new Transaction(obj).JSON();
         }
