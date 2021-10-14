@@ -1,19 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 
-namespace Discreet.Coin
+namespace Discreet.Common
 {
     public static class Printable
     {
         public static uint NUMSPACE = 4;
-        
+        private static readonly Regex sWhitespace = new Regex(@"\s+");
+
+        private static void ForEach<T>(this IEnumerable<T> ie, Action<T> action)
+        {
+            foreach (var i in ie)
+            {
+                action(i);
+            }
+        }
+
         public static string Prettify(string s)
         {
+            s = sWhitespace.Replace(s, "");
+
             int nBrace = 0;
-            string rv = "";
+            StringBuilder rv = new();
 
             string spaces = "";
+
+            bool quoted = false;
 
             for (int i = 0; i < NUMSPACE; i++)
             {
@@ -22,65 +37,72 @@ namespace Discreet.Coin
 
             for (int i = 0; i < s.Length; i++)
             {
-                if (s[i] == '{' || s[i] == '[')
+                char ch = s[i];
+                switch (ch)
                 {
-                    if (i > 0 && s[i-1] == ':')
-                    {
-                        rv += "\n";
-                        for (int j = 0; j < nBrace; j++)
+                    case '{':
+                    case '[':
+                        rv.Append(ch);
+                        if (!quoted)
                         {
-                            rv += spaces;
+                            rv.AppendLine();
+                            Enumerable.Range(0, ++nBrace).ForEach(item => rv.Append(spaces));
                         }
-                    }
-                    rv += s[i];
-                    rv += "\n";
-                    nBrace++;
-                    for (int j = 0; j < nBrace; j++)
-                    {
-                        rv += spaces;
-                    }
+                        break;
+                    case '}':
+                    case ']':
+                        if (!quoted)
+                        {
+                            rv.AppendLine();
+                            Enumerable.Range(0, --nBrace).ForEach(item => rv.Append(spaces));
+                        }
+                        rv.Append(ch);
+                        break;
+                    case '"':
+                        rv.Append(ch);
+                        bool escaped = false;
+                        var index = i;
+                        while (index > 0 && s[--index] == '\\')
+                            escaped = !escaped;
+                        if (!escaped)
+                            quoted = !quoted;
+                        break;
+                    case ',':
+                        rv.Append(ch);
+                        if (!quoted)
+                        {
+                            rv.AppendLine();
+                            Enumerable.Range(0, nBrace).ForEach(item => rv.Append(spaces));
+                        }
+                        break;
+                    case ':':
+                        rv.Append(ch);
+                        if (!quoted)
+                            rv.Append(' ');
+                        break;
+                    default:
+                        rv.Append(ch);
+                        break;
                 }
-                else if (s[i] == '}' || s[i] == ']')
-                {
-                    rv += "\n";
-                    nBrace--;
-                    for (int j = 0; j < nBrace; j++)
-                    {
-                        rv += spaces;
-                    }
-                    rv += s[i];
-                }
-                else if (s[i] == ',')
-                {
-                    rv += s[i];
-                    rv += "\n";
-                    for (int j = 0; j < nBrace; j++)
-                    {
-                        rv += spaces;
-                    }
-                }
-                else
-                {
-                    rv += s[i];
-                }
+
             }
 
-            return rv;
+            return rv.ToString();
         }
 
         public static string Hexify(byte[] bytes)
         {
             if (bytes == null) return "";
 
-            string rv = "";
+            StringBuilder rv = new(bytes.Length * 2);
 
             for(int i = 0; i < bytes.Length; i++)
             {
-                rv += "0123456789abcdef"[bytes[i] >> 4];
-                rv += "0123456789abcdef"[bytes[i] & 0xf];
+                rv[2 * i] = "0123456789abcdef"[bytes[i] >> 4];
+                rv[2 * i + 1] = "0123456789abcdef"[bytes[i] & 0xf];
             }
 
-            return rv;
+            return rv.ToString();
         }
 
         public static bool IsHex(string hex)

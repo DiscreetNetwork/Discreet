@@ -11,8 +11,6 @@ namespace Discreet.Coin.Transparent
     [StructLayout(LayoutKind.Sequential)]
     public class Transaction: ICoin
     {
-        //WIP
-
         [MarshalAs(UnmanagedType.U1)]
         public byte Version;
         [MarshalAs(UnmanagedType.U1)]

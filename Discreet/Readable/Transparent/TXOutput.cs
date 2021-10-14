@@ -6,13 +6,12 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json;
 
-namespace Discreet.Readable
+namespace Discreet.Readable.Transparent
 {
-    public class TXOutput: IReadable
+    public class TXOutput
     {
         public string TransactionSrc;
-        public string UXKey;
-        public string Commitment;
+        public string Address;
         public ulong Amount;
 
         public string JSON()
@@ -29,12 +28,11 @@ namespace Discreet.Readable
         {
             TXOutput tXOutput = JsonSerializer.Deserialize<TXOutput>(json);
             TransactionSrc = tXOutput.TransactionSrc;
-            UXKey = tXOutput.UXKey;
-            Commitment = tXOutput.Commitment;
+            Address = tXOutput.Address;
             Amount = tXOutput.Amount;
         }
 
-        public TXOutput(Coin.TXOutput obj)
+        public TXOutput(Coin.Transparent.TXOutput obj)
         {
             FromObject(obj);
         }
@@ -46,10 +44,10 @@ namespace Discreet.Readable
 
         public void FromObject<T>(T obj)
         {
-            if (typeof(T) == typeof(Coin.TXOutput))
+            if (typeof(T) == typeof(Coin.Transparent.TXOutput))
             {
                 dynamic t = obj;
-                FromObject((Coin.TXOutput)t);
+                FromObject((Coin.Transparent.TXOutput)t);
             }
             else
             {
@@ -57,17 +55,16 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Coin.TXOutput obj)
+        public void FromObject(Coin.Transparent.TXOutput obj)
         {
             if (obj.TransactionSrc.Bytes != null) TransactionSrc = obj.TransactionSrc.ToHex();
-            if (obj.UXKey.bytes != null) UXKey = obj.UXKey.ToHex();
-            if (obj.Commitment.bytes != null) Commitment = obj.UXKey.ToHex();
+            if (obj.Address != null) Address = obj.Address.ToString();
             Amount = obj.Amount;
         }
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.TXOutput))
+            if (typeof(T) == typeof(Coin.Transparent.TXOutput))
             {
                 dynamic t = ToObject();
                 return (T)t;
@@ -76,27 +73,26 @@ namespace Discreet.Readable
             {
                 throw new ReadableException(typeof(TXOutput).FullName, typeof(T).FullName);
             }
-                
+
         }
 
-        public Coin.TXOutput ToObject()
+        public Coin.Transparent.TXOutput ToObject()
         {
-            Coin.TXOutput obj = new();
+            Coin.Transparent.TXOutput obj = new();
 
             if (TransactionSrc != null && TransactionSrc != "") obj.TransactionSrc = Cipher.SHA256.FromHex(TransactionSrc);
-            if (UXKey != null && UXKey != "") obj.UXKey = Cipher.Key.FromHex(UXKey);
-            if (Commitment != null && Commitment != "") obj.Commitment = Cipher.Key.FromHex(Commitment);
+            if (Address != null && Address != "") obj.Address = new Coin.TAddress(Address);
             obj.Amount = Amount;
 
             return obj;
         }
 
-        public static Coin.TXOutput FromReadable(string json)
+        public static Coin.Transparent.TXOutput FromReadable(string json)
         {
             return new TXOutput(json).ToObject();
         }
 
-        public static string ToReadable(Coin.TXOutput obj)
+        public static string ToReadable(Coin.Transparent.TXOutput obj)
         {
             return new TXOutput(obj).JSON();
         }

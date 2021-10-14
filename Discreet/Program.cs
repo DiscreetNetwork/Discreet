@@ -12,6 +12,7 @@ using Discreet.Coin;
 using Discreet.Wallets;
 using System.IO;
 using Discreet.RPC;
+using Discreet.Common;
 
 namespace Discreet
 {

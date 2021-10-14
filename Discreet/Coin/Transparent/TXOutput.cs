@@ -12,11 +12,11 @@ namespace Discreet.Coin.Transparent
     public class TXOutput: ICoin
     {
         [MarshalAs(UnmanagedType.Struct)]
-        SHA256 TransactionSrc;
+        public SHA256 TransactionSrc;
         [MarshalAs(UnmanagedType.Struct)]
-        TAddress Address;
+        public TAddress Address;
         [MarshalAs(UnmanagedType.Struct)]
-        ulong Amount;
+        public ulong Amount;
 
         public TXOutput()
         {

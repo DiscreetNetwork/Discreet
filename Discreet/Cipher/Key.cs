@@ -106,6 +106,11 @@ namespace Discreet.Cipher
         {
             return ToHex().Substring(0, 8) + "...";
         }
+
+        public static Key FromHex(string hex)
+        {
+            return new Key(Common.Printable.Byteify(hex));
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]

@@ -133,5 +133,10 @@ namespace Discreet.Cipher
         {
             return new Key(bytes);
         }
+
+        public static SHA256 FromHex(string hex)
+        {
+            return new SHA256(Common.Printable.Byteify(hex), false);
+        }
     }
 }

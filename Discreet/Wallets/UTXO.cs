@@ -7,8 +7,8 @@ namespace Discreet.Wallets
 {
     public enum UTXOType: byte
     {
+       STEALTH,
         //TRANSPARENT, currently unsupported in testnet. Private transactions only.
-        STEALTH,
     }
 
     /**

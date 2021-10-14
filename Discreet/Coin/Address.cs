@@ -65,6 +65,25 @@ namespace Discreet.Coin
             Array.Copy(bytes, 21, checksum, 0, 4);
         }
 
+        public TAddress(string addr)
+        {
+            byte[] bytes = Cipher.Base58.Decode(addr);
+
+            if (bytes.Length != Size())
+            {
+                throw new Exception($"Discreet.Coin.TAddress: Cannot make address from byte array of size {bytes.Length}, requires byte array of size {Size()} (attempted to make from string: \"{addr}\")");
+            }
+
+            version = bytes[0];
+
+            byte[] _hash = new byte[20];
+            Array.Copy(bytes, 1, _hash, 0, 20);
+            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+
+            checksum = new byte[4];
+            Array.Copy(bytes, 21, checksum, 0, 4);
+        }
+
         public uint Size()
         {
             return 25;
