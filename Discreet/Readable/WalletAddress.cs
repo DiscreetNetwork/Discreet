@@ -21,7 +21,7 @@ namespace Discreet.Readable
 
         public string JSON()
         {
-            return JsonSerializer.Serialize(this);
+            return JsonSerializer.Serialize(this, ReadableOptions.Options);
         }
 
         public override string ToString()

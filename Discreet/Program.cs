@@ -745,7 +745,7 @@ namespace Discreet
 
 			Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress() }, new ulong[] { 69_000_000_000_0 }, 2);
 
-			Console.WriteLine(Printable.Prettify(testtx.Readable()));
+			Console.WriteLine(Printable.Prettify(Readable.Transaction.ToReadable(testtx)));
 			Console.WriteLine(testtx.Marshal().Length);
 
 			var err = testtx.Verify();
@@ -755,7 +755,7 @@ namespace Discreet
 				throw err;
 			}
 
-            Console.WriteLine(Printable.Prettify(File.ReadAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "mon.txt"))));
+            //Console.WriteLine(Printable.Prettify(File.ReadAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "mon.txt"))));
 
 
 			/* testing DKSAP */
