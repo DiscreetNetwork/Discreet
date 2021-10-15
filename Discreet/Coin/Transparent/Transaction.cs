@@ -95,6 +95,11 @@ namespace Discreet.Coin.Transparent
             return Discreet.Readable.Transparent.Transaction.ToReadable(this);
         }
 
+        public static Transaction FromReadable(string json)
+        {
+            return Discreet.Readable.Transparent.Transaction.FromReadable(json);
+        }
+
         public void Unmarshal(byte[] bytes)
         {
             Version = bytes[0];

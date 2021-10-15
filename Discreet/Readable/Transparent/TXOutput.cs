@@ -37,6 +37,14 @@ namespace Discreet.Readable.Transparent
             FromObject(obj);
         }
 
+        public TXOutput(Coin.Transparent.TXOutput obj, bool tx)
+        {
+            if (tx)
+                FromTXObject(obj);
+            else
+                FromObject(obj);
+        }
+
         public TXOutput(string json)
         {
             FromJSON(json);
@@ -87,6 +95,12 @@ namespace Discreet.Readable.Transparent
             return obj;
         }
 
+        public void FromTXObject(Coin.Transparent.TXOutput obj)
+        {
+            if (obj.Address != null) Address = obj.Address.ToString();
+            Amount = obj.Amount;
+        }
+
         public static Coin.Transparent.TXOutput FromReadable(string json)
         {
             return new TXOutput(json).ToObject();
@@ -95,6 +109,11 @@ namespace Discreet.Readable.Transparent
         public static string ToReadable(Coin.Transparent.TXOutput obj)
         {
             return new TXOutput(obj).JSON();
+        }
+
+        public static string ToTXReadable(Coin.Transparent.TXOutput obj)
+        {
+            return new TXOutput(obj, true).JSON();
         }
     }
 }

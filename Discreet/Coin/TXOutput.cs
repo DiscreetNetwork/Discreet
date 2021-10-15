@@ -96,12 +96,17 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            return $"{{\"TransactionSrc\": \"{TransactionSrc.ToHex()}\",\"UXKey\":\"{UXKey.ToHex()}\",\"Commitment\":\"{Commitment.ToHex()}\",\"Amount\":{Amount:x}}}";
+            return Discreet.Readable.TXOutput.ToReadable(this);
         }
 
         public string TXReadable()
         {
-            return $"{{\"UXKey\":\"{UXKey.ToHex()}\",\"Commitment\":\"{Commitment.ToHex()}\",\"Amount\":{Amount:x}}}";
+            return Discreet.Readable.TXOutput.ToTXReadable(this);
+        }
+
+        public static TXOutput FromReadable(string json)
+        {
+            return Discreet.Readable.TXOutput.FromReadable(json);
         }
 
         public static uint Size()

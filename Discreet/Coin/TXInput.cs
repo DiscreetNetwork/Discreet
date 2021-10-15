@@ -58,17 +58,12 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            string rv = "{\"Offsets\":[";
-            for (int i = 0; i < 64; i++)
-            {
-                rv += Offsets[i].ToString();
-                if (i < 63)
-                {
-                    rv += ",";
-                }
-            }
-            rv += $"],\"KeyImage\":\"{KeyImage.ToHex()}\"}}";
-            return rv;
+            return Discreet.Readable.TXInput.ToReadable(this);
+        }
+
+        public static TXInput FromReadable(string json)
+        {
+            return Discreet.Readable.TXInput.FromReadable(json);
         }
 
         public void Unmarshal(byte[] bytes)

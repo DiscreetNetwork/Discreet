@@ -34,9 +34,9 @@ namespace Discreet.RPC.Common
 
         }
 
-        public static ulong DISToAmount(ulong amount)
+        public static ulong DISToAmount(decimal amount)
         {
-            return amount * 10000000000;
+            return (ulong)Math.Floor(amount * 10000000000);
         }
     }
 }

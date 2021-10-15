@@ -85,50 +85,12 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            string rv = "{";
-            rv += $"\"K\":\"{K.ToHex()}\",";
-            rv += $"\"A\":\"{A.ToHex()}\",";
-            rv += $"\"B\":\"{B.ToHex()}\",";
-            rv += $"\"C\":\"{C.ToHex()}\",";
-            rv += $"\"D\":\"{D.ToHex()}\",";
-            rv += "\"X\":[";
+            return Discreet.Readable.Triptych.ToReadable(this);
+        }
 
-            for (int i = 0; i < 6; i++)
-            {
-                rv += $"\"{X[i].ToHex()}\"";
-                if (i < 5)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += "],\"Y\":[";
-
-            for (int i = 0; i < 6; i++)
-            {
-                rv += $"\"{Y[i].ToHex()}\"";
-                if (i < 5)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += "],\"f\":[";
-
-            for (int i = 0; i < 6; i++)
-            {
-                rv += $"\"{f[i].ToHex()}\"";
-                if (i < 5)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += $"],\"zA\":\"{zA.ToHex()}\",";
-            rv += $"\"zC\":\"{zC.ToHex()}\",";
-            rv += $"\"z\":\"{z.ToHex()}\"}}";
-
-            return rv;
+        public static Triptych FromReadable(string json)
+        {
+            return Discreet.Readable.Triptych.FromReadable(json);
         }
 
         public void Unmarshal(byte[] bytes)

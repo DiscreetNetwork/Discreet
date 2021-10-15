@@ -95,41 +95,12 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            string rv = "{";
-            rv += $"\"size\":{size},";
-            rv += $"\"A\":\"{A.ToHex()}\",";
-            rv += $"\"S\":\"{S.ToHex()}\",";
-            rv += $"\"T1\":\"{T1.ToHex()}\",";
-            rv += $"\"T2\":\"{T2.ToHex()}\",";
-            rv += $"\"taux\":\"{taux.ToHex()}\",";
-            rv += $"\"mu\":\"{mu.ToHex()}\",";
-            rv += "\"L\":[";
+            return Discreet.Readable.Bulletproof.ToReadable(this);
+        }
 
-            for (int i = 0; i < L.Length; i++)
-            {
-                rv += $"\"{L[i].ToHex()}\"";
-                if (i < L.Length - 1)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += "],\"R\":[";
-
-            for (int i = 0; i < R.Length; i++)
-            {
-                rv += $"\"{R[i].ToHex()}\"";
-                if (i < R.Length - 1)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += $"],\"a\":\"{a.ToHex()}\",";
-            rv += $"\"b\":\"{b.ToHex()}\",";
-            rv += $"\"t\":\"{t.ToHex()}\"}}";
-
-            return rv;
+        public static Bulletproof FromReadable(string json)
+        {
+            return Discreet.Readable.Bulletproof.FromReadable(json);
         }
 
         public void Unmarshal(byte[] bytes)

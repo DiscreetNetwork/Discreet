@@ -77,12 +77,17 @@ namespace Discreet.Coin.Transparent
 
         public string Readable()
         {
-            return $"{{\"TransactionSrc\":\"{TransactionSrc.ToHex()}\",\"Address\":\"{Address}\",\"Amount\":{Amount}}}";
+            return Discreet.Readable.Transparent.TXOutput.ToReadable(this);
         }
 
         public string TXReadable()
         {
-            return $"{{\"Address\":\"{Address}\",\"Amount\":{Amount}}}";
+            return Discreet.Readable.Transparent.TXOutput.ToTXReadable(this);
+        }
+
+        public static TXOutput FromReadable(string json)
+        {
+            return Discreet.Readable.Transparent.TXOutput.FromReadable(json);
         }
 
         public void Unmarshal(byte[] bytes)

@@ -85,7 +85,7 @@ namespace Discreet.Readable.Transparent
 
                 for (int i = 0; i < obj.Inputs.Length; i++)
                 {
-                    Inputs.Add(new TXOutput(obj.Inputs[i]));
+                    Inputs.Add(new TXOutput(obj.Inputs[i], true));
                 }
             }
             if (obj.Outputs != null)
@@ -94,7 +94,7 @@ namespace Discreet.Readable.Transparent
 
                 for (int i = 0; i < obj.Outputs.Length; i++)
                 {
-                    Outputs.Add(new TXOutput(obj.Outputs[i]));
+                    Outputs.Add(new TXOutput(obj.Outputs[i], true));
                 }
             }
             if (obj.Signatures != null)

@@ -12,30 +12,6 @@ using Discreet.Common;
 
 namespace Discreet.Wallets
 {
-    public class ReadableWalletAddress
-    {
-        public string EncryptedSecSpendKey { get; set; }
-        public string EncryptedSecViewKey { get; set; }
-        public string PubSpendKey { get; set; }
-        public string PubViewKey { get; set; }
-        public string Address { get; set; }
-
-        public List<int> UTXOs { get; set; }
-    }
-
-    public class ReadableWallet
-    {
-        public string Label { get; set; }
-        public string CoinName { get; set; }
-        public bool Encrypted { get; set; }
-        public ulong Timestamp { get; set; }
-        public string Version { get; set; }
-        public string Entropy { get; set; }
-        public uint EntropyLen { get; set; }
-        public ulong EntropyChecksum { get; set; }
-        public List<ReadableWalletAddress> Addresses { get; set; }
-    }
-
     /**
      * <summary>
      * Wallet addresses are generated either deterministically or randomly.
@@ -430,53 +406,7 @@ namespace Discreet.Wallets
         {
             Encrypt();
 
-            string rv = $"{{\"Label\":\"{Label}\",\"CoinName\":\"{CoinName}\",\"Encrypted\":{(Encrypted ? "true" : "false")},\"Timestamp\":{Timestamp},\"Version\":\"{Version}\",\"Entropy\":";
-
-            if (Encrypted)
-            {
-                rv += $"\"{Printable.Hexify(EncryptedEntropy)}\",";
-            }
-            else
-            {
-                rv += $"\"{Printable.Hexify(Entropy)}\",";
-            }
-
-            rv += $"\"EntropyLen\":{EntropyLen},";
-
-            if (Encrypted)
-            {
-                rv += $"\"EntropyChecksum\":{EntropyChecksum},";
-            }
-
-            rv += "\"Addresses\":[";
-
-            for (int i = 0; i < Addresses.Length; i++)
-            {
-                rv += $"{{\"EncryptedSecSpendKey\":\"{Printable.Hexify(Addresses[i].EncryptedSecSpendKey)}\",\"EncryptedSecViewKey\":\"{Printable.Hexify(Addresses[i].EncryptedSecViewKey)}\",\"PubSpendKey\":\"{Addresses[i].PubSpendKey.ToHex()}\",\"PubViewKey\":\"{Addresses[i].PubViewKey.ToHex()}\",\"Address\":\"{Addresses[i].Address}\",\"UTXOs\":[";
-
-                for (int j = 0; j < Addresses[i].UTXOs.Count; j++)
-                {
-                    rv += $"{Addresses[i].UTXOs[j].OwnedIndex}";
-
-                    if (j < Addresses[i].UTXOs.Count - 1)
-                    {
-                        rv += ",";
-                    }
-                }
-
-                rv += "]}";
-
-                if (i < Addresses.Length - 1)
-                {
-                    rv += ",";
-                }
-
-                
-            }
-
-            rv += "]}";
-
-            return rv;
+            return Readable.Wallet.ToReadable(this);
         }
 
         /**
@@ -515,63 +445,7 @@ namespace Discreet.Wallets
 
         public static Wallet FromJSON(string json)
         {
-            DB.DB db = DB.DB.GetDB();
-
-            var jsonWallet = JsonSerializer.Deserialize<ReadableWallet>(json);
-
-            Wallet wallet = new Wallet
-            {
-                Label = jsonWallet.Label,
-                CoinName = jsonWallet.CoinName,
-                Encrypted = jsonWallet.Encrypted,
-                IsEncrypted = jsonWallet.Encrypted,
-                Timestamp = jsonWallet.Timestamp,
-                Version = jsonWallet.Version,
-            };
-
-            if (wallet.Encrypted)
-            {
-                wallet.EncryptedEntropy = Printable.Byteify(jsonWallet.Entropy);
-                wallet.EntropyChecksum = jsonWallet.EntropyChecksum;
-            }
-            else
-            {
-                wallet.Entropy = Printable.Byteify(jsonWallet.Entropy);
-            }
-
-            wallet.Addresses = new WalletAddress[jsonWallet.Addresses.Count];
-
-            for (int i = 0; i < wallet.Addresses.Length; i++)
-            {
-                wallet.Addresses[i] = new WalletAddress
-                {
-                    Encrypted = true,
-                    EncryptedSecSpendKey = Printable.Byteify(jsonWallet.Addresses[i].EncryptedSecSpendKey),
-                    EncryptedSecViewKey = Printable.Byteify(jsonWallet.Addresses[i].EncryptedSecViewKey),
-                    PubSpendKey = new Key(Printable.Byteify(jsonWallet.Addresses[i].PubSpendKey)),
-                    PubViewKey = new Key(Printable.Byteify(jsonWallet.Addresses[i].PubViewKey)),
-                    Address = jsonWallet.Addresses[i].Address,
-                    UTXOs = new List<UTXO>(),
-                    SecSpendKey = new(new byte[32]),
-                    SecViewKey = new(new byte[32])
-                };
-
-                for (int j = 0; j < jsonWallet.Addresses[i].UTXOs.Count; j++)
-                {
-                    wallet.Addresses[i].UTXOs.Add(db.GetWalletOutput(jsonWallet.Addresses[i].UTXOs[j]));
-                    wallet.Addresses[i].UTXOs[j].OwnedIndex = jsonWallet.Addresses[i].UTXOs[j];
-                }
-
-                if (!wallet.Encrypted)
-                {
-                    wallet.Addresses[i].Decrypt(wallet.Entropy);
-                }
-
-                /* sort by value */
-                wallet.Addresses[i].UTXOs = wallet.Addresses[i].UTXOs.OrderBy(x => x.DecodedAmount).ToList();
-            }
-
-            return wallet;
+            return Readable.Wallet.FromReadable(json);
         }
 
         public Transaction CreateTransaction(int walletIndex, StealthAddress[] to, ulong[] amount)
@@ -822,7 +696,6 @@ namespace Discreet.Wallets
 
                     if (transaction.Outputs[i].UXKey.Equals(outputPubKey))
                     {
-
                         ProcessOutput(transaction, i, addrIndex);
                     }
                 }

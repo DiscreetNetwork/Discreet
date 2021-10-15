@@ -110,7 +110,7 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < obj.Outputs.Length; i++)
                 {
-                    Outputs.Add(new TXOutput(obj.Outputs[i]));
+                    Outputs.Add(new TXOutput(obj.Outputs[i], true));
                 }
             }
 

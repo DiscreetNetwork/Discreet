@@ -84,39 +84,12 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            string rv = "{";
-            rv += $"\"size\":{size},";
-            rv += $"\"A\":\"{A.ToHex()}\",";
-            rv += $"\"A1\":\"{A1.ToHex()}\",";
-            rv += $"\"B\":\"{B.ToHex()}\",";
-            rv += $"\"r1\":\"{r1.ToHex()}\",";
-            rv += $"\"s1\":\"{s1.ToHex()}\",";
-            rv += $"\"d1\":\"{d1.ToHex()}\",";
-            rv += "\"L\":[";
+            return Discreet.Readable.BulletproofPlus.ToReadable(this);
+        }
 
-            for (int i = 0; i < L.Length; i++)
-            {
-                rv += $"\"{L[i].ToHex()}\"";
-                if (i < L.Length - 1)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += "],\"R\":[";
-
-            for (int i = 0; i < R.Length; i++)
-            {
-                rv += $"\"{R[i].ToHex()}\"";
-                if (i < R.Length - 1)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += "]}";
-
-            return rv;
+        public static BulletproofPlus FromReadable(string json)
+        {
+            return Discreet.Readable.BulletproofPlus.FromReadable(json);
         }
 
         public void Unmarshal(byte[] bytes)
