@@ -78,7 +78,17 @@ namespace Discreet.Common
                     case ':':
                         rv.Append(ch);
                         if (!quoted)
-                            rv.Append(' ');
+                        {
+                            if (i < s.Length - 1 && (s[i + 1] == '[' || s[i + 1] == '{'))
+                            {
+                                rv.AppendLine();
+                                Enumerable.Range(0, nBrace).ForEach(item => rv.Append(spaces));
+                            }
+                            else
+                            {
+                                rv.Append(' ');
+                            }
+                        } 
                         break;
                     default:
                         rv.Append(ch);
