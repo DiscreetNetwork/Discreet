@@ -1,5 +1,6 @@
 ﻿using Discreet.Common;
 using Discreet.Common.Exceptions;
+using Discreet.RPC.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -155,7 +156,7 @@ namespace Discreet.Readable
 
             return obj;
         }
-
+        [RPCEndpoint(endpoint_name: "create_wallet")]
         public static Wallets.Wallet FromReadable(string json)
         {
             return new Wallet(json).ToObject();

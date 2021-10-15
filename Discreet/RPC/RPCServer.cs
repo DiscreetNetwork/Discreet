@@ -49,7 +49,7 @@ namespace Discreet.RPC
             }
         }
 
-        public async Task Stop()
+        public void Stop()
         {
             if (_listener.IsListening)
             {

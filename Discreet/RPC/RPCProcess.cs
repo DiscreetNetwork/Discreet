@@ -64,7 +64,7 @@ namespace Discreet.RPC
         public RPCResponse CreateResponse(RPCRequest request, object result)
         {
 
-            /* Per: 
+            /* Per: https://www.jsonrpc.org/specification
             * This member is REQUIRED.
             * It MUST be the same as the value of the id member in the Request Object.
             * If there was an error in detecting the id in the Request object (e.g. Parse error/Invalid Request), it MUST be Null
@@ -78,18 +78,19 @@ namespace Discreet.RPC
                 response.id = request.id;
             }
 
-            
             response.result = result;
             return response;
         }
         public string CreateResponseJSON(RPCResponse response)
         {
-            string request = JsonSerializer.Serialize<RPCResponse>(response);
-            return request;
+            try
+            {
+                string request = JsonSerializer.Serialize<RPCResponse>(response);
+                return request;
+            } catch(Exception ex)
+            {
+                throw new JsonException($"Failed to serialize request: {ex}");
+            }
         }
-
-
-
-
     }
 }

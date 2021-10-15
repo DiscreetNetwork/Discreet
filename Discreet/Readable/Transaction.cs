@@ -6,10 +6,11 @@ using System.Threading.Tasks;
 using System.Text.Json;
 using Discreet.Common.Exceptions;
 using Discreet.Common;
+using Discreet.RPC.Common;
 
 namespace Discreet.Readable
 {
-    public class Transaction: IReadable
+    public class Transaction : IReadable
     {
         public byte Version { get; set; }
         public byte NumInputs { get; set; }
@@ -48,7 +49,7 @@ namespace Discreet.Readable
             NumInputs = transaction.NumInputs;
             NumOutputs = transaction.NumOutputs;
             NumSigs = transaction.NumSigs;
-            
+
             Inputs = transaction.Inputs;
             Outputs = transaction.Outputs;
 
@@ -69,7 +70,6 @@ namespace Discreet.Readable
         {
             FromObject(obj);
         }
-
         public Transaction(string json)
         {
             FromJSON(json);
@@ -232,6 +232,7 @@ namespace Discreet.Readable
             return obj;
         }
 
+        [RPCEndpoint(endpoint_name: "create_transaction")]
         public static Coin.Transaction FromReadable(string json)
         {
             return new Transaction(json).ToObject();

@@ -609,9 +609,9 @@ namespace Discreet
 			byte[] magic = new byte[32] { 0x17, 0x33, 0x50, 0x8c, 0xbe, 0x39, 0xf1, 0xe0, 0xac, 0x81, 0x84, 0xf4, 0x64, 0x18, 0x6f, 0x46, 0x61, 0x75, 0x1d, 0x94, 0x83, 0x64, 0xa6, 0x76, 0xc6, 0x69, 0xa7, 0x89, 0x77, 0x38, 0x47, 0x79 };
 
 
-			// CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
+            // CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
 
-			/*Wallet wallet = new Wallet("wrap", "password123!");
+            /*Wallet wallet = new Wallet("wrap", "password123!");
 			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
 
 			Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
@@ -661,20 +661,20 @@ namespace Discreet
 			Console.WriteLine(Path.Combine(homePath, ".discreet"));*/
 
 
-			//RPCServer process = new RPCServer(8350);
-			//await process.Start();
-			//await Task.Delay(-1);
+            //RPCServer process = new RPCServer(8350);
+            //await process.Start();
+            //await Task.Delay(-1);
 
 
-			//db.AddBlock(genesis);
+            //db.AddBlock(genesis);
 
-			//Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
+            //Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
 
-			//Block.BuildRandom()
+            //Block.BuildRandom()
 
-			//GenerateGenesis();
+            //GenerateGenesis();
 
-			/*Stopwatch stopwatch = new Stopwatch();
+            /*Stopwatch stopwatch = new Stopwatch();
 
 			
 
@@ -724,7 +724,7 @@ namespace Discreet
 
             Console.WriteLine("100 transactions verified in " + stopwatch.ElapsedMilliseconds + "ms");*/
 
-			Wallet wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test0.dis"));
+             Wallet wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test0.dis"));
 			wallet.Decrypt("password123!");
 
 			
@@ -755,7 +755,7 @@ namespace Discreet
 				throw err;
 			}
 
-            //Console.WriteLine(Printable.Prettify(File.ReadAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "mon.txt"))));
+			//Console.WriteLine(Printable.Prettify(File.ReadAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "mon.txt"))));
 
 
 			/* testing DKSAP */

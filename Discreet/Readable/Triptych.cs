@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Text.Json;
 using Discreet.Common.Exceptions;
 using Discreet.Common;
+using Discreet.RPC.Common;
 
 namespace Discreet.Readable
 {
@@ -176,6 +177,7 @@ namespace Discreet.Readable
             return obj;
         }
 
+        [RPCEndpoint(endpoint_name: "create_triptych")]
         public static Coin.Triptych FromReadable(string json)
         {
             return new Triptych(json).ToObject();

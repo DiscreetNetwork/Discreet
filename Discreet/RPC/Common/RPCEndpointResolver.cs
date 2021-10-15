@@ -58,7 +58,9 @@ namespace Discreet.RPC
             var parameters = method.GetParameters()
                                    .Select(p => Expression.Parameter(p.ParameterType, p.Name))
                                    .ToArray();
-            var call = Expression.Call(null, method, parameters);
+
+            MethodCallExpression call = Expression.Call(null, method, parameters);
+
             return Expression.Lambda(call, parameters).Compile();
         }
     }
