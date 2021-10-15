@@ -1,5 +1,6 @@
 ﻿using Discreet.Common;
 using Discreet.Common.Exceptions;
+using Discreet.RPC.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -166,6 +167,8 @@ namespace Discreet.Readable
             return obj;
         }
 
+        // Gets a Bulletproof from string
+        [RPCEndpoint(endpoint_name: "construct_bulletproof")]
         public static Coin.Bulletproof FromReadable(string json)
         {
             return new Bulletproof(json).ToObject();
