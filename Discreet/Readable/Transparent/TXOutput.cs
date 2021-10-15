@@ -10,9 +10,9 @@ namespace Discreet.Readable.Transparent
 {
     public class TXOutput: IReadable
     {
-        public string TransactionSrc;
-        public string Address;
-        public ulong Amount;
+        public string TransactionSrc { get; set; }
+        public string Address { get; set; }
+        public ulong Amount { get; set; }
 
         public string JSON()
         {

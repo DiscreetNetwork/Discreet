@@ -11,18 +11,18 @@ namespace Discreet.Readable.Transparent
 {
     public class Transaction: IReadable
     {
-        public byte Version;
-        public byte NumInputs;
-        public byte NumOutputs;
-        public byte NumSigs;
+        public byte Version { get; set; }
+        public byte NumInputs { get; set; }
+        public byte NumOutputs { get; set; }
+        public byte NumSigs { get; set; }
 
-        public string InnerHash;
+        public string InnerHash { get; set; }
 
-        public List<TXOutput> Inputs;
-        public List<TXOutput> Outputs;
-        public List<string> Signatures;
+        public List<TXOutput> Inputs { get; set; }
+        public List<TXOutput> Outputs { get; set; }
+        public List<string> Signatures { get; set; }
 
-        public ulong Fee;
+        public ulong Fee { get; set; }
 
         public string JSON()
         {

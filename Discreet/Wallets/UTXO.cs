@@ -7,8 +7,8 @@ namespace Discreet.Wallets
 {
     public enum UTXOType: byte
     {
-       STEALTH,
-        //TRANSPARENT, currently unsupported in testnet. Private transactions only.
+        STEALTH,
+        TRANSPARENT, 
     }
 
     /**
@@ -21,9 +21,6 @@ namespace Discreet.Wallets
 
         /* for all types */
         public SHA256 TransactionSrc;
-        public int DecodeIndex;
-        public Key TransactionKey;
-        public ulong DecodedAmount;
         public ulong Amount;
 
         public bool Encrypted;
@@ -33,7 +30,9 @@ namespace Discreet.Wallets
         public Key UXKey;
         public Key UXSecKey;
         public Key Commitment;
-
+        public int DecodeIndex;
+        public Key TransactionKey;
+        public ulong DecodedAmount;
         public int OwnedIndex;
 
         public byte[] Marshal()

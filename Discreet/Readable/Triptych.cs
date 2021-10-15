@@ -11,19 +11,19 @@ namespace Discreet.Readable
 {
     public class Triptych: IReadable
     {
-        public string K;
-        public string A;
-        public string B;
-        public string C;
-        public string D;
+        public string K { get; set; }
+        public string A { get; set; }
+        public string B { get; set; }
+        public string C { get; set; }
+        public string D { get; set; }
 
-        public List<string> X;
-        public List<string> Y;
-        public List<string> f;
+        public List<string> X { get; set; }
+        public List<string> Y { get; set; }
+        public List<string> f { get; set; }
 
-        public string zA;
-        public string zC;
-        public string z;
+        public string zA { get; set; }
+        public string zC { get; set; }
+        public string z { get; set; }
 
         public string JSON()
         {

@@ -10,10 +10,10 @@ namespace Discreet.Readable
 {
     public class TXOutput: IReadable
     {
-        public string TransactionSrc;
-        public string UXKey;
-        public string Commitment;
-        public ulong Amount;
+        public string TransactionSrc { get; set; }
+        public string UXKey { get; set; }
+        public string Commitment { get; set; }
+        public ulong Amount { get; set; }
 
         public string JSON()
         {

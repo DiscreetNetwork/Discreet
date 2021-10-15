@@ -11,21 +11,21 @@ namespace Discreet.Readable
 {
     public class Bulletproof: IReadable
     {
-        public ulong size;
+        public ulong size { get; set; }
 
-        public string A;
-        public string S;
-        public string T1;
-        public string T2;
-        public string taux;
-        public string mu;
+        public string A { get; set; }
+        public string S { get; set; }
+        public string T1 { get; set; }
+        public string T2 { get; set; }
+        public string taux { get; set; }
+        public string mu { get; set; }
 
-        public List<string> L;
-        public List<string> R;
+        public List<string> L { get; set; }
+        public List<string> R { get; set; }
 
-        public string a;
-        public string b;
-        public string t;
+        public string a { get; set; }
+        public string b { get; set; }
+        public string t { get; set; }
 
         public string JSON()
         {

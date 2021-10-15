@@ -11,18 +11,18 @@ namespace Discreet.Readable
 {
     public class BulletproofPlus: IReadable
     {
-        public ulong size;
+        public uint size { get; set; }
 
-        public string A;
-        public string A1;
-        public string B;
+        public string A { get; set; }
+        public string A1 { get; set; }
+        public string B { get; set; }
 
-        public string r1;
-        public string s1;
-        public string d1;
+        public string r1 { get; set; }
+        public string s1 { get; set; }
+        public string d1 { get; set; }
 
-        public List<string> L;
-        public List<string> R;
+        public List<string> L { get; set; }
+        public List<string> R { get; set; }
 
         public string JSON()
         {
@@ -123,6 +123,8 @@ namespace Discreet.Readable
         public Coin.BulletproofPlus ToObject()
         {
             Coin.BulletproofPlus obj = new();
+
+            obj.size = size;
 
             if (A != null && A != "") obj.A = new Cipher.Key(Printable.Byteify(A));
             if (A1 != null && A1 != "") obj.A1 = new Cipher.Key(Printable.Byteify(A1));

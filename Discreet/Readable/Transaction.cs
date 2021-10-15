@@ -11,25 +11,25 @@ namespace Discreet.Readable
 {
     public class Transaction: IReadable
     {
-        public byte Version;
-        public byte NumInputs;
-        public byte NumOutputs;
-        public byte NumSigs;
+        public byte Version { get; set; }
+        public byte NumInputs { get; set; }
+        public byte NumOutputs { get; set; }
+        public byte NumSigs { get; set; }
 
-        public List<TXInput> Inputs;
-        public List<TXOutput> Outputs;
+        public List<TXInput> Inputs { get; set; }
+        public List<TXOutput> Outputs { get; set; }
 
-        public Bulletproof RangeProof;
-        public BulletproofPlus RangeProofPlus;
+        public Bulletproof RangeProof { get; set; }
+        public BulletproofPlus RangeProofPlus { get; set; }
 
-        public ulong Fee;
+        public ulong Fee { get; set; }
 
-        public List<Triptych> Signatures;
+        public List<Triptych> Signatures { get; set; }
 
-        public List<string> PseudoOutputs;
+        public List<string> PseudoOutputs { get; set; }
 
-        public uint ExtraLen;
-        public List<byte> Extra;
+        public uint ExtraLen { get; set; }
+        public List<byte> Extra { get; set; }
 
         public string JSON()
         {

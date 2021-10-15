@@ -11,8 +11,8 @@ namespace Discreet.Readable
 {
     public class TXInput: IReadable
     {
-        public List<uint> Offsets;
-        public string KeyImage;
+        public List<uint> Offsets { get; set; }
+        public string KeyImage { get; set; }
 
         public string JSON()
         {
