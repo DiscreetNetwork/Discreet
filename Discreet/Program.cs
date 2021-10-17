@@ -755,6 +755,31 @@ namespace Discreet
 				throw err;
 			}
 
+			HashSet<SHA256> _in = new HashSet<SHA256>();
+
+			_in.Add(new SHA256(new byte[32], false));
+
+			for (int i = 0; i < 5; i++)
+			{
+				_in.Add(new SHA256(Randomness.Random(32), false));
+			}
+
+            if (_in.Add(new SHA256(new byte[32], false))) Console.WriteLine("SHA256 Equals not good");
+
+			Key a = new Key();
+			Key A = new Key();
+
+			KeyOps.GenerateKeypair(ref a, ref A);
+
+			Key m = new Key(new byte[32]);
+			HashOps.HashToScalar(ref m, Encoding.ASCII.GetBytes("test"), 4);
+
+			Signature s = new Signature(a, A, m);
+
+            if (!s.Verify(m)) Console.WriteLine("signature not valid!");
+
+
+
 			//Console.WriteLine(Printable.Prettify(File.ReadAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "mon.txt"))));
 
 

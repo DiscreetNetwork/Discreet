@@ -14,9 +14,13 @@ namespace Discreet.Coin
             NULL = 0, /* coinbase and genesis */
             STANDARD = 1, /* triptych and bulletproof */
             BP_PLUS = 2, /* triptych and bulletproof+ */
+            TRANSPARENT = 3, /* bitcoin-style */
         }
 
         /* DEBUG must be set to false outside of tests. */
         public static bool DEBUG = true;
+
+        public static uint TRANSPARENT_MAX_NUM_INPUTS = 255;
+        public static uint TRANSPARENT_MAX_NUM_OUTPUTS = 255;
     }
 }

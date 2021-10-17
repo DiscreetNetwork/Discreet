@@ -64,6 +64,8 @@ namespace Discreet.Readable
             FromJSON(json);
         }
 
+        public Triptych() { }
+
         public void FromObject<T>(T obj)
         {
             if (typeof(T) == typeof(Coin.Triptych))

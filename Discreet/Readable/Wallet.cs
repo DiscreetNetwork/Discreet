@@ -56,6 +56,8 @@ namespace Discreet.Readable
             FromJSON(json);
         }
 
+        public Wallet() { }
+
         public void FromObject<T>(T obj)
         {
             if (typeof(T) == typeof(Wallets.Wallet))

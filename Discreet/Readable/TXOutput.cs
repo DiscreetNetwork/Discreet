@@ -47,6 +47,8 @@ namespace Discreet.Readable
                 FromObject(obj);
         }
 
+        public TXOutput() { }
+
         public TXOutput(string json)
         {
             FromJSON(json);
@@ -116,7 +118,7 @@ namespace Discreet.Readable
             return new TXOutput(obj).JSON();
         }
 
-        internal static string ToTXReadable(Coin.TXOutput tXOutput)
+        internal static string ToTXReadable(Coin.TXOutput obj)
         {
             return new TXOutput(obj, true).JSON();
         }

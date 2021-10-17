@@ -75,6 +75,8 @@ namespace Discreet.Readable
             FromJSON(json);
         }
 
+        public Transaction() { }
+
         public void FromObject<T>(T obj)
         {
             if (typeof(T) == typeof(Coin.Transaction))

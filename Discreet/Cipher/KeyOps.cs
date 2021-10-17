@@ -201,12 +201,12 @@ namespace Discreet.Cipher
         [return: MarshalAs(UnmanagedType.Struct)]
         public static extern Key ECDHDecode(ref ECDHTuple masked, ref Key secret, [MarshalAs(UnmanagedType.Bool)] bool v2);
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "SchnorrSign", CallingConvention = CallingConvention.StdCall)]
-        public static extern void SchnorrSign(ref Key s, ref Key e, ref Key p, ref Key x, ref Key m);
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "EdDSASign", CallingConvention = CallingConvention.StdCall)]
+        public static extern void EdDSASign(ref Key s, ref Key e, ref Key y, ref Key p, ref Key x, ref Key m);
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "SchnorrVerify", CallingConvention = CallingConvention.StdCall)]
+        [DllImport(@"DiscreetCore.dll", EntryPoint = "EdDSAVerify", CallingConvention = CallingConvention.StdCall)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool SchnorrVerify(ref Key s, ref Key e, ref Key p, ref Key m);
+        public static extern bool EdDSAVerify(ref Key s, ref Key e, ref Key y, ref Key m);
 
         [DllImport(@"DiscreetCore.dll", EntryPoint = "GenerateLinkingTag", CallingConvention = CallingConvention.StdCall)]
         public static extern void GenerateLinkingTag(ref Key J, ref Key r);
@@ -228,7 +228,8 @@ namespace Discreet.Cipher
             Signature sig = new Signature();
             sig.s = new Key();
             sig.e = new Key();
-            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
+            sig.y = new Key();
+            EdDSASign(ref sig.s, ref sig.e, ref sig.y, ref p, ref x, ref mk);
             return sig;
         }
 
@@ -240,7 +241,8 @@ namespace Discreet.Cipher
             Signature sig = new Signature();
             sig.s = new Key();
             sig.e = new Key();
-            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
+            sig.y = new Key();
+            EdDSASign(ref sig.s, ref sig.e, ref sig.y, ref p, ref x, ref mk);
             return sig;
         }
 
@@ -251,7 +253,8 @@ namespace Discreet.Cipher
             Signature sig = new Signature();
             sig.s = new Key();
             sig.e = new Key();
-            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
+            sig.y = new Key();
+            EdDSASign(ref sig.s, ref sig.e, ref sig.y, ref p, ref x, ref mk);
             return sig;
         }
 
@@ -262,7 +265,8 @@ namespace Discreet.Cipher
             Signature sig = new Signature();
             sig.s = new Key();
             sig.e = new Key();
-            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref mk);
+            sig.y = new Key();
+            EdDSASign(ref sig.s, ref sig.e, ref sig.y, ref p, ref x, ref mk);
             return sig;
         }
 
@@ -271,7 +275,8 @@ namespace Discreet.Cipher
             Signature sig = new Signature();
             sig.s = new Key();
             sig.e = new Key();
-            SchnorrSign(ref sig.s, ref sig.e, ref p, ref x, ref m);
+            sig.y = new Key();
+            EdDSASign(ref sig.s, ref sig.e, ref sig.y, ref p, ref x, ref m);
             return sig;
         }
 

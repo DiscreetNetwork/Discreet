@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 namespace Discreet.Cipher
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct SHA256Ctx : HashCtx
+    public struct SHA256Ctx : HashCtx 
     {
         [MarshalAs(UnmanagedType.U4)]
         private uint count;
@@ -43,7 +43,7 @@ namespace Discreet.Cipher
         }
     }
 
-    public struct SHA256 : Hash
+    public struct SHA256 : Hash, IComparable
     {
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
         private byte[] bytes;
@@ -124,9 +124,14 @@ namespace Discreet.Cipher
             }
         }
 
-        public bool Equals(SHA256 b)
+        public int CompareTo(object? b)
         {
-            return Compare(this, b) == 0;
+            return Compare(this, (SHA256)b);
+        }
+
+        public override bool Equals(object b)
+        {
+            return Compare(this, (SHA256)b) == 0;
         }
 
         public Key ToKey()
@@ -138,5 +143,23 @@ namespace Discreet.Cipher
         {
             return new SHA256(Common.Printable.Byteify(hex), false);
         }
+
+        public override int GetHashCode()
+        {
+            return BitConverter.ToInt32(bytes[0..4]);
+        }
+
+        public static bool operator ==(SHA256 a, SHA256 b) => SHA256.Equals(a, b);
+
+        public static bool operator !=(SHA256 a, SHA256 b) => !SHA256.Equals(a, b);
+
+        public static bool operator >(SHA256 a, SHA256 b) => SHA256.Compare(a, b) > 0;
+
+        public static bool operator <(SHA256 a, SHA256 b) => SHA256.Compare(a, b) < 0;
+
+        public static bool operator >=(SHA256 a, SHA256 b) => SHA256.Compare(a, b) >= 0;
+
+        public static bool operator <=(SHA256 a, SHA256 b) => SHA256.Compare(a, b) <= 0;
+
     }
 }

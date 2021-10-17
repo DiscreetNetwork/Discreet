@@ -23,6 +23,13 @@ namespace Discreet.Coin.Transparent
 
         }
 
+        public TXOutput(SHA256 transactionSrc, TAddress address, ulong amount)
+        {
+            TransactionSrc = transactionSrc;
+            Address = address;
+            Amount = amount;
+        }
+
         public SHA256 Hash()
         {
             return new SHA256(Marshal(), true);

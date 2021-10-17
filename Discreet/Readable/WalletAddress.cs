@@ -50,6 +50,8 @@ namespace Discreet.Readable
             FromJSON(json);
         }
 
+        public WalletAddress() { }
+
         public void FromObject<T>(T obj)
         {
             if (typeof(T) == typeof(Wallets.WalletAddress))
@@ -106,6 +108,9 @@ namespace Discreet.Readable
             obj.PubViewKey = Cipher.Key.FromHex(PubViewKey);
             obj.Address = Address;
 
+            obj.SecSpendKey = new Cipher.Key(new byte[32]);
+            obj.SecViewKey = new Cipher.Key(new byte[32]);
+
             /* this is the only Readable which relies on DB being formatted correctly. Can't win em all. */
             if (UTXOs != null)
             {
@@ -115,7 +120,7 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < UTXOs.Count; i++)
                 {
-                    obj.UTXOs[i] = db.GetWalletOutput(UTXOs[i]);
+                    obj.UTXOs.Add(db.GetWalletOutput(UTXOs[i]));
                 }
             }
 

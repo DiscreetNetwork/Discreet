@@ -61,6 +61,8 @@ namespace Discreet.Readable
             FromJSON(json);
         }
 
+        public BulletproofPlus() { }
+
         public void FromObject<T>(T obj)
         {
             if (typeof(T) == typeof(Coin.BulletproofPlus))

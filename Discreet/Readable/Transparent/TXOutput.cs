@@ -50,6 +50,8 @@ namespace Discreet.Readable.Transparent
             FromJSON(json);
         }
 
+        public TXOutput() { }
+
         public void FromObject<T>(T obj)
         {
             if (typeof(T) == typeof(Coin.Transparent.TXOutput))

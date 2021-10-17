@@ -58,6 +58,8 @@ namespace Discreet.Readable.Transparent
             FromJSON(json);
         }
 
+        public Transaction() { }
+
         public void FromObject<T>(T obj)
         {
             if (typeof(T) == typeof(Coin.Transparent.Transaction))
@@ -85,7 +87,7 @@ namespace Discreet.Readable.Transparent
 
                 for (int i = 0; i < obj.Inputs.Length; i++)
                 {
-                    Inputs.Add(new TXOutput(obj.Inputs[i], true));
+                    Inputs.Add(new TXOutput(obj.Inputs[i], false));
                 }
             }
             if (obj.Outputs != null)

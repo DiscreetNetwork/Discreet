@@ -41,6 +41,8 @@ namespace Discreet.Readable
             FromJSON(json);
         }
 
+        public TXInput() { }
+
         public void FromObject<T>(T obj)
         {
             if (typeof(T) == typeof(Coin.TXInput))
