@@ -43,12 +43,57 @@ namespace Discreet.Coin
 
         public SHA256 Hash()
         {
-            throw new NotImplementedException();
+            return SHA256.HashData(Marshal());
         }
 
         public SHA256 TXSigningHash()
         {
-            throw new NotImplementedException();
+            byte[] bytes = new byte[16 + 65 * TInputs.Length + 33 * TOutputs.Length + 32 + PInputs.Length * TXInput.Size() + POutputs.Length * 40];
+
+            bytes[0] = Version;
+            bytes[1] = NumInputs;
+            bytes[2] = NumOutputs;
+            bytes[3] = NumSigs;
+
+            bytes[4] = NumTInputs;
+            bytes[5] = NumPInputs;
+            bytes[6] = NumTOutputs;
+            bytes[7] = NumPOutputs;
+
+            uint offset = 8;
+            Serialization.CopyData(bytes, offset, Fee);
+            offset += 8;
+
+            for (int i = 0; i < TInputs.Length; i++)
+            {
+                TInputs[i].Marshal(bytes, offset);
+                offset += 65;
+            }
+
+            for (int i = 0; i < TOutputs.Length; i++)
+            {
+                TOutputs[i].TXMarshal(bytes, offset);
+                offset += 33;
+            }
+
+            Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
+            offset += 32;
+
+            for (int i = 0; i < PInputs.Length; i++)
+            {
+                PInputs[i].Marshal(bytes, offset);
+                offset += TXInput.Size();
+            }
+
+            for (int i = 0; i < POutputs.Length; i++)
+            {
+                Array.Copy(POutputs[i].UXKey.bytes, 0, bytes, offset, 32);
+                offset += 32;
+                Serialization.CopyData(bytes, offset, POutputs[i].Amount);
+                offset += 8;
+            }
+
+            return SHA256.HashData(bytes);
         }
 
         public byte[] Marshal()
@@ -137,7 +182,12 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            throw new NotImplementedException();
+            return Discreet.Readable.MixedTransaction.ToReadable(this);
+        }
+
+        public static MixedTransaction FromReadable(string json)
+        {
+            return Discreet.Readable.MixedTransaction.FromReadable(json);
         }
 
         public void Unmarshal(byte[] bytes)
