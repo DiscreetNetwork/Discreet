@@ -309,10 +309,19 @@ namespace Discreet.Coin.Transparent
                 {
                     _amount = checked(_amount + output.Amount);
                 }
-                catch(OverflowException e)
+                catch(OverflowException)
                 {
                     return new VerifyException("Transparent.Transaction", $"transaction resulted in overflow!");
                 }
+            }
+
+            try
+            {
+                _amount = checked(_amount + Fee);
+            }
+            catch(OverflowException)
+            {
+                return new VerifyException("Transparent.Transaction", $"transaction fee resulted in overflow!");
             }
 
             ulong inAmount = 0;

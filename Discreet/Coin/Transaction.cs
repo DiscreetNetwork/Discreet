@@ -746,6 +746,11 @@ namespace Discreet.Coin
                     Array.Copy(tmp.bytes, sumComms.bytes, 32);
                 }
 
+                Cipher.Key commFee = new(new byte[32]);
+                Cipher.KeyOps.GenCommitment(ref commFee, ref Cipher.Key.Z, Fee);
+                Cipher.KeyOps.AddKeys(ref tmp, ref sumComms, ref commFee);
+                Array.Copy(tmp.bytes, sumComms.bytes, 32);
+
                 //Cipher.Key dif = new(new byte[32]);
                 //Cipher.KeyOps.SubKeys(ref dif, ref sumPseudos, ref sumComms);
 
@@ -811,8 +816,6 @@ namespace Discreet.Coin
                         return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                     }
                 }
-
-                
             }
 
             return null;

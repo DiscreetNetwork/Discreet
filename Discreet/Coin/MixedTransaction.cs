@@ -403,6 +403,52 @@ namespace Discreet.Coin
             return Comms;
         }
 
+        public Transaction ToPrivate()
+        {
+            Transaction tx = new Transaction();
+            tx.Version = Version;
+            tx.NumInputs = NumPInputs;
+            tx.NumOutputs = NumPOutputs;
+            tx.NumSigs = NumSigs;
+
+            tx.Inputs = PInputs;
+            tx.Outputs = POutputs;
+            tx.Signatures = PSignatures;
+
+            tx.RangeProofPlus = RangeProof;
+
+            tx.PseudoOutputs = PseudoOutputs;
+
+            tx.Fee = Fee;
+
+            tx.ExtraLen = 34;
+            tx.Extra = new byte[34];
+            tx.Extra[0] = 1;
+            tx.Extra[0] = 0;
+            Array.Copy(TransactionKey.bytes, 0, tx.Extra, 2, 32);
+
+            return tx;
+        }
+
+        public Transparent.Transaction ToTransparent()
+        {
+            Transparent.Transaction tx = new Transparent.Transaction();
+            tx.Version = Version;
+            tx.NumInputs = NumPInputs;
+            tx.NumOutputs = NumPOutputs;
+            tx.NumSigs = NumSigs;
+
+            tx.Inputs = TInputs;
+            tx.Outputs = TOutputs;
+            tx.Signatures = TSignatures;
+
+            tx.Fee = Fee;
+
+            tx.InnerHash = SigningHash;
+
+            return tx;
+        }
+
         public VerifyException Verify()
         {
             bool tInNull = TInputs == null;
@@ -418,6 +464,17 @@ namespace Discreet.Coin
             int lenPOutputs = pOutNull ? 0 : POutputs.Length;
             int lenTSigs = tSigNull ? 0 : TSignatures.Length;
             int lenPSigs = pSigNull ? 0 : PSignatures.Length;
+
+            /* we can convert MixedTransactions to either Transparent.Transaction or Transaction */
+            if (Version == 0 || Version == 1 || Version == 2)
+            {
+                return ToPrivate().Verify();
+            }
+
+            if (Version == 3)
+            {
+                return ToTransparent().Verify();
+            }
 
             if (Version != (byte)Config.TransactionVersions.MIXED)
             {
@@ -656,6 +713,11 @@ namespace Discreet.Coin
             Key commTOutputs = new(new byte[32]);
             KeyOps.GenCommitment(ref commTOutputs, ref Key.Z, sumTOutputs);
             KeyOps.AddKeys(ref tmp, ref sumComms, ref commTOutputs);
+            Array.Copy(tmp.bytes, sumComms.bytes, 32);
+
+            Key commFee = new(new byte[32]);
+            KeyOps.GenCommitment(ref commFee, ref Key.Z, Fee);
+            KeyOps.AddKeys(ref tmp, ref sumComms, ref commFee);
             Array.Copy(tmp.bytes, sumComms.bytes, 32);
 
             //Cipher.Key dif = new(new byte[32]);
