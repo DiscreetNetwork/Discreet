@@ -68,6 +68,11 @@ namespace Discreet.Cipher
         /* a > b => 1, a == b => 0, a < b => -1 */
         public static int Compare(Key a, Key b)
         {
+            if (a.bytes == null && b.bytes == null) return 0;
+
+            if (a.bytes == null) return -1;
+            if (b.bytes == null) return 1;
+
             int i;
 
             for (i = 0; i < 32; i++)

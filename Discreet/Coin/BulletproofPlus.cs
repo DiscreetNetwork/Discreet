@@ -194,6 +194,18 @@ namespace Discreet.Coin
             return null;
         }
 
+        public VerifyException Verify(MixedTransaction tx)
+        {
+            Cipher.BulletproofPlus bp = new Cipher.BulletproofPlus(this, tx.GetCommitments());
+
+            if (!Cipher.BulletproofPlus.Verify(bp))
+            {
+                return new VerifyException("BulletproofPlus", "BulletproofPlus is invalid!");
+            }
+
+            return null;
+        }
+
         /* UNUSED. Use Verify(Transaction tx) instead */
         public VerifyException Verify()
         {

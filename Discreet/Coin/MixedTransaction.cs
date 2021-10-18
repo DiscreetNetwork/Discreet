@@ -370,9 +370,338 @@ namespace Discreet.Coin
             return (uint)(48 + 65 * TInputs.Length + 33 * TOutputs.Length + 96 * TSignatures.Length + 32 + PInputs.Length * TXInput.Size() + POutputs.Length * 72 + RangeProof.Size() + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length);
         }
 
+        public Key[] GetCommitments()
+        {
+            Key[] Comms = new Key[NumPOutputs];
+
+            for (int i = 0; i < NumPOutputs; i++)
+            {
+                Comms[i] = POutputs[i].Commitment;
+            }
+
+            return Comms;
+        }
+
         public VerifyException Verify()
         {
-            throw new NotImplementedException();
+            bool tInNull = TInputs == null;
+            bool tOutNull = TOutputs == null;
+            bool pInNull = PInputs == null;
+            bool pOutNull = POutputs == null;
+            bool tSigNull = TSignatures == null;
+            bool pSigNull = PSignatures == null;
+
+            int lenTInputs = tInNull ? 0 : TInputs.Length;
+            int lenTOutputs = tOutNull ? 0 : TOutputs.Length;
+            int lenPInputs = pInNull ? 0 : POutputs.Length;
+            int lenPOutputs = pOutNull ? 0 : POutputs.Length;
+            int lenTSigs = tSigNull ? 0 : TSignatures.Length;
+            int lenPSigs = pSigNull ? 0 : PSignatures.Length;
+
+            if (Version != (byte)Config.TransactionVersions.MIXED)
+            {
+                return new VerifyException("MixedTransaction", $"Invalid transaction version: expected {(byte)Config.TransactionVersions.MIXED}, but got {Version}");
+            }
+
+            if (lenTInputs + lenPInputs == 0)
+            {
+                return new VerifyException("MixedTransaction", "Zero inputs");
+            }
+
+            if (lenTOutputs + lenPOutputs == 0)
+            {
+                return new VerifyException("MixedTransaction", "Zero outputs");
+            }
+
+            if (NumInputs != lenTInputs + lenPInputs)
+            {
+                return new VerifyException("MixedTransaction", $"Input number mismatch: expected {NumInputs}, but got {lenTInputs + lenPOutputs}");
+            }
+
+            if (NumOutputs != lenTOutputs + lenPOutputs)
+            {
+                return new VerifyException("MixedTransaction", $"Output number mismatch: expected {NumOutputs}, but got {lenTOutputs + lenPOutputs}");
+            }
+
+            if (NumInputs > Config.TRANSPARENT_MAX_NUM_INPUTS)
+            {
+                return new VerifyException("MixedTransaction", $"Number of Inputs exceeds the maximum of {Config.TRANSPARENT_MAX_NUM_INPUTS} ({NumInputs} Inputs present)");
+            }
+
+            if (NumOutputs > Config.TRANSPARENT_MAX_NUM_OUTPUTS)
+            {
+                return new VerifyException("MixedTransaction", $"Number of Inputs exceeds the maximum of {Config.TRANSPARENT_MAX_NUM_OUTPUTS} ({NumOutputs} Inputs present)");
+            }
+
+            if (NumSigs > NumInputs)
+            {
+                return new VerifyException("MixedTransaction", $"Invalid number of signatures: {NumSigs} > {NumInputs}, exceeding the number of inputs");
+            }
+
+            if (lenTInputs != NumTInputs)
+            {
+                return new VerifyException("MixedTransaction", $"Transparent input number mismatch: expected {NumTInputs}, but got {lenTInputs}");
+            }
+
+            if (lenTOutputs != NumTOutputs)
+            {
+                return new VerifyException("MixedTransaction", $"Transparent output number mismatch: expected {NumTOutputs}, but got {lenTOutputs}");
+            }
+
+            if (lenPInputs != NumPInputs)
+            {
+                return new VerifyException("MixedTransaction", $"Private input number mismatch: expected {NumPInputs}, but got {lenPInputs}");
+            }
+
+            if (lenPOutputs != NumPOutputs)
+            {
+                return new VerifyException("MixedTransaction", $"Private output number mismatch: expected {NumPOutputs}, but got {lenPOutputs}");
+            }
+
+            if (NumTInputs > Config.TRANSPARENT_MAX_NUM_INPUTS)
+            {
+                return new VerifyException("MixedTransaction", $"Number of transparent inputs exceeds the maximum of {Config.TRANSPARENT_MAX_NUM_INPUTS} ({NumTInputs} Inputs present)");
+            }
+
+            if (NumTOutputs > Config.TRANSPARENT_MAX_NUM_OUTPUTS)
+            {
+                return new VerifyException("MixedTransaction", $"Number of transparent outputs exceeds the maximum of {Config.TRANSPARENT_MAX_NUM_OUTPUTS} ({NumTOutputs} Inputs present)");
+            }
+
+            if (lenTSigs + lenPSigs != NumSigs)
+            {
+                return new VerifyException("MixedTransaction", $"Signature number mismatch: expected {NumSigs}, but got {lenTSigs + lenPSigs}");
+            }
+
+            if (lenTSigs != NumTInputs)
+            {
+                return new VerifyException("MixedTransaction", $"Transactions must have the same number of transparent signatures as transparent inputs ({NumTInputs} inputs, but {lenTSigs} sigs)");
+            }
+
+            if (lenPSigs != NumPInputs)
+            {
+                return new VerifyException("MixedTransaction", $"Transactions must have the same number of private signatures as private inputs ({NumPInputs} inputs, but {lenPSigs} sigs)");
+            }
+
+            if (lenPOutputs > 0 && RangeProof == null)
+            {
+                return new VerifyException("MixedTransaction", $"Transaction contains at least one private output, but has no range proof!");
+            }
+
+            if (lenPOutputs > 0 && (TransactionKey.Equals(default) || TransactionKey.bytes == null))
+            {
+                return new VerifyException("MixedTransaction", $"Transaction contains at least one private output, but has no transaction key!");
+            }
+
+            HashSet<SHA256> _in = new HashSet<SHA256>();
+
+            for (int i = 0; i < NumTInputs; i++)
+            {
+                _in.Add(TInputs[i].Hash());
+            }
+
+            if (_in.Count != NumTInputs)
+            {
+                return new VerifyException("MixedTransaction", $"Duplicate transparent inputs detected!");
+            }
+
+            foreach (Transparent.TXOutput output in TOutputs)
+            {
+                if (output.Amount == 0)
+                {
+                    return new VerifyException("MixedTransaction", "zero coins in output!");
+                }
+            }
+
+            ulong _amount = 0;
+
+            foreach (Transparent.TXOutput output in TOutputs)
+            {
+                try
+                {
+                    _amount = checked(_amount + output.Amount);
+                }
+                catch (OverflowException e)
+                {
+                    return new VerifyException("MixedTransaction", $"transaction transparent outputs resulted in overflow!");
+                }
+            }
+
+            SHA256 txhash = Hash();
+
+            HashSet<SHA256> _out = new HashSet<SHA256>();
+
+            for (int i = 0; i < NumTOutputs; i++)
+            {
+                _out.Add(new Transparent.TXOutput(txhash, TOutputs[i].Address, TOutputs[i].Amount).Hash());
+            }
+
+            if (_out.Count != NumOutputs)
+            {
+                return new VerifyException("MixedTransaction", $"Duplicate transparent outputs detected!");
+            }
+
+            if (SigningHash != TXSigningHash())
+            {
+                return new VerifyException("MixedTransaction", $"Signing Hash {SigningHash.ToHexShort()} does not match computed signing hash {TXSigningHash().ToHexShort()}");
+            }
+
+            for (int i = 0; i < lenTSigs; i++)
+            {
+                if (TSignatures[i].IsNull())
+                {
+                    return new VerifyException("MixedTransaction", $"Unsigned transparent input present in transaction!");
+                }
+
+                byte[] data = new byte[64];
+                Array.Copy(SigningHash.Bytes, data, 32);
+                Array.Copy(TInputs[i].Hash().Bytes, 0, data, 32, 32);
+
+                SHA256 checkSig = SHA256.HashData(data);
+
+                if (!TSignatures[i].Verify(checkSig))
+                {
+                    return new VerifyException("MixedTransaction", $"Signature failed verification!");
+                }
+            }
+
+            if (NumPOutputs > 16)
+            {
+                return new VerifyException("MixedTransaction", $"Transactions cannot have more than 16 private outputs");
+            }
+
+            for (int i = 0; i < NumPOutputs; i++)
+            {
+                if (POutputs[i].Amount == 0)
+                {
+                    return new VerifyException("MixedTransaction", $"Amount field in private output at index {i} is not set!");
+                }
+
+                if (POutputs[i].Commitment.Equals(Key.Z))
+                {
+                    return new VerifyException("MixedTransaction", $"Commitment field in private output at index {i} is not set!");
+                }
+            }
+
+            if (NumPInputs > 0)
+            {
+                if (PseudoOutputs == null || PseudoOutputs.Length == 0)
+                {
+                    return new VerifyException("MixedTransaction", $"Transaction contains private inputs but does not contain any PseudoOutputs");
+                }
+
+                if (NumPInputs != PseudoOutputs.Length)
+                {
+                    return new VerifyException("MixedTransaction", $"PseudoOutput length mismatch: expected {NumPInputs}, but got {PseudoOutputs.Length}");
+                }
+            }
+
+            Key sumPseudos = new(new byte[32]);
+            Key tmp = new(new byte[32]);
+
+            for (int i = 0; i < lenPInputs; i++)
+            {
+                KeyOps.AddKeys(ref tmp, ref sumPseudos, ref PseudoOutputs[i]);
+                Array.Copy(tmp.bytes, sumPseudos.bytes, 32);
+            }
+
+            Key sumComms = new(new byte[32]);
+
+            for (int i = 0; i < lenPOutputs; i++)
+            {
+                KeyOps.AddKeys(ref tmp, ref sumComms, ref POutputs[i].Commitment);
+                Array.Copy(tmp.bytes, sumComms.bytes, 32);
+            }
+
+            /* since we may have transparent inputs as well, we need to commit sumTInputs and sumTOutputs; this is just a blinding factor of 0 */
+
+            ulong sumTInputs = 0;
+            for (int i = 0; i < lenTInputs; i++)
+            {
+                sumTInputs += TInputs[i].Amount;
+            }
+
+            ulong sumTOutputs = 0;
+            for (int i = 0; i < lenTOutputs; i++)
+            {
+                sumTOutputs += TOutputs[i].Amount;
+            }
+
+            Key commTInputs = new(new byte[32]);
+            KeyOps.GenCommitment(ref commTInputs, ref Key.Z, sumTInputs);
+            KeyOps.AddKeys(ref tmp, ref sumPseudos, ref commTInputs);
+            Array.Copy(tmp.bytes, sumPseudos.bytes, 32);
+
+            Key commTOutputs = new(new byte[32]);
+            KeyOps.GenCommitment(ref commTOutputs, ref Key.Z, sumTOutputs);
+            KeyOps.AddKeys(ref tmp, ref sumComms, ref commTOutputs);
+            Array.Copy(tmp.bytes, sumComms.bytes, 32);
+
+            //Cipher.Key dif = new(new byte[32]);
+            //Cipher.KeyOps.SubKeys(ref dif, ref sumPseudos, ref sumComms);
+
+            if (!sumPseudos.Equals(sumComms))
+            {
+                return new VerifyException("MixedTransaction", $"Transaction does not balance! (sumC'a != sumCb)");
+            }
+
+            /* validate range sig */
+            VerifyException bpexc = null;
+
+            if (RangeProof != null)
+            {
+                bpexc = RangeProof.Verify(this);
+            }
+
+            if (bpexc != null)
+            {
+                return bpexc;
+            }
+
+            DB.DB db = DB.DB.GetDB();
+
+            /* validate inputs */
+            for (int i = 0; i < lenPInputs; i++)
+            {
+                if (PInputs[i].Offsets.Length != 64)
+                {
+                    return new VerifyException("MixedTransaction", $"Private input at index {i} has an anonymity set of size {PInputs[i].Offsets.Length}; expected 64");
+                }
+
+                TXOutput[] mixins;
+                try
+                {
+                    mixins = db.GetMixins(PInputs[i].Offsets);
+                }
+                catch (Exception e)
+                {
+                    return new VerifyException("MixedTransaction", $"Got error when getting mixin data at input at index {i}: " + e.Message);
+                }
+
+                Cipher.Key[] M = new Cipher.Key[64];
+                Cipher.Key[] P = new Cipher.Key[64];
+
+                for (int k = 0; k < 64; k++)
+                {
+                    M[k] = mixins[k].UXKey;
+                    P[k] = mixins[k].Commitment;
+                }
+
+                var sigexc = PSignatures[i].Verify(M, P, PseudoOutputs[i], SigningHash.ToKey(), PInputs[i].KeyImage);
+
+                if (sigexc != null)
+                {
+                    return sigexc;
+                }
+
+                if (!db.CheckSpentKey(PInputs[i].KeyImage))
+                {
+                    return new VerifyException("MixedTransaction", $"Key image for input at index {i} ({PInputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
+                }
+            }
+
+            /* this *should* be everything needed to validate a mixed transaction */
+            return null;
         }
     }
 }

@@ -315,6 +315,17 @@ namespace Discreet.Coin.Transparent
                 }
             }
 
+            ulong inAmount = 0;
+            foreach(TXOutput input in Inputs)
+            {
+                inAmount += input.Amount;
+            }
+
+            if (inAmount != _amount)
+            {
+                return new VerifyException("Transparent.Transaction", $"Transaction does not balance! {inAmount} (sum of inputs) != {_amount} (sum of outputs)");
+            }
+
             SHA256 txhash = Hash();
 
             HashSet<SHA256> _out = new HashSet<SHA256>();
