@@ -110,6 +110,13 @@ namespace Discreet.Coin
             bytes[6] = NumTOutputs;
             bytes[7] = NumPOutputs;
 
+            int lenTInputs = TInputs == null ? 0 : TInputs.Length;
+            int lenTOutputs = TOutputs == null ? 0 : TOutputs.Length;
+            int lenPInputs = PInputs == null ? 0 : POutputs.Length;
+            int lenPOutputs = POutputs == null ? 0 : POutputs.Length;
+            int lenTSigs = TSignatures == null ? 0 : TSignatures.Length;
+            int lenPSigs = PSignatures == null ? 0 : PSignatures.Length;
+
             uint offset = 8;
             Array.Copy(SigningHash.Bytes, 0, bytes, offset, 32);
             offset += 32;
@@ -117,55 +124,55 @@ namespace Discreet.Coin
             Serialization.CopyData(bytes, offset, Fee);
             offset += 8;
 
-            for (int i = 0; i < TInputs.Length; i++)
+            for (int i = 0; i < lenTInputs; i++)
             {
                 TInputs[i].Marshal(bytes, offset);
                 offset += 65;
             }
 
-            for (int i = 0; i < TOutputs.Length; i++)
+            for (int i = 0; i < lenTOutputs; i++)
             {
                 TOutputs[i].TXMarshal(bytes, offset);
                 offset += 33;
             }
 
-            for (int i = 0; i < TSignatures.Length; i++)
+            for (int i = 0; i < lenTSigs; i++)
             {
                 TSignatures[i].ToBytes(bytes, offset);
                 offset += 96;
             }
 
-            Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
-            offset += 32;
+            if (lenPOutputs > 0)
+            {
+                Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
+                offset += 32;
+            }
 
-            for (int i = 0; i < PInputs.Length; i++)
+            for (int i = 0; i < lenPInputs; i++)
             {
                 PInputs[i].Marshal(bytes, offset);
                 offset += TXInput.Size();
             }
 
-            for (int i = 0; i < POutputs.Length; i++)
+            for (int i = 0; i < lenPOutputs; i++)
             {
                 POutputs[i].Marshal(bytes, offset);
                 offset += 72;
             }
 
-            for (int i = 0; i < POutputs.Length; i++)
+            if (RangeProof != null && lenPOutputs > 0)
             {
-                POutputs[i].TXMarshal(bytes, offset);
-                offset += 72;
+                RangeProof.Marshal(bytes, offset);
+                offset += RangeProof.Size();
             }
 
-            RangeProof.Marshal(bytes, offset);
-            offset += RangeProof.Size();
-
-            for (int i = 0; i < PSignatures.Length; i++)
+            for (int i = 0; i < lenPSigs; i++)
             {
                 PSignatures[i].Marshal(bytes, offset);
                 offset += Triptych.Size();
             }
 
-            for (int i = 0; i < PseudoOutputs.Length; i++)
+            for (int i = 0; i < lenPInputs; i++)
             {
                 Array.Copy(PseudoOutputs[i].bytes, 0, bytes, offset, 32);
                 offset += 32;
@@ -228,16 +235,19 @@ namespace Discreet.Coin
             }
 
             TSignatures = new Signature[NumTInputs];
-            for (int i = 0; i < NumTOutputs; i++)
+            for (int i = 0; i < NumTInputs; i++)
             {
                 TSignatures[i] = new Signature(bytes, offset);
                 offset += 96;
             }
 
-            byte[] transactionKey = new byte[32];
-            Array.Copy(bytes, offset, transactionKey, 0, 32);
-            TransactionKey = new Key(transactionKey);
-            offset += 32;
+            if (NumPOutputs > 0)
+            {
+                byte[] transactionKey = new byte[32];
+                Array.Copy(bytes, offset, transactionKey, 0, 32);
+                TransactionKey = new Key(transactionKey);
+                offset += 32;
+            }
 
             PInputs = new TXInput[NumPInputs];
             for (int i = 0; i < NumPInputs; i++)
@@ -255,9 +265,12 @@ namespace Discreet.Coin
                 offset += 72;
             }
 
-            RangeProof = new BulletproofPlus();
-            RangeProof.Unmarshal(bytes, offset);
-            offset += RangeProof.Size();
+            if (NumPOutputs > 0)
+            {
+                RangeProof = new BulletproofPlus();
+                RangeProof.Unmarshal(bytes, offset);
+                offset += RangeProof.Size();
+            }
 
             PSignatures = new Triptych[NumPInputs];
             for (int i = 0; i < NumPInputs; i++)
@@ -367,7 +380,15 @@ namespace Discreet.Coin
 
         public uint Size()
         {
-            return (uint)(48 + 65 * TInputs.Length + 33 * TOutputs.Length + 96 * TSignatures.Length + 32 + PInputs.Length * TXInput.Size() + POutputs.Length * 72 + RangeProof.Size() + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length);
+            return (uint)(48 + 65 * (TInputs == null ? 0 : TInputs.Length)
+                             + 33 * (TOutputs == null ? 0 : TOutputs.Length)
+                             + 96 * (TSignatures == null ? 0 : TSignatures.Length)
+                             + (NumPOutputs > 0 ? 32 : 0)
+                             + (PInputs == null ? 0 : PInputs.Length) * TXInput.Size()
+                             + (POutputs == null ? 0 : POutputs.Length) * 72
+                             + (RangeProof == null ? 0 : RangeProof.Size())
+                             + Triptych.Size() * (PSignatures == null ? 0 : PSignatures.Length)
+                             + 32 * (PseudoOutputs == null ? 0 : PseudoOutputs.Length));
         }
 
         public Key[] GetCommitments()
