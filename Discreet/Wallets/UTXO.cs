@@ -7,7 +7,7 @@ namespace Discreet.Wallets
 {
     public enum UTXOType: byte
     {
-        STEALTH,
+        PRIVATE,
         TRANSPARENT, 
     }
 
@@ -71,12 +71,12 @@ namespace Discreet.Wallets
         /* default constructor always sets UTXOType to STEALTH */
         public UTXO()
         {
-            Type = UTXOType.STEALTH;
+            Type = UTXOType.PRIVATE;
         }
 
         public UTXO(uint index, Coin.TXOutput output)
         {
-            Type = UTXOType.STEALTH;
+            Type = UTXOType.PRIVATE;
             Index = index;
             TransactionSrc = output.TransactionSrc;
             UXKey = output.UXKey;
@@ -84,6 +84,16 @@ namespace Discreet.Wallets
             Amount = output.Amount;
             DecodedAmount = 0;
             UXSecKey = new Key(new byte[32]);
+
+            Encrypted = true;
+        }
+
+        public UTXO(uint index, Coin.Transparent.TXOutput output)
+        {
+            Type = UTXOType.TRANSPARENT;
+            Index = index;
+            TransactionSrc = output.TransactionSrc;
+            Amount = output.Amount;
 
             Encrypted = true;
         }
@@ -102,38 +112,46 @@ namespace Discreet.Wallets
 
         public void Encrypt()
         {
-            DecodedAmount = 0;
-            Array.Clear(UXSecKey.bytes, 0, 32);
+            if (Type == UTXOType.PRIVATE)
+            {
+                DecodedAmount = 0;
+                Array.Clear(UXSecKey.bytes, 0, 32);
+            }
 
             Encrypted = true;
         }
 
         public void Decrypt(WalletAddress addr)
         {
-            byte[] cdata = new byte[36];
-            Array.Copy(KeyOps.ScalarmultKey(ref TransactionKey, ref addr.SecViewKey).bytes, cdata, 32);
-            Coin.Serialization.CopyData(cdata, 32, DecodeIndex);
+            if (Type == UTXOType.PRIVATE)
+            {
+                byte[] cdata = new byte[36];
+                Array.Copy(KeyOps.ScalarmultKey(ref TransactionKey, ref addr.SecViewKey).bytes, cdata, 32);
+                Coin.Serialization.CopyData(cdata, 32, DecodeIndex);
 
-            Key c = new Key(new byte[32]);
-            HashOps.HashToScalar(ref c, cdata, 36);
+                Key c = new Key(new byte[32]);
+                HashOps.HashToScalar(ref c, cdata, 36);
 
-            byte[] gdata = new byte[38];
-            gdata[0] = (byte)'a';
-            gdata[1] = (byte)'m';
-            gdata[2] = (byte)'o';
-            gdata[3] = (byte)'u';
-            gdata[4] = (byte)'n';
-            gdata[5] = (byte)'t';
-            Array.Copy(c.bytes, 0, gdata, 6, 32);
+                byte[] gdata = new byte[38];
+                gdata[0] = (byte)'a';
+                gdata[1] = (byte)'m';
+                gdata[2] = (byte)'o';
+                gdata[3] = (byte)'u';
+                gdata[4] = (byte)'n';
+                gdata[5] = (byte)'t';
+                Array.Copy(c.bytes, 0, gdata, 6, 32);
 
-            Key g = new Key(new byte[32]);
-            HashOps.HashData(ref g, gdata, 38);
+                Key g = new Key(new byte[32]);
+                HashOps.HashData(ref g, gdata, 38);
 
-            /* DecodedAmount = g ^ Amount */
-            /* Amount stores the encrypted amount. */
-            DecodedAmount = KeyOps.XOR8(ref g, Amount);
+                /* DecodedAmount = g ^ Amount */
+                /* Amount stores the encrypted amount. */
+                DecodedAmount = KeyOps.XOR8(ref g, Amount);
 
-            KeyOps.DKSAPRecover(ref UXSecKey, ref TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, DecodeIndex);
+                KeyOps.DKSAPRecover(ref UXSecKey, ref TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, DecodeIndex);
+            }
+
+            Encrypted = false;
         }
     }
 }

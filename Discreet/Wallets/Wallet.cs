@@ -94,11 +94,11 @@ namespace Discreet.Wallets
             {
                 if (deterministic)
                 {
-                    Addresses[i] = new WalletAddress(Entropy, hash, i);
+                    Addresses[i] = new WalletAddress((byte)WalletType.PRIVATE, Entropy, hash, i);
                 }
                 else
                 {
-                    Addresses[i] = new WalletAddress(true);
+                    Addresses[i] = new WalletAddress((byte)WalletType.PRIVATE, true);
                 }
 
                 Addresses[i].Encrypt(Entropy);
@@ -150,11 +150,11 @@ namespace Discreet.Wallets
             {
                 if (deterministic)
                 {
-                    Addresses[i] = new WalletAddress(Entropy, hash, i);
+                    Addresses[i] = new WalletAddress((byte)WalletType.PRIVATE, Entropy, hash, i);
                 }
                 else
                 {
-                    Addresses[i] = new WalletAddress(true);
+                    Addresses[i] = new WalletAddress((byte)WalletType.PRIVATE, true);
                 }
 
                 Addresses[i].Encrypt(Entropy);

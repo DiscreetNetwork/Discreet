@@ -6,6 +6,12 @@ using Discreet.Common;
 
 namespace Discreet.Coin
 {
+    public enum AddressType: byte
+    {
+        STEALTH = 0,
+        TRANSPARENT = 1,
+    }
+
     public interface IAddress
     {
         public byte[] Bytes();
@@ -13,6 +19,8 @@ namespace Discreet.Coin
         public byte[] Checksum();
         public byte Version();
         public uint Size();
+
+        public byte Type();
     }
 
     /* standard versioner for addresses */
@@ -123,6 +131,11 @@ namespace Discreet.Coin
         public byte Version()
         {
             return version;
+        }
+
+        public byte Type()
+        {
+            return (byte)AddressType.TRANSPARENT;
         }
     }
 
@@ -268,6 +281,11 @@ namespace Discreet.Coin
             }
 
             return null;
+        }
+
+        public byte Type()
+        {
+            return (byte)AddressType.STEALTH;
         }
     }
 }

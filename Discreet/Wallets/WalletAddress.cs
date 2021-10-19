@@ -55,17 +55,32 @@ namespace Discreet.Wallets
             return new StealthAddress(PubViewKey, PubSpendKey);
         }
 
-        public WalletAddress(bool random)
+        public WalletAddress(byte type, bool random)
         {
+            Type = type; 
+
             if (random)
             {
-                SecSpendKey = KeyOps.GenerateSeckey();
-                SecViewKey = KeyOps.GenerateSeckey();
+                if (type == 0)
+                {
+                    SecSpendKey = KeyOps.GenerateSeckey();
+                    SecViewKey = KeyOps.GenerateSeckey();
 
-                PubSpendKey = Cipher.KeyOps.ScalarmultBase(ref SecSpendKey);
-                PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
+                    PubSpendKey = Cipher.KeyOps.ScalarmultBase(ref SecSpendKey);
+                    PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
 
-                Address = new StealthAddress(PubViewKey, PubSpendKey).ToString();
+                    Address = new StealthAddress(PubViewKey, PubSpendKey).ToString();
+                }
+                else if (type == 1)
+                {
+                    SecKey = Cipher.KeyOps.GenerateSeckey();
+                    PubKey = Cipher.KeyOps.ScalarmultBase(ref SecKey);
+                    Address = new TAddress(PubKey).ToString();
+                }
+                else
+                {
+                    throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+                }
 
                 UTXOs = new List<UTXO>();
             }
@@ -85,45 +100,71 @@ namespace Discreet.Wallets
          * hash = SHA256(SHA256(tsk1))
          * ...
          */
-        public WalletAddress(byte[] entropy, byte[] hash, int index)
+        public WalletAddress(byte type, byte[] entropy, byte[] hash, int index)
         {
-            byte[] tmpspend = new byte[entropy.Length + hash.Length + 9];
-            byte[] tmpview = new byte[entropy.Length + hash.Length + 8];
-            byte[] indexBytes = BitConverter.GetBytes(index);
+            Type = type;
 
-            if (BitConverter.IsLittleEndian)
+            if (type == 0)
             {
-                Array.Reverse(indexBytes);
+                byte[] tmpspend = new byte[entropy.Length + hash.Length + 9];
+                byte[] tmpview = new byte[entropy.Length + hash.Length + 8];
+                byte[] indexBytes = BitConverter.GetBytes(index);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(indexBytes);
+                }
+
+                Array.Copy(entropy, tmpspend, entropy.Length);
+                Array.Copy(hash, 0, tmpspend, entropy.Length, hash.Length);
+                Array.Copy(indexBytes, 0, tmpspend, entropy.Length + hash.Length, 4);
+
+                Array.Copy(tmpspend, tmpview, entropy.Length + hash.Length + 4);
+
+                Array.Copy(new byte[] { 0x73, 0x70, 0x65, 0x6E, 0x64 }, 0, tmpspend, entropy.Length + hash.Length + 4, 5);
+                Array.Copy(new byte[] { 0x76, 0x69, 0x65, 0x77 }, 0, tmpview, entropy.Length + hash.Length + 4, 4);
+
+                Cipher.HashOps.HashToScalar(ref SecSpendKey, Cipher.SHA256.HashData(tmpspend).Bytes, 32);
+                Cipher.HashOps.HashToScalar(ref SecViewKey, Cipher.SHA256.HashData(tmpview).Bytes, 32);
+
+                byte[] tmp = new byte[64];
+
+                Array.Copy(SecSpendKey.bytes, tmp, 32);
+                Array.Copy(SecViewKey.bytes, 0, tmp, 32, 32);
+
+                byte[] newhash = Cipher.SHA256.HashData(Cipher.SHA256.HashData(tmp).Bytes).Bytes;
+
+                Array.Copy(newhash, hash, 32);
+
+                Array.Clear(tmpspend, 0, tmpspend.Length);
+                Array.Clear(tmpview, 0, tmpview.Length);
+
+                PubSpendKey = Cipher.KeyOps.ScalarmultBase(ref SecSpendKey);
+                PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
+
+                Address = new StealthAddress(PubViewKey, PubSpendKey).ToString();
             }
+            else if (type == 1)
+            {
+                byte[] tmpsec = new byte[entropy.Length + hash.Length + 11];
+                Array.Copy(entropy, tmpsec, entropy.Length);
+                Array.Copy(hash, 0, tmpsec, entropy.Length, hash.Length);
+                Array.Copy(new byte[] { 0x74, 0x72, 0x61, 0x6E, 0x73, 0x70, 0x61, 0x72, 0x65, 0x6E, 0x74 }, 0, tmpsec, entropy.Length + hash.Length, 11);
 
-            Array.Copy(entropy, tmpspend, entropy.Length);
-            Array.Copy(hash, 0, tmpspend, entropy.Length, hash.Length);
-            Array.Copy(indexBytes, 0, tmpspend, entropy.Length + hash.Length, 4);
+                Cipher.HashOps.HashToScalar(ref SecKey, Cipher.SHA256.HashData(tmpsec).Bytes, 32);
 
-            Array.Copy(tmpspend, tmpview, entropy.Length + hash.Length + 4);
+                byte[] newhash = Cipher.SHA256.HashData(Cipher.SHA256.HashData(SecKey.bytes).Bytes).Bytes;
 
-            Array.Copy(new byte[] { 0x73, 0x70, 0x65, 0x6E, 0x64 }, 0, tmpspend, entropy.Length + hash.Length + 4, 5);
-            Array.Copy(new byte[] { 0x76, 0x69, 0x65, 0x77 }, 0, tmpview, entropy.Length + hash.Length + 4, 4);
+                Array.Copy(newhash, hash, 32);
 
-            Cipher.HashOps.HashToScalar(ref SecSpendKey, Cipher.SHA256.HashData(tmpspend).Bytes, 32);
-            Cipher.HashOps.HashToScalar(ref SecViewKey, Cipher.SHA256.HashData(tmpview).Bytes, 32);
+                PubKey = Cipher.KeyOps.ScalarmultBase(ref SecKey);
 
-            byte[] tmp = new byte[64];
-
-            Array.Copy(SecSpendKey.bytes, tmp, 32);
-            Array.Copy(SecViewKey.bytes, 0, tmp, 32, 32);
-
-            byte[] newhash = Cipher.SHA256.HashData(Cipher.SHA256.HashData(tmp).Bytes).Bytes;
-
-            Array.Copy(newhash, hash, 32);
-
-            Array.Clear(tmpspend, 0, tmpspend.Length);
-            Array.Clear(tmpview, 0, tmpview.Length);
-
-            PubSpendKey = Cipher.KeyOps.ScalarmultBase(ref SecSpendKey);
-            PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
-
-            Address = new StealthAddress(PubViewKey, PubSpendKey).ToString();
+                Address = new TAddress(PubKey).ToString();
+            }
+            else
+            {
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+            }
 
             UTXOs = new List<UTXO>();
         }
@@ -139,23 +180,38 @@ namespace Discreet.Wallets
         {
             if (Encrypted) return;
 
-            CipherObject cipherObjSpend = AESCBC.GenerateCipherObject(key);
-            byte[] encryptedSecSpendKeyBytes = AESCBC.Encrypt(SecSpendKey.bytes, cipherObjSpend);
-            EncryptedSecSpendKey = cipherObjSpend.PrependIV(encryptedSecSpendKeyBytes);
-
-            CipherObject cipherObjView = AESCBC.GenerateCipherObject(key);
-            byte[] encryptedSecViewKeyBytes = AESCBC.Encrypt(SecViewKey.bytes, cipherObjView);
-            EncryptedSecViewKey = cipherObjView.PrependIV(encryptedSecViewKeyBytes);
-
-            Array.Clear(SecSpendKey.bytes, 0, 32);
-            Array.Clear(SecViewKey.bytes, 0, 32);
-
-            for (int i = 0; i < UTXOs.Count; i++)
+            if (Type == 0)
             {
-                UTXOs[i].Encrypt();
-            }
+                CipherObject cipherObjSpend = AESCBC.GenerateCipherObject(key);
+                byte[] encryptedSecSpendKeyBytes = AESCBC.Encrypt(SecSpendKey.bytes, cipherObjSpend);
+                EncryptedSecSpendKey = cipherObjSpend.PrependIV(encryptedSecSpendKeyBytes);
 
-            Balance = 0;
+                CipherObject cipherObjView = AESCBC.GenerateCipherObject(key);
+                byte[] encryptedSecViewKeyBytes = AESCBC.Encrypt(SecViewKey.bytes, cipherObjView);
+                EncryptedSecViewKey = cipherObjView.PrependIV(encryptedSecViewKeyBytes);
+
+                Array.Clear(SecSpendKey.bytes, 0, 32);
+                Array.Clear(SecViewKey.bytes, 0, 32);
+
+                for (int i = 0; i < UTXOs.Count; i++)
+                {
+                    UTXOs[i].Encrypt();
+                }
+
+                Balance = 0;    
+            }
+            else if (Type == 1)
+            {
+                CipherObject cipherObjSec = AESCBC.GenerateCipherObject(key);
+                byte[] encryptedSecKeyBytes = AESCBC.Encrypt(SecKey.bytes, cipherObjSec);
+                EncryptedSecKey = cipherObjSec.PrependIV(encryptedSecKeyBytes);
+
+                Array.Clear(SecKey.bytes, 0, 32);
+            }
+            else
+            {
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+            }
 
             Encrypted = true;
         }
@@ -171,33 +227,66 @@ namespace Discreet.Wallets
         {
             if (!Encrypted) return;
 
-            (CipherObject cipherObjSpend, byte[] encryptedSecSpendKeyBytes) = CipherObject.GetFromPrependedArray(key, EncryptedSecSpendKey);
-            byte[] unencryptedSpendKey = AESCBC.Decrypt(encryptedSecSpendKeyBytes, cipherObjSpend);
-            Array.Copy(unencryptedSpendKey, SecSpendKey.bytes, 32);
-
-            (CipherObject cipherObjView, byte[] encryptedSecViewKeyBytes) = CipherObject.GetFromPrependedArray(key, EncryptedSecViewKey);
-            byte[] unencryptedViewKey = AESCBC.Decrypt(encryptedSecViewKeyBytes, cipherObjView);
-            Array.Copy(unencryptedViewKey, SecViewKey.bytes, 32);
-
-            for (int i = 0; i < UTXOs.Count; i++)
+            if (Type == 0)
             {
-                UTXOs[i].Decrypt(this);
+                (CipherObject cipherObjSpend, byte[] encryptedSecSpendKeyBytes) = CipherObject.GetFromPrependedArray(key, EncryptedSecSpendKey);
+                byte[] unencryptedSpendKey = AESCBC.Decrypt(encryptedSecSpendKeyBytes, cipherObjSpend);
+                Array.Copy(unencryptedSpendKey, SecSpendKey.bytes, 32);
 
-                Balance += UTXOs[i].DecodedAmount;
+                (CipherObject cipherObjView, byte[] encryptedSecViewKeyBytes) = CipherObject.GetFromPrependedArray(key, EncryptedSecViewKey);
+                byte[] unencryptedViewKey = AESCBC.Decrypt(encryptedSecViewKeyBytes, cipherObjView);
+                Array.Copy(unencryptedViewKey, SecViewKey.bytes, 32);
+
+                for (int i = 0; i < UTXOs.Count; i++)
+                {
+                    UTXOs[i].Decrypt(this);
+
+                    Balance += UTXOs[i].DecodedAmount;
+                }
+
+                Array.Clear(unencryptedSpendKey, 0, unencryptedSpendKey.Length);
+                Array.Clear(unencryptedViewKey, 0, unencryptedViewKey.Length);
             }
+            else if (Type == 1)
+            {
+                (CipherObject cipherObjSec, byte[] encryptedSecKeyBytes) = CipherObject.GetFromPrependedArray(key, EncryptedSecKey);
+                byte[] unencryptedSecKey = AESCBC.Decrypt(encryptedSecKeyBytes, cipherObjSec);
+                Array.Copy(unencryptedSecKey, SecKey.bytes, 32);
 
-            Array.Clear(unencryptedSpendKey, 0, unencryptedSpendKey.Length);
-            Array.Clear(unencryptedViewKey, 0, unencryptedViewKey.Length);
+                Array.Clear(unencryptedSecKey, 0, unencryptedSecKey.Length);
+            }
+            else
+            {
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+            }
 
             Encrypted = false;
         }
 
         public void EncryptDropKeys()
         {
-            Array.Clear(SecSpendKey.bytes, 0, 32);
-            Array.Clear(SecViewKey.bytes, 0, 32);
+            if (Type == 0)
+            {
+                Array.Clear(SecSpendKey.bytes, 0, 32);
+                Array.Clear(SecViewKey.bytes, 0, 32);
+            }
+            else if (Type == 1)
+            {
+                Array.Clear(SecKey.bytes, 0, 32);
+            }
+            else
+            {
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+            }
 
             Encrypted = true;
+        }
+
+        public MixedTransaction CreateTransaction(IAddress[] to, ulong[] amount)
+        {
+
+
+            throw new NotImplementedException();
         }
 
         public Transaction CreateTransaction(StealthAddress[] to, ulong[] amount)
