@@ -41,6 +41,56 @@ namespace Discreet.Coin
         public Triptych[] PSignatures;
         public Key[] PseudoOutputs;
 
+        public MixedTransaction() { }
+
+        public MixedTransaction(Transaction tx)
+        {
+            if (tx.Version != 2) throw new Exception($"Discreet.Coin.MixedTransaction: cannot convert private transaction of type {(Config.TransactionVersions)tx.Version} to mixed transaction!");
+
+            Version = tx.Version;
+            NumInputs = tx.NumInputs;
+            NumOutputs = tx.NumOutputs;
+            NumSigs = tx.NumSigs;
+
+            NumTInputs = 0;
+            NumPInputs = NumInputs;
+            NumTOutputs = 0;
+            NumPOutputs = NumOutputs;
+
+            SigningHash = tx.SigningHash();
+
+            Fee = tx.Fee;
+
+            TransactionKey = new(new byte[32]);
+            Array.Copy(tx.Extra, 2, TransactionKey.bytes, 0, 32);
+            PInputs = tx.Inputs;
+            POutputs = tx.Outputs;
+            RangeProof = tx.RangeProofPlus;
+            PSignatures = tx.Signatures;
+            PseudoOutputs = tx.PseudoOutputs;
+        }
+
+        public MixedTransaction(Transparent.Transaction tx)
+        {
+            Version = tx.Version;
+            NumInputs = tx.NumInputs;
+            NumOutputs = tx.NumOutputs;
+            NumSigs = tx.NumSigs;
+
+            NumTInputs = NumInputs;
+            NumPInputs = 0;
+            NumTOutputs = NumOutputs;
+            NumPOutputs = 0;
+
+            SigningHash = tx.InnerHash;
+
+            Fee = tx.Fee;
+
+            TInputs = tx.Inputs;
+            TOutputs = tx.Outputs;
+            TSignatures = tx.Signatures;
+        }
+
         public SHA256 Hash()
         {
             return SHA256.HashData(Marshal());
@@ -172,7 +222,8 @@ namespace Discreet.Coin
                 offset += Triptych.Size();
             }
 
-            for (int i = 0; i < lenPInputs; i++)
+            /* all MixedTransactions will contain PseudoOutputs */
+            for (int i = 0; i < NumInputs; i++)
             {
                 Array.Copy(PseudoOutputs[i].bytes, 0, bytes, offset, 32);
                 offset += 32;
@@ -280,8 +331,8 @@ namespace Discreet.Coin
                 offset += Triptych.Size();
             }
 
-            PseudoOutputs = new Key[NumPInputs];
-            for (int i = 0; i < NumPInputs; i++)
+            PseudoOutputs = new Key[NumInputs];
+            for (int i = 0; i < NumInputs; i++)
             {
                 PseudoOutputs[i] = new Cipher.Key(new byte[32]);
                 Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
@@ -367,8 +418,8 @@ namespace Discreet.Coin
                 offset += Triptych.Size();
             }
 
-            PseudoOutputs = new Key[NumPInputs];
-            for (int i = 0; i < NumPInputs; i++)
+            PseudoOutputs = new Key[NumInputs];
+            for (int i = 0; i < NumInputs; i++)
             {
                 PseudoOutputs[i] = new Cipher.Key(new byte[32]);
                 Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
@@ -388,7 +439,7 @@ namespace Discreet.Coin
                              + (POutputs == null ? 0 : POutputs.Length) * 72
                              + ((RangeProof == null && NumPOutputs > 0) ? 0 : RangeProof.Size())
                              + Triptych.Size() * (PSignatures == null ? 0 : PSignatures.Length)
-                             + 32 * (PseudoOutputs == null ? 0 : PseudoOutputs.Length));
+                             + 32 * PseudoOutputs.Length);
         }
 
         public Key[] GetCommitments()
@@ -661,23 +712,20 @@ namespace Discreet.Coin
                 }
             }
 
-            if (NumPInputs > 0)
+            if (PseudoOutputs == null || PseudoOutputs.Length == 0)
             {
-                if (PseudoOutputs == null || PseudoOutputs.Length == 0)
-                {
-                    return new VerifyException("MixedTransaction", $"Transaction contains private inputs but does not contain any PseudoOutputs");
-                }
+                return new VerifyException("MixedTransaction", $"Transaction is missing all PseudoOutputs");
+            }
 
-                if (NumPInputs != PseudoOutputs.Length)
-                {
-                    return new VerifyException("MixedTransaction", $"PseudoOutput length mismatch: expected {NumPInputs}, but got {PseudoOutputs.Length}");
-                }
+            if (NumInputs != PseudoOutputs.Length)
+            {
+                return new VerifyException("MixedTransaction", $"PseudoOutput length mismatch: expected {NumInputs}, but got {PseudoOutputs.Length}");
             }
 
             Key sumPseudos = new(new byte[32]);
             Key tmp = new(new byte[32]);
 
-            for (int i = 0; i < lenPInputs; i++)
+            for (int i = 0; i < PseudoOutputs.Length; i++)
             {
                 KeyOps.AddKeys(ref tmp, ref sumPseudos, ref PseudoOutputs[i]);
                 Array.Copy(tmp.bytes, sumPseudos.bytes, 32);
@@ -691,24 +739,15 @@ namespace Discreet.Coin
                 Array.Copy(tmp.bytes, sumComms.bytes, 32);
             }
 
-            /* since we may have transparent inputs as well, we need to commit sumTInputs and sumTOutputs; this is just a blinding factor of 0 */
+            /* since we may have transparent inputs as well, we need to commit sumTOutputs; this is just a blinding factor of 0 */
 
-            ulong sumTInputs = 0;
-            for (int i = 0; i < lenTInputs; i++)
-            {
-                sumTInputs += TInputs[i].Amount;
-            }
+            /* all mixed transactions must commit inputs to pseudo outputs, regardless of transparency or privacy. */
 
             ulong sumTOutputs = 0;
             for (int i = 0; i < lenTOutputs; i++)
             {
                 sumTOutputs += TOutputs[i].Amount;
             }
-
-            Key commTInputs = new(new byte[32]);
-            KeyOps.GenCommitment(ref commTInputs, ref Key.Z, sumTInputs);
-            KeyOps.AddKeys(ref tmp, ref sumPseudos, ref commTInputs);
-            Array.Copy(tmp.bytes, sumPseudos.bytes, 32);
 
             Key commTOutputs = new(new byte[32]);
             KeyOps.GenCommitment(ref commTOutputs, ref Key.Z, sumTOutputs);
