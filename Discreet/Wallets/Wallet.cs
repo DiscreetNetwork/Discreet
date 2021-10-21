@@ -48,7 +48,7 @@ namespace Discreet.Wallets
         public Wallet() { }
 
         /* WIP */
-        public Wallet(string label, string passphrase, uint bip39 = 24, bool encrypted = true, bool deterministic = true, uint numAddresses = 1)
+        public Wallet(string label, string passphrase, uint bip39 = 24, bool encrypted = true, bool deterministic = true, uint numStealthAddresses = 1, uint numTransparentAddresses = 0)
         {
             Timestamp = (ulong)DateTime.Now.Ticks;
             Encrypted = encrypted;
@@ -86,11 +86,11 @@ namespace Discreet.Wallets
                 EntropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
             }
 
-            Addresses = new WalletAddress[numAddresses];
+            Addresses = new WalletAddress[numStealthAddresses + numTransparentAddresses];
 
             byte[] hash = new byte[32];
 
-            for (int i = 0; i < numAddresses; i++)
+            for (int i = 0; i < numStealthAddresses; i++)
             {
                 if (deterministic)
                 {
@@ -104,10 +104,26 @@ namespace Discreet.Wallets
                 Addresses[i].Encrypt(Entropy);
             }
 
+            hash = new byte[32];
+
+            for (int i = (int)numStealthAddresses; i < numStealthAddresses + numTransparentAddresses; i++)
+            {
+                if (deterministic)
+                {
+                    Addresses[i] = new WalletAddress((byte)WalletType.TRANSPARENT, Entropy, hash, i);
+                }
+                else
+                {
+                    Addresses[i] = new WalletAddress((byte)WalletType.TRANSPARENT, true);
+                }
+
+                Addresses[i].Encrypt(Entropy);
+            }
+
             IsEncrypted = encrypted;
         }
 
-        public Wallet(string label, string passphrase, string mnemonic, bool encrypted = true, bool deterministic = true, uint bip39 = 24, uint numAddresses = 1)
+        public Wallet(string label, string passphrase, string mnemonic, bool encrypted = true, bool deterministic = true, uint bip39 = 24, uint numStealthAddresses = 1, uint numTransparentAddresses = 0)
         {
             Timestamp = (ulong)DateTime.Now.Ticks;
             Encrypted = encrypted;
@@ -142,11 +158,11 @@ namespace Discreet.Wallets
                 EntropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
             }
 
-            Addresses = new WalletAddress[numAddresses];
+            Addresses = new WalletAddress[numStealthAddresses + numTransparentAddresses];
 
             byte[] hash = new byte[32];
 
-            for (int i = 0; i < numAddresses; i++)
+            for (int i = 0; i < numStealthAddresses; i++)
             {
                 if (deterministic)
                 {
@@ -155,6 +171,22 @@ namespace Discreet.Wallets
                 else
                 {
                     Addresses[i] = new WalletAddress((byte)WalletType.PRIVATE, true);
+                }
+
+                Addresses[i].Encrypt(Entropy);
+            }
+
+            hash = new byte[32];
+
+            for (int i = (int)numStealthAddresses; i < numStealthAddresses + numTransparentAddresses; i++)
+            {
+                if (deterministic)
+                {
+                    Addresses[i] = new WalletAddress((byte)WalletType.TRANSPARENT, Entropy, hash, i);
+                }
+                else
+                {
+                    Addresses[i] = new WalletAddress((byte)WalletType.TRANSPARENT, true);
                 }
 
                 Addresses[i].Encrypt(Entropy);
