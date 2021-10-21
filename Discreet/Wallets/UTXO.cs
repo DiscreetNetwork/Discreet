@@ -100,7 +100,13 @@ namespace Discreet.Wallets
 
         public UTXO(uint index, Coin.TXOutput output, Coin.Transaction tx, int i) : this(index, output)
         {
-            TransactionKey = new Key(tx.Extra[2..34]);
+            TransactionKey = tx.TransactionKey;
+            DecodeIndex = i;
+        }
+
+        public UTXO(uint index, Coin.TXOutput output, Coin.MixedTransaction tx, int i) : this(index, output)
+        {
+            TransactionKey = tx.TransactionKey;
             DecodeIndex = i;
         }
 

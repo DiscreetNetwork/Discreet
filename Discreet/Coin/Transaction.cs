@@ -17,6 +17,12 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.U1)]
         public byte NumSigs;
 
+        [MarshalAs(UnmanagedType.U8)]
+        public ulong Fee;
+
+        [MarshalAs(UnmanagedType.Struct)]
+        public Cipher.Key TransactionKey;
+
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
         public TXInput[] Inputs;
 
@@ -29,24 +35,22 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.Struct)]
         public BulletproofPlus RangeProofPlus;
 
-        [MarshalAs(UnmanagedType.U8)]
-        public ulong Fee;
-
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
         public Triptych[] Signatures;
 
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
         public Cipher.Key[] PseudoOutputs;
 
-        [MarshalAs(UnmanagedType.U4)]
-        public uint ExtraLen;
-
-        [MarshalAs(UnmanagedType.ByValArray)]
-        public byte[] Extra;
-
         public Cipher.SHA256 Hash()
         {
             return Cipher.SHA256.HashData(Marshal());
+        }
+
+        public Transaction() { }
+
+        public Transaction(byte[] bytes)
+        {
+            Unmarshal(bytes);
         }
 
         
@@ -60,7 +64,7 @@ namespace Discreet.Coin
          */
         public Cipher.SHA256 SigningHash()
         {
-            byte[] bytes = new byte[1 + Inputs.Length * TXInput.Size() + (32 + 8) * Outputs.Length + Extra.Length];
+            byte[] bytes = new byte[1 + Inputs.Length * TXInput.Size() + (32 + 8) * Outputs.Length + 32];
 
             bytes[0] = Version;
 
@@ -87,7 +91,7 @@ namespace Discreet.Coin
                 offset += 8;
             }
 
-            Array.Copy(Extra, 0, bytes, offset, Extra.Length);
+            Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
 
             return Cipher.SHA256.HashData(bytes);
         }
@@ -98,29 +102,21 @@ namespace Discreet.Coin
 
             if (Version == 0)
             {
-                byte[] bytes = new byte[4 + 4 + Extra.Length + NumOutputs * 72];
+                byte[] bytes = new byte[4 + 32 + NumOutputs * 72];
 
                 bytes[0] = Version;
                 bytes[1] = NumInputs;
                 bytes[2] = NumOutputs;
                 bytes[3] = NumSigs;
 
+                Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
+                offset += 32;
+
                 for (int i = 0; i < Outputs.Length; i++)
                 {
                     Outputs[i].TXMarshal(bytes, offset);
                     offset += 72;
                 }
-
-                byte[] extraLen = BitConverter.GetBytes(ExtraLen);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(extraLen);
-                }
-
-                Array.Copy(extraLen, 0, bytes, offset, 4);
-                offset += 4;
-
-                Array.Copy(Extra, 0, bytes, offset, Extra.Length);
 
                 return bytes;
             }
@@ -132,6 +128,18 @@ namespace Discreet.Coin
                 bytes[1] = NumInputs;
                 bytes[2] = NumOutputs;
                 bytes[3] = NumSigs;
+
+                byte[] fee = BitConverter.GetBytes(Fee);
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(fee);
+                }
+
+                Array.Copy(fee, 0, bytes, offset, 8);
+                offset += 8;
+
+                Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
+                offset += 32;
 
                 for (int i = 0; i < Inputs.Length; i++)
                 {
@@ -156,15 +164,6 @@ namespace Discreet.Coin
                     offset += RangeProof.Size();
                 }
 
-                byte[] fee = BitConverter.GetBytes(Fee);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(fee);
-                }
-
-                Array.Copy(fee, 0, bytes, offset, 8);
-                offset += 8;
-
                 for (int i = 0; i < NumSigs; i++)
                 {
                     Signatures[i].Marshal(bytes, offset);
@@ -176,17 +175,6 @@ namespace Discreet.Coin
                     Array.Copy(PseudoOutputs[i].bytes, 0, bytes, offset, 32);
                     offset += 32;
                 }
-
-                byte[] extraLen = BitConverter.GetBytes(ExtraLen);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(extraLen);
-                }
-
-                Array.Copy(extraLen, 0, bytes, offset, 4);
-                offset += 4;
-
-                Array.Copy(Extra, 0, bytes, offset, Extra.Length);
 
                 return bytes;
             }
@@ -220,6 +208,10 @@ namespace Discreet.Coin
 
                 uint offset = 4;
 
+                TransactionKey = new Cipher.Key(new byte[32]);
+                Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
+                offset += 32;
+
                 Outputs = new TXOutput[NumOutputs];
 
                 for (int i = 0; i < NumOutputs; i++)
@@ -229,21 +221,6 @@ namespace Discreet.Coin
                     Outputs[i].TXUnmarshal(bytes, offset);
                     offset += 72;
                 }
-
-                byte[] extraLen = new byte[4];
-
-                Array.Copy(bytes, offset, extraLen, 0, 4);
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(extraLen);
-                }
-
-                ExtraLen = BitConverter.ToUInt32(extraLen);
-                offset += 4;
-
-                Extra = new byte[ExtraLen];
-                Array.Copy(bytes, offset, Extra, 0, ExtraLen);
             }
             else
             {
@@ -253,6 +230,22 @@ namespace Discreet.Coin
                 NumSigs = bytes[3];
 
                 uint offset = 4;
+
+                byte[] fee = new byte[8];
+
+                Array.Copy(bytes, offset, fee, 0, 8);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(fee);
+                }
+
+                Fee = BitConverter.ToUInt64(fee);
+                offset += 8;
+
+                TransactionKey = new Cipher.Key(new byte[32]);
+                Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
+                offset += 32;
 
                 Inputs = new TXInput[NumInputs];
 
@@ -288,19 +281,6 @@ namespace Discreet.Coin
                     RangeProof.Unmarshal(bytes, offset);
                     offset += RangeProof.Size();
                 }
-                
-
-                byte[] fee = new byte[8];
-
-                Array.Copy(bytes, offset, fee, 0, 8);
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(fee);
-                }
-
-                Fee = BitConverter.ToUInt64(fee);
-                offset += 8;
 
                 Signatures = new Triptych[NumSigs];
 
@@ -312,36 +292,14 @@ namespace Discreet.Coin
                     offset += Triptych.Size();
                 }
 
+                PseudoOutputs = new Cipher.Key[NumInputs];
                 for (int i = 0; i < NumInputs; i++)
                 {
                     PseudoOutputs[i] = new Cipher.Key(new byte[32]);
                     Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
                     offset += 32;
                 }
-
-                byte[] extraLen = new byte[4];
-
-                Array.Copy(bytes, offset, extraLen, 0, 4);
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(extraLen);
-                }
-
-                ExtraLen = BitConverter.ToUInt32(extraLen);
-                offset += 4;
-
-                Extra = new byte[ExtraLen];
-                Array.Copy(bytes, offset, Extra, 0, ExtraLen);
             }
-        }
-
-        /* this should only be called on transactions which store a txkey */
-        public Cipher.Key GetTXKey()
-        {
-            Cipher.Key rv = new(new byte[32]);
-            Array.Copy(Extra, 2, rv.bytes, 0, 32);
-            return rv;
         }
 
         /* for testing purposes only */
@@ -353,12 +311,7 @@ namespace Discreet.Coin
                 NumInputs = 0,
                 NumOutputs = (byte)numOutputs,
                 NumSigs = 0,
-
-                ExtraLen = 34,
-                Extra = new byte[34]
             };
-            tx.Extra[0] = 1;
-            tx.Extra[1] = 0;
 
             Cipher.Key r = new(new byte[32]);
             Cipher.Key R = new(new byte[32]);
@@ -381,7 +334,7 @@ namespace Discreet.Coin
                 tx.Outputs[i].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, i, amnt);
             }
 
-            Array.Copy(R.bytes, 0, tx.Extra, 2, 32);
+            tx.TransactionKey = R;
 
             return tx;
         }
@@ -394,12 +347,7 @@ namespace Discreet.Coin
                 NumInputs = 0,
                 NumOutputs = 1,
                 NumSigs = 0,
-
-                ExtraLen = 34,
-                Extra = new byte[34]
             };
-            tx.Extra[0] = 1;
-            tx.Extra[1] = 0;
 
             Cipher.Key r = new(new byte[32]);
             Cipher.Key R = new(new byte[32]);
@@ -417,7 +365,7 @@ namespace Discreet.Coin
             tx.Outputs[0].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, 0);
             tx.Outputs[0].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, 0, amnt);
 
-            Array.Copy(R.bytes, 0, tx.Extra, 2, 32);
+            tx.TransactionKey = R;
 
             return tx;
         }
@@ -445,6 +393,10 @@ namespace Discreet.Coin
 
                 offset += 4;
 
+                TransactionKey = new Cipher.Key(new byte[32]);
+                Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
+                offset += 32;
+
                 Outputs = new TXOutput[NumOutputs];
 
                 for (int i = 0; i < NumOutputs; i++)
@@ -454,21 +406,6 @@ namespace Discreet.Coin
                     Outputs[i].TXUnmarshal(bytes, offset);
                     offset += 72;
                 }
-
-                byte[] extraLen = new byte[4];
-
-                Array.Copy(bytes, offset, extraLen, 0, 4);
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(extraLen);
-                }
-
-                ExtraLen = BitConverter.ToUInt32(extraLen);
-                offset += 4;
-
-                Extra = new byte[ExtraLen];
-                Array.Copy(bytes, offset, Extra, 0, ExtraLen);
 
                 return offset;
             }
@@ -480,6 +417,22 @@ namespace Discreet.Coin
                 NumSigs = bytes[offset + 3];
 
                 offset += 4;
+
+                byte[] fee = new byte[8];
+
+                Array.Copy(bytes, offset, fee, 0, 8);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(fee);
+                }
+
+                Fee = BitConverter.ToUInt64(fee);
+                offset += 8;
+
+                TransactionKey = new Cipher.Key(new byte[32]);
+                Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
+                offset += 32;
 
                 Inputs = new TXInput[NumInputs];
 
@@ -516,18 +469,6 @@ namespace Discreet.Coin
                     offset += RangeProof.Size();
                 }
 
-                byte[] fee = new byte[8];
-
-                Array.Copy(bytes, offset, fee, 0, 8);
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(fee);
-                }
-
-                Fee = BitConverter.ToUInt64(fee);
-                offset += 8;
-
                 Signatures = new Triptych[NumSigs];
 
                 for (int i = 0; i < NumSigs; i++)
@@ -539,28 +480,12 @@ namespace Discreet.Coin
                 }
 
                 PseudoOutputs = new Cipher.Key[NumInputs];
-
                 for (int i = 0; i < NumInputs; i++)
                 {
                     PseudoOutputs[i] = new Cipher.Key(new byte[32]);
                     Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
                     offset += 32;
                 }
-
-                byte[] extraLen = new byte[4];
-
-                Array.Copy(bytes, offset, extraLen, 0, 4);
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(extraLen);
-                }
-
-                ExtraLen = BitConverter.ToUInt32(extraLen);
-                offset += 4;
-
-                Extra = new byte[ExtraLen];
-                Array.Copy(bytes, offset, Extra, 0, ExtraLen);
 
                 return offset;
             }
@@ -570,13 +495,13 @@ namespace Discreet.Coin
         {
             if (Version == 0)
             {
-                return (uint)(4 + 4 + Extra.Length + 72 * Outputs.Length);
+                return (uint)(4 + 32 + 72 * Outputs.Length);
             }
             else if (Version == 2)
             {
-                return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProofPlus.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 4 + Extra.Length);
+                return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProofPlus.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 32);
             }
-            return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 4 + Extra.Length);
+            return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 32);
         }
 
         public static Transaction GenerateMock()
@@ -604,16 +529,8 @@ namespace Discreet.Coin
             var buffer = new byte[8];
             new Random().NextBytes(buffer);
             tx.Fee = BitConverter.ToUInt64(buffer, 0);
-
-            tx.ExtraLen = 34;
             
-            Cipher.Key key = Cipher.KeyOps.GeneratePubkey();
-
-            tx.Extra = new byte[34];
-            tx.Extra[0] = 1;
-            tx.Extra[1] = 34;
-
-            Array.Copy(key.bytes, 0, tx.Extra, 2, 32);
+            tx.TransactionKey = Cipher.KeyOps.GeneratePubkey();
 
             return tx;
         }
@@ -681,27 +598,6 @@ namespace Discreet.Coin
             if (Version != 1 && Version != 0 && Version != 2)
             {
                 return new VerifyException("Transaction", $"Unknown transaction version: {Version} (currently only private transactions, version 1 and 2, and coinbase transactions, version 0, are supported)");
-            }
-
-            if (ExtraLen != Extra.Length)
-            {
-                return new VerifyException("Transaction", $"Extra field length mismatch: expected {ExtraLen}, but got {Extra.Length}");
-            }
-            
-            if (ExtraLen < 34)
-            {
-                return new VerifyException("Transaction", $"Extra field length must be at least 34 bytes! (got {ExtraLen})");
-            }
-
-            if (Extra[0] != 1)
-            {
-                return new VerifyException("Transaction", $"Extra field must begin with 1! (got {Extra[0]})");
-            }
-
-            /* We currently only support Extra[1] == 0, indicating the following 32 bytes are populated with the transaction key */
-            if (Extra[1] != 0)
-            {
-                return new VerifyException("Transaction", $"Extra field: currently Extra field only accepts an encoded transaction key (field type 0); got {Extra[1]}");
             }
 
             for (int i = 0; i < NumOutputs; i++)

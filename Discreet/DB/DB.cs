@@ -449,13 +449,12 @@ namespace Discreet.DB
             if (blk.Height > 0)
             {
                 /* We currently sort by transaction hash to order transactions. */
-                Cipher.SHA256[] sortedTransactions = new Cipher.SHA256[blk.NumTXs];
+                /*Cipher.SHA256[] sortedTransactions = new Cipher.SHA256[blk.NumTXs];
                 for (int i = 0; i < blk.NumTXs; i++)
                 {
                     sortedTransactions[i] = new Cipher.SHA256(blk.Transactions[i].GetBytes(), false);
                 }
 
-                /* Ugly ass selection sort lmao */
                 for (int i = 0; i < blk.NumTXs - 1; i++)
                 {
                     int idx = i;
@@ -471,11 +470,11 @@ namespace Discreet.DB
                     Cipher.SHA256 temp = sortedTransactions[idx];
                     sortedTransactions[idx] = sortedTransactions[i];
                     sortedTransactions[i] = temp;
-                }
+                }*/
 
                 for (int i = 0; i < blk.NumTXs; i++)
                 {
-                    AddTransactionFromPool(sortedTransactions[i], txn);
+                    AddTransactionFromPool(blk.Transactions[i], txn);
                 }
             }
             else
@@ -682,14 +681,13 @@ namespace Discreet.DB
             }*/
 
             /* Add outputs */
-            Transaction tx = new Transaction();
-            tx.Unmarshal(txraw);
+            (TXOutput[] outputs, TXInput[] inputs) = FullTransaction.GetPrivateOutputsAndInputs(txraw);
 
-            uint[] outputIndices = new uint[tx.NumOutputs];
+            uint[] outputIndices = new uint[outputs.Length];
 
-            for (int i = 0; i < tx.NumOutputs; i++)
+            for (int i = 0; i < outputs.Length; i++)
             {
-                outputIndices[i] = AddOutput(tx.Outputs[i], txn);
+                outputIndices[i] = AddOutput(outputs[i], txn);
             }
 
             byte[] uintArr = Serialization.UInt32Array(outputIndices);
@@ -712,9 +710,9 @@ namespace Discreet.DB
                 SpentKeys = txn.OpenDatabase(SPENT_KEYS);
             }
 
-            for (int i = 0; i < tx.NumInputs; i++)
+            for (int i = 0; i < inputs.Length; i++)
             {
-                resultCode = txn.Put(SpentKeys, tx.Inputs[i].KeyImage.bytes, ZEROKEY);
+                resultCode = txn.Put(SpentKeys, inputs[i].KeyImage.bytes, ZEROKEY);
 
                 if (resultCode != MDBResultCode.Success)
                 {
@@ -788,6 +786,73 @@ namespace Discreet.DB
             uint index = GetTXOutputIndex(txn, tx, i);
 
             Wallets.UTXO utxo = new Wallets.UTXO(index, tx.Outputs[i], tx, i);
+
+            if (OwnedOutputs == null || !OwnedOutputs.IsOpened)
+            {
+                OwnedOutputs = txn.OpenDatabase(OWNED_OUTPUTS);
+            }
+
+            int outputIndex;
+
+            lock (indexer_owned_outputs)
+            {
+                indexer_owned_outputs.Value++;
+                outputIndex = (int)indexer_owned_outputs.Value;
+            }
+
+            var resCode = txn.Put(OwnedOutputs, Serialization.Int32(outputIndex), utxo.Marshal());
+
+            if (resCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddWalletOutput: database update exception: {resCode}");
+            }
+
+            lock (indexer_owned_outputs)
+            {
+                resCode = txn.Put(Meta, Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt32(indexer_owned_outputs.Value));
+
+                if (resCode != MDBResultCode.Success)
+                {
+                    throw new Exception($"Discreet.DB: Error while updating height indexer_owned_outputs: {resCode}");
+                }
+            }
+
+            resCode = txn.Commit();
+
+            if (resCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddWalletOutput: database update exception: {resCode}");
+            }
+
+            return (outputIndex, utxo);
+        }
+
+        public uint GetTXOutputIndex(LightningTransaction txn, MixedTransaction tx, int i)
+        {
+            if (OutputIndices == null || !OutputIndices.IsOpened)
+            {
+                OutputIndices = txn.OpenDatabase(OUTPUT_INDICES);
+            }
+
+            var result = txn.Get(OutputIndices, tx.Hash().Bytes);
+
+            if (result.resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.GetTXOutputIndex: database get exception: {result.resultCode}");
+            }
+
+            uint[] outputIndices = Serialization.GetUInt32Array(result.value.CopyToNewArray());
+
+            return outputIndices[i];
+        }
+
+        public (int, Wallets.UTXO) AddWalletOutput(MixedTransaction tx, int i)
+        {
+            var txn = Env.BeginTransaction();
+
+            uint index = GetTXOutputIndex(txn, tx, i);
+
+            Wallets.UTXO utxo = new Wallets.UTXO(index, tx.POutputs[i], tx, i);
 
             if (OwnedOutputs == null || !OwnedOutputs.IsOpened)
             {

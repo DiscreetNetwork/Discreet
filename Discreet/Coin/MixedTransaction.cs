@@ -61,8 +61,7 @@ namespace Discreet.Coin
 
             Fee = tx.Fee;
 
-            TransactionKey = new(new byte[32]);
-            Array.Copy(tx.Extra, 2, TransactionKey.bytes, 0, 32);
+            TransactionKey = tx.TransactionKey;
             PInputs = tx.Inputs;
             POutputs = tx.Outputs;
             RangeProof = tx.RangeProofPlus;
@@ -89,6 +88,11 @@ namespace Discreet.Coin
             TInputs = tx.Inputs;
             TOutputs = tx.Outputs;
             TSignatures = tx.Signatures;
+        }
+
+        public MixedTransaction(byte[] bytes)
+        {
+            Unmarshal(bytes);
         }
 
         public SHA256 Hash()
@@ -472,11 +476,7 @@ namespace Discreet.Coin
 
             tx.Fee = Fee;
 
-            tx.ExtraLen = 34;
-            tx.Extra = new byte[34];
-            tx.Extra[0] = 1;
-            tx.Extra[0] = 0;
-            Array.Copy(TransactionKey.bytes, 0, tx.Extra, 2, 32);
+            tx.TransactionKey = TransactionKey;
 
             return tx;
         }

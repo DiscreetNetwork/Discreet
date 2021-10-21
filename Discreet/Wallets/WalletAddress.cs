@@ -716,12 +716,8 @@ namespace Discreet.Wallets
             /* for testnet, all tx fees are zero */
             tx.Fee = 0;
 
-            /* assemble Extra */
-            tx.ExtraLen = 34;
-            tx.Extra = new byte[34];
-            tx.Extra[0] = 1; // first byte is always 1.
-            tx.Extra[1] = 0; // next byte indicates that no extra data besides TXKey is used in Extra.
-            Array.Copy(R.bytes, 0, tx.Extra, 2, 32);
+            /* set TransactionKey */
+            tx.TransactionKey = R;
 
             /* assemble outputs */
             tx.Outputs = new TXOutput[tx.NumOutputs];

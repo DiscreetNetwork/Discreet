@@ -310,7 +310,7 @@ namespace Discreet.Wallets
             {
                 for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
                 {
-                    Key txKey = transaction.GetTXKey();
+                    Key txKey = transaction.TransactionKey;
                     Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[addrIndex].SecViewKey, ref Addresses[addrIndex].SecSpendKey, i);
                     Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
 

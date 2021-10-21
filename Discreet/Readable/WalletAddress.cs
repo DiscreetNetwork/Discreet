@@ -112,10 +112,9 @@ namespace Discreet.Readable
             obj.SecViewKey = new Cipher.Key(new byte[32]);
 
             /* this is the only Readable which relies on DB being formatted correctly. Can't win em all. */
+            obj.UTXOs = new List<Wallets.UTXO>(UTXOs.Count);
             if (UTXOs != null)
             {
-                obj.UTXOs = new List<Wallets.UTXO>(UTXOs.Count);
-
                 DB.DB db = DB.DB.GetDB();
 
                 for (int i = 0; i < UTXOs.Count; i++)

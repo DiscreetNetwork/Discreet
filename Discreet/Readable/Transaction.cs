@@ -17,20 +17,21 @@ namespace Discreet.Readable
         public byte NumOutputs { get; set; }
         public byte NumSigs { get; set; }
 
+        public ulong Fee { get; set; }
+
+        public string TransactionKey { get; set; }
+
         public List<TXInput> Inputs { get; set; }
         public List<TXOutput> Outputs { get; set; }
 
         public Bulletproof RangeProof { get; set; }
         public BulletproofPlus RangeProofPlus { get; set; }
 
-        public ulong Fee { get; set; }
+
 
         public List<Triptych> Signatures { get; set; }
 
         public List<string> PseudoOutputs { get; set; }
-
-        public uint ExtraLen { get; set; }
-        public List<byte> Extra { get; set; }
 
         public string JSON()
         {
@@ -62,8 +63,7 @@ namespace Discreet.Readable
 
             PseudoOutputs = transaction.PseudoOutputs;
 
-            ExtraLen = transaction.ExtraLen;
-            Extra = transaction.Extra;
+            TransactionKey = transaction.TransactionKey;
         }
 
         public Transaction(Coin.Transaction obj)
@@ -141,15 +141,9 @@ namespace Discreet.Readable
                 }
             }
 
-            ExtraLen = obj.ExtraLen;
-            if (obj.Extra != null)
+            if (obj.TransactionKey.bytes != null)
             {
-                Extra = new List<byte>(obj.Extra.Length);
-
-                for (int i = 0; i < obj.Extra.Length; i++)
-                {
-                    Extra.Add(obj.Extra[i]);
-                }
+                TransactionKey = obj.TransactionKey.ToHex();
             }
         }
 
@@ -220,16 +214,7 @@ namespace Discreet.Readable
                 }
             }
 
-            obj.ExtraLen = ExtraLen;
-            if (Extra != null)
-            {
-                obj.Extra = new byte[Extra.Count];
-
-                for (int i = 0; i < Extra.Count; i++)
-                {
-                    obj.Extra[i] = Extra[i];
-                }
-            }
+            if (TransactionKey != null && TransactionKey != "") obj.TransactionKey = new Cipher.Key(Printable.Byteify(TransactionKey));
 
             return obj;
         }

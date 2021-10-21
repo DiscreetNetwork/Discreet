@@ -734,19 +734,21 @@ namespace Discreet
 			Console.WriteLine(receiver1.Addresses[0].Balance);
 
 
-			Wallet receiver2 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test1.dis"));
+			//Wallet receiver2 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test1.dis"));
 
-			Wallet receiver3 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test2.dis"));
+			//Wallet receiver3 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test2.dis"));
 
-			Wallet receiver4 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test3.dis"));
+			//Wallet receiver4 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test3.dis"));
 
 			//Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress(), receiver2.Addresses[0].GetAddress(), receiver3.Addresses[0].GetAddress(), receiver4.Addresses[0].GetAddress() }, new ulong[] { 5_000_000_000_0, 100_000_000_000_0, 250_000_000_000_0, 200_000_000_000_0 }, 2);
 			
 
 			Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress() }, new ulong[] { 69_000_000_000_0 }, 2);
 
-			Console.WriteLine(Printable.Prettify(Readable.Transaction.ToReadable(testtx)));
-			Console.WriteLine(testtx.Marshal().Length);
+			Wallet myTransWallet = new Wallet();
+
+			//Console.WriteLine(Printable.Prettify(Readable.Transaction.ToReadable(testtx)));
+			//Console.WriteLine(testtx.Marshal().Length);
 
 			var err = testtx.Verify();
 

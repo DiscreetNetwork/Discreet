@@ -21,6 +21,9 @@ namespace Discreet.Coin.Transparent
         [MarshalAs(UnmanagedType.U1)]
         public byte NumSigs;
 
+        [MarshalAs(UnmanagedType.U8)]
+        public ulong Fee;
+
         [MarshalAs(UnmanagedType.Struct)]
         public SHA256 InnerHash;
 
@@ -32,9 +35,6 @@ namespace Discreet.Coin.Transparent
 
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
         public Signature[] Signatures;
-
-        [MarshalAs(UnmanagedType.U8)]
-        public ulong Fee;
 
         public SHA256 Hash()
         {
@@ -85,14 +85,26 @@ namespace Discreet.Coin.Transparent
             bytes[2] = NumOutputs;
             bytes[3] = NumSigs;
 
-            Array.Copy(InnerHash.Bytes, 0, bytes, 4, 32);
+            uint offset = 4;
 
-            uint offset = 36;
+            byte[] fee = BitConverter.GetBytes(Fee);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(fee);
+            }
+
+            Array.Copy(fee, 0, bytes, offset, 8);
+            offset += 8;
+
+            Array.Copy(InnerHash.Bytes, 0, bytes, offset, 32);
+            offset += 32;
+
 
             for (int i = 0; i < Inputs.Length; i++)
             {
-                Inputs[i].TXMarshal(bytes, offset);
-                offset += 33;
+                Inputs[i].Marshal(bytes, offset);
+                offset += 65;
             }
 
             for (int i = 0; i < Outputs.Length; i++)
@@ -106,15 +118,6 @@ namespace Discreet.Coin.Transparent
                 Signatures[i].ToBytes(bytes, offset);
                 offset += 96;
             }
-
-            byte[] fee = BitConverter.GetBytes(Fee);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Array.Copy(fee, 0, bytes, offset, 8);
 
             return bytes;
         }
@@ -143,10 +146,21 @@ namespace Discreet.Coin.Transparent
             NumOutputs = bytes[2];
             NumSigs = bytes[3];
 
-            InnerHash = new SHA256(new byte[32], false);
-            Array.Copy(bytes, 4, InnerHash.Bytes, 0, 32);
+            uint offset = 4;
 
-            uint offset = 36;
+            byte[] fee = new byte[8];
+            Array.Copy(bytes, offset, fee, 0, 8);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(fee);
+            }
+
+            Fee = BitConverter.ToUInt64(fee);
+            offset += 8;
+
+            InnerHash = new SHA256(new byte[32], false);
+            Array.Copy(bytes, offset, InnerHash.Bytes, 0, 32);
+            offset += 32;
 
             Inputs = new TXOutput[NumInputs];
 
@@ -173,15 +187,6 @@ namespace Discreet.Coin.Transparent
                 Signatures[i] = new Signature(bytes, offset);
                 offset += 96;
             }
-
-            byte[] fee = new byte[8];
-            Array.Copy(bytes, offset, fee, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Fee = BitConverter.ToUInt64(fee);
         }
 
         public uint Unmarshal(byte[] bytes, uint offset)
@@ -191,10 +196,21 @@ namespace Discreet.Coin.Transparent
             NumOutputs = bytes[offset + 2];
             NumSigs = bytes[offset + 3];
 
-            InnerHash = new SHA256(new byte[32], false);
-            Array.Copy(bytes, offset + 4, InnerHash.Bytes, 0, 32);
+            offset += 4;
 
-            offset += 36;
+            byte[] fee = new byte[8];
+            Array.Copy(bytes, offset, fee, 0, 8);
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(fee);
+            }
+
+            Fee = BitConverter.ToUInt64(fee);
+            offset += 8;
+
+            InnerHash = new SHA256(new byte[32], false);
+            Array.Copy(bytes, offset, InnerHash.Bytes, 0, 32);
+            offset += 32;
 
             Inputs = new TXOutput[NumInputs];
 
@@ -222,16 +238,7 @@ namespace Discreet.Coin.Transparent
                 offset += 96;
             }
 
-            byte[] fee = new byte[8];
-            Array.Copy(bytes, offset, fee, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Fee = BitConverter.ToUInt64(fee);
-
-            return offset + 8;
+            return offset;
         }
 
         public uint Size()

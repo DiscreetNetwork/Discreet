@@ -354,11 +354,6 @@ namespace Discreet.Coin
                 minertx.NumOutputs = 1;
                 minertx.NumSigs = 0;
 
-                minertx.ExtraLen = 34;
-                minertx.Extra = new byte[34];
-                minertx.Extra[0] = 1;
-                minertx.Extra[1] = 0;
-
                 Key R = new(new byte[32]);
                 Key r = new(new byte[32]);
 
@@ -380,7 +375,7 @@ namespace Discreet.Coin
 
                 minertx.Outputs = new TXOutput[1] { minerOutput };
 
-                Array.Copy(R.bytes, 0, minertx.Extra, 2, 32);
+                minertx.TransactionKey = R;
 
                 txs.Add(minertx);
             }
