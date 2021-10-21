@@ -7,7 +7,7 @@ using Discreet.Cipher;
 
 namespace Discreet.Coin
 {
-    public class FullTransaction
+    public class FullTransaction: ICoin
     {
         public byte Version;
         public byte NumInputs;
@@ -42,6 +42,21 @@ namespace Discreet.Coin
         public FullTransaction(byte[] bytes)
         {
             Unmarshal(bytes);
+        }
+
+        public FullTransaction(Transaction tx)
+        {
+            FromPrivate(tx);
+        }
+
+        public FullTransaction(Transparent.Transaction tx)
+        {
+            FromTransparent(tx);
+        }
+
+        public FullTransaction(MixedTransaction tx)
+        {
+            FromMixed(tx);
         }
 
         public void FromCoinbase(byte[] bytes) { FromCoinbase(bytes, 0); }
@@ -175,26 +190,38 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes) { Unmarshal(bytes, 0); }
 
-        public void Unmarshal(byte[] bytes, uint offset)
+        public uint Unmarshal(byte[] bytes, uint offset)
         {
-            switch (bytes[offset])
+            return bytes[offset] switch
             {
-                case 0:
-                    FromCoinbase(bytes, offset);
-                    break;
-                case 1:
-                case 2:
-                    FromPrivate(bytes, offset);
-                    break;
-                case 3:
-                    FromTransparent(bytes, offset);
-                    break;
-                case 4:
-                    FromMixed(bytes, offset);
-                    break;
-                default:
-                    throw new Exception("Unknown transaction type: " + bytes[0]);
-            }
+                0 => FromCoinbase(bytes, offset),
+                1 or 2 => FromPrivate(bytes, offset),
+                3 => FromTransparent(bytes, offset),
+                4 => FromMixed(bytes, offset),
+                _ => throw new Exception("Unknown transaction type: " + bytes[0]),
+            };
+        }
+
+        public SHA256 Hash()
+        {
+            return Version switch
+            {
+                0 => ToCoinbase().Hash(),
+                1 or 2 => ToPrivate().Hash(),
+                3 => ToTransparent().Hash(),
+                4 => ToMixed().Hash(),
+                _ => throw new Exception("Unknown transaction type: " + Version),
+            };
+        }
+
+        public string Readable()
+        {
+            return Discreet.Readable.FullTransaction.ToReadable(this);
+        }
+
+        public static FullTransaction FromReadable(string json)
+        {
+            return Discreet.Readable.FullTransaction.FromReadable(json);
         }
 
         public byte[] Marshal()
@@ -738,6 +765,19 @@ namespace Discreet.Coin
                 Transaction tx = new Transaction(Data);
                 return (tx.Outputs, tx.Inputs);
             }
+        }
+
+        public VerifyException Verify()
+        {
+            return Version switch
+            {
+                0 => ToCoinbase().Verify(),
+                1 => ToPrivate().Verify(),
+                2 => ToPrivate().Verify(),
+                3 => ToTransparent().Verify(),
+                4 => ToMixed().Verify(),
+                _ => throw new Exception("Unknown transaction type: " + Version),
+            };
         }
     }
 }
