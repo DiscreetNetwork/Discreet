@@ -138,6 +138,10 @@ namespace Discreet.Coin
             Version = tx.Version;
             NumInputs = tx.NumInputs;
             NumOutputs = tx.NumOutputs;
+            NumPInputs = tx.NumInputs;
+            NumPOutputs = tx.NumOutputs;
+            NumTInputs = 0;
+            NumTOutputs = 0;
             NumSigs = tx.NumSigs;
             Fee = tx.Fee;
             TransactionKey = tx.TransactionKey;
@@ -157,6 +161,10 @@ namespace Discreet.Coin
             NumInputs = tx.NumInputs;
             NumOutputs = tx.NumOutputs;
             NumSigs = tx.NumSigs;
+            NumTInputs = tx.NumInputs;
+            NumTOutputs = tx.NumOutputs;
+            NumPInputs = 0;
+            NumPOutputs = 0;
             Fee = tx.Fee;
             SigningHash = tx.InnerHash;
             Fee = tx.Fee;
@@ -472,6 +480,11 @@ namespace Discreet.Coin
             NumOutputs = bytes[offset + 2];
             NumSigs = bytes[offset + 3];
 
+            NumPInputs = 0;
+            NumPOutputs = NumOutputs;
+            NumTInputs = 0;
+            NumTOutputs = 0;
+
             offset += 4;
 
             TransactionKey = new Cipher.Key(new byte[32]);
@@ -497,6 +510,11 @@ namespace Discreet.Coin
             NumInputs = bytes[offset + 1];
             NumOutputs = bytes[offset + 2];
             NumSigs = bytes[offset + 3];
+
+            NumPInputs = NumInputs;
+            NumPOutputs = NumOutputs;
+            NumTInputs = 0;
+            NumTOutputs = 0;
 
             offset += 4;
 
@@ -578,6 +596,11 @@ namespace Discreet.Coin
             NumInputs = bytes[offset + 1];
             NumOutputs = bytes[offset + 2];
             NumSigs = bytes[offset + 3];
+
+            NumTInputs = NumInputs;
+            NumTOutputs = NumOutputs;
+            NumPInputs = 0;
+            NumPOutputs = 0;
 
             SigningHash = new SHA256(new byte[32], false);
             Array.Copy(bytes, 4, SigningHash.Bytes, 0, 32);

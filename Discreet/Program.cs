@@ -254,8 +254,8 @@ namespace Discreet
 
 
 
-			List<Transaction> genesisTXsPlus = new List<Transaction>();
-			genesisTXsPlus.Add(Transaction.GenerateTransactionNoSpend(myWallet.Addresses[0].GetAddress(), (ulong)6_000_000 * 1_000_000_000_0));
+			List<FullTransaction> genesisTXsPlus = new List<FullTransaction>();
+			genesisTXsPlus.Add(Transaction.GenerateTransactionNoSpend(myWallet.Addresses[0].GetAddress(), (ulong)6_000_000 * 1_000_000_000_0).ToFull());
 			Block genesis = Block.BuildRandomPlus(addresses, numOutputs, genesisTXsPlus);
 
             Console.WriteLine(genesis.MarshalFull().Length);

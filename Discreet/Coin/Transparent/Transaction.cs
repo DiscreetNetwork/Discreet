@@ -41,6 +41,13 @@ namespace Discreet.Coin.Transparent
             return SHA256.HashData(Marshal());
         }
 
+        public Transaction() { }
+
+        public FullTransaction ToFull()
+        {
+            return new FullTransaction(this);
+        }
+
         public SHA256 SigningHash()
         {
             /* Version, NumInputs, NumOutputs, Inputs, Outputs, and Fee are included. NumSigs is not since this is used to track signing progress. */

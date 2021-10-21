@@ -43,6 +43,11 @@ namespace Discreet.Coin
 
         public MixedTransaction() { }
 
+        public FullTransaction ToFull()
+        {
+            return new FullTransaction(this);
+        }
+
         public MixedTransaction(Transaction tx)
         {
             if (tx.Version != 2) throw new Exception($"Discreet.Coin.MixedTransaction: cannot convert private transaction of type {(Config.TransactionVersions)tx.Version} to mixed transaction!");

@@ -53,7 +53,12 @@ namespace Discreet.Coin
             Unmarshal(bytes);
         }
 
-        
+        public FullTransaction ToFull()
+        {
+            return new FullTransaction(this);
+        }
+
+
         /**
          * This is the hash signed through signatures.
          * It is composed of:

@@ -35,7 +35,7 @@ namespace Discreet.Visor
             }
         }
 
-        private List<Transaction> pool;
+        private List<FullTransaction> pool;
 
         public TXPool()
         {
@@ -47,7 +47,7 @@ namespace Discreet.Visor
         public Exception ProcessIncoming(byte[] txBytes)
         {
             /* try to decode the transaction, and catch any error thrown */
-            Transaction tx = new Transaction();
+            FullTransaction tx = new FullTransaction();
             try
             {
                 tx.Unmarshal(txBytes);
@@ -82,7 +82,7 @@ namespace Discreet.Visor
             return null;
         }
 
-        public Exception ProcessIncoming(Transaction tx)
+        public Exception ProcessIncoming(FullTransaction tx)
         {
             /* verify transaction */
             var err = tx.Verify();
@@ -109,11 +109,26 @@ namespace Discreet.Visor
             return null;
         }
 
+        public Exception ProcessIncoming(MixedTransaction tx)
+        {
+            return ProcessIncoming(tx.ToFull());
+        }
+
+        public Exception ProcessIncoming(Transaction tx)
+        {
+            return ProcessIncoming(tx.ToFull());
+        }
+
+        public Exception ProcessIncoming(Coin.Transparent.Transaction tx)
+        {
+            return ProcessIncoming(tx.ToFull());
+        }
+
         /**
          * Grabs transactions from the pool and packs them into a block.
          * Currently just returns the entire TXpool.
          */
-        public List<Transaction> GetTransactionsForBlock()
+        public List<FullTransaction> GetTransactionsForBlock()
         {
             return pool;
         }
@@ -126,9 +141,9 @@ namespace Discreet.Visor
         }
 
         /* */
-        public void UpdatePool(List<Transaction> blockTxs)
+        public void UpdatePool(List<FullTransaction> blockTxs)
         {
-            foreach (Transaction tx in blockTxs)
+            foreach (FullTransaction tx in blockTxs)
             {
                 if(!pool.Remove(tx))
                 {

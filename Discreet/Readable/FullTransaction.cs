@@ -39,12 +39,92 @@ namespace Discreet.Readable
 
         public string JSON()
         {
-            return JsonSerializer.Serialize(this, ReadableOptions.Options);
+            return Version switch
+            {
+                0 or 1 or 2 => ToPrivate().JSON(),
+                3 => ToTransparent().JSON(),
+                4 => ToMixed().JSON(),
+                _ => JsonSerializer.Serialize(this, ReadableOptions.Options),
+            };
         }
 
         public override string ToString()
         {
             return JSON();
+        }
+
+        public MixedTransaction ToMixed()
+        {
+            MixedTransaction transaction = new MixedTransaction();
+
+            transaction.Version = Version;
+            transaction.NumInputs = NumInputs;
+            transaction.NumOutputs = NumOutputs;
+            transaction.NumSigs = NumSigs;
+
+            transaction.NumTInputs = NumTInputs;
+            transaction.NumPInputs = NumPInputs;
+            transaction.NumTOuputs = NumTOuputs;
+            transaction.NumPOutputs = NumPOutputs;
+
+            transaction.SigningHash = SigningHash;
+
+            transaction.Fee = Fee;
+
+            transaction.TInputs = TInputs;
+            transaction.TOutputs = TOutputs;
+            transaction.TSignatures = TSignatures;
+
+            transaction.TransactionKey = TransactionKey;
+            transaction.PInputs = PInputs;
+            transaction.POutputs = POutputs;
+            transaction.RangeProofPlus = RangeProofPlus;
+            transaction.PSignatures = PSignatures;
+            transaction.PseudoOutputs = PseudoOutputs;
+
+            return transaction;
+        }
+
+        public Transparent.Transaction ToTransparent()
+        {
+            Transparent.Transaction transaction = new Transparent.Transaction();
+
+            transaction.Version = Version;
+            transaction.NumInputs = NumInputs;
+            transaction.NumOutputs = NumOutputs;
+            transaction.NumSigs = NumSigs;
+
+            transaction.InnerHash = SigningHash;
+
+            transaction.Fee = Fee;
+
+            transaction.Inputs = TInputs;
+            transaction.Outputs = TOutputs;
+            transaction.Signatures = TSignatures;
+
+            return transaction;
+        }
+
+        public Transaction ToPrivate()
+        {
+            Transaction transaction = new Transaction();
+
+            transaction.Version = Version;
+            transaction.NumInputs = NumInputs;
+            transaction.NumOutputs = NumOutputs;
+            transaction.NumSigs = NumSigs;
+
+            transaction.Fee = Fee;
+
+            transaction.TransactionKey = TransactionKey;
+            transaction.Inputs = PInputs;
+            transaction.Outputs = POutputs;
+            transaction.RangeProofPlus = RangeProofPlus;
+            transaction.RangeProof = RangeProof;
+            transaction.Signatures = PSignatures;
+            transaction.PseudoOutputs = PseudoOutputs;
+
+            return transaction;
         }
 
         public void FromJSON(string json)
@@ -72,6 +152,8 @@ namespace Discreet.Readable
             PInputs = transaction.PInputs;
             POutputs = transaction.POutputs;
             PSignatures = transaction.PSignatures;
+            RangeProof = transaction.RangeProof;
+            RangeProofPlus = transaction.RangeProofPlus;
             PseudoOutputs = transaction.PseudoOutputs;
         }
 

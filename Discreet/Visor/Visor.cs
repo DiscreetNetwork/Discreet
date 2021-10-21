@@ -44,7 +44,7 @@ namespace Discreet.Visor
             wallet.ProcessBlock(block);
         }
 
-        public void ProcessTransaction(Transaction tx)
+        public void ProcessTransaction(FullTransaction tx)
         {
 
         }

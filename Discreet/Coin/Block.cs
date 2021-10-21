@@ -34,7 +34,7 @@ namespace Discreet.Coin
         public Cipher.SHA256[] Transactions; // 32 * len + 133
 
         /* used for full blocks (not packed with blocks) */
-        public Transaction[] transactions;
+        public FullTransaction[] transactions;
 
         public byte[] Marshal()
         {
@@ -103,42 +103,17 @@ namespace Discreet.Coin
 
         public string Readable()
         {
-            /* not really used yet */
-            string rv = $"{{\"Version\":{Version},\"Height\":{Height},\"Fee\":{Fee},\"PreviousBlock\":\"{PreviousBlock.ToHex()}\",\"BlockHash\":\"{BlockHash.ToHex()}\",\"MerkleRoot\":\"{MerkleRoot.ToHex()}\",\"NumTXs\":{NumTXs},\"BlockSize\":{BlockSize},\"NumOutputs\":{NumOutputs},\"Transactions\":[";
-
-            for (int i = 0; i < Transactions.Length; i++)
-            {
-                rv += $"\"{Transactions[i].ToHex()}\"";
-
-                if (i < Transactions.Length - 1)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += "]}";
-
-            return rv;
+            return Discreet.Readable.Block.ToReadable(this);
         }
 
         public string ReadableFull()
         {
-            /* not really used yet */
-            string rv = $"{{\"Version\":{Version},\"Height\":{Height},\"Fee\":{Fee},\"PreviousBlock\":\"{PreviousBlock.ToHex()}\",\"BlockHash\":\"{BlockHash.ToHex()}\",\"MerkleRoot\":\"{MerkleRoot.ToHex()}\",\"NumTXs\":{NumTXs},\"BlockSize\":{BlockSize},\"NumOutputs\":{NumOutputs},\"Transactions\":[";
+            return Readable();
+        }
 
-            for (int i = 0; i < transactions.Length; i++)
-            {
-                rv += transactions[i].Readable();
-
-                if (i < transactions.Length - 1)
-                {
-                    rv += ",";
-                }
-            }
-
-            rv += "]}";
-
-            return rv;
+        public static Block FromReadable(string json)
+        {
+            return Discreet.Readable.Block.FromReadable(json);
         }
 
         public void Unmarshal(byte[] bytes)
@@ -185,11 +160,11 @@ namespace Discreet.Coin
 
             uint _offset = 133;
 
-            transactions = new Transaction[NumTXs];
+            transactions = new FullTransaction[NumTXs];
 
             for (int i = 0; i < NumTXs; i++)
             {
-                transactions[i] = new Transaction();
+                transactions[i] = new FullTransaction();
                 transactions[i].Unmarshal(bytes, _offset);
                 _offset += transactions[i].Size();
                 Transactions[i] = transactions[i].Hash();
@@ -241,13 +216,13 @@ namespace Discreet.Coin
             NumOutputs = Serialization.GetUInt32(bytes, _offset + 129);
 
             Transactions = new Cipher.SHA256[NumTXs];
-            transactions = new Transaction[NumTXs];
+            transactions = new FullTransaction[NumTXs];
 
             _offset += 133;
 
             for (int i = 0; i < NumTXs; i++)
             {
-                transactions[i] = new Transaction();
+                transactions[i] = new FullTransaction();
                 transactions[i].Unmarshal(bytes, _offset);
                 _offset += transactions[i].Size();
                 Transactions[i] = transactions[i].Hash();
@@ -276,45 +251,45 @@ namespace Discreet.Coin
         /* for testing purposes only */
         public static Block BuildRandom(StealthAddress[] addresses, int[] numOutputs)
         {
-            List<Transaction> txs = new();
+            List<FullTransaction> txs = new();
 
             for (int i = 0; i < addresses.Length; i++)
             {
                 for (int j = 0; j < numOutputs[i] / 16; j++)
                 {
-                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], 16));
+                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], 16).ToFull());
                 }
 
                 if (numOutputs[i] % 16 != 0)
                 {
-                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], numOutputs[i] % 16));
+                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], numOutputs[i] % 16).ToFull());
                 }
             }
 
             return Build(txs, null);
         }
 
-        public static Block BuildRandomPlus(StealthAddress[] addresses, int[] numOutputs, List<Transaction> txExtras)
+        public static Block BuildRandomPlus(StealthAddress[] addresses, int[] numOutputs, List<FullTransaction> txExtras)
         {
-            List<Transaction> txs = txExtras;
+            List<FullTransaction> txs = txExtras;
 
             for (int i = 0; i < addresses.Length; i++)
             {
                 for (int j = 0; j < numOutputs[i] / 16; j++)
                 {
-                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], 16));
+                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], 16).ToFull());
                 }
 
                 if (numOutputs[i] % 16 != 0)
                 {
-                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], numOutputs[i] % 16));
+                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], numOutputs[i] % 16).ToFull());
                 }
             }
 
             return Build(txs, null);
         }
 
-        public static Block Build(List<Transaction> txs, StealthAddress miner)
+        public static Block Build(List<FullTransaction> txs, StealthAddress miner)
         {
             Block block = new();
             block.Timestamp = (ulong)DateTime.Now.Ticks;
@@ -377,7 +352,7 @@ namespace Discreet.Coin
 
                 minertx.TransactionKey = R;
 
-                txs.Add(minertx);
+                txs.Add(minertx.ToFull());
             }
 
             block.MerkleRoot = GetMerkleRoot(txs);
@@ -397,7 +372,7 @@ namespace Discreet.Coin
             return block;
         }
 
-        public static SHA256 GetMerkleRoot(List<Transaction> txs)
+        public static SHA256 GetMerkleRoot(List<FullTransaction> txs)
         {
             List<SHA256> hashes = new();
 

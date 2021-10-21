@@ -33,6 +33,7 @@ namespace Discreet.Wallets
         public int DecodeIndex;
         public Key TransactionKey;
         public ulong DecodedAmount;
+
         public int OwnedIndex;
 
         public byte[] Marshal()
@@ -63,7 +64,7 @@ namespace Discreet.Wallets
 
             DecodeIndex = Coin.Serialization.GetInt32(bytes, 33);
             DecodedAmount = 0;
-            Encrypted = true;
+            Encrypted = (Type == UTXOType.PRIVATE) ? true : false;
             Amount = Coin.Serialization.GetUInt64(bytes, 69);
             Index = Coin.Serialization.GetUInt32(bytes, 77);
         }
@@ -88,14 +89,13 @@ namespace Discreet.Wallets
             Encrypted = true;
         }
 
-        public UTXO(uint index, Coin.Transparent.TXOutput output)
+        public UTXO(Coin.Transparent.TXOutput output)
         {
             Type = UTXOType.TRANSPARENT;
-            Index = index;
             TransactionSrc = output.TransactionSrc;
             Amount = output.Amount;
 
-            Encrypted = true;
+            Encrypted = false;
         }
 
         public UTXO(uint index, Coin.TXOutput output, Coin.Transaction tx, int i) : this(index, output)

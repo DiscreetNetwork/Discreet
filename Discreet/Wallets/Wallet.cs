@@ -298,15 +298,18 @@ namespace Discreet.Wallets
         {
             if (IsEncrypted) throw new Exception("Do not call if wallet is encrypted!");
 
-            foreach (Transaction transaction in block.transactions)
+            foreach (FullTransaction transaction in block.transactions)
             {
                 ProcessTransaction(transaction);
             }
         }
 
-        private void ProcessTransaction(Transaction transaction)
+        private void ProcessTransaction(FullTransaction transaction)
         {
-            for (int i = 0; i < transaction.NumOutputs; i++)
+            int numPOutputs = (transaction.Version == 4) ? transaction.NumPOutputs : ((transaction.Version == 3) ? 0 : transaction.NumOutputs);
+            int numTOutputs = (transaction.Version == 4) ? transaction.NumTOutputs : ((transaction.Version == 3) ? transaction.NumOutputs : 0);
+
+            for (int i = 0; i < numPOutputs; i++)
             {
                 for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
                 {
@@ -316,25 +319,38 @@ namespace Discreet.Wallets
 
                     for (int k = 0; k < Addresses[addrIndex].UTXOs.Count; k++)
                     {
-                        if (Addresses[addrIndex].UTXOs[k].UXKey.Equals(transaction.Outputs[i].UXKey))
+                        if (Addresses[addrIndex].UTXOs[k].UXKey.Equals(transaction.POutputs[i].UXKey))
                         {
                             throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
                         }
                     }
 
-                    if (transaction.Outputs[i].UXKey.Equals(outputPubKey))
+                    if (transaction.POutputs[i].UXKey.Equals(outputPubKey))
                     {
-                        ProcessOutput(transaction, i, addrIndex);
+                        ProcessOutput(transaction, i, addrIndex, false);
+                    }
+                }
+            }
+
+            for (int i = 0; i < numTOutputs; i++)
+            {
+                for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
+                {
+                    string address = transaction.TOutputs[i].Address.ToString();
+
+                    if (Addresses[addrIndex].Address == address)
+                    {
+                        ProcessOutput(transaction, i, addrIndex, true);
                     }
                 }
             }
         }
 
-        private void ProcessOutput(Transaction transaction, int i, int walletIndex)
+        private void ProcessOutput(FullTransaction transaction, int i, int walletIndex, bool transparent)
         {
             DB.DB db = DB.DB.GetDB();
 
-            (int index, UTXO utxo) = db.AddWalletOutput(transaction, i);
+            (int index, UTXO utxo) = db.AddWalletOutput(transaction, i, transparent);
 
             utxo.OwnedIndex = index;
 
