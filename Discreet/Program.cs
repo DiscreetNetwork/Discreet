@@ -747,8 +747,8 @@ namespace Discreet
 
 			Wallet myTransWallet = new Wallet();
 
-			//Console.WriteLine(Printable.Prettify(Readable.Transaction.ToReadable(testtx)));
-			//Console.WriteLine(testtx.Marshal().Length);
+			Console.WriteLine(Printable.Prettify(Readable.Transaction.ToReadable(testtx)));
+			Console.WriteLine(testtx.Marshal().Length);
 
 			var err = testtx.Verify();
 

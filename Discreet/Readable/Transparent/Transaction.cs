@@ -16,13 +16,13 @@ namespace Discreet.Readable.Transparent
         public byte NumOutputs { get; set; }
         public byte NumSigs { get; set; }
 
+        public ulong Fee { get; set; }
+
         public string InnerHash { get; set; }
 
         public List<TXOutput> Inputs { get; set; }
         public List<TXOutput> Outputs { get; set; }
         public List<string> Signatures { get; set; }
-
-        public ulong Fee { get; set; }
 
         public string JSON()
         {

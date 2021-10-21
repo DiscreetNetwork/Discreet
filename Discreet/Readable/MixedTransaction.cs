@@ -21,9 +21,9 @@ namespace Discreet.Readable
         public byte NumTOuputs { get; set; }
         public byte NumPOutputs { get; set; }
 
-        public string SigningHash { get; set; }
-
         public ulong Fee { get; set; }
+
+        public string SigningHash { get; set; }
 
         public List<Transparent.TXOutput> TInputs { get; set; }
         public List<Transparent.TXOutput> TOutputs { get; set; }

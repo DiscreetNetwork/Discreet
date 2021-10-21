@@ -172,11 +172,12 @@ namespace Discreet.Coin
             int lenPSigs = PSignatures == null ? 0 : PSignatures.Length;
 
             uint offset = 8;
-            Array.Copy(SigningHash.Bytes, 0, bytes, offset, 32);
-            offset += 32;
 
             Serialization.CopyData(bytes, offset, Fee);
             offset += 8;
+
+            Array.Copy(SigningHash.Bytes, 0, bytes, offset, 32);
+            offset += 32;
 
             for (int i = 0; i < lenTInputs; i++)
             {
@@ -265,13 +266,14 @@ namespace Discreet.Coin
             NumPOutputs = bytes[7];
 
             uint offset = 8;
+
+            Fee = Serialization.GetUInt64(bytes, offset);
+            offset += 8;
+
             byte[] signingHash = new byte[32];
             Array.Copy(bytes, offset, signingHash, 0, 32);
             SigningHash = new SHA256(signingHash, false);
             offset += 32;
-
-            Fee = Serialization.GetUInt64(bytes, offset);
-            offset += 8;
 
             TInputs = new Transparent.TXOutput[NumTInputs];
             for (int i = 0; i < NumTInputs; i++)
@@ -358,13 +360,13 @@ namespace Discreet.Coin
 
             offset += 8;
 
+            Fee = Serialization.GetUInt64(bytes, offset);
+            offset += 8;
+
             byte[] signingHash = new byte[32];
             Array.Copy(bytes, offset, signingHash, 0, 32);
             SigningHash = new SHA256(signingHash, false);
             offset += 32;
-
-            Fee = Serialization.GetUInt64(bytes, offset);
-            offset += 8;
 
             TInputs = new Transparent.TXOutput[NumTInputs];
             for (int i = 0; i < NumTInputs; i++)
