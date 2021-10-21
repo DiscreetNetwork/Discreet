@@ -161,7 +161,7 @@ namespace Discreet.Readable
                     POutputs.Add(new TXOutput(obj.POutputs[i], true));
                 }
             }
-            if (obj.RangeProof != null) RangeProof = new BulletproofPlus(obj.RangeProof);
+            if (obj.RangeProofPlus != null) RangeProof = new BulletproofPlus(obj.RangeProofPlus);
             if (obj.PSignatures != null)
             {
                 PSignatures = new List<Triptych>(obj.PSignatures.Length);
@@ -260,7 +260,7 @@ namespace Discreet.Readable
                     obj.POutputs[i] = POutputs[i].ToObject();
                 }
             }
-            if (RangeProof != null) obj.RangeProof = RangeProof.ToObject();
+            if (RangeProof != null) obj.RangeProofPlus = RangeProof.ToObject();
             if (PSignatures != null)
             {
                 obj.PSignatures = new Coin.Triptych[PSignatures.Count];

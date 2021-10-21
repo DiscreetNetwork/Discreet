@@ -62,7 +62,7 @@ namespace Discreet.Wallets
                 tx.PInputs[i] = PInputs[i].Input;
             }
             tx.POutputs = POutputs;
-            tx.RangeProof = RangeProof;
+            tx.RangeProofPlus = RangeProof;
             tx.PseudoOutputs = new Cipher.Key[NumInputs];
             tx.PSignatures = new Coin.Triptych[NumPInputs];
 

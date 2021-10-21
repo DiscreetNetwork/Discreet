@@ -109,7 +109,7 @@ namespace Discreet.Coin
                 PInputs = PInputs,
                 POutputs = POutputs,
                 PSignatures = PSignatures,
-                RangeProof = RangeProofPlus,
+                RangeProofPlus = RangeProofPlus,
                 PseudoOutputs = PseudoOutputs,
                 TInputs = TInputs,
                 TOutputs = TOutputs,
@@ -165,7 +165,7 @@ namespace Discreet.Coin
             PInputs = tx.PInputs;
             POutputs = tx.POutputs;
             PSignatures = tx.PSignatures;
-            RangeProofPlus = tx.RangeProof;
+            RangeProofPlus = tx.RangeProofPlus;
             PseudoOutputs = tx.PseudoOutputs;
             TInputs = tx.TInputs;
             TOutputs = tx.TOutputs;

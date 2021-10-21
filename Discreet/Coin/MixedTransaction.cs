@@ -37,7 +37,7 @@ namespace Discreet.Coin
         public Key TransactionKey;
         public TXInput[] PInputs;
         public TXOutput[] POutputs;
-        public BulletproofPlus RangeProof;
+        public BulletproofPlus RangeProofPlus;
         public Triptych[] PSignatures;
         public Key[] PseudoOutputs;
 
@@ -64,7 +64,7 @@ namespace Discreet.Coin
             TransactionKey = tx.TransactionKey;
             PInputs = tx.Inputs;
             POutputs = tx.Outputs;
-            RangeProof = tx.RangeProofPlus;
+            RangeProofPlus = tx.RangeProofPlus;
             PSignatures = tx.Signatures;
             PseudoOutputs = tx.PseudoOutputs;
         }
@@ -215,10 +215,10 @@ namespace Discreet.Coin
                 offset += 72;
             }
 
-            if (RangeProof != null && lenPOutputs > 0)
+            if (RangeProofPlus != null && lenPOutputs > 0)
             {
-                RangeProof.Marshal(bytes, offset);
-                offset += RangeProof.Size();
+                RangeProofPlus.Marshal(bytes, offset);
+                offset += RangeProofPlus.Size();
             }
 
             for (int i = 0; i < lenPSigs; i++)
@@ -324,9 +324,9 @@ namespace Discreet.Coin
 
             if (NumPOutputs > 0)
             {
-                RangeProof = new BulletproofPlus();
-                RangeProof.Unmarshal(bytes, offset);
-                offset += RangeProof.Size();
+                RangeProofPlus = new BulletproofPlus();
+                RangeProofPlus.Unmarshal(bytes, offset);
+                offset += RangeProofPlus.Size();
             }
 
             PSignatures = new Triptych[NumPInputs];
@@ -412,9 +412,9 @@ namespace Discreet.Coin
                 offset += 72;
             }
 
-            RangeProof = new BulletproofPlus();
-            RangeProof.Unmarshal(bytes, offset);
-            offset += RangeProof.Size();
+            RangeProofPlus = new BulletproofPlus();
+            RangeProofPlus.Unmarshal(bytes, offset);
+            offset += RangeProofPlus.Size();
 
             PSignatures = new Triptych[NumPInputs];
             for (int i = 0; i < NumPInputs; i++)
@@ -443,7 +443,7 @@ namespace Discreet.Coin
                              + (NumPOutputs > 0 ? 32 : 0)
                              + (PInputs == null ? 0 : PInputs.Length) * TXInput.Size()
                              + (POutputs == null ? 0 : POutputs.Length) * 72
-                             + ((RangeProof == null && NumPOutputs > 0) ? 0 : RangeProof.Size())
+                             + ((RangeProofPlus == null && NumPOutputs > 0) ? 0 : RangeProofPlus.Size())
                              + Triptych.Size() * (PSignatures == null ? 0 : PSignatures.Length)
                              + 32 * PseudoOutputs.Length);
         }
@@ -472,7 +472,7 @@ namespace Discreet.Coin
             tx.Outputs = POutputs;
             tx.Signatures = PSignatures;
 
-            tx.RangeProofPlus = RangeProof;
+            tx.RangeProofPlus = RangeProofPlus;
 
             tx.PseudoOutputs = PseudoOutputs;
 
@@ -614,7 +614,7 @@ namespace Discreet.Coin
                 return new VerifyException("MixedTransaction", $"Transactions must have the same number of private signatures as private inputs ({NumPInputs} inputs, but {lenPSigs} sigs)");
             }
 
-            if (lenPOutputs > 0 && RangeProof == null)
+            if (lenPOutputs > 0 && RangeProofPlus == null)
             {
                 return new VerifyException("MixedTransaction", $"Transaction contains at least one private output, but has no range proof!");
             }
@@ -772,9 +772,9 @@ namespace Discreet.Coin
             /* validate range sig */
             VerifyException bpexc = null;
 
-            if (RangeProof != null)
+            if (RangeProofPlus != null)
             {
-                bpexc = RangeProof.Verify(this);
+                bpexc = RangeProofPlus.Verify(this);
             }
 
             if (bpexc != null)
