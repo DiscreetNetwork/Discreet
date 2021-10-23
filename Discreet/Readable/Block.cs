@@ -27,11 +27,12 @@ namespace Discreet.Readable
         public uint BlockSize { get; set; }
         public uint NumOutputs { get; set; }
 
+        public Transaction Coinbase { get; set; }
+
         public List<string> Transactions { get; set; }
 
         /* this is fine since we disallow both serialization of Transactions and transactions; mutually exclusive */
-        [JsonPropertyName("Transactions")]
-        public List<string> transactions { get; set; }
+        public List<FullTransaction> transactions { get; set; }
 
         public string JSON()
         {
@@ -59,6 +60,8 @@ namespace Discreet.Readable
             NumTXs = b.NumTXs;
             BlockSize = b.BlockSize;
             NumOutputs = b.NumOutputs;
+
+            Coinbase = b.Coinbase;
             
             Transactions = b.Transactions;
 
@@ -105,13 +108,15 @@ namespace Discreet.Readable
             BlockSize = obj.BlockSize;
             NumOutputs = obj.NumOutputs;
 
+            Coinbase = new Transaction(obj.Coinbase);
+
             if (obj.transactions != null)
             {
-                transactions = new List<string>(obj.transactions.Length);
+                transactions = new List<FullTransaction>(obj.transactions.Length);
 
                 for (int i = 0; i < obj.transactions.Length; i++)
                 {
-                    transactions.Add(new FullTransaction(obj.transactions[i]).JSON());
+                    transactions.Add(new FullTransaction(obj.transactions[i]));
                 }
             }
             else if (obj.Transactions != null)
@@ -157,13 +162,15 @@ namespace Discreet.Readable
             obj.BlockSize = BlockSize;
             obj.NumOutputs = NumOutputs;
 
+            obj.Coinbase = Coinbase.ToObject();
+
             if (transactions != null)
             {
                 obj.transactions = new Coin.FullTransaction[transactions.Count];
 
                 for (int i = 0; i < transactions.Count; i++)
                 {
-                    obj.transactions[i] = new FullTransaction(transactions[i]).ToObject();
+                    obj.transactions[i] = transactions[i].ToObject();
                 }
             }
             else if (Transactions != null)

@@ -107,7 +107,12 @@ namespace Discreet.Coin
 
         public SHA256 TXSigningHash()
         {
-            byte[] bytes = new byte[16 + 65 * TInputs.Length + 33 * TOutputs.Length + 32 + PInputs.Length * TXInput.Size() + POutputs.Length * 40];
+            int lenTInputs = ((TInputs == null) ? 0 : TInputs.Length);
+            int lenTOutputs = ((TOutputs == null) ? 0 : TOutputs.Length);
+            int lenPInputs = ((PInputs == null) ? 0 : PInputs.Length);
+            int lenPOutputs = ((POutputs == null) ? 0 : POutputs.Length);
+
+            byte[] bytes = new byte[16 + 65 * lenTInputs + 33 * lenTOutputs + 32 + lenPInputs * TXInput.Size() + lenPOutputs * 40];
 
             bytes[0] = Version;
             bytes[1] = NumInputs;
@@ -123,13 +128,13 @@ namespace Discreet.Coin
             Serialization.CopyData(bytes, offset, Fee);
             offset += 8;
 
-            for (int i = 0; i < TInputs.Length; i++)
+            for (int i = 0; i < lenTInputs; i++)
             {
                 TInputs[i].Marshal(bytes, offset);
                 offset += 65;
             }
 
-            for (int i = 0; i < TOutputs.Length; i++)
+            for (int i = 0; i < lenTOutputs; i++)
             {
                 TOutputs[i].TXMarshal(bytes, offset);
                 offset += 33;
@@ -138,13 +143,13 @@ namespace Discreet.Coin
             Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
             offset += 32;
 
-            for (int i = 0; i < PInputs.Length; i++)
+            for (int i = 0; i < lenPInputs; i++)
             {
                 PInputs[i].Marshal(bytes, offset);
                 offset += TXInput.Size();
             }
 
-            for (int i = 0; i < POutputs.Length; i++)
+            for (int i = 0; i < lenPOutputs; i++)
             {
                 Array.Copy(POutputs[i].UXKey.bytes, 0, bytes, offset, 32);
                 offset += 32;
@@ -171,7 +176,7 @@ namespace Discreet.Coin
 
             int lenTInputs = TInputs == null ? 0 : TInputs.Length;
             int lenTOutputs = TOutputs == null ? 0 : TOutputs.Length;
-            int lenPInputs = PInputs == null ? 0 : POutputs.Length;
+            int lenPInputs = PInputs == null ? 0 : PInputs.Length;
             int lenPOutputs = POutputs == null ? 0 : POutputs.Length;
             int lenTSigs = TSignatures == null ? 0 : TSignatures.Length;
             int lenPSigs = PSignatures == null ? 0 : PSignatures.Length;
@@ -672,7 +677,7 @@ namespace Discreet.Coin
                 _out.Add(new Transparent.TXOutput(txhash, TOutputs[i].Address, TOutputs[i].Amount).Hash());
             }
 
-            if (_out.Count != NumOutputs)
+            if (_out.Count != NumTOutputs)
             {
                 return new VerifyException("MixedTransaction", $"Duplicate transparent outputs detected!");
             }

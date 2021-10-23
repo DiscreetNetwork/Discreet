@@ -13,6 +13,8 @@ namespace Discreet.Readable
     {
         public byte Type { get; set; }
 
+        public bool Deterministic { get; set; }
+
         public string EncryptedSecSpendKey { get; set; }
         public string EncryptedSecViewKey { get; set; }
         public string PubSpendKey { get; set; }
@@ -40,6 +42,7 @@ namespace Discreet.Readable
         {
             WalletAddress addr = JsonSerializer.Deserialize<WalletAddress>(json);
             Type = addr.Type;
+            Deterministic = addr.Deterministic;
             EncryptedSecSpendKey = addr.EncryptedSecSpendKey;
             EncryptedSecViewKey = addr.EncryptedSecViewKey;
             PubSpendKey = addr.PubSpendKey;
@@ -78,6 +81,7 @@ namespace Discreet.Readable
         public void FromObject(Wallets.WalletAddress obj)
         {
             Type = obj.Type;
+            Deterministic = obj.Deterministic;
             if (obj.EncryptedSecSpendKey != null) EncryptedSecSpendKey = Printable.Hexify(obj.EncryptedSecSpendKey);
             if (obj.EncryptedSecViewKey != null) EncryptedSecViewKey = Printable.Hexify(obj.EncryptedSecViewKey);
             if (obj.PubSpendKey.bytes != null) PubSpendKey = obj.PubSpendKey.ToHex();
@@ -117,6 +121,9 @@ namespace Discreet.Readable
         public Wallets.WalletAddress ToObject()
         {
             Wallets.WalletAddress obj = new();
+
+            obj.Type = Type;
+            obj.Deterministic = Deterministic;
 
             if (EncryptedSecSpendKey != null && EncryptedSecSpendKey != "") obj.EncryptedSecSpendKey = Printable.Byteify(EncryptedSecSpendKey);
             if (EncryptedSecViewKey != null && EncryptedSecViewKey != "") obj.EncryptedSecViewKey = Printable.Byteify(EncryptedSecViewKey);

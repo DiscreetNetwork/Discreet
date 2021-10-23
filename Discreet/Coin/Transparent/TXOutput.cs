@@ -79,7 +79,7 @@ namespace Discreet.Coin.Transparent
 
         public void TXMarshal(byte[] bytes, uint offset)
         {
-            Array.Copy(Marshal(), 0, bytes, offset, 33);
+            Array.Copy(TXMarshal(), 0, bytes, offset, 33);
         }
 
         public string Readable()

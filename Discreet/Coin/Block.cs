@@ -31,6 +31,9 @@ namespace Discreet.Coin
         public uint NumTXs;
         public uint BlockSize;              // 129
         public uint NumOutputs;             // 133
+
+        public Transaction Coinbase;
+
         public Cipher.SHA256[] Transactions; // 32 * len + 133
 
         /* used for full blocks (not packed with blocks) */
@@ -54,9 +57,12 @@ namespace Discreet.Coin
             Serialization.CopyData(bytes, 125, BlockSize);
             Serialization.CopyData(bytes, 129, NumOutputs);
 
+            byte[] coinbase = Coinbase.Marshal();
+            Array.Copy(coinbase, 0, bytes, 133, coinbase.Length);
+
             for (int i = 0; i < NumTXs; i++)
             {
-                Array.Copy(Transactions[i].Bytes, 0, bytes, 133 + i * 32, 32);
+                Array.Copy(Transactions[i].Bytes, 0, bytes, 133 + coinbase.Length + i * 32, 32);
             }
 
             return bytes;
@@ -81,6 +87,9 @@ namespace Discreet.Coin
             Serialization.CopyData(bytes, 129, NumOutputs);
 
             uint offset = 133;
+            byte[] coinbase = Coinbase.Marshal();
+            Array.Copy(coinbase, 0, bytes, 133, coinbase.Length);
+            offset += (uint)coinbase.Length;
 
             for (int i = 0; i < NumTXs; i++)
             {
@@ -134,9 +143,15 @@ namespace Discreet.Coin
 
             Transactions = new Cipher.SHA256[NumTXs];
 
+            Coinbase = new Transaction();
+            uint offset = Coinbase.Unmarshal(bytes, 133);
+
             for (int i = 0; i < NumTXs; i++)
             {
-                Transactions[i] = new SHA256(bytes[(133 + i * 32)..(133 + (i + 1) * 32)], false);
+                byte[] data = new byte[32];
+                Array.Copy(bytes, offset, data, 0, 32);
+                offset += 32;
+                Transactions[i] = new SHA256(data, false);
             }
         }
 
@@ -158,7 +173,8 @@ namespace Discreet.Coin
 
             Transactions = new Cipher.SHA256[NumTXs];
 
-            uint _offset = 133;
+            Coinbase = new Transaction();
+            uint _offset = Coinbase.Unmarshal(bytes, 133);
 
             transactions = new FullTransaction[NumTXs];
 
@@ -190,9 +206,15 @@ namespace Discreet.Coin
 
             Transactions = new Cipher.SHA256[NumTXs];
 
+            Coinbase = new Transaction();
+            _offset = Coinbase.Unmarshal(bytes, _offset + 133);
+
             for (int i = 0; i < NumTXs; i++)
             {
-                Transactions[i] = new SHA256(bytes[(offset + 133 + i * 32)..(offset + 133 + (i + 1) * 32)], false);
+                byte[] data = new byte[32];
+                Array.Copy(bytes, _offset, data, 0, 32);
+                _offset += 32;
+                Transactions[i] = new SHA256(data, false);
             }
 
             return _offset + Size();
@@ -218,7 +240,8 @@ namespace Discreet.Coin
             Transactions = new Cipher.SHA256[NumTXs];
             transactions = new FullTransaction[NumTXs];
 
-            _offset += 133;
+            Coinbase = new Transaction();
+            _offset = Coinbase.Unmarshal(bytes, _offset + 133);
 
             for (int i = 0; i < NumTXs; i++)
             {
@@ -233,12 +256,12 @@ namespace Discreet.Coin
 
         public uint Size()
         {
-            return 133 + 32 * (uint)Transactions.Length;
+            return 133 + Coinbase.Size() + 32 * (uint)Transactions.Length;
         }
 
         public uint SizeFull()
         {
-            uint size = 133;
+            uint size = 133 + Coinbase.Size();
 
             for (int i = 0; i < transactions.Length; i++)
             {
@@ -334,15 +357,11 @@ namespace Discreet.Coin
 
                 KeyOps.GenerateKeypair(ref r, ref R);
 
-                /*Key cscalar = KeyOps.ScalarmultKey(ref miner.view, ref r);
-                byte[] tmp = new byte[36];
-                Array.Copy(cscalar.bytes, tmp, 32);
-                Key c = new Key(new byte[32]);
-                HashOps.HashToScalar(ref c, tmp, 36);*/
-
                 TXOutput minerOutput = new();
                 minerOutput.Commitment = new Key(new byte[32]);
-                Key mask = KeyOps.GenCommitmentMask(ref r, ref miner.view, 0);
+
+                /* the mask is always zero for miner tx */
+                Key mask = Key.Z;
                 KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, block.Fee);
 
                 minerOutput.UXKey = KeyOps.DKSAP(ref r, miner.view, miner.spend, 0);
@@ -352,10 +371,44 @@ namespace Discreet.Coin
 
                 minertx.TransactionKey = R;
 
-                txs.Add(minertx.ToFull());
+                block.Coinbase = minertx;
+            }
+            else
+            {
+                /* Construct miner TX */
+                Transaction minertx = new();
+                minertx.Version = 0;
+                minertx.NumInputs = 0;
+                minertx.NumOutputs = 1;
+                minertx.NumSigs = 0;
+
+                Key R = new(new byte[32]);
+                Key r = new(new byte[32]);
+
+                KeyOps.GenerateKeypair(ref r, ref R);
+
+                TXOutput minerOutput = new();
+                minerOutput.Commitment = new Key(new byte[32]);
+
+                /* the mask is always zero for miner tx */
+                Key mask = Key.Z;
+                KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, 0);
+
+                Console.WriteLine(minerOutput.Commitment.ToHex());
+
+                minerOutput.UXKey = Key.I;
+                minerOutput.Amount = 0;
+
+                minertx.Outputs = new TXOutput[1] { minerOutput };
+
+                minertx.TransactionKey = R;
+
+                block.Coinbase = minertx;
             }
 
-            block.MerkleRoot = GetMerkleRoot(txs);
+            block.BlockSize += block.Coinbase.Size();
+
+            block.MerkleRoot = GetMerkleRoot(txs, block.Coinbase);
 
             /* Block hash is just the header hash, i.e. Hash(Version, Timestamp, Height, BlockSize, NumTXs, NumOutputs, PreviousBlock, MerkleRoot) */
             block.BlockHash = block.Hash();
@@ -370,6 +423,25 @@ namespace Discreet.Coin
             }
 
             return block;
+        }
+
+        public static SHA256 GetMerkleRoot(List<FullTransaction> txs, Transaction tx)
+        {
+            List<SHA256> hashes = new();
+
+            for (int k = 0; k < txs.Count; k++)
+            {
+                hashes.Add(txs[k].Hash());
+            }
+
+            hashes.Add(tx.Hash());
+
+            while (hashes.Count > 1)
+            {
+                hashes = GetMerkleRoot(hashes);
+            }
+
+            return hashes[0];
         }
 
         public static SHA256 GetMerkleRoot(List<FullTransaction> txs)
@@ -402,6 +474,8 @@ namespace Discreet.Coin
             }
 
             List<SHA256> hashes = new(Transactions);
+
+            hashes.Add(Coinbase.Hash());
 
             while (hashes.Count > 1)
             {
@@ -511,7 +585,7 @@ namespace Discreet.Coin
 
             ulong fee = 0;
             uint numOutputs = 0;
-            uint blockSize = 133;
+            uint blockSize = 133 + ((Coinbase == null) ? 0 : Coinbase.Size());
 
             for (int i = 0; i < transactions.Length; i++)
             {
@@ -535,8 +609,45 @@ namespace Discreet.Coin
                 return new VerifyException("Block", $"block size (in bytes) mismatch: expected {BlockSize} as included in block, but got {blockSize} from calculations");
             }
 
+            /* verify coinbase */
+            if (Coinbase == null)
+            {
+                return new VerifyException("Block", "No coinbase transaction detected");
+            }
+
+            if (Coinbase.Version != 0)
+            {
+                return new VerifyException("Block", "Miner tx not present or invalid");
+            }
+
+            if (Coinbase.Outputs == null || Coinbase.Outputs.Length != 1)
+            {
+                return new VerifyException("Block", "Miner tx has invalid outputs");
+            }
+
+            var minerexc = Coinbase.Verify();
+
+            if (minerexc != null)
+            {
+                return minerexc;
+            }
+
+            /* now verify output amount matches commitment */
+            Key zeroCommitmentFee = new(new byte[32]);
+            KeyOps.GenCommitment(ref zeroCommitmentFee, ref Key.Z, Fee);
+
+            if (!zeroCommitmentFee.Equals(Coinbase.Outputs[0].Commitment))
+            {
+                return new VerifyException("Block", "Coinbase transaction in block does not balance with fee commitment!");
+            }
+
             for (int i = 0; i < transactions.Length; i++)
             {
+                if (Height > 0 && transactions[i].Version == 0)
+                {
+                    return new VerifyException("Block", "block contains coinbase transaction outside of miner tx");
+                }
+
                 var txexc = transactions[i].Verify();
 
                 if (txexc != null)

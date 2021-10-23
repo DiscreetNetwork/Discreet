@@ -53,7 +53,7 @@ namespace Discreet.Wallets
 
             tx.TInputs = TInputs;
             tx.TOutputs = TOutputs;
-            tx.TSignatures = new Cipher.Signature[tx.NumTInputs];
+            tx.TSignatures = (NumTInputs > 0) ? new Cipher.Signature[tx.NumTInputs] : null;
 
             tx.TransactionKey = TransactionKey;
             tx.PInputs = new Coin.TXInput[NumPInputs];
@@ -64,7 +64,7 @@ namespace Discreet.Wallets
             tx.POutputs = POutputs;
             tx.RangeProofPlus = RangeProof;
             tx.PseudoOutputs = new Cipher.Key[NumInputs];
-            tx.PSignatures = new Coin.Triptych[NumPInputs];
+            tx.PSignatures = (NumPInputs > 0) ? new Coin.Triptych[NumPInputs] : null;
 
             tx.SigningHash = tx.TXSigningHash();
 

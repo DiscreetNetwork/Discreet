@@ -607,7 +607,8 @@ namespace Discreet.Coin
 
             for (int i = 0; i < NumOutputs; i++)
             {
-                if (Outputs[i].Amount == 0)
+                //we no longer need to validate these fields.
+                /*if (Outputs[i].Amount == 0)
                 {
                     return new VerifyException("Transaction", $"Amount field in output at index {i} is not set!");
                 }
@@ -615,7 +616,7 @@ namespace Discreet.Coin
                 if (Outputs[i].Commitment.Equals(Cipher.Key.Z))
                 {
                     return new VerifyException("Transaction", $"Commitment field in output at index {i} is not set!");
-                }
+                }*/
             }
 
             if (Version == 0)

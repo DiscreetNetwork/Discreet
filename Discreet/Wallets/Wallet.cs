@@ -195,6 +195,81 @@ namespace Discreet.Wallets
             IsEncrypted = encrypted;
         }
 
+        /**
+         * <summary>tries to add a new wallet of the specified type. Returns true on success. </summary>
+         * 
+         */
+        public bool AddWallet(bool deterministic, bool transparent)
+        {
+            if (IsEncrypted) return false;
+
+            byte[] hash = new byte[32];
+            WalletAddress lastSeenWallet = null;
+            int index = 0;
+
+            for (int i = 0; i < Addresses.Length; i++)
+            {
+                if (transparent && Addresses[i].Type == 1 && Addresses[i].Deterministic)
+                {
+                    lastSeenWallet = Addresses[i];
+                    index++;
+                }
+                else if (!transparent && Addresses[i].Type == 0 && Addresses[i].Deterministic)
+                {
+                    lastSeenWallet = Addresses[i];
+                    index++;
+                }
+            }
+
+            if (!deterministic)
+            {
+                WalletAddress newAddr = new WalletAddress((byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), true);
+                AddWallet(newAddr);
+                return true;
+            }
+
+            if (index == 0)
+            {
+                WalletAddress newAddr = new WalletAddress((byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), Entropy, hash, index);
+                AddWallet(newAddr);
+            }
+            else
+            {
+                if (transparent)
+                {
+                    byte[] hashingData = new byte[64];
+                    Array.Copy(lastSeenWallet.SecSpendKey.bytes, hashingData, 32);
+                    Array.Copy(lastSeenWallet.SecViewKey.bytes, 0, hashingData, 32, 32);
+                    hash = Cipher.SHA256.HashData(Cipher.SHA256.HashData(hashingData).Bytes).Bytes;
+                    Array.Clear(hashingData, 0, hashingData.Length);
+                }
+                else
+                {
+                    hash = Cipher.SHA256.HashData(Cipher.SHA256.HashData(lastSeenWallet.SecKey.bytes).Bytes).Bytes;
+                }
+                
+                WalletAddress newAddr = new WalletAddress((byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), Entropy, hash, index);
+                AddWallet(newAddr);
+
+                Array.Clear(hash, 0, hash.Length);
+            }
+
+            return true;
+        }
+
+        private void AddWallet(WalletAddress addr)
+        {
+            WalletAddress[] addrs = new WalletAddress[Addresses.Length + 1];
+            for (int i = 0; i < Addresses.Length; i++)
+            {
+                addrs[i] = Addresses[i];
+            }
+
+            addrs[Addresses.Length] = addr;
+
+            Addresses = addrs;
+        }
+
         public string GetMnemonic()
         {
             if (IsEncrypted)
@@ -286,6 +361,8 @@ namespace Discreet.Wallets
 
             string json = File.ReadAllText(path);
 
+            return Wallet.FromJSON(json);
+
             try
             {
                 return Wallet.FromJSON(json);
@@ -329,6 +406,24 @@ namespace Discreet.Wallets
         public void ProcessBlock(Block block)
         {
             if (IsEncrypted) throw new Exception("Do not call if wallet is encrypted!");
+
+            for (int i = 0; i < Addresses.Length; i++)
+            {
+                Key txKey = block.Coinbase.TransactionKey;
+                Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[i].SecViewKey, ref Addresses[i].SecSpendKey, i);
+                Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+
+                if (block.Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
+                {
+                    DB.DB db = DB.DB.GetDB();
+
+                    (int index, UTXO utxo) = db.AddWalletOutput(block.Coinbase.ToFull(), i, false, true);
+
+                    utxo.OwnedIndex = index;
+
+                    Addresses[i].UTXOs.Add(utxo);
+                }
+            }
 
             foreach (FullTransaction transaction in block.transactions)
             {

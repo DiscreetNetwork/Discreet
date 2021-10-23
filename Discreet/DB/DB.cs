@@ -781,6 +781,11 @@ namespace Discreet.DB
 
         public (int, Wallets.UTXO) AddWalletOutput(FullTransaction tx, int i, bool transparent)
         {
+            return AddWalletOutput(tx, i, transparent, false);
+        }
+
+        public (int, Wallets.UTXO) AddWalletOutput(FullTransaction tx, int i, bool transparent, bool coinbase)
+        {
             var txn = Env.BeginTransaction();
 
             Wallets.UTXO utxo;
@@ -798,13 +803,13 @@ namespace Discreet.DB
                 else
                 {
                     uint index = GetTXOutputIndex(txn, tx, i);
-                    utxo = new Wallets.UTXO(index, tx.POutputs[i], tx.ToPrivate(), i);
+                    utxo = new Wallets.UTXO(index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
                 }
             }
             else
             {
                 uint index = GetTXOutputIndex(txn, tx, i);
-                utxo = new Wallets.UTXO(index, tx.POutputs[i], tx.ToPrivate(), i);
+                utxo = new Wallets.UTXO(index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
             }
 
             if (OwnedOutputs == null || !OwnedOutputs.IsOpened)
@@ -958,6 +963,8 @@ namespace Discreet.DB
             LightningCursor txPoolCursor = txn.CreateCursor(TXPoolBlob);
 
             var resultCode = txPoolCursor.First();
+
+            if (resultCode == MDBResultCode.NotFound) return new List<FullTransaction>();
 
             if (resultCode != MDBResultCode.Success)
             {

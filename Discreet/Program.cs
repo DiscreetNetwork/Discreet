@@ -240,7 +240,7 @@ namespace Discreet
 
 			for (int i = 0; i < numTestWallets; i++)
             {
-				addresses[i] = wallets[i].Addresses[0].GetAddress();
+				addresses[i] = (StealthAddress)wallets[i].Addresses[0].GetAddress();
 				numOutputs[i] = numTestUTXOs;
 			}
 
@@ -255,12 +255,21 @@ namespace Discreet
 
 
 			List<FullTransaction> genesisTXsPlus = new List<FullTransaction>();
-			genesisTXsPlus.Add(Transaction.GenerateTransactionNoSpend(myWallet.Addresses[0].GetAddress(), (ulong)6_000_000 * 1_000_000_000_0).ToFull());
+			genesisTXsPlus.Add(Transaction.GenerateTransactionNoSpend((StealthAddress)myWallet.Addresses[0].GetAddress(), (ulong)6_000_000 * 1_000_000_000_0).ToFull());
 			Block genesis = Block.BuildRandomPlus(addresses, numOutputs, genesisTXsPlus);
 
             Console.WriteLine(genesis.MarshalFull().Length);
 
 			Console.WriteLine("Genesis block generated. ");
+
+			var err = genesis.Verify();
+
+			if (err != null)
+			{
+				throw err;
+			}
+
+			Console.WriteLine("Genesis block verified. ");
 
 			for (int i = 0; i < numTestWallets; i++)
             {
@@ -271,14 +280,8 @@ namespace Discreet
 			myWallet.ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, myWallet.Label + ".dis"));
 			myWallet.Decrypt("password123!");
 
-			var err = genesis.Verify();
-
-			if (err != null)
-            {
-				throw err;
-            }
-
-			Console.WriteLine("Genesis block verified. ");
+			Console.Write("wrote wallets to file.");
+			
 
 			File.WriteAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "genesis_block.json"), Printable.Prettify(genesis.ReadableFull()));
 
@@ -609,9 +612,9 @@ namespace Discreet
 			byte[] magic = new byte[32] { 0x17, 0x33, 0x50, 0x8c, 0xbe, 0x39, 0xf1, 0xe0, 0xac, 0x81, 0x84, 0xf4, 0x64, 0x18, 0x6f, 0x46, 0x61, 0x75, 0x1d, 0x94, 0x83, 0x64, 0xa6, 0x76, 0xc6, 0x69, 0xa7, 0x89, 0x77, 0x38, 0x47, 0x79 };
 
 
-            // CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
+			// CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
 
-            /*Wallet wallet = new Wallet("wrap", "password123!");
+			/*Wallet wallet = new Wallet("wrap", "password123!");
 			Console.WriteLine("Encryption Key: " + Printable.Hexify(magic));
 
 			Console.WriteLine("Entropy: " + Printable.Hexify(wallet.Entropy));
@@ -661,20 +664,20 @@ namespace Discreet
 			Console.WriteLine(Path.Combine(homePath, ".discreet"));*/
 
 
-            //RPCServer process = new RPCServer(8350);
-            //await process.Start();
-            //await Task.Delay(-1);
+			//RPCServer process = new RPCServer(8350);
+			//await process.Start();
+			//await Task.Delay(-1);
 
 
-            //db.AddBlock(genesis);
+			//db.AddBlock(genesis);
 
-            //Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
+			//Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
 
-            //Block.BuildRandom()
+			//Block.BuildRandom()
 
-            //GenerateGenesis();
+			//GenerateGenesis();
 
-            /*Stopwatch stopwatch = new Stopwatch();
+			/*Stopwatch stopwatch = new Stopwatch();
 
 			
 
@@ -724,7 +727,7 @@ namespace Discreet
 
             Console.WriteLine("100 transactions verified in " + stopwatch.ElapsedMilliseconds + "ms");*/
 
-             Wallet wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test0.dis"));
+			/*Wallet wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test0.dis"));
 			wallet.Decrypt("password123!");
 
 			
@@ -741,13 +744,15 @@ namespace Discreet
 			//Wallet receiver4 = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "test3.dis"));
 
 			//Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress(), receiver2.Addresses[0].GetAddress(), receiver3.Addresses[0].GetAddress(), receiver4.Addresses[0].GetAddress() }, new ulong[] { 5_000_000_000_0, 100_000_000_000_0, 250_000_000_000_0, 200_000_000_000_0 }, 2);
-			
 
-			Transaction testtx = wallet.CreateTransaction(0, new StealthAddress[] { receiver1.Addresses[0].GetAddress() }, new ulong[] { 69_000_000_000_0 }, 2);
+			Wallet myTransWallet = new Wallet("lottawallets", "password123!", 24, true, true, 10, 10);
+			myTransWallet.Decrypt("password123!");
 
-			Wallet myTransWallet = new Wallet();
+			myTransWallet.ToFile(Path.Combine(Visor.VisorConfig.GetDefault().WalletPath, "lottawallets.dis"));
 
-			Console.WriteLine(Printable.Prettify(Readable.Transaction.ToReadable(testtx)));
+			MixedTransaction testtx = wallet.Addresses[0].CreateTransaction(new IAddress[] { receiver1.Addresses[0].GetAddress(), myTransWallet.Addresses[0].GetAddress() }, new ulong[] { 60_000_000_000_0, 9_000_000_000_0 });
+
+			Console.WriteLine(Printable.Prettify(testtx.Readable()));
 			Console.WriteLine(testtx.Marshal().Length);
 
 			var err = testtx.Verify();
@@ -778,12 +783,11 @@ namespace Discreet
 
 			Signature s = new Signature(a, A, m);
 
-            if (!s.Verify(m)) Console.WriteLine("signature not valid!");
-
-
+            if (!s.Verify(m)) Console.WriteLine("signature not valid!");*/
 
 			//Console.WriteLine(Printable.Prettify(File.ReadAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "mon.txt"))));
 
+			GenerateGenesis();
 
 			/* testing DKSAP */
 

@@ -91,7 +91,7 @@ namespace Discreet.Coin
         {
             byte[] rv = TXMarshal();
 
-            Array.Copy(rv, 0, bytes, offset, 72 + 32);
+            Array.Copy(rv, 0, bytes, offset, 72);
         }
 
         public string Readable()

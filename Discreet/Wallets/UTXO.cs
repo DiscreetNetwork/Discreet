@@ -18,6 +18,7 @@ namespace Discreet.Wallets
     {
         /* fields are used as needed, depending on type. */
         public UTXOType Type;
+        public bool IsCoinbase;
 
         /* for all types */
         public SHA256 TransactionSrc;
@@ -38,35 +39,37 @@ namespace Discreet.Wallets
 
         public byte[] Marshal()
         {
-            byte[] bytes = new byte[145];
+            byte[] bytes = new byte[146];
 
             bytes[0] = (byte)Type;
-            Array.Copy(TransactionSrc.Bytes, 0, bytes, 1, 32);
-            Coin.Serialization.CopyData(bytes, 33, DecodeIndex);
-            Array.Copy(TransactionKey.bytes, 0, bytes, 37, 32);
-            Coin.Serialization.CopyData(bytes, 69, Amount);
+            bytes[1] = (IsCoinbase) ? (byte)1 : (byte)0;
+            Array.Copy(TransactionSrc.Bytes, 0, bytes, 2, 32);
+            Coin.Serialization.CopyData(bytes, 34, DecodeIndex);
+            Array.Copy(TransactionKey.bytes, 0, bytes, 38, 32);
+            Coin.Serialization.CopyData(bytes, 70, Amount);
 
-            Coin.Serialization.CopyData(bytes, 77, Index);
-            Array.Copy(UXKey.bytes, 0, bytes, 81, 32);
-            Array.Copy(Commitment.bytes, 0, bytes, 113, 32);
+            Coin.Serialization.CopyData(bytes, 78, Index);
+            Array.Copy(UXKey.bytes, 0, bytes, 82, 32);
+            Array.Copy(Commitment.bytes, 0, bytes, 114, 32);
 
             return bytes;
         }
 
         public void Unmarshal(byte[] bytes)
         {
-            TransactionSrc = new SHA256(bytes[1..33], false);
-            TransactionKey = new Key(bytes[37..69]);
-            UXKey = new Key(bytes[81..113]);
-            Commitment = new Key(bytes[113..145]);
+            TransactionSrc = new SHA256(bytes[2..34], false);
+            TransactionKey = new Key(bytes[38..70]);
+            UXKey = new Key(bytes[82..114]);
+            Commitment = new Key(bytes[114..146]);
 
             Type = (UTXOType)bytes[0];
+            IsCoinbase = bytes[1] == 1;
 
-            DecodeIndex = Coin.Serialization.GetInt32(bytes, 33);
+            DecodeIndex = Coin.Serialization.GetInt32(bytes, 34);
             DecodedAmount = 0;
             Encrypted = (Type == UTXOType.PRIVATE) ? true : false;
-            Amount = Coin.Serialization.GetUInt64(bytes, 69);
-            Index = Coin.Serialization.GetUInt32(bytes, 77);
+            Amount = Coin.Serialization.GetUInt64(bytes, 70);
+            Index = Coin.Serialization.GetUInt32(bytes, 78);
         }
 
         /* default constructor always sets UTXOType to STEALTH */
@@ -94,6 +97,7 @@ namespace Discreet.Wallets
             Type = UTXOType.TRANSPARENT;
             TransactionSrc = output.TransactionSrc;
             Amount = output.Amount;
+            IsCoinbase = false;
 
             Encrypted = false;
         }
@@ -102,19 +106,44 @@ namespace Discreet.Wallets
         {
             TransactionKey = tx.TransactionKey;
             DecodeIndex = i;
+            IsCoinbase = false;
         }
 
         public UTXO(uint index, Coin.TXOutput output, Coin.MixedTransaction tx, int i) : this(index, output)
         {
             TransactionKey = tx.TransactionKey;
             DecodeIndex = i;
+            IsCoinbase = false;
         }
 
         public UTXO(uint index, Coin.TXOutput output, Key txKey, int i) : this(index, output)
         {
             TransactionKey = txKey;
             DecodeIndex = i;
+            IsCoinbase = false;
         }
+
+        public UTXO(uint index, Coin.TXOutput output, Coin.Transaction tx, int i, bool isCoinbase) : this(index, output)
+        {
+            TransactionKey = tx.TransactionKey;
+            DecodeIndex = i;
+            IsCoinbase = isCoinbase;
+        }
+
+        public UTXO(uint index, Coin.TXOutput output, Coin.MixedTransaction tx, int i, bool isCoinbase) : this(index, output)
+        {
+            TransactionKey = tx.TransactionKey;
+            DecodeIndex = i;
+            IsCoinbase = isCoinbase;
+        }
+
+        public UTXO(uint index, Coin.TXOutput output, Key txKey, int i, bool isCoinbase) : this(index, output)
+        {
+            TransactionKey = txKey;
+            DecodeIndex = i;
+            IsCoinbase = isCoinbase;
+        }
+
 
         public void Encrypt()
         {

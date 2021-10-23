@@ -108,8 +108,8 @@ namespace Discreet.Common
 
             for(int i = 0; i < bytes.Length; i++)
             {
-                rv[2 * i] = "0123456789abcdef"[bytes[i] >> 4];
-                rv[2 * i + 1] = "0123456789abcdef"[bytes[i] & 0xf];
+                rv.Append("0123456789abcdef"[bytes[i] >> 4]);
+                rv.Append("0123456789abcdef"[bytes[i] & 0xf]);
             }
 
             return rv.ToString();

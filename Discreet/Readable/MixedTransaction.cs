@@ -70,6 +70,7 @@ namespace Discreet.Readable
             TransactionKey = transaction.TransactionKey;
             PInputs = transaction.PInputs;
             POutputs = transaction.POutputs;
+            RangeProofPlus = transaction.RangeProofPlus;
             PSignatures = transaction.PSignatures;
             PseudoOutputs = transaction.PseudoOutputs;
         }

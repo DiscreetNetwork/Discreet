@@ -26,6 +26,8 @@ namespace Discreet.Wallets
 
         public byte Type;
 
+        public bool Deterministic;
+
         /* privacy */
         public Key PubSpendKey;
         public Key PubViewKey;
@@ -50,9 +52,9 @@ namespace Discreet.Wallets
         /* UTXO data for the wallet. Stored in a local JSON database. */
         public List<UTXO> UTXOs;
 
-        public StealthAddress GetAddress()
+        public IAddress GetAddress()
         {
-            return new StealthAddress(PubViewKey, PubSpendKey);
+            return (Type == 0) ? new StealthAddress(PubViewKey, PubSpendKey) : new TAddress(PubKey);
         }
 
         public WalletAddress(byte type, bool random)
@@ -84,6 +86,8 @@ namespace Discreet.Wallets
 
                 UTXOs = new List<UTXO>();
             }
+
+            Deterministic = !random;
         }
 
         /* default constructor, used for falling back on JSON deserialize */
@@ -96,7 +100,7 @@ namespace Discreet.Wallets
          * hash = SHA256(SHA256(spendsk1||viewsk1))
          * 
          * for transparent:
-         * tsk1 = ScalarReduce(SHA256(SHA256(Entropy||hash||"transparent")))
+         * tsk1 = ScalarReduce(SHA256(SHA256(Entropy||hash||index||"transparent")))
          * hash = SHA256(SHA256(tsk1))
          * ...
          */
@@ -139,6 +143,8 @@ namespace Discreet.Wallets
                 Array.Clear(tmpspend, 0, tmpspend.Length);
                 Array.Clear(tmpview, 0, tmpview.Length);
 
+                Array.Clear(tmp, 0, tmp.Length);
+
                 PubSpendKey = Cipher.KeyOps.ScalarmultBase(ref SecSpendKey);
                 PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
 
@@ -146,10 +152,19 @@ namespace Discreet.Wallets
             }
             else if (type == 1)
             {
-                byte[] tmpsec = new byte[entropy.Length + hash.Length + 11];
+                byte[] tmpsec = new byte[entropy.Length + hash.Length + 15];
+                byte[] indexBytes = BitConverter.GetBytes(index);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(indexBytes);
+                }
+
                 Array.Copy(entropy, tmpsec, entropy.Length);
                 Array.Copy(hash, 0, tmpsec, entropy.Length, hash.Length);
-                Array.Copy(new byte[] { 0x74, 0x72, 0x61, 0x6E, 0x73, 0x70, 0x61, 0x72, 0x65, 0x6E, 0x74 }, 0, tmpsec, entropy.Length + hash.Length, 11);
+                Array.Copy(indexBytes, 0, tmpsec, entropy.Length + hash.Length, 4);
+
+                Array.Copy(new byte[] { 0x74, 0x72, 0x61, 0x6E, 0x73, 0x70, 0x61, 0x72, 0x65, 0x6E, 0x74 }, 0, tmpsec, entropy.Length + hash.Length + 4, 11);
 
                 Cipher.HashOps.HashToScalar(ref SecKey, Cipher.SHA256.HashData(tmpsec).Bytes, 32);
 
@@ -167,6 +182,8 @@ namespace Discreet.Wallets
             }
 
             UTXOs = new List<UTXO>();
+
+            Deterministic = true;
         }
 
         public void MustEncrypt(byte[] key)
@@ -428,7 +445,6 @@ namespace Discreet.Wallets
             List<UTXO> inputs = new List<UTXO>();
             ulong neededAmount = 0;
             int j = 0;
-            utx.inputAmounts = new ulong[utx.NumInputs];
 
             if (Type == (byte)WalletType.PRIVATE)
             {
@@ -451,6 +467,7 @@ namespace Discreet.Wallets
                 utx.PInputs = new PTXInput[utx.NumInputs];
                 utx.TransactionKeys = new Key[utx.NumInputs];
                 utx.DecodeIndices = new int[utx.NumInputs];
+                utx.inputAmounts = new ulong[utx.NumInputs];
                 for (int i = 0; i < utx.NumInputs; i++)
                 {
                     (TXOutput[] anonymitySet, int l) = db.GetMixins(inputs[i].Index);
@@ -505,6 +522,7 @@ namespace Discreet.Wallets
 
                 /* Construct inputs */
                 utx.TInputs = new Coin.Transparent.TXOutput[utx.NumInputs];
+                utx.inputAmounts = new ulong[utx.NumInputs];
                 for (int i = 0; i < utx.NumInputs; i++)
                 {
                     utx.TInputs[i] = new Coin.Transparent.TXOutput(inputs[i].TransactionSrc, new TAddress(Address), inputs[i].Amount);
