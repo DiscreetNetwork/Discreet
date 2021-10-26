@@ -407,8 +407,13 @@ namespace Discreet.Wallets
                     Key C_offset = tx.PseudoOutputs[i];
                     Key sign_r = new Key(new byte[32]);
                     KeyOps.DKSAPRecover(ref sign_r, ref utx.TransactionKeys[i], ref SecViewKey, ref SecSpendKey, utx.DecodeIndices[i]);
-
                     Key sign_x = KeyOps.GenCommitmentMaskRecover(ref utx.TransactionKeys[i], ref SecViewKey, utx.DecodeIndices[i]);
+
+                    if (utx.IsCoinbase[i])
+                    {
+                        sign_x = Key.I;
+                    }
+                    
                     Key sign_s = new(new byte[32]);
                     /* s = zt = xt - x't */
                     KeyOps.ScalarSub(ref sign_s, ref sign_x, ref blindingFactors[i]);
@@ -468,6 +473,7 @@ namespace Discreet.Wallets
                 utx.TransactionKeys = new Key[utx.NumInputs];
                 utx.DecodeIndices = new int[utx.NumInputs];
                 utx.inputAmounts = new ulong[utx.NumInputs];
+                utx.IsCoinbase = new bool[utx.NumInputs];
                 for (int i = 0; i < utx.NumInputs; i++)
                 {
                     (TXOutput[] anonymitySet, int l) = db.GetMixins(inputs[i].Index);
@@ -501,6 +507,7 @@ namespace Discreet.Wallets
                     utx.inputAmounts[i] = inputs[i].DecodedAmount;
                     utx.TransactionKeys[i] = inputs[i].TransactionKey;
                     utx.DecodeIndices[i] = inputs[i].DecodeIndex;
+                    utx.IsCoinbase[i] = inputs[i].IsCoinbase;
                 }
             }
             else if (Type == (byte)WalletType.TRANSPARENT)

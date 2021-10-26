@@ -30,6 +30,7 @@ namespace Discreet.Wallets
         public ulong[] inputAmounts;
         public Cipher.Key[] TransactionKeys;
         public int[] DecodeIndices;
+        public bool[] IsCoinbase;
 
         public Coin.MixedTransaction Sign(WalletAddress addr)
         {

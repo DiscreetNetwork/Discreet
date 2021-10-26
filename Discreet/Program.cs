@@ -787,7 +787,7 @@ namespace Discreet
 
 			//Console.WriteLine(Printable.Prettify(File.ReadAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "mon.txt"))));
 
-			GenerateGenesis();
+			//GenerateGenesis();
 
 			/* testing DKSAP */
 

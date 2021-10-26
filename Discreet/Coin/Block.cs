@@ -360,12 +360,12 @@ namespace Discreet.Coin
                 TXOutput minerOutput = new();
                 minerOutput.Commitment = new Key(new byte[32]);
 
-                /* the mask is always zero for miner tx */
-                Key mask = Key.Z;
+                /* the mask is always the identity for miner tx */
+                Key mask = Key.I;
                 KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, block.Fee);
 
                 minerOutput.UXKey = KeyOps.DKSAP(ref r, miner.view, miner.spend, 0);
-                minerOutput.Amount = KeyOps.GenAmountMask(ref r, ref miner.view, 0, block.Fee);
+                minerOutput.Amount = block.Fee;
 
                 minertx.Outputs = new TXOutput[1] { minerOutput };
 
@@ -390,8 +390,8 @@ namespace Discreet.Coin
                 TXOutput minerOutput = new();
                 minerOutput.Commitment = new Key(new byte[32]);
 
-                /* the mask is always zero for miner tx */
-                Key mask = Key.Z;
+                /* the mask is always the identity for miner tx */
+                Key mask = Key.I;
                 KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, 0);
 
                 Console.WriteLine(minerOutput.Commitment.ToHex());
@@ -633,10 +633,10 @@ namespace Discreet.Coin
             }
 
             /* now verify output amount matches commitment */
-            Key zeroCommitmentFee = new(new byte[32]);
-            KeyOps.GenCommitment(ref zeroCommitmentFee, ref Key.Z, Fee);
+            Key feeComm = new(new byte[32]);
+            KeyOps.GenCommitment(ref feeComm, ref Key.I, Fee);
 
-            if (!zeroCommitmentFee.Equals(Coinbase.Outputs[0].Commitment))
+            if (!feeComm.Equals(Coinbase.Outputs[0].Commitment))
             {
                 return new VerifyException("Block", "Coinbase transaction in block does not balance with fee commitment!");
             }
