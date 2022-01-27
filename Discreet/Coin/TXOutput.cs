@@ -71,7 +71,7 @@ namespace Discreet.Coin
 
         public byte[] TXMarshal()
         {
-            byte[] rv = new byte[72 + 32];
+            byte[] rv = new byte[72];
 
             Array.Copy(UXKey.bytes, 0, rv, 0, 32);
             Array.Copy(Commitment.bytes, 0, rv, 32, 32);

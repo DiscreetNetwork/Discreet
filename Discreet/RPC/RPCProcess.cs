@@ -89,7 +89,7 @@ namespace Discreet.RPC
                 return request;
             } catch(Exception ex)
             {
-                throw new JsonException($"Failed to serialize request: {ex}");
+                throw new JsonException($"Failed to serialize response: {ex}");
             }
         }
     }
