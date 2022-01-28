@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 
-namespace Discreet.Network.Common
+namespace Discreet.Network.Core
 {
     public class PacketHeader
     {

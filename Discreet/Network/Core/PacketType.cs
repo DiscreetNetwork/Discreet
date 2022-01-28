@@ -1,17 +1,45 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace Discreet.Network.Core
 {
-    [Flags]
-    public enum MessageType : byte
+    public enum PacketType: byte
     {
-        Ping = 0x01,
-        Ack = 0x00,
-        RequestPing = 0x05,
-        RequestAck = 0x04,
-        ForwardedPing = 0x07,
-        ForwardedAck = 0x06,
+        NONE = 0,
+
+        /* VERSION */
+        GETVERSION = 1,
+        VERSION = 2,
+
+        /* USED FOR SYNCING AND INFORMATION */
+        INVENTORY = 3,
+        GETBLOCKS = 4,
+        BLOCKS = 5,
+        GETTXS = 6,
+        TXS = 7,
+        GETHEADERS = 9,
+        HEADERS = 10,
+        GETTXSINBLOCK = 11,
+        NOTFOUND = 12,
+
+        /* TESTING LIVE CONNECTION */
+        //PING = 13,
+        //PONG = 14,
+
+        /* USED FOR GOSSIPING REJECTION */
+        REJECT = 15,
+
+        /* USED TO SEND NETWORK-WIDE MESSAGES */
+        ALERT = 16,
+
+        /* USED FOR SENDING/PROPAGATING TRANSACTIONS AND BLOCKS */
+        SENDTX = 17,
+        SENDBLOCK = 18,
+
+        /* DEBUG MESSAGING */
+        SENDMSG = 19,
     }
 }

@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 
-namespace Discreet.Network.Common
+namespace Discreet.Network.Core
 {
     public class Packet
     {
@@ -37,6 +37,10 @@ namespace Discreet.Network.Common
         {
             switch (t)
             {
+                case PacketType.GETVERSION:
+                    return new Packets.GetVersionPacket();
+                case PacketType.VERSION:
+                    return new Packets.VersionPacket(bodyData, 0);
                 default:
                     throw new NotImplementedException("Unimplemented");
             }
