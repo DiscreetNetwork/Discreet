@@ -802,5 +802,37 @@ namespace Discreet.Coin
                 _ => throw new Exception("Unknown transaction type: " + Version),
             };
         }
+
+        public bool HasInputs()
+        {
+            int _noInputs = 0;
+
+            if (TInputs != null)
+            {
+                _noInputs += TInputs.Length;
+            } 
+            if (PInputs != null)
+            {
+                _noInputs += PInputs.Length;
+            }
+
+            return NumInputs != 0 && (NumPInputs + NumTInputs) != 0 && _noInputs != 0;
+        }
+
+        public bool HasOutputs()
+        {
+            int _noOutputs = 0;
+
+            if (TOutputs != null)
+            {
+                _noOutputs += TOutputs.Length;
+            }
+            if (POutputs != null)
+            {
+                _noOutputs += POutputs.Length;
+            }
+
+            return NumOutputs != 0 && (NumTOutputs + NumPOutputs) != 0 && _noOutputs != 0;
+        }
     }
 }

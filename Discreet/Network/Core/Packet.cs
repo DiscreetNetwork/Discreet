@@ -41,6 +41,8 @@ namespace Discreet.Network.Core
                     return new Packets.GetVersionPacket();
                 case PacketType.VERSION:
                     return new Packets.VersionPacket(bodyData, 0);
+                case PacketType.INVENTORY:
+                    return new Packets.InventoryPacket(bodyData, 0);
                 default:
                     throw new NotImplementedException("Unimplemented");
             }

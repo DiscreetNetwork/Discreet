@@ -30,6 +30,7 @@ namespace Discreet.DB
      * block_info       block ID        {block metadata}
      * block_heights    block hash      block height
      * blocks           block ID        block blob
+     * cacheblock       block hash      block blob
      * 
      * For the sake of efficiency, certain data is duplicated slightly for better retrieval.
      * Spent keys (I.E. linking tags) are duplicated for quick double spend verification.
@@ -128,6 +129,7 @@ namespace Discreet.DB
         public static string META = "meta";
         public static string OUTPUT_INDICES = "output_indices";
         public static string OWNED_OUTPUTS = "owned_outputs";
+        public static string BLOCK_CACHE = "block_cache";
 
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
@@ -149,6 +151,7 @@ namespace Discreet.DB
         private LightningDatabase Meta;
         private LightningDatabase OutputIndices;
         private LightningDatabase OwnedOutputs;
+        private LightningDatabase BlockCache;
 
         public string Folder
         {
@@ -245,6 +248,7 @@ namespace Discreet.DB
             Blocks = txn.OpenDatabase(BLOCKS, config);
             OutputIndices = txn.OpenDatabase(OUTPUT_INDICES, config);
             OwnedOutputs = txn.OpenDatabase(OWNED_OUTPUTS, config);
+            BlockCache = txn.OpenDatabase(BLOCK_CACHE, config);
 
             /* populate our indexers */
             Meta = txn.OpenDatabase(META, config);
@@ -323,6 +327,7 @@ namespace Discreet.DB
             OutputIndices = txn.OpenDatabase(OUTPUT_INDICES, config);
             OwnedOutputs = txn.OpenDatabase(OWNED_OUTPUTS, config);
             Meta = txn.OpenDatabase(META, config);
+            BlockCache = txn.OpenDatabase(BLOCK_CACHE, config);
 
             txn.DropDatabase(SpentKeys);
             txn.DropDatabase(TXPoolMeta);
@@ -337,8 +342,73 @@ namespace Discreet.DB
             txn.DropDatabase(OutputIndices);
             txn.DropDatabase(OwnedOutputs);
             txn.DropDatabase(Meta);
+            txn.DropDatabase(BlockCache);
 
             db = null;
+        }
+
+        /**
+         * <summary>Adds a block to the cache. Does not assume block has been verified (which it shouldn't be).</summary>
+         */
+        public void AddBlockToCache(Block blk)
+        {
+            using var txn = Env.BeginTransaction();
+
+            if (BlockCache == null || !BlockCache.IsOpened)
+            {
+                BlockCache = txn.OpenDatabase(BLOCK_CACHE);
+            }
+
+            if (Blocks == null || !Blocks.IsOpened)
+            {
+                Blocks = txn.OpenDatabase(BLOCKS);
+            }
+
+            var result = txn.Get(Blocks, Serialization.Int64(blk.Height));
+
+            if (result.resultCode == MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} (height {blk.Height}) already in database!");
+            }
+
+            if (blk.transactions == null || blk.transactions.Length == 0 || blk.NumTXs == 0)
+            {
+                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} has no transactions!");
+            }
+
+            if ((long)blk.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
+            {
+                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} from too far in the future!");
+            }
+
+            /* unfortunately, we can't check the transactions yet, since some output indices might not be present. We check a few things though. */
+            foreach (FullTransaction tx in blk.transactions)
+            {
+                if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
+                {
+                    throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
+                }
+            }
+
+            if (blk.GetMerkleRoot() != blk.MerkleRoot)
+            {
+                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} has invalid Merkle root");
+            }
+
+            if (blk is SignedBlock block)
+            {
+                if (!block.CheckSignature())
+                {
+                    throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} has missing or invalid signature!");
+                }
+            }
+
+            var resCode = txn.Put(BlockCache, blk.BlockHash.Bytes, blk.Marshal());
+
+            if (resCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
+            }
         }
 
         public void AddBlock(Block blk)
@@ -428,13 +498,14 @@ namespace Discreet.DB
             }
 
             /* We check if all transactions exist in TXPool; if not, we complain */
-            for (int i = 0; i < blk.NumTXs; i++)
+            /*for (int i = 0; i < blk.NumTXs; i++)
             {
                 if (blk.Height > 0 && !txn.ContainsKey(TXPoolBlob, blk.Transactions[i].Bytes))
                 {
                     throw new Exception($"Discreet.DB.AddBlock: Transaction in block {blk.BlockHash.ToHexShort()} ({blk.Transactions[i].ToHexShort()}) not in transaction pool");
                 }
-            }
+            }*/
+            /* the above code is unused for now. */
 
             if (TXIndices == null || !TXIndices.IsOpened)
             {

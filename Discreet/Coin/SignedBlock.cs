@@ -11,6 +11,17 @@ namespace Discreet.Coin
      */
     public class SignedBlock: Block
     {
-        //WIP
+        public Cipher.Signature Sig;
+
+        public bool CheckSignature()
+        {
+            return Sig.Verify(BlockHash) && IsMasternode(Sig.y);
+        }
+
+        public static bool IsMasternode(Cipher.Key k)
+        {
+            //TODO: Implement hardcoded masternode IDs
+            return true;
+        }
     }
 }

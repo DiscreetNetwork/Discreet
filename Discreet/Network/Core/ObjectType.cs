@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Discreet.Network.Core
 {
-    public enum ObjectType
+    public enum ObjectType: uint
     {
         None = 0,
         Transaction = 1,
