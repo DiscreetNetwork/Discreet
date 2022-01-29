@@ -10,7 +10,7 @@ namespace Discreet.Network.Core.Packets
     public class InventoryPacket: IPacketBody
     {
         public uint Count { get; set; }
-        public InventoryVector[] Inventory;
+        public InventoryVector[] Inventory { get; set; }
 
         public InventoryPacket()
         {

@@ -7,22 +7,22 @@ using System.Threading.Tasks;
 
 namespace Discreet.Network.Core.Packets
 {
-    public class GetBlocksPacket: IPacketBody
+    public class GetTransactionsPacket : IPacketBody
     {
         public uint Count { get; set; }
-        public Cipher.SHA256[] Blocks { get; set; }
+        public Cipher.SHA256[] Transactions { get; set; }
 
-        public GetBlocksPacket()
+        public GetTransactionsPacket()
         {
 
         }
 
-        public GetBlocksPacket(byte[] b, uint offset)
+        public GetTransactionsPacket(byte[] b, uint offset)
         {
             Deserialize(b, offset);
         }
 
-        public GetBlocksPacket(Stream s)
+        public GetTransactionsPacket(Stream s)
         {
             Deserialize(s);
         }
@@ -32,11 +32,11 @@ namespace Discreet.Network.Core.Packets
             Count = Coin.Serialization.GetUInt32(b, offset);
             offset += 4;
 
-            Blocks = new Cipher.SHA256[Count];
+            Transactions = new Cipher.SHA256[Count];
 
             for (int i = 0; i < Count; i++)
             {
-                Blocks[i] = new Cipher.SHA256(b, offset);
+                Transactions[i] = new Cipher.SHA256(b, offset);
                 offset += 32;
             }
         }
@@ -48,14 +48,14 @@ namespace Discreet.Network.Core.Packets
             s.Read(uintbuf);
             Count = Coin.Serialization.GetUInt32(uintbuf, 0);
 
-            Blocks = new Cipher.SHA256[Count];
+            Transactions = new Cipher.SHA256[Count];
 
             for (int i = 0; i < Count; i++)
             {
                 byte[] hashbuf = new byte[32];
 
                 s.Read(hashbuf);
-                Blocks[i] = new Cipher.SHA256(hashbuf, false);
+                Transactions[i] = new Cipher.SHA256(hashbuf, false);
             }
         }
 
@@ -64,7 +64,7 @@ namespace Discreet.Network.Core.Packets
             Coin.Serialization.CopyData(b, offset, Count);
             offset += 4;
 
-            foreach (Cipher.SHA256 h in Blocks)
+            foreach (Cipher.SHA256 h in Transactions)
             {
                 Array.Copy(h.Bytes, 0, b, offset, 32);
                 offset += 32;
@@ -77,7 +77,7 @@ namespace Discreet.Network.Core.Packets
         {
             s.Write(Coin.Serialization.UInt32(Count));
 
-            foreach (Cipher.SHA256 h in Blocks)
+            foreach (Cipher.SHA256 h in Transactions)
             {
                 s.Write(h.Bytes);
             }
