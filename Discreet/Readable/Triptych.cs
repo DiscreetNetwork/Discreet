@@ -66,12 +66,11 @@ namespace Discreet.Readable
 
         public Triptych() { }
 
-        public void FromObject<T>(T obj)
+        public void FromObject<T>(object obj)
         {
             if (typeof(T) == typeof(Coin.Triptych))
             {
-                dynamic t = obj;
-                FromObject((Coin.Triptych)t);
+                FromObject((Coin.Triptych)obj);
             }
             else
             {
@@ -124,17 +123,15 @@ namespace Discreet.Readable
         {
             if (typeof(T) == typeof(Coin.Triptych))
             {
-                dynamic t = ToObject();
-                return (T)t;
+                return (T)ToObject();
             }
             else
             {
                 throw new ReadableException(typeof(Triptych).FullName, typeof(T).FullName);
             }
-
         }
 
-        public Coin.Triptych ToObject()
+        public object ToObject()
         {
             Coin.Triptych obj = new();
 
@@ -182,7 +179,7 @@ namespace Discreet.Readable
         [RPCEndpoint(endpoint_name: "create_triptych")]
         public static Coin.Triptych FromReadable(string json)
         {
-            return new Triptych(json).ToObject();
+            return (Coin.Triptych)new Triptych(json).ToObject();
         }
 
         public static string ToReadable(Coin.Triptych obj)

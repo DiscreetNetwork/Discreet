@@ -1,17 +1,15 @@
-﻿using System;
+﻿using Discreet.Common;
+using Discreet.Common.Exceptions;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using System.Text.Json;
-using Discreet.Common.Exceptions;
-using Discreet.Common;
-using Discreet.RPC.Common;
-using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 
 namespace Discreet.Readable
 {
-    public class Block : IReadable
+    public class SignedBlock: IReadable
     {
         public byte Version { get; set; }
         public ulong Timestamp { get; set; }
@@ -26,6 +24,8 @@ namespace Discreet.Readable
         public uint NumTXs { get; set; }
         public uint BlockSize { get; set; }
         public uint NumOutputs { get; set; }
+
+        public string Signature { get; set; }
 
         public Transaction Coinbase { get; set; }
 
@@ -46,52 +46,55 @@ namespace Discreet.Readable
 
         public void FromJSON(string json)
         {
-            Block b = JsonSerializer.Deserialize<Block>(json);
-            
+            SignedBlock b = JsonSerializer.Deserialize<SignedBlock>(json);
+
             Version = b.Version;
             Timestamp = b.Timestamp;
             Height = b.Height;
-            
+
             PreviousBlock = b.PreviousBlock;
             BlockHash = b.BlockHash;
-            
+
             MerkleRoot = b.MerkleRoot;
-            
+
             NumTXs = b.NumTXs;
             BlockSize = b.BlockSize;
             NumOutputs = b.NumOutputs;
 
+            Signature = b.Signature;
+
             Coinbase = b.Coinbase;
-            
+
             Transactions = b.Transactions;
 
             transactions = b.transactions;
         }
 
-        public Block(Coin.Block obj)
+        public SignedBlock(Coin.SignedBlock obj)
         {
             FromObject(obj);
         }
-        public Block(string json)
+
+        public SignedBlock(string json)
         {
             FromJSON(json);
         }
 
-        public Block() { }
+        public SignedBlock() { }
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.Block))
+            if (typeof(T) == typeof(Coin.SignedBlock))
             {
-                FromObject((Coin.Block)obj);
+                FromObject((Coin.SignedBlock)obj);
             }
             else
             {
-                throw new ReadableException(typeof(T).FullName, typeof(Block).FullName);
+                throw new ReadableException(typeof(T).FullName, typeof(SignedBlock).FullName);
             }
         }
 
-        public void FromObject(Coin.Block obj)
+        public void FromObject(Coin.SignedBlock obj)
         {
             Version = obj.Version;
             Timestamp = obj.Timestamp;
@@ -106,6 +109,8 @@ namespace Discreet.Readable
             NumTXs = obj.NumTXs;
             BlockSize = obj.BlockSize;
             NumOutputs = obj.NumOutputs;
+
+            Signature = obj.Sig.ToHex();
 
             Coinbase = new Transaction(obj.Coinbase);
 
@@ -131,19 +136,19 @@ namespace Discreet.Readable
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.Block))
+            if (typeof(T) == typeof(Coin.SignedBlock))
             {
                 return (T)ToObject();
             }
             else
             {
-                throw new ReadableException(typeof(Block).FullName, typeof(T).FullName);
+                throw new ReadableException(typeof(SignedBlock).FullName, typeof(T).FullName);
             }
         }
 
         public object ToObject()
         {
-            Coin.Block obj = new();
+            Coin.SignedBlock obj = new();
 
             obj.Version = Version;
             obj.Timestamp = Timestamp;
@@ -158,6 +163,8 @@ namespace Discreet.Readable
             obj.NumTXs = NumTXs;
             obj.BlockSize = BlockSize;
             obj.NumOutputs = NumOutputs;
+
+            obj.Sig = Cipher.Signature.FromHex(Signature);
 
             obj.Coinbase = (Coin.Transaction)Coinbase.ToObject();
 
@@ -183,14 +190,14 @@ namespace Discreet.Readable
             return obj;
         }
 
-        public static Coin.Block FromReadable(string json)
+        public static Coin.SignedBlock FromReadable(string json)
         {
-            return (Coin.Block)new Block(json).ToObject();
+            return (Coin.SignedBlock)new SignedBlock(json).ToObject();
         }
 
-        public static string ToReadable(Coin.Block obj)
+        public static string ToReadable(Coin.SignedBlock obj)
         {
-            return new Block(obj).JSON();
+            return new SignedBlock(obj).JSON();
         }
     }
 }

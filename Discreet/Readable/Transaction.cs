@@ -77,12 +77,11 @@ namespace Discreet.Readable
 
         public Transaction() { }
 
-        public void FromObject<T>(T obj)
+        public void FromObject<T>(object obj)
         {
             if (typeof(T) == typeof(Coin.Transaction))
             {
-                dynamic t = obj;
-                FromObject((Coin.Transaction)t);
+                FromObject((Coin.Transaction)obj);
             }
             else
             {
@@ -151,17 +150,15 @@ namespace Discreet.Readable
         {
             if (typeof(T) == typeof(Coin.Transaction))
             {
-                dynamic t = ToObject();
-                return (T)t;
+                return (T)ToObject();
             }
             else
             {
                 throw new ReadableException(typeof(Transaction).FullName, typeof(T).FullName);
             }
-
         }
 
-        public Coin.Transaction ToObject()
+        public object ToObject()
         {
             Coin.Transaction obj = new();
 
@@ -176,7 +173,7 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < Inputs.Count; i++)
                 {
-                    obj.Inputs[i] = Inputs[i].ToObject();
+                    obj.Inputs[i] = (Coin.TXInput)Inputs[i].ToObject();
                 }
             }
             if (Outputs != null)
@@ -185,12 +182,12 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < Outputs.Count; i++)
                 {
-                    obj.Outputs[i] = Outputs[i].ToObject();
+                    obj.Outputs[i] = (Coin.TXOutput)Outputs[i].ToObject();
                 }
             }
 
-            if (RangeProof != null) obj.RangeProof = RangeProof.ToObject();
-            if (RangeProofPlus != null) obj.RangeProofPlus = RangeProofPlus.ToObject();
+            if (RangeProof != null) obj.RangeProof = (Coin.Bulletproof)RangeProof.ToObject();
+            if (RangeProofPlus != null) obj.RangeProofPlus = (Coin.BulletproofPlus)RangeProofPlus.ToObject();
 
             obj.Fee = Fee;
 
@@ -200,7 +197,7 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < Signatures.Count; i++)
                 {
-                    obj.Signatures[i] = Signatures[i].ToObject();
+                    obj.Signatures[i] = (Coin.Triptych)Signatures[i].ToObject();
                 }
             }
 
@@ -222,7 +219,7 @@ namespace Discreet.Readable
         [RPCEndpoint(endpoint_name: "create_transaction")]
         public static Coin.Transaction FromReadable(string json)
         {
-            return new Transaction(json).ToObject();
+            return (Coin.Transaction)new Transaction(json).ToObject();
         }
 
         public static string ToReadable(Coin.Transaction obj)

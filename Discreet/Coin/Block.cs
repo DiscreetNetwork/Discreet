@@ -39,7 +39,7 @@ namespace Discreet.Coin
         /* used for full blocks (not packed with blocks) */
         public FullTransaction[] transactions;
 
-        public byte[] Marshal()
+        public virtual byte[] Marshal()
         {
             byte[] bytes = new byte[Size()];
 
@@ -68,7 +68,7 @@ namespace Discreet.Coin
             return bytes;
         }
 
-        public byte[] MarshalFull()
+        public virtual byte[] MarshalFull()
         {
             byte[] bytes = new byte[SizeFull()];
 
@@ -100,22 +100,22 @@ namespace Discreet.Coin
             return bytes;
         }
 
-        public void MarshalFull(byte[] bytes, uint offset)
+        public virtual void MarshalFull(byte[] bytes, uint offset)
         {
             Array.Copy(MarshalFull(), 0, bytes, offset, SizeFull());
         }
 
-        public void Marshal(byte[] bytes, uint offset)
+        public virtual void Marshal(byte[] bytes, uint offset)
         {
             Array.Copy(Marshal(), 0, bytes, offset, Size());
         }
 
-        public string Readable()
+        public virtual string Readable()
         {
             return Discreet.Readable.Block.ToReadable(this);
         }
 
-        public string ReadableFull()
+        public virtual string ReadableFull()
         {
             return Readable();
         }
@@ -125,7 +125,7 @@ namespace Discreet.Coin
             return Discreet.Readable.Block.FromReadable(json);
         }
 
-        public void Unmarshal(byte[] bytes)
+        public virtual void Unmarshal(byte[] bytes)
         {
             Version = bytes[0];
 
@@ -155,7 +155,7 @@ namespace Discreet.Coin
             }
         }
 
-        public void UnmarshalFull(byte[] bytes)
+        public virtual void UnmarshalFull(byte[] bytes)
         {
             Version = bytes[0];
 
@@ -187,7 +187,7 @@ namespace Discreet.Coin
             }
         }
 
-        public uint Unmarshal(byte[] bytes, uint _offset)
+        public virtual uint Unmarshal(byte[] bytes, uint _offset)
         {
             int offset = (int)_offset;
             Version = bytes[offset];
@@ -220,7 +220,7 @@ namespace Discreet.Coin
             return _offset + Size();
         }
 
-        public uint UnmarshalFull(byte[] bytes, uint _offset)
+        public virtual uint UnmarshalFull(byte[] bytes, uint _offset)
         {
             int offset = (int)_offset;
             Version = bytes[offset];
@@ -254,14 +254,14 @@ namespace Discreet.Coin
             return _offset + SizeFull();
         }
 
-        public uint Size()
+        public virtual uint Size()
         {
-            return 133 + Coinbase.Size() + 32 * (uint)Transactions.Length;
+            return 133 + (Coinbase != null ? Coinbase.Size() : 0) + 32 * (uint)Transactions.Length;
         }
 
-        public uint SizeFull()
+        public virtual uint SizeFull()
         {
-            uint size = 133 + Coinbase.Size();
+            uint size = 133 + (Coinbase != null ? Coinbase.Size() : 0);
 
             for (int i = 0; i < transactions.Length; i++)
             {
@@ -429,12 +429,12 @@ namespace Discreet.Coin
         {
             List<SHA256> hashes = new();
 
+            hashes.Add(tx.Hash());
+
             for (int k = 0; k < txs.Count; k++)
             {
                 hashes.Add(txs[k].Hash());
-            }
-
-            hashes.Add(tx.Hash());
+            } 
 
             while (hashes.Count > 1)
             {
@@ -475,7 +475,7 @@ namespace Discreet.Coin
 
             List<SHA256> hashes = new(Transactions);
 
-            hashes.Add(Coinbase.Hash());
+            hashes.Insert(0, Coinbase.Hash());
 
             while (hashes.Count > 1)
             {
@@ -521,7 +521,7 @@ namespace Discreet.Coin
             return SHA256.HashData(bytes);
         }
 
-        public VerifyException Verify()
+        public virtual VerifyException Verify()
         {
             /* Verify does the following:
              *   - ensures Height is equal to db.GetChainHeight() + 1
@@ -660,7 +660,7 @@ namespace Discreet.Coin
         }
 
         /* Should not be called on genesis block. */
-        public VerifyException VerifyIncoming()
+        public virtual VerifyException VerifyIncoming()
         {
             /* VerifyIncoming does the following:
              *   - ensures Height is equal to db.GetChainHeight() + 1

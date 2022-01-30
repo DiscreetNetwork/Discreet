@@ -54,12 +54,11 @@ namespace Discreet.Readable
             FromJSON(json);
         }
 
-        public void FromObject<T>(T obj)
+        public void FromObject<T>(object obj)
         {
             if (typeof(T) == typeof(Coin.TXOutput))
             {
-                dynamic t = obj;
-                FromObject((Coin.TXOutput)t);
+                FromObject((Coin.TXOutput)obj);
             }
             else
             {
@@ -79,17 +78,15 @@ namespace Discreet.Readable
         {
             if (typeof(T) == typeof(Coin.TXOutput))
             {
-                dynamic t = ToObject();
-                return (T)t;
+                return (T)ToObject();
             }
             else
             {
                 throw new ReadableException(typeof(TXOutput).FullName, typeof(T).FullName);
-            }
-                
+            }    
         }
 
-        public Coin.TXOutput ToObject()
+        public object ToObject()
         {
             Coin.TXOutput obj = new();
 
@@ -110,7 +107,7 @@ namespace Discreet.Readable
 
         public static Coin.TXOutput FromReadable(string json)
         {
-            return new TXOutput(json).ToObject();
+            return (Coin.TXOutput)new TXOutput(json).ToObject();
         }
 
         public static string ToReadable(Coin.TXOutput obj)

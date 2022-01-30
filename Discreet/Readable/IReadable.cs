@@ -12,6 +12,6 @@ namespace Discreet.Readable
         public void FromJSON(string json);
 
         public T ToObject<T>();
-        public void FromObject<T>(T obj);
+        public void FromObject<T>(object obj);
     }
 }

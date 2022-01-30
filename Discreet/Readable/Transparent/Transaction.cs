@@ -60,12 +60,11 @@ namespace Discreet.Readable.Transparent
 
         public Transaction() { }
 
-        public void FromObject<T>(T obj)
+        public void FromObject<T>(object obj)
         {
             if (typeof(T) == typeof(Coin.Transparent.Transaction))
             {
-                dynamic t = obj;
-                FromObject((Coin.Transparent.Transaction)t);
+                FromObject((Coin.Transparent.Transaction)obj);
             }
             else
             {
@@ -116,17 +115,15 @@ namespace Discreet.Readable.Transparent
         {
             if (typeof(T) == typeof(Coin.Transparent.Transaction))
             {
-                dynamic t = ToObject();
-                return (T)t;
+                return (T)ToObject();
             }
             else
             {
                 throw new ReadableException(typeof(Transaction).FullName, typeof(T).FullName);
             }
-
         }
 
-        public Coin.Transparent.Transaction ToObject()
+        public object ToObject()
         {
             Coin.Transparent.Transaction obj = new();
 
@@ -142,7 +139,7 @@ namespace Discreet.Readable.Transparent
 
                 for (int i = 0; i < Inputs.Count; i++)
                 {
-                    obj.Inputs[i] = Inputs[i].ToObject();
+                    obj.Inputs[i] = (Coin.Transparent.TXOutput)Inputs[i].ToObject();
                 }
             }
             if (Outputs != null)
@@ -151,7 +148,7 @@ namespace Discreet.Readable.Transparent
 
                 for (int i = 0; i < Outputs.Count; i++)
                 {
-                    obj.Outputs[i] = Outputs[i].ToObject();
+                    obj.Outputs[i] = (Coin.Transparent.TXOutput)Outputs[i].ToObject();
                 }
             }
             if (Signatures != null)
@@ -171,7 +168,7 @@ namespace Discreet.Readable.Transparent
 
         public static Coin.Transparent.Transaction FromReadable(string json)
         {
-            return new Transaction(json).ToObject();
+            return (Coin.Transparent.Transaction)new Transaction(json).ToObject();
         }
 
         public static string ToReadable(Coin.Transparent.Transaction obj)

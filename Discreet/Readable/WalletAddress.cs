@@ -65,12 +65,11 @@ namespace Discreet.Readable
 
         public WalletAddress() { }
 
-        public void FromObject<T>(T obj)
+        public void FromObject<T>(object obj)
         {
             if (typeof(T) == typeof(Wallets.WalletAddress))
             {
-                dynamic t = obj;
-                FromObject((Wallets.WalletAddress)t);
+                FromObject((Wallets.WalletAddress)obj);
             }
             else
             {
@@ -108,17 +107,15 @@ namespace Discreet.Readable
         {
             if (typeof(T) == typeof(Wallets.WalletAddress))
             {
-                dynamic t = ToObject();
-                return (T)t;
+                return (T)ToObject();
             }
             else
             {
                 throw new ReadableException(typeof(WalletAddress).FullName, typeof(T).FullName);
             }
-
         }
 
-        public Wallets.WalletAddress ToObject()
+        public object ToObject()
         {
             Wallets.WalletAddress obj = new();
 
@@ -160,7 +157,7 @@ namespace Discreet.Readable
 
         public static Wallets.WalletAddress FromReadable(string json)
         {
-            return new WalletAddress(json).ToObject();
+            return (Wallets.WalletAddress)new WalletAddress(json).ToObject();
         }
 
         public static string ToReadable(Wallets.WalletAddress obj)

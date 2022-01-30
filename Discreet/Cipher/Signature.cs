@@ -126,6 +126,21 @@ namespace Discreet.Cipher
             Array.Copy(y.bytes, 0, bytes, offset + 64, 32);
         }
 
+        public string ToHex()
+        {
+            return e.ToHex() + s.ToHex() + y.ToHex();
+        }
+
+        public string ToHexShort()
+        {
+            return ToHex().Substring(0, 8) + "...";
+        }
+
+        public static Signature FromHex(string hex)
+        {
+            return new Signature(Common.Printable.Byteify(hex));
+        }
+
         internal bool IsNull()
         {
             return s.Equals(Key.Z) && e.Equals(Key.Z);

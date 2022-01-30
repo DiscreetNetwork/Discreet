@@ -58,12 +58,11 @@ namespace Discreet.Readable
 
         public Wallet() { }
 
-        public void FromObject<T>(T obj)
+        public void FromObject<T>(object obj)
         {
             if (typeof(T) == typeof(Wallets.Wallet))
             {
-                dynamic t = obj;
-                FromObject((Wallets.Wallet)t);
+                FromObject((Wallets.Wallet)obj);
             }
             else
             {
@@ -112,17 +111,15 @@ namespace Discreet.Readable
         {
             if (typeof(T) == typeof(Wallets.Wallet))
             {
-                dynamic t = ToObject();
-                return (T)t;
+                return (T)ToObject();
             }
             else
             {
                 throw new ReadableException(typeof(Wallet).FullName, typeof(T).FullName);
             }
-
         }
 
-        public Wallets.Wallet ToObject()
+        public object ToObject()
         {
             Wallets.Wallet obj = new();
 
@@ -150,7 +147,7 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < Addresses.Count; i++)
                 {
-                    obj.Addresses[i] = Addresses[i].ToObject();
+                    obj.Addresses[i] = (Wallets.WalletAddress)Addresses[i].ToObject();
                 }
             }
 
@@ -161,7 +158,7 @@ namespace Discreet.Readable
         [RPCEndpoint(endpoint_name: "create_wallet")]
         public static Wallets.Wallet FromReadable(string json)
         {
-            return new Wallet(json).ToObject();
+            return (Wallets.Wallet)new Wallet(json).ToObject();
         }
 
         public static string ToReadable(Wallets.Wallet obj)

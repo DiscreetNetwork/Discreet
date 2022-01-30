@@ -70,12 +70,11 @@ namespace Discreet.Readable
 
         public Bulletproof() { }
 
-        public void FromObject<T>(T obj)
+        public void FromObject<T>(object obj)
         {
             if (typeof(T) == typeof(Coin.Bulletproof))
             {
-                dynamic t = obj;
-                FromObject((Coin.Bulletproof)t);
+                FromObject((Coin.Bulletproof)obj);
             }
             else
             {
@@ -122,17 +121,15 @@ namespace Discreet.Readable
         {
             if (typeof(T) == typeof(Coin.Bulletproof))
             {
-                dynamic t = ToObject();
-                return (T)t;
+                return (T)ToObject();
             }
             else
             {
                 throw new ReadableException(typeof(Bulletproof).FullName, typeof(T).FullName);
             }
-
         }
 
-        public Coin.Bulletproof ToObject()
+        public object ToObject()
         {
             Coin.Bulletproof obj = new();
 
@@ -173,7 +170,7 @@ namespace Discreet.Readable
         [RPCEndpoint(endpoint_name: "construct_bulletproof")]
         public static Coin.Bulletproof FromReadable(string json)
         {
-            return new Bulletproof(json).ToObject();
+            return (Coin.Bulletproof)new Bulletproof(json).ToObject();
         }
 
         public static string ToReadable(Coin.Bulletproof obj)

@@ -258,6 +258,20 @@ namespace Discreet.Cipher
             return sig;
         }
 
+        public static Signature Sign(ref Key x, SHA256 m)
+        {
+            Key mk = SHA256ToKey(m);
+
+            Key p = ScalarmultBase(ref x);
+
+            Signature sig = new Signature();
+            sig.s = new Key();
+            sig.e = new Key();
+            sig.y = new Key();
+            EdDSASign(ref sig.s, ref sig.e, ref sig.y, ref p, ref x, ref mk);
+            return sig;
+        }
+
         public static Signature Sign(ref Key x, ref Key p, byte[] m)
         {
             Key mk = SHA256ToKey(SHA256.HashData(m));
