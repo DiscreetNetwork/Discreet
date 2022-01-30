@@ -363,7 +363,7 @@ namespace Discreet.Wallets
 
             try
             {
-                return Wallet.FromJSON(json);
+                return FromJSON(json);
             }
             catch (Exception e)
             {
