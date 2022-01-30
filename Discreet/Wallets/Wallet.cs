@@ -361,8 +361,6 @@ namespace Discreet.Wallets
 
             string json = File.ReadAllText(path);
 
-            return Wallet.FromJSON(json);
-
             try
             {
                 return Wallet.FromJSON(json);

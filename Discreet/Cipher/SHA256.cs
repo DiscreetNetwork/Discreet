@@ -152,10 +152,14 @@ namespace Discreet.Cipher
             }
         }
 
+#nullable enable
         public int CompareTo(object? b)
         {
+            if (b == null || b == default) throw new Exception("Discreet.Cipher.SHA256.CompareTo: cannot compare to null or defaulted object");
+
             return Compare(this, (SHA256)b);
         }
+#nullable disable
 
         public override bool Equals(object b)
         {

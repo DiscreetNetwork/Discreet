@@ -109,7 +109,6 @@ namespace Discreet.DB
             {
                 if (db == null)
                 {
-                    
                     db = new DB(Visor.VisorConfig.GetDefault().DBPath, Visor.VisorConfig.GetDefault().DBSize);
                 }
             }
@@ -517,7 +516,7 @@ namespace Discreet.DB
                 TXs = txn.OpenDatabase(TXS);
             }
 
-            if (blk.Height > 0)
+            if (blk.Height > 0 && blk.transactions == null)
             {
                 /* We currently sort by transaction hash to order transactions. */
                 /*Cipher.SHA256[] sortedTransactions = new Cipher.SHA256[blk.NumTXs];
@@ -1024,7 +1023,7 @@ namespace Discreet.DB
         {
             List<FullTransaction> pool = new List<FullTransaction>();
 
-            var txn = Env.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (TXPoolBlob == null || !TXPoolBlob.IsOpened)
             {
@@ -1047,9 +1046,78 @@ namespace Discreet.DB
             {
                 FullTransaction tx = new FullTransaction();
                 tx.Unmarshal(value.CopyToNewArray());
+
+                pool.Add(tx);
             }
 
             return pool;
+        }
+
+        public Dictionary<long, Block> GetBlockCache()
+        {
+            Dictionary<long, Block> blockCache = new Dictionary<long, Block>();
+
+            using var txn = Env.BeginTransaction();
+
+            if (BlockCache == null || !BlockCache.IsOpened)
+            {
+                BlockCache = txn.OpenDatabase(BLOCK_CACHE);
+            }
+
+            LightningCursor blockCacheCursor = txn.CreateCursor(BlockCache);
+
+            var resultCode = blockCacheCursor.First();
+
+            if (resultCode == MDBResultCode.NotFound) return new Dictionary<long, Block>();
+
+            if (resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.GetBlockCache: database get exception: {resultCode}");
+            }
+
+            var values = blockCacheCursor.AsEnumerable().Select((k, i) => k.Item2).ToList();
+            foreach (var value in values)
+            {
+                byte[] bytes = value.CopyToNewArray();
+
+                if (bytes[0] == 1 || bytes[0] == 2)
+                {
+                    SignedBlock block = new SignedBlock();
+                    block.UnmarshalFull(bytes);
+
+                    blockCache.Add(block.Height, block);
+                }
+                else
+                {
+                    Block block = new Block();
+                    block.UnmarshalFull(bytes);
+
+                    blockCache.Add(block.Height, block);
+                }
+            }
+
+            return blockCache;
+        }
+
+        public void ClearBlockCache()
+        {
+            using var txn = Env.BeginTransaction();
+
+            if (BlockCache == null || !BlockCache.IsOpened)
+            {
+                BlockCache = txn.OpenDatabase(BLOCK_CACHE);
+            }
+
+            var resultCode = BlockCache.Drop(txn);
+
+            if (resultCode != MDBResultCode.Success)
+            {
+                throw new Exception($"Discreet.DB.GetBlockCache: database get exception: {resultCode}");
+            }
+
+            BlockCache = txn.OpenDatabase(BLOCK_CACHE, new DatabaseConfiguration { Flags = DatabaseOpenFlags.Create });
+
+            txn.Commit();
         }
 
         public void AddTXToPool(FullTransaction tx)
@@ -1124,7 +1192,7 @@ namespace Discreet.DB
 
         public bool CheckSpentKey(Cipher.Key j)
         {
-            var txn = Env.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (TXPoolSpentKeys == null || !TXPoolSpentKeys.IsOpened)
             {

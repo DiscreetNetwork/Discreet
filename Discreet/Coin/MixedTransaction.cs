@@ -662,7 +662,7 @@ namespace Discreet.Coin
                 {
                     _amount = checked(_amount + output.Amount);
                 }
-                catch (OverflowException e)
+                catch (OverflowException)
                 {
                     return new VerifyException("MixedTransaction", $"transaction transparent outputs resulted in overflow!");
                 }

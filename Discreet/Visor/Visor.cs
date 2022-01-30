@@ -17,6 +17,8 @@ namespace Discreet.Visor
         Wallet wallet;
         TXPool txpool;
 
+        Network.Handler handler;
+
         public Visor(Wallet wallet)
         {
             if (wallet.Addresses == null || wallet.Addresses.Length == 0 || wallet.Addresses[0].Type == 1)
@@ -27,6 +29,13 @@ namespace Discreet.Visor
             this.wallet = wallet;
 
             txpool = TXPool.GetTXPool();
+
+            handler = Network.Handler.GetHandler();
+        }
+
+        public Network.Handler GetHandler()
+        {
+            return handler;
         }
 
         public void ProcessBlock(Block block)
