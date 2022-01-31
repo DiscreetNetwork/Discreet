@@ -8,11 +8,17 @@ namespace Discreet.Cipher.Mnemonics
 {
     public class Mnemonic
     {
+        /// <summary>
+        /// Represents the language a mnemonic is in.
+        /// </summary>
         public enum Language { English, Japanese, Spanish, ChineseSimplified, ChineseTraditional, French, Unknown };
 
         public const int EntropyMin = 128;
         public const int EntropyMax = 256;
 
+        /// <summary>
+        /// The seed from which the mnemonic is derived from.
+        /// </summary>
         private byte[] entropy;
 
         private Language language;
@@ -21,6 +27,9 @@ namespace Discreet.Cipher.Mnemonics
 
         private Wordlist.Wordlist wordlist;
 
+        /// <summary>
+        /// Stores the Language the mnemonic is in.
+        /// </summary>
         public Language Lang
         {
             get
@@ -29,6 +38,9 @@ namespace Discreet.Cipher.Mnemonics
             }
         }
 
+        /// <summary>
+        /// The words of the mnemonic, derived from the entropy.
+        /// </summary>
         public string[] Words
         {
             get
@@ -37,6 +49,13 @@ namespace Discreet.Cipher.Mnemonics
             }
         }
 
+        /// <summary>
+        /// Checks if the number of bits in the mnemonic is valid. Currently, mnemonic bits must be:
+        /// <br />
+        /// <list type="bullet"><item>divisible by 32</item><item>less than the EntropyMin and EntropyMax, which are 128 and 256</item><item>either 128 or 256</item></list>
+        /// Throws an Exception if the bits are invalid.
+        /// </summary>
+        /// <param name="bits">The parameter to check</param>
         private void CheckEntropyBits(int bits)
         {
             if (bits % 32 != 0)
@@ -56,6 +75,11 @@ namespace Discreet.Cipher.Mnemonics
             }
         }
 
+        /// <summary>
+        /// Gets the Wordlist associated with the language.
+        /// </summary>
+        /// <param name="_language">The language to get the Wordlist for.</param>
+        /// <returns>The Wordlist for the language.</returns>
         private Wordlist.Wordlist GetWordlist(Language _language)
         {
             return _language switch
@@ -70,6 +94,11 @@ namespace Discreet.Cipher.Mnemonics
             };
         }
 
+        /// <summary>
+        /// Creates a new mnemonic with the specified language and number of bits.
+        /// </summary>
+        /// <param name="bits">The length of the mnemonic to generate, in bits.</param>
+        /// <param name="_language">The language the mnemonic should be in.</param>
         public Mnemonic(int bits, Language _language)
         {
             CheckEntropyBits(bits);
@@ -83,6 +112,10 @@ namespace Discreet.Cipher.Mnemonics
             GetMnemonic();
         }
 
+        /// <summary>
+        /// Generates a mnemonic from a string of words. Throws an Exception if the argument is in an unsupported language or is invalid.
+        /// </summary>
+        /// <param name="mnemonic">The words in the mnemonic.</param>
         public Mnemonic(string mnemonic)
         {
             words = mnemonic.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -98,8 +131,17 @@ namespace Discreet.Cipher.Mnemonics
             GetEntropy();
         }
 
+        /// <summary>
+        /// Generates a mnemonic from the words. Throws an Exception if the argument is in an unsupported language or is invalid.
+        /// </summary>
+        /// <param name="_words">The words in the mnemonic.</param>
         public Mnemonic(string[] _words) : this(string.Join(' ', _words)) { }
 
+        /// <summary>
+        /// Generates a mnemonic with the specified entropy and language.
+        /// </summary>
+        /// <param name="_entropy">The entropy of the mnemonic.</param>
+        /// <param name="_language">The language the mnemonic should be in.</param>
         public Mnemonic(byte[] _entropy, Language _language)
         {
             CheckEntropyBits(_entropy.Length * 8);
@@ -113,8 +155,17 @@ namespace Discreet.Cipher.Mnemonics
             GetMnemonic();
         }
 
+        /// <summary>
+        /// Generates a mnemonic from the specified entropy, in English.
+        /// </summary>
+        /// <param name="_entropy">The entropy of the mnemonic.</param>
         public Mnemonic(byte[] _entropy) : this(_entropy, Language.English) { }
 
+        /// <summary>
+        /// Tries to get the language the array of words is in.
+        /// </summary>
+        /// <param name="words">The words to check.</param>
+        /// <returns>The Language the words are in, or Language.Unknown if multiple languages or no language is detected.</returns>
         public static Language AutoDetectLanguageOfWords(string[] words)
         {
             Wordlist.English eng = new Wordlist.English();
@@ -206,6 +257,10 @@ namespace Discreet.Cipher.Mnemonics
             return Language.Unknown;
         }
 
+        /// <summary>
+        /// Tries to get the string of words the mnemonic represents. <br />If Words is null, it generates the mnemonic string.
+        /// </summary>
+        /// <returns>The string of words the mnemonic represents.</returns>
         public string GetMnemonic()
         {
             if (words != null)
@@ -255,7 +310,13 @@ namespace Discreet.Cipher.Mnemonics
             return string.Join(' ', words);
         }
 
-        private byte[] PadOrShortenByteArray(byte[] data, int len)
+        /// <summary>
+        /// Pads or shortens the specified byte array. Used internally for generating the entropy from a mnemonic string.
+        /// </summary>
+        /// <param name="data">The array to pad or shorten.</param>
+        /// <param name="len">The specified length the resulting array should be.</param>
+        /// <returns>The resulting byte array, prepended with zeros to be the specified length.</returns>
+        private static byte[] PadOrShortenByteArray(byte[] data, int len)
         {
             if (data.Length > len)
             {
@@ -267,6 +328,11 @@ namespace Discreet.Cipher.Mnemonics
             return rv;
         }
 
+        /// <summary>
+        /// Tries to get the entropy of the mnemonic. <br />If it isn't generated yet, it generates the entropy from the mnemonic string.<br />Throws an Exception if the mnemonic string is invalid, or if the checksum is incorrect.
+        /// </summary>
+        /// <returns>The entropy of the mnemonic.</returns>
+        /// <remarks>WARNING: This returns a reference to the actual entropy of the mnemonic, so avoid mutating the return value.</remarks>
         public byte[] GetEntropy()
         {
             if (entropy != null)
@@ -319,7 +385,7 @@ namespace Discreet.Cipher.Mnemonics
             if ((int)checksum != computedChecksum)
             {
                 //throw new Exception($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {(computedChecksumBytes[0] & ((1 << checksumBits) - 1))}");
-                Console.WriteLine($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {computedChecksum}");
+                throw new Exception($"Discreet.Cipher.Mnemonics.Mnemonic: GetEntropy could not recover checksum {checksum}; instead got {computedChecksum}");
             }
 
             return entropy;
