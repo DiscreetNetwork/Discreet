@@ -6,6 +6,9 @@ using System.Text;
 
 namespace Discreet.Cipher.Mnemonics
 {
+    /// <summary>
+    /// Represents a BIP39-style mnemonic.
+    /// </summary>
     public class Mnemonic
     {
         /// <summary>
@@ -13,7 +16,14 @@ namespace Discreet.Cipher.Mnemonics
         /// </summary>
         public enum Language { English, Japanese, Spanish, ChineseSimplified, ChineseTraditional, French, Unknown };
 
+        /// <summary>
+        /// The minimum number of bits a mnemonic should be.
+        /// </summary>
         public const int EntropyMin = 128;
+
+        /// <summary>
+        /// The maximum number of bits a mnemonic should be.
+        /// </summary>
         public const int EntropyMax = 256;
 
         /// <summary>
@@ -22,13 +32,13 @@ namespace Discreet.Cipher.Mnemonics
         private byte[] entropy;
 
         private Language language;
-
+        
         private string[] words;
 
         private Wordlist.Wordlist wordlist;
 
         /// <summary>
-        /// Stores the Language the mnemonic is in.
+        /// The language the mnemonic is in.
         /// </summary>
         public Language Lang
         {
