@@ -10,23 +10,45 @@ namespace Discreet.Visor
 {
     public class VisorConfig
     {
-        public string VisorPath { get; private set; }
-        public long DBSize { get; private set; }
+        private static VisorConfig _visor_config;
 
-        public string DBPath { get; private set; }
-        public string LogPath { get; private set; }
-        public string WalletPath { get; private set; }
+        private static object visor_config_lock = new object();
 
-        public string ConfigPath { get; private set; }
+        public static VisorConfig GetConfig()
+        {
+            lock (visor_config_lock)
+            {
+                if (_visor_config == null) _visor_config = new VisorConfig();
 
-        public IPEndPoint Endpoint { get; private set; }
-        public IPAddress BootstrapNode { get; private set; }
+                return _visor_config;
+            }
+        }
 
-        public byte NetworkID { get; private set; }
+        public static void SetConfig(VisorConfig config)
+        {
+            _visor_config = config;
+        }
+
+        public string VisorPath { get; set; }
+        public long DBSize { get; set; }
+
+        public string DBPath { get; set; }
+        public string LogPath { get; set; }
+        public string WalletPath { get; set; }
+
+        public string ConfigPath { get; set; }
+
+
+        public int Port { get; set; }
+        public IPEndPoint Endpoint { get; set; }
+        public IPAddress BootstrapNode { get; set; }
+
+        public byte NetworkID { get; set; }
 
         public VisorConfig()
         {
             VisorPath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
+
             VisorPath = Path.Combine(VisorPath, ".discreet");
 
             DBPath = Path.Combine(VisorPath, "data");
@@ -37,7 +59,9 @@ namespace Discreet.Visor
 
             DBSize = 4294967296/4; // 1gb
 
-            Endpoint = new IPEndPoint(IPAddress.Any, 6585);
+            Port = 6585;
+
+            Endpoint = new IPEndPoint(IPAddress.Any, Port);
 
             NetworkID = 1;
         }
