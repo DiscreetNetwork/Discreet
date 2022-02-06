@@ -118,5 +118,10 @@ namespace Discreet.Network.Core.Packets
             s.Write(ID.Bytes);
             s.WriteByte(Syncing ? (byte)1 : (byte)0);
         }
+
+        public int Size()
+        {
+            return 4 + 4 + 8 + 8 + 18 + 32 + 1;
+        }
     }
 }

@@ -78,5 +78,17 @@ namespace Discreet.Network.Core.Packets
                 s.Write(block.MarshalFull());
             }
         }
+
+        public int Size()
+        {
+            int rv = 4;
+
+            foreach(Coin.Block block in Blocks)
+            {
+                rv += (int)block.SizeFull();
+            }
+
+            return rv;
+        }
     }
 }

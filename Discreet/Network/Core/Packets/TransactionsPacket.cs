@@ -79,5 +79,17 @@ namespace Discreet.Network.Core.Packets
                 s.Write(tx.Marshal());
             }
         }
+
+        public int Size()
+        {
+            int rv = 4;
+
+            foreach (Coin.FullTransaction tx in Txs)
+            {
+                rv += (int)tx.Size();
+            }
+
+            return rv;
+        }
     }
 }

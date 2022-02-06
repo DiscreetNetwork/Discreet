@@ -17,6 +17,8 @@ namespace Discreet.Visor
 
         private static object logger_lock = new object();
 
+        private static object writer_lock = new object();
+
         public static Logger GetLogger()
         {
             lock (logger_lock)
@@ -70,11 +72,14 @@ namespace Discreet.Visor
 
         public static void Log(string msg)
         {
-            Logger logger = GetLogger();
+            lock (writer_lock)
+            {
+                Logger logger = GetLogger();
 
-            logger.openLog.WriteLine(msg);
+                logger.openLog.WriteLine(msg);
 
-            Console.WriteLine(msg);
+                Console.WriteLine(msg);
+            }
         }
 
         // WIP

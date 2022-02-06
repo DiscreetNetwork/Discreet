@@ -82,5 +82,10 @@ namespace Discreet.Network.Core.Packets
                 s.Write(h.Bytes);
             }
         }
+
+        public int Size()
+        {
+            return 4 + 32 * Transactions.Length;
+        }
     }
 }

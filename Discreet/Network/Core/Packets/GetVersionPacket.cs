@@ -22,5 +22,7 @@ namespace Discreet.Network.Core.Packets
         public uint Serialize(byte[] b, uint offset) { return offset; }
 
         public void Serialize(Stream s) { }
+
+        public int Size() { return 0; }
     }
 }

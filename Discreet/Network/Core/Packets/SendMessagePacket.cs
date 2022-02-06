@@ -62,5 +62,10 @@ namespace Discreet.Network.Core.Packets
             s.Write(Coin.Serialization.UInt32(MessageLen));
             s.Write(Encoding.UTF8.GetBytes(Message));
         }
+
+        public int Size()
+        {
+            return 4 + Message.Length;
+        }
     }
 }

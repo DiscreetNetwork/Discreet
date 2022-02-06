@@ -48,9 +48,22 @@ namespace Discreet.Network
         }
 
         /* handles incoming packets */
-        public void Handle(Packet p)
+        public async Task Handle(Packet p)
         {
-            
+            //WIP
+
+            /* REMOVE IN FUTURE; USED FOR TESTING */
+            if (p.Header.Command == Core.PacketType.OLDMESSAGE)
+            {
+                var body = (Core.Packets.Peerbloom.OldMessage)p.Body;
+
+                Peerbloom.Network.GetNetwork().OnSendMessageReceived(body.MessageID, body.Message);
+            }
+            else
+            {
+                Visor.Logger.Log($"Unknown/unimplemented packet type received: {p.Header.Command}");
+                return;
+            }
         }
 
         public void Handle(string s)

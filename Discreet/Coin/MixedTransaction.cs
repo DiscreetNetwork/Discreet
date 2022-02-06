@@ -762,12 +762,13 @@ namespace Discreet.Coin
             }
 
             Key commTOutputs = new(new byte[32]);
-            KeyOps.GenCommitment(ref commTOutputs, ref Key.Z, sumTOutputs);
+            Key _Z = Key.Copy(Key.Z);
+            KeyOps.GenCommitment(ref commTOutputs, ref _Z, sumTOutputs);
             KeyOps.AddKeys(ref tmp, ref sumComms, ref commTOutputs);
             Array.Copy(tmp.bytes, sumComms.bytes, 32);
 
             Key commFee = new(new byte[32]);
-            KeyOps.GenCommitment(ref commFee, ref Key.Z, Fee);
+            KeyOps.GenCommitment(ref commFee, ref _Z, Fee);
             KeyOps.AddKeys(ref tmp, ref sumComms, ref commFee);
             Array.Copy(tmp.bytes, sumComms.bytes, 32);
 

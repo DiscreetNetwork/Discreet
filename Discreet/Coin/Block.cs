@@ -634,7 +634,8 @@ namespace Discreet.Coin
 
             /* now verify output amount matches commitment */
             Key feeComm = new(new byte[32]);
-            KeyOps.GenCommitment(ref feeComm, ref Key.I, Fee);
+            Key _I = Key.Copy(Key.I);
+            KeyOps.GenCommitment(ref feeComm, ref _I, Fee);
 
             if (!feeComm.Equals(Coinbase.Outputs[0].Commitment))
             {

@@ -5,39 +5,35 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Discreet.Network.Core.Packets
+namespace Discreet.Network.Core.Packets.Peerbloom
 {
-    public class SendTransactionPacket: IPacketBody
+    public class NetPong: IPacketBody
     {
-        public Coin.FullTransaction Tx { get; set; }
+        public byte[] Data { get; set; }
 
-        public SendTransactionPacket()
-        {
+        public NetPong() { }
 
-        }
-
-        public SendTransactionPacket(byte[] b, uint offset)
-        {
-            Deserialize(b, offset);
-        }
-
-        public SendTransactionPacket(Stream s)
+        public NetPong(Stream s)
         {
             Deserialize(s);
         }
 
+        public NetPong(byte[] b, uint offset)
+        {
+            Deserialize(b, offset);
+        }
+
         public void Deserialize(byte[] b, uint offset)
         {
-            Tx = new Coin.FullTransaction();
-
-            Tx.Unmarshal(b, offset);
+            Data = new byte[b.Length - offset];
+            Array.Copy(b, offset, Data, 0, Data.Length);
         }
 
         public void Deserialize(Stream s)
         {
             using MemoryStream _ms = new MemoryStream();
 
-            byte[] buf = new byte[2048];
+            byte[] buf = new byte[64];
             int bytesRead;
 
             while ((bytesRead = s.Read(buf, 0, buf.Length)) > 0)
@@ -45,26 +41,23 @@ namespace Discreet.Network.Core.Packets
                 _ms.Write(buf, 0, bytesRead);
             }
 
-            Tx = new Coin.FullTransaction();
-
-            Tx.Unmarshal(_ms.ToArray());
+            Data = _ms.ToArray();
         }
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Tx.Marshal(b, offset);
-
-            return offset + Tx.Size();
+            Array.Copy(Data, 0, b, offset, Data.Length);
+            return offset + (uint)Data.Length;
         }
 
         public void Serialize(Stream s)
         {
-            s.Write(Tx.Marshal());
+            s.Write(Data);
         }
 
         public int Size()
         {
-            return (int)Tx.Size();
+            return Data.Length;
         }
     }
 }

@@ -75,23 +75,42 @@ namespace Discreet.Network.Peerbloom
             {
                 await _tcpClient.ConnectAsync(Endpoint.Address, Endpoint.Port);
 
-                WritePacketBase requestPacket = new WritePacketBase();
-                requestPacket.WriteString("Connect");
-                requestPacket.WriteBigInteger(localNode.Id.Value);
-                requestPacket.WriteInt(localNode.Endpoint.Port);
-                await _tcpClient.GetStream().WriteAsync(requestPacket.ToNetworkByteArray());
+                //WritePacketBase requestPacket = new WritePacketBase();
+                //requestPacket.WriteString("Connect");
+                //requestPacket.WriteKey(localNode.Id.Value);
+                //requestPacket.WriteInt(localNode.Endpoint.Port);
 
-                ReadPacketBase responsePacket = new ReadPacketBase(await _tcpClient.ReadBytesAsync());
+                Core.Packets.Peerbloom.Connect connectBody = new Core.Packets.Peerbloom.Connect { ID = localNode.Id.Value, Port = localNode.Endpoint.Port };
+                Core.Packet connect = new Core.Packet(Core.PacketType.CONNECT, connectBody);
 
-                bool isPublic = responsePacket.ReadBoolean();
-                ConnectionAcknowledged = responsePacket.ReadBoolean();
-                Id = new NodeId(responsePacket.ReadBigInteger());
+                await _tcpClient.GetStream().WriteAsync(connect.Serialize());
+
+                //ReadPacketBase responsePacket = new ReadPacketBase(await _tcpClient.ReadBytesAsync());
+
+                //bool isPublic = responsePacket.ReadBoolean();
+                //ConnectionAcknowledged = responsePacket.ReadBoolean();
+                //Id = new NodeId(responsePacket.ReadKey());
+
+                Core.Packet connectAck = new Core.Packet(await _tcpClient.ReadBytesAsync());
+                Core.Packets.Peerbloom.ConnectAck connectAckBody = (Core.Packets.Peerbloom.ConnectAck)connectAck.Body;
+
+                bool isPublic = connectAckBody.IsPublic;
+                ConnectionAcknowledged = connectAckBody.Acknowledged;
+                Id = new NodeId(connectAckBody.ID);
 
                 SetLastSeen();
                 return (ConnectionAcknowledged, isPublic);
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                Visor.Logger.Log(e.Message);
+
+                return (false, false);
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Log(ex.Message);
+
                 return (false, false);
             }
         }
@@ -108,26 +127,40 @@ namespace Discreet.Network.Peerbloom
             {
                 await client.ConnectAsync(Endpoint.Address, Endpoint.Port);
 
-                WritePacketBase requestPacket = new WritePacketBase();
-                requestPacket.WriteString("Ping");
-                await client.GetStream().WriteAsync(requestPacket.ToNetworkByteArray());
+                //WritePacketBase requestPacket = new WritePacketBase();
+                //requestPacket.WriteString("Ping");
+                //await client.GetStream().WriteAsync(requestPacket.ToNetworkByteArray());
 
-                ReadPacketBase responsePacket = new ReadPacketBase(await client.ReadBytesAsync());
+                Core.Packet packet = new Core.Packet(Core.PacketType.NETPING, new Core.Packets.Peerbloom.NetPing { Data = new byte[0] });
+                await client.GetStream().WriteAsync(packet.Serialize());
+
+                //ReadPacketBase responsePacket = new ReadPacketBase(await client.ReadBytesAsync());
+                Core.Packet resp = new Core.Packet(await client.ReadBytesAsync());
+
                 client.Close();
 
-                string response = responsePacket.ReadString();
-                if (response.Equals("Pong"))
+                //string response = responsePacket.ReadString();
+                if (resp.Header.Command == Core.PacketType.NETPONG)
                 {
                     SetLastSeen();
-                    Console.WriteLine($"Pinged: {Endpoint.Address}:{Endpoint.Port}");
+                    Core.Packets.Peerbloom.NetPong respBody = (Core.Packets.Peerbloom.NetPong)resp.Body;
+                    Visor.Logger.Log($"Pinged: {Endpoint.Address}:{Endpoint.Port} and got data \"{Common.Printable.Hexify(respBody.Data)}\"");
                     return true;
                 }
 
-                Console.WriteLine($"Could not ping: {Endpoint.Address}:{Endpoint.Port}");
+                Visor.Logger.Log($"Could not ping: {Endpoint.Address}:{Endpoint.Port}");
                 return false;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
+                Visor.Logger.Log(e.Message);
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Log(ex.Message);
+
                 return false;
             }
         }
@@ -140,31 +173,41 @@ namespace Discreet.Network.Peerbloom
             {
                 await client.ConnectAsync(Endpoint.Address, Endpoint.Port);
 
-                WritePacketBase requestPacket = new WritePacketBase();
-                requestPacket.WriteString("FindNode");
-                requestPacket.WriteInt(localEndpoint.Port); // Also send the port we can be reached on
-                requestPacket.WriteBigInteger(localNodeId.Value); // Also send our NodeId
-                requestPacket.WriteBigInteger(target.Value);
-                await client.GetStream().WriteAsync(requestPacket.ToNetworkByteArray());
+                //WritePacketBase requestPacket = new WritePacketBase();
+                //requestPacket.WriteString("FindNode");
+                //requestPacket.WriteInt(localEndpoint.Port); // Also send the port we can be reached on
+                //requestPacket.WriteKey(localNodeId.Value); // Also send our NodeId
+                //requestPacket.WriteKey(target.Value);
+                //await client.GetStream().WriteAsync(requestPacket.ToNetworkByteArray());
 
-                ReadPacketBase responsePacket = new ReadPacketBase(await client.ReadBytesAsync());
+                Core.Packets.Peerbloom.FindNode findNodeBody = new Core.Packets.Peerbloom.FindNode { Port = localEndpoint.Port, ID = localNodeId.Value, Dest = target.Value };
+                Core.Packet findNode = new Core.Packet(Core.PacketType.FINDNODE, findNodeBody);
+
+                await client.GetStream().WriteAsync(findNode.Serialize());
+
+                //ReadPacketBase responsePacket = new ReadPacketBase(await client.ReadBytesAsync());
+                Core.Packet resp = new Core.Packet(await client.ReadBytesAsync());
+                Core.Packets.Peerbloom.FindNodeResp respBody = (Core.Packets.Peerbloom.FindNodeResp)resp.Body;
 
                 List<RemoteNode> remoteNodes = new List<RemoteNode>();
-                int nodeCount = responsePacket.ReadInt();
-                for (int i = 0; i < nodeCount; i++)
+                foreach (var elem in respBody.Elems)
                 {
-                    NodeId id = new NodeId(responsePacket.ReadBigInteger());
-                    IPAddress ip = IPAddress.Parse(responsePacket.ReadString());
-                    int port = responsePacket.ReadInt();
-                    remoteNodes.Add(new RemoteNode(id, new IPEndPoint(ip, port)));
+                    NodeId id = new NodeId(elem.ID);
+                    remoteNodes.Add(new RemoteNode(id, elem.Endpoint));
                 }
 
-                Console.WriteLine($"Sent `FindNode` to: {Endpoint.Address}:{Endpoint.Port}");
+                Visor.Logger.Log($"Sent `FindNode` to: {Endpoint.Address}:{Endpoint.Port}");
                 return remoteNodes;
             }
-            catch (SocketException)
+            catch (SocketException e)
             {
-                Console.WriteLine($"Failed to send `FindNode` to: {Endpoint.Address}:{Endpoint.Port}");
+                Visor.Logger.Log($"Failed to send `FindNode` to: {Endpoint.Address}:{Endpoint.Port} : {e.Message}");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Log(ex.Message);
+
                 return null;
             }
         }
@@ -172,6 +215,11 @@ namespace Discreet.Network.Peerbloom
         public async Task Send(WritePacketBase messagePacket)
         {
             await _tcpClient.GetStream().WriteAsync(messagePacket.ToNetworkByteArray());
+        }
+
+        public async Task Send(Core.Packet packet)
+        {
+            await _tcpClient.GetStream().WriteAsync(packet.Serialize());
         }
     }
 }

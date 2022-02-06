@@ -101,5 +101,10 @@ namespace Discreet.Network.Core.Packets
             s.Write(Coin.Serialization.UInt32(DataLen));
             s.Write(Data);
         }
+
+        public int Size()
+        {
+            return 10 + Reason.Length + Data.Length;
+        }
     }
 }

@@ -93,5 +93,10 @@ namespace Discreet.Network.Core.Packets
                 s.Write(v.Hash.Bytes);
             }
         }
+
+        public int Size()
+        {
+            return 4 + 36 * Inventory.Length;
+        }
     }
 }

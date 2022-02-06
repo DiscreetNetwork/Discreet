@@ -44,5 +44,14 @@ namespace Discreet.Network.Core
 
         /* DEBUG MESSAGING */
         SENDMSG = 19,
+
+        /* USED BY PEERBLOOM */
+        CONNECT = 20,
+        CONNECTACK = 21,
+        FINDNODE = 22,
+        FINDNODERESP = 23,
+        NETPING = 24,
+        NETPONG = 25,
+        OLDMESSAGE = 26,
     }
 }

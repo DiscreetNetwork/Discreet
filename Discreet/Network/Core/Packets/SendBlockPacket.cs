@@ -61,5 +61,10 @@ namespace Discreet.Network.Core.Packets
         {
             s.Write(Block.MarshalFull());
         }
+
+        public int Size()
+        {
+            return (int)Block.SizeFull();
+        }
     }
 }

@@ -26,6 +26,12 @@ namespace Discreet.Network.Core
             Populate(bytes);
         }
 
+        public Packet(PacketType type, IPacketBody body)
+        {
+            Header = new PacketHeader(type, body);
+            Body = body;
+        }
+
         public PacketType Type()
         {
             return Header.Command;
@@ -70,6 +76,15 @@ namespace Discreet.Network.Core
             Body = DecodePacketBody(Header.Command, bytes, 10);
         }
 
+        public byte[] Serialize()
+        {
+            byte[] bytes = new byte[Header.Length + 10];
+            Header.Encode(bytes, 0);
+            Body.Serialize(bytes, 10);
+
+            return bytes;
+        }
+
         public static IPacketBody DecodePacketBody(PacketType t, byte[] data, uint offset)
         {
             switch (t)
@@ -100,6 +115,20 @@ namespace Discreet.Network.Core
                     return new Packets.SendBlockPacket(data, offset);
                 case PacketType.SENDMSG:
                     return new Packets.SendMessagePacket(data, offset);
+                case PacketType.CONNECT:
+                    return new Packets.Peerbloom.Connect(data, offset);
+                case PacketType.CONNECTACK:
+                    return new Packets.Peerbloom.ConnectAck(data, offset);
+                case PacketType.FINDNODE:
+                    return new Packets.Peerbloom.FindNode(data, offset);
+                case PacketType.FINDNODERESP:
+                    return new Packets.Peerbloom.FindNodeResp(data, offset);
+                case PacketType.NETPING:
+                    return new Packets.Peerbloom.NetPing(data, offset);
+                case PacketType.NETPONG:
+                    return new Packets.Peerbloom.NetPong(data, offset);
+                case PacketType.OLDMESSAGE:
+                    return new Packets.Peerbloom.OldMessage(data, offset);
                 case PacketType.NONE:
                     throw new Exception("Discreet.Network.Core.Packet.DecodePacketBody: dummy packet received (PacketType.NONE)");
                 default:
@@ -137,6 +166,20 @@ namespace Discreet.Network.Core
                     return new Packets.SendBlockPacket(s);
                 case PacketType.SENDMSG:
                     return new Packets.SendMessagePacket(s);
+                case PacketType.CONNECT:
+                    return new Packets.Peerbloom.Connect(s);
+                case PacketType.CONNECTACK:
+                    return new Packets.Peerbloom.ConnectAck(s);
+                case PacketType.FINDNODE:
+                    return new Packets.Peerbloom.FindNode(s);
+                case PacketType.FINDNODERESP:
+                    return new Packets.Peerbloom.FindNodeResp(s);
+                case PacketType.NETPING:
+                    return new Packets.Peerbloom.NetPing(s);
+                case PacketType.NETPONG:
+                    return new Packets.Peerbloom.NetPong(s);
+                case PacketType.OLDMESSAGE:
+                    return new Packets.Peerbloom.OldMessage(s);
                 case PacketType.NONE:
                     throw new Exception("Discreet.Network.Core.Packet.DecodePacketBody: dummy packet received (PacketType.NONE)");
                 default:

@@ -9,19 +9,19 @@ namespace Discreet.Network.Peerbloom
 {
     public class NodeId
     {
-        public BigInteger Value { get; private set; }
+        public Cipher.Key Value { get; private set; }
 
         public NodeId()
         {
-            Value = new BigInteger(Utility.RandomByteArray(Constants.ID_BIT_LENGTH / 8).Concat(new byte[] { 0 }).ToArray()); // We append a 0 byte, to ensure the BigInteger is a positive value
+            Value = new Cipher.Key(Utility.RandomByteArray(Constants.ID_BIT_LENGTH / 8).ToArray());
         }
 
-        public NodeId(BigInteger value)
+        public NodeId(Cipher.Key value)
         {
             Value = value;
         }
 
         // Only take 'ID_BIT_LENGTH', so we skip the the appended 0, from when we generated the Id
-        public byte[] GetBytes() => Value.ToByteArray().Take(Constants.ID_BIT_LENGTH / 8).ToArray();
+        public byte[] GetBytes() => Value.bytes;
     }
 }

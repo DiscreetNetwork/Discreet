@@ -54,9 +54,24 @@ namespace Discreet.Network.Peerbloom.Protocol.Common
             return bytes;
         }
 
+        public byte[] ReadBytes(int num)
+        {
+            byte[] bytes = _bytes.Skip(_readPosition).Take(num).ToArray();
+            _readPosition += num;
+            return bytes;
+        }
+
         public BigInteger ReadBigInteger()
         {
             return new BigInteger(ReadBytes());
+        }
+
+        public Cipher.Key ReadKey()
+        {
+            var rv = new Cipher.Key(_bytes.Skip(_readPosition).Take(32).ToArray());
+            _readPosition += 32;
+
+            return rv;
         }
     }
 }

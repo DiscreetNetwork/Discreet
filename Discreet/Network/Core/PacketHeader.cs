@@ -37,6 +37,14 @@ namespace Discreet.Network.Core
             Decode(b, offset);
         }
 
+        public PacketHeader(PacketType type, IPacketBody body)
+        {
+            NetworkID = Visor.VisorConfig.GetDefault().NetworkID;
+            Command = type;
+            Length = (uint)body.Size();
+            Checksum = body.Checksum();
+        }
+
         public void Encode(Stream s)
         {
             s.WriteByte(NetworkID);

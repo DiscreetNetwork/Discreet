@@ -649,7 +649,8 @@ namespace Discreet.Coin
                 }
 
                 Cipher.Key commFee = new(new byte[32]);
-                Cipher.KeyOps.GenCommitment(ref commFee, ref Cipher.Key.Z, Fee);
+                Cipher.Key _Z = Cipher.Key.Copy(Cipher.Key.Z);
+                Cipher.KeyOps.GenCommitment(ref commFee, ref _Z, Fee);
                 Cipher.KeyOps.AddKeys(ref tmp, ref sumComms, ref commFee);
                 Array.Copy(tmp.bytes, sumComms.bytes, 32);
 

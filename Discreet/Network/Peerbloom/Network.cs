@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Text;
 
 namespace Discreet.Network.Peerbloom
 {
@@ -16,6 +17,29 @@ namespace Discreet.Network.Peerbloom
     /// </summary>
     public class Network
     {
+        private static Network _network;
+
+        private static object network_lock = new object();
+
+        public static Network GetNetwork()
+        {
+            lock (network_lock)
+            {
+                if (_network == null) Instantiate();
+
+                return _network;
+            }
+        }
+
+        public static void Instantiate()
+        {
+            lock (network_lock)
+            {
+                if (_network == null) _network = new Network(Visor.VisorConfig.GetDefault().Endpoint);
+            }
+        }
+
+
         private LocalNode _localNode;
 
         /// <summary>
@@ -100,7 +124,7 @@ namespace Discreet.Network.Peerbloom
         public async Task Bootstrap()
         {
             // For actual live chatting
-            RemoteNode bootstrapNode = new RemoteNode(new IPEndPoint(IPAddress.Parse("IP_HERE"), 5555));
+            RemoteNode bootstrapNode = new RemoteNode(new IPEndPoint(Visor.VisorConfig.GetDefault().BootstrapNode, 5555));
 
             // For testing locally
             //RemoteNode bootstrapNode = new RemoteNode(new IPEndPoint(IPAddress.Loopback, 5555));
@@ -110,20 +134,20 @@ namespace Discreet.Network.Peerbloom
             // For now: make sure the int we check against, matches the port of the bootstrap node, in the line above
             if (_localNode.Endpoint.Port == 5555) return;
 
-            Console.WriteLine("Bootstrapping the node\n");
+            Visor.Logger.Log("Bootstrapping the node\n");
 
             (bool acknowledged, bool isPublic) = await bootstrapNode.Connect(_localNode);
 
             if(!acknowledged)
             {
-                Console.WriteLine($"Retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                Visor.Logger.Log($"Retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
-                Console.Clear();
+                //Console.Clear();
                 await Bootstrap();
                 return;
             }
 
-            Console.WriteLine(isPublic ? "Continuing in public mode" : "Continuing in private mode");
+            Visor.Logger.Log(isPublic ? "Continuing in public mode" : "Continuing in private mode");
             _localNode.SetNetworkMode(isPublic); // This determines how 'this' node relays messages
 
 
@@ -138,9 +162,9 @@ namespace Discreet.Network.Peerbloom
             // We failed at establishing a connection to the bootstrap node
             if(fetchedNodes == null)
             {
-                Console.WriteLine($"Failed to contact the bootstrap node with a `FindNode` command, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                Visor.Logger.Log($"Failed to contact the bootstrap node with a `FindNode` command, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
-                Console.Clear();
+                //Console.Clear();
                 await Bootstrap();
                 return;
             }
@@ -148,9 +172,9 @@ namespace Discreet.Network.Peerbloom
             // If we didnt get any peers, dont consider the bootstrap a success
             if(fetchedNodes.Count == 0)
             {
-                Console.WriteLine($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                Visor.Logger.Log($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
-                Console.Clear();
+                //Console.Clear();
                 await Bootstrap();
                 return;
             }
@@ -162,12 +186,12 @@ namespace Discreet.Network.Peerbloom
             List<Bucket> otherBuckets = _bucketManager.GetBuckets().Where(x => x != bootstrapBucket).ToList();
             otherBuckets.ForEach(async x => await _bucketManager.RefreshBucket(x));
 
-            Console.WriteLine("\n Connecting to nodes");
+            Visor.Logger.Log("\n Connecting to nodes");
             foreach (var bucket in _bucketManager.GetBuckets())
             {
                 foreach (var node in bucket.GetNodes())
                 {
-                    if (_connectionPool.GetOutboundConnections().Any(n => n.Id.Value == node.Id.Value)) continue;
+                    if (_connectionPool.GetOutboundConnections().Any(n => n.Id.Value.Equals(node.Id.Value))) continue;
 
                     (acknowledged, _) = await node.Connect(_localNode);
                     if (!acknowledged) continue;
@@ -178,64 +202,98 @@ namespace Discreet.Network.Peerbloom
                 }
             }
 
-            Console.WriteLine("\nBootstrap completed. Continuing in 2 seconds");
+            Visor.Logger.Log("\nBootstrap completed. Continuing in 2 seconds");
             await Task.Delay(2000);
             //Console.Clear();
         }
 
         // When sending the initial message
+        /* DEPRACATED */
         public async Task SendMessage(string content)
         {
             string messageId = Guid.NewGuid().ToString();
             _messageStore.AddMessageIdentifier(messageId);
 
-            WritePacketBase messagePacket = new WritePacketBase();
-            messagePacket.WriteString("Message");                       // Command
-            messagePacket.WriteString(messageId);                       // Message ID
-            messagePacket.WriteString(content);                         // Message Content
+            uint len = (uint)Encoding.UTF8.GetBytes(content).Length;
+
+            Core.Packet packet = new Core.Packet(Core.PacketType.OLDMESSAGE, new Core.Packets.Peerbloom.OldMessage { MessageIDLen = (uint)messageId.Length, MessageID = messageId, MessageLen = len, Message = content });
+            //WritePacketBase messagePacket = new WritePacketBase();
+            //messagePacket.WriteString("Message");                       // Command
+            //messagePacket.WriteString(messageId);                       // Message ID
+            //messagePacket.WriteString(content);                         // Message Content
 
             if(_localNode.IsPublic)
             {
                 foreach (var inbound in _connectionPool.GetInboundConnections())
                 {
-                    await inbound.Send(messagePacket);
+                    await inbound.Send(packet);
                 }
             }
             
             foreach (var outbound in _connectionPool.GetOutboundConnections())
             {
-                await outbound.Send(messagePacket);
+                await outbound.Send(packet);
             }
         }
 
-        // When receiving the message
-        private void OnSendMessageReceived(string messageId, string content)
+        public async Task Broadast(Core.Packet packet)
         {
-            if (_messageStore.Contains(messageId)) return;
-
-            _messageStore.AddMessageIdentifier(messageId);
-
-            Handler.GetHandler().Handle(content);
-
-            WritePacketBase messagePacket = new WritePacketBase();
-            messagePacket.WriteString("Message");                       // Command
-            messagePacket.WriteString(messageId);                       // Message ID
-            messagePacket.WriteString(content);                         // Message Content
-
             if (_localNode.IsPublic)
             {
-                foreach (var inbound in _connectionPool.GetInboundConnections())
+                foreach(var inbound in _connectionPool.GetInboundConnections())
                 {
-                    _ = inbound.Send(messagePacket);
+                    await inbound.Send(packet);
                 }
             }
 
             foreach (var outbound in _connectionPool.GetOutboundConnections())
             {
-                _ = outbound.Send(messagePacket);
+                await outbound.Send(packet);
             }
         }
 
-        
+        public async Task<bool> Send(IPEndPoint endpoint, Core.Packet packet)
+        {
+            var node = _connectionPool.FindNodeInPool(endpoint);
+
+            if (node == null) return false;
+
+            await node.Send(packet);
+
+            return true;
+        }
+
+        // When receiving the message (used for tests; remember to replace the handler call with method specified in Program.cs)
+        public void OnSendMessageReceived(string messageId, string content)
+        {
+            if (_messageStore.Contains(messageId)) return;
+
+            _messageStore.AddMessageIdentifier(messageId);
+
+            // replace with method from Program.cs!
+            Visor.Logger.Log($"Received message ({messageId}): {content}");
+
+            uint len = (uint)Encoding.UTF8.GetBytes(content).Length;
+
+            Core.Packet packet = new Core.Packet(Core.PacketType.OLDMESSAGE, new Core.Packets.Peerbloom.OldMessage { MessageIDLen = (uint)messageId.Length, MessageID = messageId, MessageLen = len, Message = content });
+
+            //WritePacketBase messagePacket = new WritePacketBase();
+            //messagePacket.WriteString("Message");                       // Command
+            //messagePacket.WriteString(messageId);                       // Message ID
+            //messagePacket.WriteString(content);                         // Message Content
+
+            if (_localNode.IsPublic)
+            {
+                foreach (var inbound in _connectionPool.GetInboundConnections())
+                {
+                    _ = inbound.Send(packet);
+                }
+            }
+
+            foreach (var outbound in _connectionPool.GetOutboundConnections())
+            {
+                _ = outbound.Send(packet);
+            }
+        }
     }
 }

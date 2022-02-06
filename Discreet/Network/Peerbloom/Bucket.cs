@@ -18,12 +18,12 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// The Low value of the ID space / region, that this bucket holds
         /// </summary>
-        public BigInteger Low { get; private set; }
+        public Cipher.Key Low { get; private set; }
 
         /// <summary>
         /// The High value of the ID space / region, that this bucket holds
         /// </summary>
-        public BigInteger High { get; private set; }
+        public Cipher.Key High { get; private set; }
 
         /// <summary>
         /// A datetime that shows when the bucket were last refreshed / updated
@@ -38,8 +38,14 @@ namespace Discreet.Network.Peerbloom
         public Bucket()
         {
             _nodes = new List<RemoteNode>();
-            Low = 0;
-            High = BigInteger.Pow(new BigInteger(2), Constants.ID_BIT_LENGTH);
+            Low = Cipher.Key.Copy(Cipher.Key.Z);
+            High = new Cipher.Key(new byte[32]);
+
+            for (int i = 0; i < 32; i++)
+            {
+                High.bytes[i] = 0xff;
+            }
+
             LastUpdated = DateTime.UtcNow;
         }
 
@@ -48,7 +54,7 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         /// <param name="low">Low value of the ID space that the new bucket supports</param>
         /// <param name="high">High value of the ID space that the new bucket supports</param>
-        public Bucket(BigInteger low, BigInteger high)
+        public Bucket(Cipher.Key low, Cipher.Key high)
         {
             _nodes = new List<RemoteNode>();
             Low = low;
@@ -90,7 +96,7 @@ namespace Discreet.Network.Peerbloom
         /// <returns>Two buckets in which the nodes have been placed accordingly based on their Id values</returns>
         public (Bucket, Bucket) Split()
         {
-            BigInteger mid = (Low + High) / 2;
+            Cipher.Key mid = (Low + High) / 2;
             Bucket b1 = new Bucket(Low, mid);
             Bucket b2 = new Bucket(mid, High);
 

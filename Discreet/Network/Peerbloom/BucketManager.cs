@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using Discreet.Network.Peerbloom.Extensions;
 
 namespace Discreet.Network.Peerbloom
 {
@@ -41,7 +42,7 @@ namespace Discreet.Network.Peerbloom
             if(b.IsNodeInRange(_localNode.Id) || (b.Depth() % Constants.ALPHA) != 0)
             {
                 (Bucket b1, Bucket b2) = b.Split();
-                Console.WriteLine($"Performed bucket split: {_buckets.Count} total buckets");
+                Visor.Logger.Log($"Performed bucket split: {_buckets.Count} total buckets");
                 b1.SetLastUpdated();
                 b2.SetLastUpdated();
 
@@ -65,10 +66,10 @@ namespace Discreet.Network.Peerbloom
 
         public async Task RefreshBucket(Bucket b)
         {
-            Console.WriteLine("Refreshing a bucket\n");
+            Visor.Logger.Log("Refreshing a bucket\n");
             foreach (var node in b.GetNodes())
             {
-                var fetchedNodes = await node.FindNode(_localNode.Id, _localNode.Endpoint, new NodeId(Utility.GetRandomPositiveBigInteger(b.Low, b.High)));
+                var fetchedNodes = await node.FindNode(_localNode.Id, _localNode.Endpoint, new NodeId(Utility.GetRandomPositiveBigInteger(b.Low, b.High).ToKey()));
                 if(fetchedNodes == null)
                 {
                     // Handle eviction

@@ -75,5 +75,13 @@ namespace Discreet.Network.Peerbloom.Protocol.Common
         {
             WriteBytes(value.ToByteArray());
         }
+
+        public void WriteKey(Cipher.Key value)
+        {
+            byte[] newBytes = new byte[_bytes.Length + 32];
+            Array.Copy(_bytes, 0, newBytes, 0, _bytes.Length);
+            Array.Copy(value.bytes, 0, newBytes, _bytes.Length, 32);
+            _bytes = newBytes;
+        }
     }
 }

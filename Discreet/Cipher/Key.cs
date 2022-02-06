@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.Linq;
+using System.Numerics;
 
 namespace Discreet.Cipher
 {
@@ -173,16 +175,6 @@ namespace Discreet.Cipher
         }
 
         /// <summary>
-        /// Returns true if the key is equal to b, and false otherwise.
-        /// </summary>
-        /// <param name="b"></param>
-        /// <returns></returns>
-        public bool Equals(Key b)
-        {
-            return Compare(this, b) == 0;
-        }
-
-        /// <summary>
         /// Returns a hexadecimal string of the Key.
         /// </summary>
         /// <returns></returns>
@@ -209,6 +201,120 @@ namespace Discreet.Cipher
         {
             return new Key(Common.Printable.Byteify(hex));
         }
+
+        /// <summary>
+        /// Converts the object to a BigInteger.
+        /// </summary>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public BigInteger ToBigInteger()
+        {
+            return new BigInteger(bytes.Concat(new byte[] { 0 }).ToArray());
+        }
+
+#nullable enable
+        public int CompareTo(object? b)
+        {
+            if (b == null || b == default) throw new Exception("Discreet.Cipher.Key.CompareTo: cannot compare to null or defaulted object");
+
+            return Compare(this, (Key)b);
+        }
+#nullable disable
+
+        /// <summary>
+        /// Returns true if the key is equal to b, and false otherwise.
+        /// </summary>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public override bool Equals(object b)
+        {
+            return Compare(this, (Key)b) == 0;
+        }
+
+        /// <summary>
+        /// Performs exclusive or on two keys
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        public static Key XOR(Key a, Key b)
+        {
+            Key res = new Key(new byte[32]);
+
+            for (int i = 0; i < 32; i++)
+            {
+                res.bytes[i] = (byte)(a.bytes[i] ^ b.bytes[i]);
+            }
+
+            return res;
+        }
+
+        public static Key Add(Key a, Key b)
+        {
+            Key res = new Key(new byte[32]);
+
+            int carry = 0;
+            
+            for (int i = 0; i < 32; i++)
+            {
+                res.bytes[i] = (byte)unchecked(carry + a.bytes[i] + b.bytes[i]);
+                carry = (a.bytes[i] + b.bytes[i]) / 256;
+            }
+
+            return res;
+        }
+
+        public static Key Div(Key a, Key b)
+        {
+            BigInteger _a = new BigInteger(a.bytes.Concat(new byte[] { 0 }).ToArray());
+            BigInteger _b = new BigInteger(b.bytes.Concat(new byte[] { 0 }).ToArray());
+
+            var c = _a / _b;
+
+            Key rv = new Key(new byte[32]);
+            byte[] bytes = c.ToByteArray(isUnsigned: true, isBigEndian: false);
+            Array.Copy(bytes, rv.bytes, bytes.Length);
+            return rv;
+        }
+
+        public static Key Div(Key a, int b)
+        {
+            BigInteger _a = new BigInteger(a.bytes.Concat(new byte[] { 0 }).ToArray());
+
+            var c = _a / b;
+
+            Key rv = new Key(new byte[32]);
+            byte[] bytes = c.ToByteArray(isUnsigned: true, isBigEndian: false);
+            Array.Copy(bytes, rv.bytes, bytes.Length);
+            return rv;
+        }
+
+        public override int GetHashCode()
+        {
+            return BitConverter.ToInt32(bytes[0..4]);
+        }
+
+        public static bool operator ==(Key a, Key b) => Key.Equals(a, b);
+
+        public static bool operator !=(Key a, Key b) => !Key.Equals(a, b);
+
+        public static bool operator >(Key a, Key b) => Key.Compare(a, b) > 0;
+
+        public static bool operator <(Key a, Key b) => Key.Compare(a, b) < 0;
+
+        public static bool operator >=(Key a, Key b) => Key.Compare(a, b) >= 0;
+
+        public static bool operator <=(Key a, Key b) => Key.Compare(a, b) <= 0;
+
+        public static Key operator ^(Key a, Key b) => Key.XOR(a, b);
+
+        public static Key operator +(Key a, Key b) => Key.Add(a, b);
+
+        public static Key operator /(Key a, Key b) => Key.Div(a, b);
+
+        public static Key operator /(Key a, int b) => Key.Div(a, b);
+
+        public static implicit operator BigInteger(Key k) => k.ToBigInteger();
     }
 
     /// <summary>
