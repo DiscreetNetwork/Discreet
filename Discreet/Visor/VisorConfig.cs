@@ -26,7 +26,10 @@ namespace Discreet.Visor
 
         public static void SetConfig(VisorConfig config)
         {
-            _visor_config = config;
+            lock (visor_config_lock)
+            {
+                _visor_config = config;
+            }
         }
 
         public string VisorPath { get; set; }
