@@ -16,6 +16,9 @@ using Discreet.Common;
 
 namespace Discreet
 {
+	public delegate void MessagePacketReceivedEvent(string messageId, string content);
+	public delegate void MessageReceivedEvent(string message);
+
 	class Program
 	{
 		/*public class TaskData
@@ -314,8 +317,8 @@ namespace Discreet
             Console.WriteLine(stopwatch.ElapsedMilliseconds);
 		}
 
-		public static void Main(string[] args)
-		{
+		//public static void Main(string[] args)
+		//{
 			/*Key bv = new Key();
 			Key BV = new Key();
 			Key bs = new Key();
@@ -609,7 +612,7 @@ namespace Discreet
             }*/
 
 			// PBKDF2 for "password123!" inputting any other 
-			byte[] magic = new byte[32] { 0x17, 0x33, 0x50, 0x8c, 0xbe, 0x39, 0xf1, 0xe0, 0xac, 0x81, 0x84, 0xf4, 0x64, 0x18, 0x6f, 0x46, 0x61, 0x75, 0x1d, 0x94, 0x83, 0x64, 0xa6, 0x76, 0xc6, 0x69, 0xa7, 0x89, 0x77, 0x38, 0x47, 0x79 };
+			//byte[] magic = new byte[32] { 0x17, 0x33, 0x50, 0x8c, 0xbe, 0x39, 0xf1, 0xe0, 0xac, 0x81, 0x84, 0xf4, 0x64, 0x18, 0x6f, 0x46, 0x61, 0x75, 0x1d, 0x94, 0x83, 0x64, 0xa6, 0x76, 0xc6, 0x69, 0xa7, 0x89, 0x77, 0x38, 0x47, 0x79 };
 
 
 			// CipherObject initSettings = new CipherObject {  Key = magic, IV = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  } };
@@ -855,7 +858,65 @@ namespace Discreet
             {
                 Console.WriteLine("uh oh spaghettio");
             }*/
-		}
 
+
+		//}
+
+		public static List<string> _messages = new List<string>();
+		public static MessagePacketReceivedEvent _messagePacketReceivedEvent;
+		public static MessageReceivedEvent _messageReceivedEvent;
+
+		public static object console_lock = new object();
+
+		public async Task Main(string[] args)
+        {
+			Console.Write("Port: ");
+			int port = int.Parse(Console.ReadLine());
+
+			Console.Write("Name: ");
+			string name = Console.ReadLine();
+
+			Visor.VisorConfig config = new Visor.VisorConfig();
+
+			config.Port = port;
+
+			Visor.VisorConfig.SetConfig(config);
+
+			_messageReceivedEvent = OnMessageReceivedEvent;
+
+			var network = Discreet.Network.Peerbloom.Network.GetNetwork();
+
+			network.Start();
+			await network.Bootstrap();
+
+			while (true)
+            {
+				Console.Write("\n-> ");
+
+				string msg = Console.ReadLine();
+
+				string message = $"{name}: {msg}";
+				OnMessageReceivedEvent(message);
+
+				await network.SendMessage(message);
+            }
+
+			Console.ReadLine();
+			network.Shutdown();
+        }
+
+		public static void OnMessageReceivedEvent(string message)
+        {
+			lock (console_lock)
+            {
+				_messages.Add(message);
+
+				Console.Clear();
+
+				_messages.ForEach(x => Console.WriteLine($"{x}"));
+
+				Console.Write("\n-> ");
+			}
+        }
 	}
 }

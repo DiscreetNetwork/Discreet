@@ -271,7 +271,8 @@ namespace Discreet.Network.Peerbloom
             _messageStore.AddMessageIdentifier(messageId);
 
             // replace with method from Program.cs!
-            Visor.Logger.Log($"Received message ({messageId}): {content}");
+            //Visor.Logger.Log($"Received message ({messageId}): {content}");
+            Program._messageReceivedEvent?.Invoke(content);
 
             uint len = (uint)Encoding.UTF8.GetBytes(content).Length;
 
