@@ -863,12 +863,11 @@ namespace Discreet
 		//}
 
 		public static List<string> _messages = new List<string>();
-		public static MessagePacketReceivedEvent _messagePacketReceivedEvent;
 		public static MessageReceivedEvent _messageReceivedEvent;
 
 		public static object console_lock = new object();
 
-		public async Task Main(string[] args)
+		public static async Task Main(string[] args)
         {
 			Console.Write("Port: ");
 			int port = int.Parse(Console.ReadLine());
