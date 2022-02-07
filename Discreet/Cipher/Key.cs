@@ -11,7 +11,7 @@ namespace Discreet.Cipher
     /// Represents a 256-bit group of information, which can be an ed25519 scalar, group element, sha256 hash, or keccak hash.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    public struct Key
+    public struct Key: IComparable
     {
         /// <summary>
         /// The 256 bit information.
