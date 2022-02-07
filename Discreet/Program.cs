@@ -914,7 +914,7 @@ namespace Discreet
 
 				_messages.ForEach(x => Console.WriteLine($"{x}"));
 
-				Console.Write("\n-> ");
+				//Console.Write("\n-> ");
 			}
         }
 	}

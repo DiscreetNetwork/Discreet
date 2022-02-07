@@ -65,6 +65,7 @@ namespace Discreet.Visor
             while (File.Exists(openLogPath))
             {
                 openLogPath = Path.Combine(path, "log_" + openLogTime.Date.ToLongDateString() + $"_{i}.txt");
+                i++;
             }
 
             openLog = File.CreateText(openLogPath);
@@ -77,6 +78,7 @@ namespace Discreet.Visor
                 Logger logger = GetLogger();
 
                 logger.openLog.WriteLine(msg);
+                logger.openLog.Flush();
 
                 Console.WriteLine(msg);
             }
