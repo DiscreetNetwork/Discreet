@@ -58,13 +58,13 @@ namespace Discreet.Visor
 
             openLogTime = DateTime.Now;
 
-            openLogPath = Path.Combine(path, "log_" + openLogTime.Date.ToLongDateString() + ".txt");
+            openLogPath = Path.Combine(path, "log_" + $"{openLogTime.Date.Day}_{openLogTime.Date.Month}_{openLogTime.Date.Year}_{openLogTime.Second}_{openLogTime.Minute}_{openLogTime.Hour}" + ".txt");
 
             int i = 0;
 
             while (File.Exists(openLogPath))
             {
-                openLogPath = Path.Combine(path, "log_" + openLogTime.Date.ToLongDateString() + $"_{i}.txt");
+                openLogPath = Path.Combine(path, "log_" + $"{openLogTime.Date.Day}_{openLogTime.Date.Month}_{openLogTime.Date.Year}_{openLogTime.Second}_{openLogTime.Minute}_{openLogTime.Hour}" + $"_{i}.txt");
                 i++;
             }
 

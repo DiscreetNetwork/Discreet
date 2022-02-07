@@ -66,6 +66,7 @@ namespace Discreet.Visor
 
             Endpoint = new IPEndPoint(IPAddress.Any, Port);
 
+
             NetworkID = 1;
         }
 
