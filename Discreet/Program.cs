@@ -878,6 +878,7 @@ namespace Discreet
 			Visor.VisorConfig config = new Visor.VisorConfig();
 
 			config.Port = port;
+			config.Endpoint = new System.Net.IPEndPoint(config.Endpoint.Address, config.Port);
 
 			Visor.VisorConfig.SetConfig(config);
 

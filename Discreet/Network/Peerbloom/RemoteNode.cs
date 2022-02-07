@@ -74,7 +74,6 @@ namespace Discreet.Network.Peerbloom
             try
             {
                 await _tcpClient.ConnectAsync(Endpoint.Address, Endpoint.Port);
-
                 //WritePacketBase requestPacket = new WritePacketBase();
                 //requestPacket.WriteString("Connect");
                 //requestPacket.WriteKey(localNode.Id.Value);

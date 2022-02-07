@@ -33,6 +33,7 @@ namespace Discreet.Network.Peerbloom
             while (!_cancellationToken.IsCancellationRequested)
             {
                 TcpClient client = await listener.AcceptTcpClientAsync();
+                Visor.Logger.Log($"TcpReceiver found a connection to client {client.Client.RemoteEndPoint}");
                 _ = HandleConnection(client);
             }
         }
@@ -104,15 +105,18 @@ namespace Discreet.Network.Peerbloom
 
                         client.Dispose(); // Dispose this client, as its just a request response packet
                         break;
+                    default:
+                        Visor.Logger.Log("Unknown packet type found: " + Common.Printable.Hexify(packet.Serialize()));
+                        break;
                 }
                 
             }
             catch (Exception ex)
             {
-                Visor.Logger.Log(ex.Message);
+                Visor.Logger.Log($"An error was encountered: {ex.Message}");
             }
 
-
+            Visor.Logger.Log("Control fallthrough; this statement should be unreachable (Discreet.Network.Peerbloom.TcpReceiver.HandleConnection)");
             /// TODO:
             ///  - Look into `TIME_WAIT` in a TCP Server/client model
             ///  - The server shouldnt close / dispose the connection, because that cant hinder the performance due to `TIME_WAIT`

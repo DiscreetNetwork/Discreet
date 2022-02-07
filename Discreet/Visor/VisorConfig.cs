@@ -72,7 +72,7 @@ namespace Discreet.Visor
 
         public static VisorConfig GetDefault()
         {
-            return new VisorConfig();
+            return GetConfig();
         }
     }
 }
