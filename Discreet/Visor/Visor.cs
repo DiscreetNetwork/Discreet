@@ -177,7 +177,7 @@ namespace Discreet.Visor
 
             while (true)
             {
-                if (_rpcServer.)
+                
             }
         }
 
