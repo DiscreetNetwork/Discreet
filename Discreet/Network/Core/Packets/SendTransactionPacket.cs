@@ -11,6 +11,9 @@ namespace Discreet.Network.Core.Packets
     {
         public Coin.FullTransaction Tx { get; set; }
 
+        /* not serialized with the packet body. used to pass error information onto the handler. */
+        public string Error { get; set; }
+
         public SendTransactionPacket()
         {
 
@@ -30,7 +33,14 @@ namespace Discreet.Network.Core.Packets
         {
             Tx = new Coin.FullTransaction();
 
-            Tx.Unmarshal(b, offset);
+            try
+            {
+                Tx.Unmarshal(b, offset);
+            }
+            catch (Exception e)
+            {
+                Error = e.Message;
+            }
         }
 
         public void Deserialize(Stream s)
@@ -47,7 +57,14 @@ namespace Discreet.Network.Core.Packets
 
             Tx = new Coin.FullTransaction();
 
-            Tx.Unmarshal(_ms.ToArray());
+            try
+            {
+                Tx.Unmarshal(_ms.ToArray());
+            }
+            catch (Exception e)
+            {
+                Error = e.Message;
+            }
         }
 
         public uint Serialize(byte[] b, uint offset)

@@ -222,7 +222,7 @@ namespace Discreet.Network.Peerbloom
                 Core.Packet packet = new Core.Packet(await client.ReadBytesAsync());
                 Visor.Logger.Log($"Received packet {packet.Header.Command} from {senderEndpoint.Address}:{senderEndpoint.Port}");
 
-                await Handler.GetHandler().Handle(packet);
+                await Handler.GetHandler().Handle(packet, senderEndpoint);
             }
         }
     }

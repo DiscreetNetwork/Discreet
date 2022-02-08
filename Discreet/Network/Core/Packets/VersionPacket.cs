@@ -10,13 +10,13 @@ namespace Discreet.Network.Core.Packets
 {
     public class VersionPacket: IPacketBody
     {
-        public uint Version { get; private set; }
-        public ServicesFlag Services { get; private set; }
-        public long Timestamp { get; private set; }
-        public long Height { get; private set; }
-        public IPEndPoint Address { get; private set; }
-        public Cipher.SHA256 ID { get; private set; }
-        public bool Syncing { get; private set; }
+        public uint Version { get; set; }
+        public ServicesFlag Services { get; set; }
+        public long Timestamp { get; set; }
+        public long Height { get; set; }
+        public IPEndPoint Address { get; set; }
+        public Cipher.Key ID { get; set; }
+        public bool Syncing { get; set; }
 
         public VersionPacket()
         {
@@ -52,7 +52,7 @@ namespace Discreet.Network.Core.Packets
 
             byte[] _id = new byte[32];
             Array.Copy(b, offset, _id, 0, 32);
-            ID = new Cipher.SHA256(_id, false);
+            ID = new Cipher.Key(_id);
             offset += 32;
 
             Syncing = b[offset] != 0;
@@ -79,7 +79,7 @@ namespace Discreet.Network.Core.Packets
 
             byte[] _id = new byte[32];
             s.Read(_id);
-            ID = new Cipher.SHA256(_id, false);
+            ID = new Cipher.Key(_id);
 
             Syncing = s.ReadByte() != 0;
         }
@@ -101,7 +101,7 @@ namespace Discreet.Network.Core.Packets
             Utils.SerializeEndpoint(Address, b, offset);
             offset += 18;
 
-            Array.Copy(ID.Bytes, 0, b, offset, 32);
+            Array.Copy(ID.bytes, 0, b, offset, 32);
             offset += 32;
 
             b[offset] = Syncing ? (byte)1 : (byte)0;
@@ -115,7 +115,7 @@ namespace Discreet.Network.Core.Packets
             s.Write(Coin.Serialization.Int64(Timestamp));
             s.Write(Coin.Serialization.Int64(Height));
             Utils.SerializeEndpoint(Address, s);
-            s.Write(ID.Bytes);
+            s.Write(ID.bytes);
             s.WriteByte(Syncing ? (byte)1 : (byte)0);
         }
 

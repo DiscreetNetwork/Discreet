@@ -43,10 +43,13 @@ namespace Discreet.Visor
 
 
         public int Port { get; set; }
+        public int RPCPort { get; set; }
         public IPEndPoint Endpoint { get; set; }
         public IPAddress BootstrapNode { get; set; }
 
         public byte NetworkID { get; set; }
+        public uint NetworkVersion { get; set; }
+        public Cipher.Key ID { get; set; }
 
         public VisorConfig()
         {
@@ -68,6 +71,11 @@ namespace Discreet.Visor
 
 
             NetworkID = 1;
+            NetworkVersion = 1;
+
+            RPCPort = 9213;
+
+            ID = new Network.Peerbloom.NodeId().Value;
         }
 
         public static VisorConfig GetDefault()

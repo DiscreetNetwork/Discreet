@@ -71,7 +71,7 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         public Network(IPEndPoint endpoint)
         {
-            _localNode = new LocalNode(endpoint);
+            _localNode = new LocalNode(endpoint, new NodeId(Visor.VisorConfig.GetConfig().ID));
             _bucketManager = new BucketManager(_localNode);
             _messageStore = new MessageStore();
             _connectionPool = new ConnectionPool();
@@ -80,6 +80,11 @@ namespace Discreet.Network.Peerbloom
 
             // Remove this when done testing
             //Program._messagePacketReceivedEvent += OnSendMessageReceived;
+        }
+
+        public Cipher.Key GetNodeID()
+        {
+            return _localNode.Id.Value;
         }
 
         /// <summary>
@@ -149,7 +154,11 @@ namespace Discreet.Network.Peerbloom
 
             Visor.Logger.Log(isPublic ? "Continuing in public mode" : "Continuing in private mode");
             _localNode.SetNetworkMode(isPublic); // This determines how 'this' node relays messages
-
+           
+            if (isPublic)
+            {
+                Handler.GetHandler().SetServices(Core.ServicesFlag.Public);
+            }
 
             _connectionPool.AddOutboundConnection(bootstrapNode);
             _ = _tcpReceiver.HandlePersistentConnection(bootstrapNode.GetSocket());
@@ -236,20 +245,26 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
-        public async Task Broadast(Core.Packet packet)
+        public async Task<int> Broadcast(Core.Packet packet)
         {
+            int i = 0;
+
             if (_localNode.IsPublic)
             {
                 foreach(var inbound in _connectionPool.GetInboundConnections())
                 {
                     await inbound.Send(packet);
+                    i++;
                 }
             }
 
             foreach (var outbound in _connectionPool.GetOutboundConnections())
             {
                 await outbound.Send(packet);
+                i++;
             }
+
+            return i;
         }
 
         public async Task<bool> Send(IPEndPoint endpoint, Core.Packet packet)
@@ -261,6 +276,11 @@ namespace Discreet.Network.Peerbloom
             await node.Send(packet);
 
             return true;
+        }
+
+        public RemoteNode GetNode(IPEndPoint endpoint)
+        {
+            return _connectionPool.FindNodeInPool(endpoint);
         }
 
         // When receiving the message (used for tests; remember to replace the handler call with method specified in Program.cs)

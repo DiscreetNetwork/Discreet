@@ -96,7 +96,10 @@ namespace Discreet.Visor
             DB.DB db = DB.DB.GetDB();
             try
             {
-                db.AddTXToPool(tx);
+                lock (DB.DB.DBLock)
+                {
+                    db.AddTXToPool(tx);
+                }
             }
             catch (Exception e)
             {

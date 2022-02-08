@@ -115,6 +115,16 @@ namespace Discreet.Cipher
             return Coin.Serialization.GetInt64(bytes, 24);
         }
 
+        public bool IsLong()
+        {
+            for (int i = 0; i < 24; i++)
+            {
+                if (bytes[i] != 0) return false;
+            }
+
+            return true;
+        }
+
         public string ToHex()
         {
             return BitConverter.ToString(GetBytes()).Replace("-", string.Empty).ToLower();

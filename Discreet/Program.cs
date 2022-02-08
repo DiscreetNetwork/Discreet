@@ -862,7 +862,7 @@ namespace Discreet
 
 		//}
 
-		public static List<string> _messages = new List<string>();
+		/*public static List<string> _messages = new List<string>();
 		public static MessageReceivedEvent _messageReceivedEvent;
 
 		public static object console_lock = new object();
@@ -917,6 +917,65 @@ namespace Discreet
 
 				//Console.Write("\n-> ");
 			}
-        }
+        }*/
+
+		public static async Task Main(string[] args)
+        {
+			Console.Write("Port: ");
+			int port = int.Parse(Console.ReadLine());
+
+			Console.Write("Label: ");
+			string label = Console.ReadLine();
+            string _yN;
+            bool _yes;
+			string mnemonic = null;
+			byte[] entropy = null;
+
+            do
+            {
+                Console.Write("Mnemonic? : ");
+                _yN = Console.ReadLine();
+                _yN = _yN.Trim();
+                _yN = _yN.ToLower();
+
+                _yes = _yN == "y" || _yN == "yes";
+
+            } while (_yN != "y" && _yN != "n" && _yN != "yes" && _yN != "no");
+
+            if (_yes)
+            {
+				Console.Write("Mnemonic: ");
+				mnemonic = Console.ReadLine();
+            }
+			else
+            {
+				Console.Write("Seed: ");
+				entropy = Printable.Byteify(Console.ReadLine());
+            }
+
+			Console.Write("Num Transparent Addresses: ");
+			int numTransparentWallets = int.Parse(Console.ReadLine());
+
+			Console.Write("Num Private Addresses: ");
+			int numPrivateWallets = int.Parse(Console.ReadLine());
+
+			Console.Write("Passphrase: ");
+			string passphrase = Console.ReadLine();
+
+			Wallet w;
+
+			if (mnemonic != null)
+            {
+				w = new Wallet(label, passphrase, mnemonic, encrypted: true, deterministic: true, numStealthAddresses: (uint)numPrivateWallets, numTransparentAddresses: (uint)numTransparentWallets);
+            }
+			else
+            {
+				w = new Wallet(label, passphrase, new Mnemonic(entropy).GetMnemonic(), encrypted: true, deterministic: true, numStealthAddresses: (uint)numPrivateWallets, numTransparentAddresses: (uint)numTransparentWallets);
+			}
+
+			Visor.Visor visor = new Visor.Visor(w);
+
+			await visor.Start();
+		}
 	}
 }

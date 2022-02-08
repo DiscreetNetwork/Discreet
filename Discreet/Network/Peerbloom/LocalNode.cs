@@ -37,6 +37,12 @@ namespace Discreet.Network.Peerbloom
             Endpoint = localEndpoint;
         }
 
+        public LocalNode(IPEndPoint localEndpoint, NodeId ID)
+        {
+            Id = ID;
+            Endpoint = localEndpoint;
+        }
+
         public void SetNetworkMode(bool isPublic) => IsPublic = isPublic;
     }
 }

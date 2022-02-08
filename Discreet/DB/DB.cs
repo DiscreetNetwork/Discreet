@@ -114,6 +114,10 @@ namespace Discreet.DB
             }
         }
 
+        private static readonly object db_update_lock = new object();
+
+        public static object DBLock { get { return db_update_lock; } }
+
         /* table keys */
         public static string SPENT_KEYS = "spent_keys";
         public static string TX_POOL_META = "tx_pool_meta";
@@ -410,6 +414,18 @@ namespace Discreet.DB
             }
         }
 
+        public bool BlockCacheHas(Cipher.SHA256 block)
+        {
+            using var txn = Env.BeginTransaction();
+
+            if (BlockCache == null || !BlockCache.IsOpened)
+            {
+                BlockCache = txn.OpenDatabase(BLOCK_CACHE);
+            }
+
+            return txn.ContainsKey(BlockCache, block.Bytes);
+        }
+
         public void AddBlock(Block blk)
         {
             using var txn = Env.BeginTransaction();
@@ -452,13 +468,13 @@ namespace Discreet.DB
                 }
             }
 
-            lock (previouslySeenTimestamp) {
-                if (previouslySeenTimestamp.Value >= blk.Timestamp)
-                {
-                    throw new Exception($"Discreet.DB.AddBlock: Block timestamp {blk.Timestamp} not occurring after previously seen timestamp {previouslySeenTimestamp.Value}");
-                }
-                previouslySeenTimestamp.Value = blk.Timestamp;
-            }
+            //lock (previouslySeenTimestamp) {
+            //    if (previouslySeenTimestamp.Value >= blk.Timestamp)
+            //    {
+            //        throw new Exception($"Discreet.DB.AddBlock: Block timestamp {blk.Timestamp} not occurring after previously seen timestamp {previouslySeenTimestamp.Value}");
+            //    }
+            //    previouslySeenTimestamp.Value = blk.Timestamp;
+            //}
 
             lock (height)
             {

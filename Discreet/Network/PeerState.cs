@@ -11,5 +11,6 @@ namespace Discreet.Network
         Normal = 0,     //peer is available for normal network activity
         Syncing = 1,    //peer is syncing their chain
         Startup = 2,    //peer is connecting to other peers and receiving versions
+        Processing = 3, //peer is processing their chain
     }
 }
