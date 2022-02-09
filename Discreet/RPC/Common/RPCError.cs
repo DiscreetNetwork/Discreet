@@ -15,6 +15,8 @@ namespace Discreet.RPC.Common
         public string ErrMsg { get; set; }
         public object Result { get; set; }
 
+        public RPCError() { }
+
         public RPCError(int id, string msg, object res)
         {
             ErrID = id;

@@ -166,7 +166,7 @@ namespace Discreet.Coin
             Commitment = new Key(new byte[32]);
 
             Array.Copy(bytes, 0, UXKey.bytes, 0, 32);
-            Array.Copy(bytes, 0, Commitment.bytes, 0, 32);
+            Array.Copy(bytes, 32, Commitment.bytes, 0, 32);
 
             byte[] amount = new byte[8];
             Array.Copy(bytes, 64, amount, 0, 8);

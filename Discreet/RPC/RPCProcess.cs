@@ -39,17 +39,18 @@ namespace Discreet.RPC
         {
             try
             {
-             var serializeOptions = new JsonSerializerOptions();
-            serializeOptions.Converters.Add(new StringConverter());
-            RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest, serializeOptions);
-            object result = ExecuteInternal(request.method, request.@params);
-            RPCResponse response = CreateResponse(request, result);
+                var serializeOptions = new JsonSerializerOptions();
+                serializeOptions.Converters.Add(new StringConverter());
+                //var req = JsonDocument.Parse(Encoding.UTF8.GetBytes(rpcJsonRequest));
+                RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest, serializeOptions);
+                object result = ExecuteInternal(request.method, request.@params);
+                RPCResponse response = CreateResponse(request, result);
 
-            return CreateResponseJSON(response);
+                return CreateResponseJSON(response);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Discreet.RPC: parsing RPC request failed {ex.Message}");
+                Console.WriteLine($"Discreet.RPC: parsing RPC request failed: {ex.Message}");
             }
 
             return null;
@@ -57,7 +58,26 @@ namespace Discreet.RPC
 
         private object ExecuteInternal(string endpoint, params object[] args)
         {
-            object result = RPCEndpointResolver.GetEndpoint(endpoint).DynamicInvoke(args);
+            var _endpoint = RPCEndpointResolver.GetEndpoint(endpoint);
+
+            /**
+             * A note on MethodInfo for delegates.
+             * The first parameter in the ParameterInfo for the delegate's method base is always the Target.
+             * This Target includes captured variables and, if the delegate comes from a specific class instance, the 'this' of that class.
+             * It is the "environment" that is enclosed by the delegate, thus a closure.
+             * I have tested and it seems that both closed and open delegates always have a Target as the first parameter.
+             * Thus we skip this, as can be seen where ConvertType gets _paramInfo[i + 1].ParameterType.
+             */
+            var _paramInfo = _endpoint.Method.GetParameters();
+
+            object[] _data = new object[args.Length];
+
+            for (int i = 0; i < args.Length; i++)
+            {
+                _data[i] = ConvertType(_paramInfo[i + 1].ParameterType, (JsonElement)args[i]);
+            }
+
+            object result = RPCEndpointResolver.GetEndpoint(endpoint).DynamicInvoke(_data);
             return result;
         }
 

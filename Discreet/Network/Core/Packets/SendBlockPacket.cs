@@ -31,7 +31,7 @@ namespace Discreet.Network.Core.Packets
 
         public void Deserialize(byte[] b, uint offset)
         {
-            Block = new Coin.Block();
+            Block = new Coin.SignedBlock();
 
             try
             {
@@ -55,7 +55,7 @@ namespace Discreet.Network.Core.Packets
                 _ms.Write(buf, 0, bytesRead);
             }
 
-            Block = new Coin.Block();
+            Block = new Coin.SignedBlock();
 
             try
             {

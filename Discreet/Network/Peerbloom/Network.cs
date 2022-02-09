@@ -181,11 +181,14 @@ namespace Discreet.Network.Peerbloom
             // If we didnt get any peers, dont consider the bootstrap a success
             if(fetchedNodes.Count == 0)
             {
-                Visor.Logger.Log($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
-                await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
-                //Console.Clear();
-                await Bootstrap();
-                return;
+                if (!Visor.Visor.DebugMode)
+                {
+                    Visor.Logger.Log($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                    await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
+                    //Console.Clear();
+                    await Bootstrap();
+                    return;
+                }
             }
 
 
@@ -247,20 +250,22 @@ namespace Discreet.Network.Peerbloom
 
         public async Task<int> Broadcast(Core.Packet packet)
         {
+            Visor.Logger.Log($"Discreet.Network.Peerbloom.Network.Send: Broadcasting {packet.Header.Command}");
+
             int i = 0;
 
             if (_localNode.IsPublic)
             {
                 foreach(var inbound in _connectionPool.GetInboundConnections())
                 {
-                    await inbound.Send(packet);
+                    _ = inbound.Send(packet);
                     i++;
                 }
             }
 
             foreach (var outbound in _connectionPool.GetOutboundConnections())
             {
-                await outbound.Send(packet);
+                _ = outbound.Send(packet);
                 i++;
             }
 
@@ -269,6 +274,21 @@ namespace Discreet.Network.Peerbloom
 
         public async Task<bool> Send(IPEndPoint endpoint, Core.Packet packet)
         {
+            Visor.Logger.Log($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
+
+            var node = _connectionPool.FindNodeInPool(endpoint);
+
+            if (node == null) return false;
+
+            _ = node.Send(packet);
+
+            return true;
+        }
+
+        public async Task<bool> SendSync(IPEndPoint endpoint, Core.Packet packet)
+        {
+            Visor.Logger.Log($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
+
             var node = _connectionPool.FindNodeInPool(endpoint);
 
             if (node == null) return false;
@@ -314,6 +334,38 @@ namespace Discreet.Network.Peerbloom
             foreach (var outbound in _connectionPool.GetOutboundConnections())
             {
                 _ = outbound.Send(packet);
+            }
+        }
+
+        public async Task Heartbeat()
+        {
+            while (!_shutdownTokenSource.Token.IsCancellationRequested)
+            {
+                await Task.Delay(90000);
+
+                if (_localNode.IsPublic)
+                {
+                    foreach (var inbound in _connectionPool.GetInboundConnections())
+                    {
+                        _ = HeartbeatClient(inbound);
+                    }
+                }
+
+                foreach (var outbound in _connectionPool.GetOutboundConnections())
+                {
+                    _ = HeartbeatClient(outbound);
+                }
+            }
+        }
+
+        public async Task HeartbeatClient(RemoteNode node)
+        {
+            bool success = await node.Ping();
+
+            if (!success)
+            {
+                _connectionPool.RemoveNodeFromPool(node);
+                _bucketManager.RemoveRemoteNode(node);
             }
         }
     }

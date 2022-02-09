@@ -50,7 +50,5 @@ namespace Discreet.RPC.Endpoints
                 return new RPCError(-1, ex.Message);
             }
         }
-
-
     }
 }

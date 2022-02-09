@@ -11,8 +11,6 @@ namespace Discreet.RPC
     {   
         private readonly HttpListener _listener;
 
-        public object StopToken = null;
-
         public RPCServer(int portNumber)
         {
             Console.WriteLine("Server running...");
@@ -34,7 +32,7 @@ namespace Discreet.RPC
             }
           
 
-            while (StopToken == null)
+            while (true)
             {
                 var ctx = await _listener.GetContextAsync();
                 var ss = ctx.Request.InputStream;

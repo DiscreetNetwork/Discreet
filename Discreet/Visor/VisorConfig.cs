@@ -73,7 +73,7 @@ namespace Discreet.Visor
             NetworkID = 1;
             NetworkVersion = 1;
 
-            RPCPort = 9213;
+            RPCPort = 8350;
 
             ID = new Network.Peerbloom.NodeId().Value;
         }

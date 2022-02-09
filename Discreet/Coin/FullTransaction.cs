@@ -792,13 +792,18 @@ namespace Discreet.Coin
 
         public VerifyException Verify()
         {
+            return Verify(inBlock: false);
+        }
+
+        public VerifyException Verify(bool inBlock = false)
+        {
             return Version switch
             {
-                0 => ToCoinbase().Verify(),
-                1 => ToPrivate().Verify(),
-                2 => ToPrivate().Verify(),
+                0 => ToCoinbase().Verify(inBlock),
+                1 => ToPrivate().Verify(inBlock),
+                2 => ToPrivate().Verify(inBlock),
                 3 => ToTransparent().Verify(),
-                4 => ToMixed().Verify(),
+                4 => ToMixed().Verify(inBlock),
                 _ => throw new Exception("Unknown transaction type: " + Version),
             };
         }

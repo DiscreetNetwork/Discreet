@@ -22,12 +22,20 @@ namespace Discreet.Network.Peerbloom.Extensions
             //byte[] dataBuffer = new byte[0];
             using var _ms = new MemoryStream();
 
-            byte[] buf = new byte[1024];
-            int bytesRead;
+            //TODO: fix buffer
+            byte[] buf = new byte[1048576];
+            int bytesRead = 0;
 
             do
             {
-                bytesRead = await ns.ReadAsync(buf, 0, buf.Length);
+                try
+                {
+                    bytesRead = await ns.ReadAsync(buf, 0, buf.Length);
+                }
+                catch (Exception e)
+                {
+                    Visor.Logger.Log("ReadBytesAsync error: " + e.Message);
+                }
                 _ms.Write(buf, 0, bytesRead);
             } while (bytesRead == buf.Length);
 

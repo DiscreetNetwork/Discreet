@@ -407,19 +407,22 @@ namespace Discreet.Wallets
 
             for (int i = 0; i < Addresses.Length; i++)
             {
-                Key txKey = block.Coinbase.TransactionKey;
-                Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[i].SecViewKey, ref Addresses[i].SecSpendKey, i);
-                Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
-
-                if (block.Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
+                if (block.Coinbase != null)
                 {
-                    DB.DB db = DB.DB.GetDB();
+                    Key txKey = block.Coinbase.TransactionKey;
+                    Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[i].SecViewKey, ref Addresses[i].SecSpendKey, i);
+                    Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
 
-                    (int index, UTXO utxo) = db.AddWalletOutput(block.Coinbase.ToFull(), i, false, true);
+                    if (block.Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
+                    {
+                        DB.DB db = DB.DB.GetDB();
 
-                    utxo.OwnedIndex = index;
+                        (int index, UTXO utxo) = db.AddWalletOutput(Addresses[i], block.Coinbase.ToFull(), i, false, true);
 
-                    Addresses[i].UTXOs.Add(utxo);
+                        utxo.OwnedIndex = index;
+
+                        Addresses[i].UTXOs.Add(utxo);
+                    }
                 }
             }
 
@@ -434,25 +437,56 @@ namespace Discreet.Wallets
             int numPOutputs = (transaction.Version == 4) ? transaction.NumPOutputs : ((transaction.Version == 3) ? 0 : transaction.NumOutputs);
             int numTOutputs = (transaction.Version == 4) ? transaction.NumTOutputs : ((transaction.Version == 3) ? transaction.NumOutputs : 0);
 
+            for (int i = 0; i < transaction.NumPInputs; i++)
+            {
+                for (int j = 0; j < Addresses.Length; j++)
+                {
+                    if (Addresses[j].Type == (byte)AddressType.STEALTH)
+                    {
+                        for (int k = 0; k < Addresses[j].UTXOs.Count; k++)
+                        {
+                            if (Addresses[j].UTXOs[k].LinkingTag == transaction.PInputs[i].KeyImage)
+                            {
+                                Addresses[j].UTXOs.RemoveAt(k);
+                            }
+                        }
+                    }
+                    else if (Addresses[j].Type == (byte)AddressType.TRANSPARENT)
+                    {
+                        for (int k = 0; k < Addresses[j].UTXOs.Count; k++)
+                        {
+                            if (Addresses[j].UTXOs[k].TransactionSrc == transaction.TInputs[i].TransactionSrc && Addresses[j].UTXOs[k].Amount == transaction.TInputs[i].Amount && Addresses[j].Address == transaction.TInputs[i].Address.ToString())
+                            {
+                                Addresses[j].UTXOs.RemoveAt(k);
+                            }
+                        }
+                    }
+                }
+            }
+
             for (int i = 0; i < numPOutputs; i++)
             {
                 for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
                 {
-                    Key txKey = transaction.TransactionKey;
-                    Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[addrIndex].SecViewKey, ref Addresses[addrIndex].SecSpendKey, i);
-                    Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
-
-                    for (int k = 0; k < Addresses[addrIndex].UTXOs.Count; k++)
+                    if (Addresses[addrIndex].Type == (byte)AddressType.STEALTH)
                     {
-                        if (Addresses[addrIndex].UTXOs[k].UXKey.Equals(transaction.POutputs[i].UXKey))
+                        Key txKey = transaction.TransactionKey;
+                        Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[addrIndex].SecViewKey, ref Addresses[addrIndex].SecSpendKey, i);
+                        Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+
+                        for (int k = 0; k < Addresses[addrIndex].UTXOs.Count; k++)
                         {
-                            throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
+                            if (Addresses[addrIndex].UTXOs[k].UXKey.Equals(transaction.POutputs[i].UXKey))
+                            {
+                                throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
+                            }
                         }
-                    }
 
-                    if (transaction.POutputs[i].UXKey.Equals(outputPubKey))
-                    {
-                        ProcessOutput(transaction, i, addrIndex, false);
+                        if (transaction.POutputs[i].UXKey.Equals(outputPubKey))
+                        {
+                            Visor.Logger.Log("You received some Discreet!");
+                            ProcessOutput(Addresses[addrIndex], transaction, i, addrIndex, false);
+                        }
                     }
                 }
             }
@@ -461,25 +495,31 @@ namespace Discreet.Wallets
             {
                 for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
                 {
-                    string address = transaction.TOutputs[i].Address.ToString();
-
-                    if (Addresses[addrIndex].Address == address)
+                    if (Addresses[addrIndex].Type == (byte)AddressType.TRANSPARENT)
                     {
-                        ProcessOutput(transaction, i, addrIndex, true);
+                        string address = transaction.TOutputs[i].Address.ToString();
+
+                        if (Addresses[addrIndex].Address == address)
+                        {
+                            ProcessOutput(Addresses[addrIndex], transaction, i, addrIndex, true);
+                        }
                     }
                 }
             }
         }
 
-        private void ProcessOutput(FullTransaction transaction, int i, int walletIndex, bool transparent)
+        private void ProcessOutput(WalletAddress addr, FullTransaction transaction, int i, int walletIndex, bool transparent)
         {
             DB.DB db = DB.DB.GetDB();
 
-            (int index, UTXO utxo) = db.AddWalletOutput(transaction, i, transparent);
+            lock (DB.DB.DBLock)
+            {
+                (int index, UTXO utxo) = db.AddWalletOutput(addr, transaction, i, transparent);
 
-            utxo.OwnedIndex = index;
+                utxo.OwnedIndex = index;
 
-            Addresses[walletIndex].UTXOs.Add(utxo);
+                Addresses[walletIndex].UTXOs.Add(utxo);
+            }
         }
     }
 }

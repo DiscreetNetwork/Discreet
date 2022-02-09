@@ -64,6 +64,18 @@ namespace Discreet.Network.Peerbloom
             ///  - If the last seen nodes does respond, add the new node to the pending queue 
         }
 
+
+        public void RemoveRemoteNode(RemoteNode remoteNode)
+        {
+            Bucket b = _buckets[_buckets.FindIndex(x => x.IsNodeInRange(remoteNode.Id))];
+
+            if (b.ContainsNode(remoteNode))
+            {
+                b.Evict(remoteNode.Id);
+                return;
+            }
+        }
+
         public async Task RefreshBucket(Bucket b)
         {
             Visor.Logger.Log("Refreshing a bucket\n");

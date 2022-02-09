@@ -2,6 +2,7 @@
 using Discreet.Network.Peerbloom.Protocol.Common;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -41,6 +42,7 @@ namespace Discreet.Network.Peerbloom
         public async Task HandleConnection(TcpClient client)
         {
             IPEndPoint senderEndpoint = (IPEndPoint)client.Client.RemoteEndPoint;
+
             try
             {
                 Core.Packet packet = new(await client.ReadBytesAsync());
@@ -113,10 +115,15 @@ namespace Discreet.Network.Peerbloom
             }
             catch (Exception ex)
             {
+                if (ex is IOException)
+                {
+                    Visor.Logger.Log($"Client timed out at {senderEndpoint}");
+                }
+
                 Visor.Logger.Log($"An error was encountered: {ex.Message}");
             }
 
-            Visor.Logger.Log("Control fallthrough; this statement should be unreachable (Discreet.Network.Peerbloom.TcpReceiver.HandleConnection)");
+            //Visor.Logger.Log("Control fallthrough; this statement should be unreachable (Discreet.Network.Peerbloom.TcpReceiver.HandleConnection)");
             /// TODO:
             ///  - Look into `TIME_WAIT` in a TCP Server/client model
             ///  - The server shouldnt close / dispose the connection, because that cant hinder the performance due to `TIME_WAIT`
@@ -219,10 +226,25 @@ namespace Discreet.Network.Peerbloom
 
             while (true)
             {
-                Core.Packet packet = new Core.Packet(await client.ReadBytesAsync());
-                Visor.Logger.Log($"Received packet {packet.Header.Command} from {senderEndpoint.Address}:{senderEndpoint.Port}");
-
-                await Handler.GetHandler().Handle(packet, senderEndpoint);
+                try
+                {
+                    Core.Packet packet = new Core.Packet(await client.ReadBytesAsync());
+                    await Handler.GetHandler().Handle(packet, _connectionPool.FindNodeInPool(senderEndpoint));
+                }
+                catch (InvalidOperationException e)
+                {
+                    Visor.Logger.Log($"TcpReceiver: {e.Message}");
+                    break;
+                }
+                catch (SocketException e)
+                {
+                    Visor.Logger.Log($"TcpReceiver: {e.Message}");
+                    break;
+                }
+                catch (Exception e)
+                {
+                    Visor.Logger.Log($"TcpReceiver: {e.Message}");
+                }
             }
         }
     }

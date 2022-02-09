@@ -406,7 +406,7 @@ namespace Discreet.DB
                 }
             }
 
-            var resCode = txn.Put(BlockCache, blk.BlockHash.Bytes, blk.Marshal());
+            var resCode = txn.Put(BlockCache, blk.BlockHash.Bytes, blk.MarshalFull());
 
             if (resCode != MDBResultCode.Success)
             {
@@ -493,7 +493,7 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
             }
 
-            resCode = txn.Put(Blocks, Serialization.Int64(blk.Height), blk.Marshal());
+            resCode = txn.Put(Blocks, Serialization.Int64(blk.Height), blk.MarshalFull());
 
             if (resCode != MDBResultCode.Success)
             {
@@ -865,14 +865,14 @@ namespace Discreet.DB
             return outputIndices[i];
         }
 
-        public (int, Wallets.UTXO) AddWalletOutput(FullTransaction tx, int i, bool transparent)
+        public (int, Wallets.UTXO) AddWalletOutput(Wallets.WalletAddress addr, FullTransaction tx, int i, bool transparent)
         {
-            return AddWalletOutput(tx, i, transparent, false);
+            return AddWalletOutput(addr, tx, i, transparent, false);
         }
 
-        public (int, Wallets.UTXO) AddWalletOutput(FullTransaction tx, int i, bool transparent, bool coinbase)
+        public (int, Wallets.UTXO) AddWalletOutput(Wallets.WalletAddress addr, FullTransaction tx, int i, bool transparent, bool coinbase)
         {
-            var txn = Env.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             Wallets.UTXO utxo;
 
@@ -889,13 +889,13 @@ namespace Discreet.DB
                 else
                 {
                     uint index = GetTXOutputIndex(txn, tx, i);
-                    utxo = new Wallets.UTXO(index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
+                    utxo = new Wallets.UTXO(addr, index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
                 }
             }
             else
             {
                 uint index = GetTXOutputIndex(txn, tx, i);
-                utxo = new Wallets.UTXO(index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
+                utxo = new Wallets.UTXO(addr, index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
             }
 
             if (OwnedOutputs == null || !OwnedOutputs.IsOpened)
@@ -940,7 +940,7 @@ namespace Discreet.DB
 
         public Wallets.UTXO GetWalletOutput(int index)
         {
-            var txn = Env.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             if (OwnedOutputs == null || !OwnedOutputs.IsOpened)
             {
@@ -1223,6 +1223,23 @@ namespace Discreet.DB
             return true;
         }
 
+        public bool CheckSpentKeyBlock(Cipher.Key j)
+        {
+            using var txn = Env.BeginTransaction();
+
+            if (SpentKeys == null || !SpentKeys.IsOpened)
+            {
+                SpentKeys = txn.OpenDatabase(SPENT_KEYS);
+            }
+
+            if (txn.ContainsKey(SpentKeys, j.bytes))
+            {
+                return false;
+            }
+
+            return true;
+        }
+
         public TXOutput GetOutput(uint index)
         {
             using var txn = Env.BeginTransaction();
@@ -1246,7 +1263,7 @@ namespace Discreet.DB
 
         public TXOutput[] GetMixins(uint[] index)
         {
-            var txn = Env.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             TXOutput[] rv = new TXOutput[index.Length];
 
@@ -1275,7 +1292,7 @@ namespace Discreet.DB
 
         public (TXOutput[], int) GetMixins(uint index)
         {
-            var txn = Env.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             TXOutput[] rv = new TXOutput[64];
 
@@ -1365,7 +1382,7 @@ namespace Discreet.DB
 
         public (TXOutput[], int) GetMixinsUniform(uint index)
         {
-            var txn = Env.BeginTransaction();
+            using var txn = Env.BeginTransaction();
 
             TXOutput[] rv = new TXOutput[64];
 
@@ -1499,8 +1516,8 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DB.GetBlock: No block exists with height {height}");
             }
 
-            Block blk = new Block();
-            blk.Unmarshal(result.value.CopyToNewArray());
+            SignedBlock blk = new SignedBlock();
+            blk.UnmarshalFull(result.value.CopyToNewArray());
             return blk;
         }
 
@@ -1534,8 +1551,8 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DB.GetBlock: No block exists with height {height}");
             }
 
-            Block blk = new Block();
-            blk.Unmarshal(result.value.CopyToNewArray());
+            SignedBlock blk = new SignedBlock();
+            blk.UnmarshalFull(result.value.CopyToNewArray());
             return blk;
         }
 

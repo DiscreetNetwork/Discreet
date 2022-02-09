@@ -540,11 +540,16 @@ namespace Discreet.Coin
             return tx;
         }
 
+        public VerifyException Verify()
+        {
+            return Verify(inBlock: false);
+        }
+
         /* this function must be run PRIOR to adding a transaction to the TXPool. 
          * This is not run, and should never be run, on transactions already present in the TXPool.
          * This is definitely never used for transactions already assigned an ID in the database.
          */
-        public VerifyException Verify()
+        public VerifyException Verify(bool inBlock = false)
         {
             DB.DB db = DB.DB.GetDB();
 
@@ -656,7 +661,6 @@ namespace Discreet.Coin
 
                 //Cipher.Key dif = new(new byte[32]);
                 //Cipher.KeyOps.SubKeys(ref dif, ref sumPseudos, ref sumComms);
-
                 if (!sumPseudos.Equals(sumComms))
                 {
                     return new VerifyException("Transaction", $"Transaction does not balance! (sumC'a != sumCb)");
@@ -714,9 +718,19 @@ namespace Discreet.Coin
                         return sigexc;
                     }
 
-                    if (!db.CheckSpentKey(Inputs[i].KeyImage))
+                    if (inBlock)
                     {
-                        return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
+                        if (!db.CheckSpentKeyBlock(Inputs[i].KeyImage))
+                        {
+                            return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
+                        }
+                    }
+                    else
+                    {
+                        if (!db.CheckSpentKey(Inputs[i].KeyImage))
+                        {
+                            return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
+                        }
                     }
                 }
             }

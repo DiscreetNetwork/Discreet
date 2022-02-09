@@ -394,8 +394,6 @@ namespace Discreet.Coin
                 Key mask = Key.I;
                 KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, 0);
 
-                Console.WriteLine(minerOutput.Commitment.ToHex());
-
                 minerOutput.UXKey = Key.I;
                 minerOutput.Amount = 0;
 
@@ -475,7 +473,10 @@ namespace Discreet.Coin
 
             List<SHA256> hashes = new(Transactions);
 
-            hashes.Insert(0, Coinbase.Hash());
+            if (Version != 1)
+            {
+                hashes.Insert(0, Coinbase.Hash());
+            }
 
             while (hashes.Count > 1)
             {
@@ -649,7 +650,7 @@ namespace Discreet.Coin
                     return new VerifyException("Block", "block contains coinbase transaction outside of miner tx");
                 }
 
-                var txexc = transactions[i].Verify();
+                var txexc = transactions[i].Verify(inBlock: true);
 
                 if (txexc != null)
                 {

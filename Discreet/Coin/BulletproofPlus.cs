@@ -117,16 +117,18 @@ namespace Discreet.Coin
             Array.Copy(bytes, 4 + 32 * 4, s1.bytes, 0, 32);
             Array.Copy(bytes, 4 + 32 * 5, d1.bytes, 0, 32);
 
-            L = new Key[size];
-            R = new Key[size];
+            int _size = (size > 8 ? 10 : (size > 4 ? 9 : (size > 2 ? 8 : (size > 1 ? 7 : 6))));
 
-            for (int i = 0; i < size; i++)
+            L = new Key[_size];
+            R = new Key[_size];
+
+            for (int i = 0; i < _size; i++)
             {
                 L[i] = new Key(new byte[32]);
                 Array.Copy(bytes, 4 + 32 * 6 + 32 * i, L[i].bytes, 0, 32);
             }
 
-            for (int i = 0; i < size; i++)
+            for (int i = 0; i < _size; i++)
             {
                 R[i] = new Key(new byte[32]);
                 Array.Copy(bytes, 4 + 32 * 6 + L.Length * 32 + 32 * i, R[i].bytes, 0, 32);
@@ -158,16 +160,18 @@ namespace Discreet.Coin
             Array.Copy(bytes, offset + 4 + 32 * 4, s1.bytes, 0, 32);
             Array.Copy(bytes, offset + 4 + 32 * 5, d1.bytes, 0, 32);
 
-            L = new Key[size];
-            R = new Key[size];
+            int _size = (size > 8 ? 10 : (size > 4 ? 9 : (size > 2 ? 8 : (size > 1 ? 7 : 6))));
 
-            for (int i = 0; i < size; i++)
+            L = new Key[_size];
+            R = new Key[_size];
+
+            for (int i = 0; i < _size; i++)
             {
                 L[i] = new Key(new byte[32]);
                 Array.Copy(bytes, offset + 4 + 32 * 6 + 32 * i, L[i].bytes, 0, 32);
             }
 
-            for (int i = 0; i < size; i++)
+            for (int i = 0; i < _size; i++)
             {
                 R[i] = new Key(new byte[32]);
                 Array.Copy(bytes, offset + 4 + 32 * 6 + L.Length * 32 + 32 * i, R[i].bytes, 0, 32);

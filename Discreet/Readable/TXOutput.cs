@@ -70,7 +70,7 @@ namespace Discreet.Readable
         {
             if (obj.TransactionSrc.Bytes != null) TransactionSrc = obj.TransactionSrc.ToHex();
             if (obj.UXKey.bytes != null) UXKey = obj.UXKey.ToHex();
-            if (obj.Commitment.bytes != null) Commitment = obj.UXKey.ToHex();
+            if (obj.Commitment.bytes != null) Commitment = obj.Commitment.ToHex();
             Amount = obj.Amount;
         }
 
@@ -101,7 +101,7 @@ namespace Discreet.Readable
         public void FromTXObject(Coin.TXOutput obj)
         {
             if (obj.UXKey.bytes != null) UXKey = obj.UXKey.ToHex();
-            if (obj.Commitment.bytes != null) Commitment = obj.UXKey.ToHex();
+            if (obj.Commitment.bytes != null) Commitment = obj.Commitment.ToHex();
             Amount = obj.Amount;
         }
 

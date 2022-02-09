@@ -2,6 +2,7 @@
 using Discreet.Network.Peerbloom.Protocol.Common;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -122,6 +123,9 @@ namespace Discreet.Network.Peerbloom
         {
             TcpClient client = new TcpClient();
 
+            client.ReceiveTimeout = 15000;
+            client.SendTimeout = 15000;
+
             try
             {
                 await client.ConnectAsync(Endpoint.Address, Endpoint.Port);
@@ -153,6 +157,12 @@ namespace Discreet.Network.Peerbloom
             catch (SocketException e)
             {
                 Visor.Logger.Log(e.Message);
+
+                return false;
+            }
+            catch (IOException e)
+            {
+                Visor.Logger.Log($"RemoteNode.Ping: Client timed out at {Endpoint}");
 
                 return false;
             }

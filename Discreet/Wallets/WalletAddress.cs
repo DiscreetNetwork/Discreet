@@ -678,6 +678,11 @@ namespace Discreet.Wallets
             return tx;
         }
 
+        public Transaction CreateTransaction(StealthAddress to, ulong amount)
+        {
+            return CreateTransaction(new StealthAddress[] { to }, new ulong[] { amount });
+        }
+
         public Transaction CreateTransaction(StealthAddress[] to, ulong[] amount)
         {
             return CreateTransaction(to, amount, (byte)Config.TransactionVersions.BP_PLUS);

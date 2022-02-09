@@ -32,7 +32,7 @@ namespace Discreet.Network.Peerbloom
         {
             foreach (var node in _outBoundConnections)
             {
-                if (node.Endpoint.Equals(endpoint))
+                if (node.Endpoint.Address.MapToIPv4().Equals(endpoint.Address.MapToIPv4()))
                 {
                     return node;
                 }
@@ -40,13 +40,32 @@ namespace Discreet.Network.Peerbloom
 
             foreach (var node in _inboundConnections)
             {
-                if (node.Endpoint.Equals(endpoint))
+                if (node.Endpoint.Address.MapToIPv4().Equals(endpoint.Address.MapToIPv4()))
                 {
                     return node;
                 }
             }
 
             return null;
+        }
+
+        public void RemoveNodeFromPool(RemoteNode node)
+        {
+            foreach (var _node in _inboundConnections)
+            {
+                if (node == _node)
+                {
+                    _inboundConnections.Remove(node);
+                }
+            }
+
+            foreach (var _node in _outBoundConnections)
+            {
+                if (node == _node)
+                {
+                    _outBoundConnections.Remove(node);
+                }
+            }
         }
 
         public List<RemoteNode> GetInboundConnections() => _inboundConnections.ToList();

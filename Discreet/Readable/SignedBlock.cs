@@ -112,7 +112,10 @@ namespace Discreet.Readable
 
             Signature = obj.Sig.ToHex();
 
-            Coinbase = new Transaction(obj.Coinbase);
+            if (obj.Coinbase != null)
+            {
+                Coinbase = new Transaction(obj.Coinbase);
+            }
 
             if (obj.transactions != null)
             {
@@ -166,7 +169,10 @@ namespace Discreet.Readable
 
             obj.Sig = Cipher.Signature.FromHex(Signature);
 
-            obj.Coinbase = (Coin.Transaction)Coinbase.ToObject();
+            if (Coinbase != null)
+            {
+                obj.Coinbase = (Coin.Transaction)Coinbase.ToObject();
+            }
 
             if (transactions != null)
             {

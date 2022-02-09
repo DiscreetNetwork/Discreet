@@ -16,11 +16,12 @@ namespace Discreet.Network
         public PeerState State { get; private set; }
         public ServicesFlag Services { get; private set; }
 
-        public bool IsMasternode { get; private set; }
-
         private static Handler _handler;
 
         private static object handler_lock = new object();
+
+        public long LastSeenHeight { get; set; }
+
 
         /* back reference to the Visor */
         public Visor.Visor visor;
@@ -52,7 +53,7 @@ namespace Discreet.Network
 
             Services = ServicesFlag.Full;
 
-            IsMasternode = false;
+            LastSeenHeight = -1;
         }
 
         public void SetState(PeerState state)
@@ -66,12 +67,19 @@ namespace Discreet.Network
         }
 
         /* handles incoming packets */
-        public async Task Handle(Packet p, IPEndPoint senderEndpoint)
+        public async Task Handle(Packet p, Peerbloom.RemoteNode senderEndpoint)
         {
+            if (senderEndpoint == null)
+            {
+                throw new Exception("null remote node!");
+            }
+
             if (State == PeerState.Startup && p.Header.Command != PacketType.VERSION)
             {
-                Visor.Logger.Log($"Ignoring message from {senderEndpoint} during startup");
+                Visor.Logger.Log($"Ignoring message from {senderEndpoint.Endpoint} during startup");
             }
+
+            Visor.Logger.Log($"Discreet.Network.Handler.Handle: received packet {p.Header.Command} from {senderEndpoint.Endpoint}");
 
             /* Packet header and structure is already verified prior to this function. */
             //WIP
@@ -95,28 +103,28 @@ namespace Discreet.Network
                     await HandleReject((RejectPacket)p.Body);
                     break;
                 case PacketType.GETVERSION:
-                    await HandleGetVersion(senderEndpoint);
+                    await HandleGetVersion(senderEndpoint.Endpoint);
                     break;
                 case PacketType.VERSION:
-                    await HandleVersion((VersionPacket)p.Body, senderEndpoint);
+                    await HandleVersion((VersionPacket)p.Body, senderEndpoint.Endpoint);
                     break;
                 case PacketType.GETBLOCKS:
-                    await HandleGetBlocks((GetBlocksPacket)p.Body, senderEndpoint);
+                    await HandleGetBlocks((GetBlocksPacket)p.Body, senderEndpoint.Endpoint);
                     break;
                 case PacketType.SENDMSG:
-                    await HandleMessage((SendMessagePacket)p.Body, senderEndpoint);
+                    await HandleMessage((SendMessagePacket)p.Body, senderEndpoint.Endpoint);
                     break;
                 case PacketType.SENDTX:
-                    await HandleSendTx((SendTransactionPacket)p.Body, senderEndpoint);
+                    await HandleSendTx((SendTransactionPacket)p.Body, senderEndpoint.Endpoint);
                     break;
                 case PacketType.SENDBLOCK:
-                    await HandleSendBlock((SendBlockPacket)p.Body, senderEndpoint);
+                    await HandleSendBlock((SendBlockPacket)p.Body, senderEndpoint.Endpoint);
                     break;
                 case PacketType.INVENTORY:
                     /* currently unused */
                     break;
                 case PacketType.GETTXS:
-                    await HandleGetTxs((GetTransactionsPacket)p.Body, senderEndpoint);
+                    await HandleGetTxs((GetTransactionsPacket)p.Body, senderEndpoint.Endpoint);
                     break;
                 case PacketType.TXS:
                     /* currently there is no handler for this packet */
@@ -128,21 +136,21 @@ namespace Discreet.Network
                     await HandleNotFound((NotFoundPacket)p.Body);
                     break;
                 default:
-                    Visor.Logger.Log($"Discreet.Network.Handler.Handle: received unsupported packet from {senderEndpoint} with type {p.Header.Command}");
+                    Visor.Logger.Log($"Discreet.Network.Handler.Handle: received unsupported packet from {senderEndpoint.Endpoint} with type {p.Header.Command}");
                     break;
             }
             /* REMOVE IN FUTURE; USED FOR TESTING */
-            if (p.Header.Command == Core.PacketType.OLDMESSAGE)
-            {
-                var body = (Core.Packets.Peerbloom.OldMessage)p.Body;
-
-                Peerbloom.Network.GetNetwork().OnSendMessageReceived(body.MessageID, body.Message);
-            }
-            else
-            {
-                Visor.Logger.Log($"Unknown/unimplemented packet type received: {p.Header.Command}");
-                return;
-            }
+            //if (p.Header.Command == Core.PacketType.OLDMESSAGE)
+            //{
+            //    var body = (Core.Packets.Peerbloom.OldMessage)p.Body;
+            //
+            //    Peerbloom.Network.GetNetwork().OnSendMessageReceived(body.MessageID, body.Message);
+            //}
+            //else
+            //{
+            //    Visor.Logger.Log($"Unknown/unimplemented packet type received: {p.Header.Command}");
+            //    return;
+            //}
         }
 
         public async Task HandleAlert(AlertPacket p)
@@ -197,28 +205,34 @@ namespace Discreet.Network
 
             var mCache = MessageCache.GetMessageCache();
 
-            if (senderEndpoint != p.Address)
+            if (mCache.Versions.ContainsKey(senderEndpoint))
+            {
+                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: already received version from {senderEndpoint}");
+                return;
+            }
+
+            /*if (senderEndpoint != p.Address)
             {
                 Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: endpoint and address mismatch (received from {senderEndpoint}; specified {p.Address})");
                 mCache.BadVersions[senderEndpoint] = p;
                 return;
-            }
+            }*/
 
-            var node = Peerbloom.Network.GetNetwork().GetNode(senderEndpoint);
+            /*var node = Peerbloom.Network.GetNetwork().GetNode(senderEndpoint);
 
             if (node != null)
             {
                 Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: could not find peer {p.Address} in connection pool");
                 mCache.BadVersions[senderEndpoint] = p;
                 return;
-            }
+            }*/
 
-            if (node.Id.Value != p.ID)
+            /*if (node.Id.Value != p.ID)
             {
                 Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: invalid ID for peer {p.Address}; expected {node.Id.Value.ToHexShort()}, but got {p.ID.ToHexShort()}");
                 mCache.BadVersions[senderEndpoint] = p;
                 return;
-            }
+            }*/
 
             if (p.Version != Visor.VisorConfig.GetConfig().NetworkVersion)
             {
@@ -227,7 +241,7 @@ namespace Discreet.Network
                 return;
             }
 
-            if (mCache.Versions.ContainsKey(p.Address) || mCache.BadVersions.ContainsKey(p.Address))
+            if (mCache.Versions.ContainsKey(senderEndpoint) || mCache.BadVersions.ContainsKey(senderEndpoint))
             {
                 Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: version packet already recieved for peer {p.Address}");
                 mCache.BadVersions[senderEndpoint] = p;
@@ -241,14 +255,22 @@ namespace Discreet.Network
                 return;
             }
 
-            mCache.Versions[senderEndpoint] = p;
+            if (mCache.BadVersions.ContainsKey(senderEndpoint))
+            {
+                mCache.BadVersions.Remove(senderEndpoint, out _);
+            }
+
+            if (!mCache.Versions.TryAdd(senderEndpoint, p))
+            {
+                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: failed to add version for {senderEndpoint}");
+            }
         }
 
         public async Task HandleGetBlocks(GetBlocksPacket p, IPEndPoint senderEndpoint)
         {
             DB.DB db = DB.DB.GetDB();
 
-            List<Coin.Block> blocks = new List<Coin.Block>();
+            List<Coin.SignedBlock> blocks = new List<Coin.SignedBlock>();
 
             try
             {
@@ -256,11 +278,11 @@ namespace Discreet.Network
                 {
                     if (h.IsLong())
                     {
-                        blocks.Add(db.GetBlock(h.ToInt64()));
+                        blocks.Add((Coin.SignedBlock)db.GetBlock(h.ToInt64()));
                     }
                     else
                     {
-                        blocks.Add(db.GetBlock(h));
+                        blocks.Add((Coin.SignedBlock)db.GetBlock(h));
                     }
                 }
 
@@ -442,6 +464,8 @@ namespace Discreet.Network
                         return;
                     }
                 }
+
+                LastSeenHeight = p.Block.Height;
             }
             else if (State == PeerState.Processing)
             {
@@ -517,9 +541,19 @@ namespace Discreet.Network
                 {
                     if (!db.BlockCacheHas(block.BlockHash))
                     {
-                        db.AddBlockToCache(block);
+                        lock (DB.DB.DBLock)
+                        {
+                            db.AddBlockToCache(block);
+                        }
+                    }
+                    if (!MessageCache.GetMessageCache().BlockCache.ContainsKey(block.Height))
+                    {
+                        MessageCache.GetMessageCache().BlockCache.TryAdd(block.Height, block);
                     }
                 }
+
+
+                LastSeenHeight = p.Blocks[0].Height;
             }
         }
 

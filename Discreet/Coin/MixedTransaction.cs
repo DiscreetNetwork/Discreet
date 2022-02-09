@@ -514,6 +514,11 @@ namespace Discreet.Coin
 
         public VerifyException Verify()
         {
+            return Verify(inBlock: false);
+        }
+
+        public VerifyException Verify(bool inBlock = false)
+        {
             bool tInNull = TInputs == null;
             bool tOutNull = TOutputs == null;
             bool pInNull = PInputs == null;
@@ -531,7 +536,7 @@ namespace Discreet.Coin
             /* we can convert MixedTransactions to either Transparent.Transaction or Transaction */
             if (Version == 0 || Version == 1 || Version == 2)
             {
-                return ToPrivate().Verify();
+                return ToPrivate().Verify(inBlock);
             }
 
             if (Version == 3)
@@ -829,9 +834,19 @@ namespace Discreet.Coin
                     return sigexc;
                 }
 
-                if (!db.CheckSpentKey(PInputs[i].KeyImage))
+                if (inBlock)
                 {
-                    return new VerifyException("MixedTransaction", $"Key image for input at index {i} ({PInputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
+                    if (!db.CheckSpentKeyBlock(PInputs[i].KeyImage))
+                    {
+                        return new VerifyException("MixedTransaction", $"Key image for input at index {i} ({PInputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
+                    }
+                }
+                else
+                {
+                    if (!db.CheckSpentKey(PInputs[i].KeyImage))
+                    {
+                        return new VerifyException("MixedTransaction", $"Key image for input at index {i} ({PInputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
+                    }
                 }
             }
 

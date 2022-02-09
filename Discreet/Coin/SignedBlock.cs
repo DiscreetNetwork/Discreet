@@ -53,7 +53,7 @@ namespace Discreet.Coin
 
         public override byte[] MarshalFull()
         {
-            byte[] bytes = new byte[Size()];
+            byte[] bytes = new byte[SizeFull()];
 
             bytes[0] = Version;
 
@@ -215,6 +215,10 @@ namespace Discreet.Coin
                 Coinbase = new Transaction();
                 _offset = Coinbase.Unmarshal(bytes, _offset + 133 + 96);
             }
+            else
+            {
+                _offset += 133 + 96;
+            }
 
             for (int i = 0; i < NumTXs; i++)
             {
@@ -254,6 +258,10 @@ namespace Discreet.Coin
                 Coinbase = new Transaction();
                 _offset = Coinbase.Unmarshal(bytes, _offset + 133 + 96);
             }
+            else
+            {
+                _offset += 133 + 96;
+            }
 
             for (int i = 0; i < NumTXs; i++)
             {
@@ -279,7 +287,7 @@ namespace Discreet.Coin
         public static SignedBlock Build(List<FullTransaction> txs, StealthAddress miner, Key signingKey)
         {
             SignedBlock block = new();
-            block.Timestamp = (ulong)DateTime.Now.Ticks;
+            block.Timestamp = (ulong)DateTime.UtcNow.Ticks;
             block.NumTXs = (uint)txs.Count;
             block.Version = 1;
 
@@ -338,43 +346,15 @@ namespace Discreet.Coin
                 minertx.TransactionKey = R;
 
                 block.Coinbase = minertx;
+
+                block.BlockSize += block.Coinbase.Size();
             }
             else
             {
-                /* Construct miner TX */
-                Transaction minertx = new();
-                minertx.Version = 0;
-                minertx.NumInputs = 0;
-                minertx.NumOutputs = 1;
-                minertx.NumSigs = 0;
 
-                Key R = new(new byte[32]);
-                Key r = new(new byte[32]);
-
-                KeyOps.GenerateKeypair(ref r, ref R);
-
-                TXOutput minerOutput = new();
-                minerOutput.Commitment = new Key(new byte[32]);
-
-                /* the mask is always the identity for miner tx */
-                Key mask = Key.I;
-                KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, 0);
-
-                Console.WriteLine(minerOutput.Commitment.ToHex());
-
-                minerOutput.UXKey = Key.I;
-                minerOutput.Amount = 0;
-
-                minertx.Outputs = new TXOutput[1] { minerOutput };
-
-                minertx.TransactionKey = R;
-
-                block.Coinbase = minertx;
             }
 
-            block.BlockSize += block.Coinbase.Size();
-
-            block.MerkleRoot = GetMerkleRoot(txs, block.Coinbase);
+            block.MerkleRoot = GetMerkleRoot(txs);
 
             /* Block hash is just the header hash, i.e. Hash(Version, Timestamp, Height, BlockSize, NumTXs, NumOutputs, PreviousBlock, MerkleRoot) */
             block.BlockHash = block.Hash();
@@ -391,6 +371,57 @@ namespace Discreet.Coin
             block.Sig = KeyOps.Sign(ref signingKey, block.BlockHash);
 
             return block;
+        }
+
+        public static SignedBlock BuildGenesis(StealthAddress[] addresses, ulong[] values, int numDummy, Key signingKey)
+        {
+            List<FullTransaction> txs = new();
+
+            for (int i = 0; i < numDummy / 16; i++)
+            {
+                txs.Add(Transaction.GenerateRandomNoSpend(new StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey()), 16).ToFull());
+            }
+
+            if (numDummy % 16 != 0)
+            {
+                txs.Add(Transaction.GenerateRandomNoSpend(new StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey()), numDummy % 16).ToFull());
+            }
+
+            for (int i = 0; i < addresses.Length; i++)
+            {
+                Transaction tx = new()
+                {
+                    Version = 0,
+                    NumInputs = 0,
+                    NumOutputs = 1,
+                    NumSigs = 0,
+                };
+
+                Cipher.Key r = new(new byte[32]);
+                Cipher.Key R = new(new byte[32]);
+
+                Cipher.KeyOps.GenerateKeypair(ref r, ref R);
+
+                tx.Outputs = new TXOutput[1];
+
+
+                tx.Outputs[0] = new TXOutput
+                {
+                    Commitment = new Cipher.Key(new byte[32])
+                };
+
+                Cipher.Key mask = Cipher.KeyOps.GenCommitmentMask(ref r, ref addresses[i].view, 0);
+                Cipher.KeyOps.GenCommitment(ref tx.Outputs[0].Commitment, ref mask, values[i]);
+                tx.Outputs[0].UXKey = Cipher.KeyOps.DKSAP(ref r, addresses[i].view, addresses[i].spend, 0);
+                tx.Outputs[0].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref addresses[i].view, 0, values[i]);
+
+
+                tx.TransactionKey = R;
+
+                txs.Add(tx.ToFull());
+            }
+
+            return Build(txs, null, signingKey);
         }
 
         public override VerifyException Verify()
@@ -529,7 +560,7 @@ namespace Discreet.Coin
                     return new VerifyException("Block", "block contains coinbase transaction outside of miner tx");
                 }
 
-                var txexc = transactions[i].Verify();
+                var txexc = transactions[i].Verify(inBlock: true);
 
                 if (txexc != null)
                 {
@@ -553,7 +584,8 @@ namespace Discreet.Coin
         public static bool IsMasternode(Cipher.Key k)
         {
             //TODO: Implement hardcoded masternode IDs
-            return true;
+            return k == Key.FromHex("74df105d0d37ef0c31ef2656297e514c52ec49ce387b587f97a13e2c3a57065e");
+            //return true;
         }
     }
 }
