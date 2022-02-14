@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.IO;
 
 namespace Discreet.Coin
 {
@@ -134,13 +135,7 @@ namespace Discreet.Coin
                 bytes[2] = NumOutputs;
                 bytes[3] = NumSigs;
 
-                byte[] fee = BitConverter.GetBytes(Fee);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(fee);
-                }
-
-                Array.Copy(fee, 0, bytes, offset, 8);
+                Serialization.CopyData(bytes, offset, Fee);
                 offset += 8;
 
                 Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
@@ -204,107 +199,7 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes)
         {
-            if (bytes[0] == 0)
-            {
-                Version = bytes[0];
-                NumInputs = bytes[1];
-                NumOutputs = bytes[2];
-                NumSigs = bytes[3];
-
-                uint offset = 4;
-
-                TransactionKey = new Cipher.Key(new byte[32]);
-                Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
-                offset += 32;
-
-                Outputs = new TXOutput[NumOutputs];
-
-                for (int i = 0; i < NumOutputs; i++)
-                {
-                    Outputs[i] = new TXOutput();
-
-                    Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 72;
-                }
-            }
-            else
-            {
-                Version = bytes[0];
-                NumInputs = bytes[1];
-                NumOutputs = bytes[2];
-                NumSigs = bytes[3];
-
-                uint offset = 4;
-
-                byte[] fee = new byte[8];
-
-                Array.Copy(bytes, offset, fee, 0, 8);
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(fee);
-                }
-
-                Fee = BitConverter.ToUInt64(fee);
-                offset += 8;
-
-                TransactionKey = new Cipher.Key(new byte[32]);
-                Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
-                offset += 32;
-
-                Inputs = new TXInput[NumInputs];
-
-                for (int i = 0; i < NumInputs; i++)
-                {
-                    Inputs[i] = new TXInput();
-
-                    Inputs[i].Unmarshal(bytes, offset);
-                    offset += TXInput.Size();
-                }
-
-                Outputs = new TXOutput[NumOutputs];
-
-                for (int i = 0; i < NumOutputs; i++)
-                {
-                    Outputs[i] = new TXOutput();
-
-                    Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 72;
-                }
-
-                if (Version == 2)
-                {
-                    RangeProofPlus = new BulletproofPlus();
-
-                    RangeProofPlus.Unmarshal(bytes, offset);
-                    offset += RangeProofPlus.Size();
-                }
-                else
-                {
-                    RangeProof = new Bulletproof();
-
-                    RangeProof.Unmarshal(bytes, offset);
-                    offset += RangeProof.Size();
-                }
-
-                Signatures = new Triptych[NumSigs];
-
-                for (int i = 0; i < NumSigs; i++)
-                {
-                    Signatures[i] = new Triptych();
-
-                    Signatures[i].Unmarshal(bytes, offset);
-                    offset += Triptych.Size();
-                }
-
-                PseudoOutputs = new Cipher.Key[NumInputs];
-                for (int i = 0; i < NumInputs; i++)
-                {
-                    PseudoOutputs[i] = new Cipher.Key(new byte[32]);
-                    Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
-                    offset += 32;
-                }
-            }
+            Unmarshal(bytes, 0);
         }
 
         /* for testing purposes only */
@@ -398,16 +293,13 @@ namespace Discreet.Coin
 
                 offset += 4;
 
-                TransactionKey = new Cipher.Key(new byte[32]);
-                Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
+                TransactionKey = new Cipher.Key(bytes, offset);
                 offset += 32;
 
                 Outputs = new TXOutput[NumOutputs];
-
                 for (int i = 0; i < NumOutputs; i++)
                 {
                     Outputs[i] = new TXOutput();
-
                     Outputs[i].TXUnmarshal(bytes, offset);
                     offset += 72;
                 }
@@ -423,38 +315,24 @@ namespace Discreet.Coin
 
                 offset += 4;
 
-                byte[] fee = new byte[8];
-
-                Array.Copy(bytes, offset, fee, 0, 8);
-
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(fee);
-                }
-
-                Fee = BitConverter.ToUInt64(fee);
+                Fee = Serialization.GetUInt64(bytes, offset);
                 offset += 8;
 
-                TransactionKey = new Cipher.Key(new byte[32]);
-                Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
+                TransactionKey = new Cipher.Key(bytes, offset);
                 offset += 32;
 
                 Inputs = new TXInput[NumInputs];
-
                 for (int i = 0; i < NumInputs; i++)
                 {
                     Inputs[i] = new TXInput();
-
                     Inputs[i].Unmarshal(bytes, offset);
                     offset += TXInput.Size();
                 }
 
                 Outputs = new TXOutput[NumOutputs];
-
                 for (int i = 0; i < NumOutputs; i++)
                 {
                     Outputs[i] = new TXOutput();
-
                     Outputs[i].TXUnmarshal(bytes, offset);
                     offset += 72;
                 }
@@ -462,24 +340,20 @@ namespace Discreet.Coin
                 if (Version == 2)
                 {
                     RangeProofPlus = new BulletproofPlus();
-
                     RangeProofPlus.Unmarshal(bytes, offset);
                     offset += RangeProofPlus.Size();
                 }
                 else
                 {
                     RangeProof = new Bulletproof();
-
                     RangeProof.Unmarshal(bytes, offset);
                     offset += RangeProof.Size();
                 }
 
                 Signatures = new Triptych[NumSigs];
-
                 for (int i = 0; i < NumSigs; i++)
                 {
                     Signatures[i] = new Triptych();
-
                     Signatures[i].Unmarshal(bytes, offset);
                     offset += Triptych.Size();
                 }
@@ -487,12 +361,138 @@ namespace Discreet.Coin
                 PseudoOutputs = new Cipher.Key[NumInputs];
                 for (int i = 0; i < NumInputs; i++)
                 {
-                    PseudoOutputs[i] = new Cipher.Key(new byte[32]);
-                    Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
+                    PseudoOutputs[i] = new Cipher.Key(bytes, offset);
                     offset += 32;
                 }
 
                 return offset;
+            }
+        }
+
+        public void Marshal(Stream s)
+        {
+            if (Version == 0)
+            {
+                s.WriteByte(Version);
+                s.WriteByte(NumInputs);
+                s.WriteByte(NumOutputs);
+                s.WriteByte(NumSigs);
+
+                s.Write(TransactionKey.bytes);
+
+                for (int i = 0; i < Outputs.Length; i++)
+                {
+                    Outputs[i].TXMarshal(s);
+                }
+            }
+            else
+            {
+                s.WriteByte(Version);
+                s.WriteByte(NumInputs);
+                s.WriteByte(NumOutputs);
+                s.WriteByte(NumSigs);
+
+                Serialization.CopyData(s, Fee);
+
+                s.Write(TransactionKey.bytes);
+
+                for (int i = 0; i < Inputs.Length; i++)
+                {
+                    Inputs[i].Marshal(s);
+                }
+
+                for (int i = 0; i < Outputs.Length; i++)
+                {
+                    Outputs[i].TXMarshal(s);
+                }
+
+                if (Version == 2)
+                {
+                    RangeProofPlus.Marshal(s);
+                }
+                else
+                {
+                    RangeProof.Marshal(s);
+                }
+
+                for (int i = 0; i < NumSigs; i++)
+                {
+                    Signatures[i].Marshal(s);
+                }
+
+                for (int i = 0; i < PseudoOutputs.Length; i++)
+                {
+                    s.Write(PseudoOutputs[i].bytes);
+                }
+            }
+        }
+
+        public void Unmarshal(Stream s)
+        {
+            if (Version == 0)
+            {
+                Version = (byte)s.ReadByte();
+                NumInputs = (byte)s.ReadByte();
+                NumOutputs = (byte)s.ReadByte();
+                NumSigs = (byte)s.ReadByte();
+
+                TransactionKey = new Cipher.Key(s);
+
+                Outputs = new TXOutput[NumOutputs];
+                for (int i = 0; i < NumOutputs; i++)
+                {
+                    Outputs[i] = new TXOutput();
+                    Outputs[i].TXUnmarshal(s);
+                }
+            }
+            else
+            { 
+                Version = (byte)s.ReadByte();
+                NumInputs = (byte)s.ReadByte();
+                NumOutputs = (byte)s.ReadByte();
+                NumSigs = (byte)s.ReadByte();
+
+                Serialization.CopyData(s, Fee);
+
+                TransactionKey = new Cipher.Key(s);
+
+                Inputs = new TXInput[NumInputs];
+                for (int i = 0; i < NumInputs; i++)
+                {
+                    Inputs[i] = new TXInput();
+                    Inputs[i].Unmarshal(s);
+                }
+
+                Outputs = new TXOutput[NumOutputs];
+                for (int i = 0; i < NumOutputs; i++)
+                {
+                    Outputs[i] = new TXOutput();
+                    Outputs[i].TXUnmarshal(s);
+                }
+
+                if (Version == 2)
+                {
+                    RangeProofPlus = new BulletproofPlus();
+                    RangeProofPlus.Unmarshal(s);
+                }
+                else
+                {
+                    RangeProof = new Bulletproof();
+                    RangeProof.Unmarshal(s);
+                }
+
+                Signatures = new Triptych[NumInputs];
+                for (int i = 0; i < NumInputs; i++)
+                {
+                    Signatures[i] = new Triptych();
+                    Signatures[i].Unmarshal(s);
+                }
+
+                PseudoOutputs = new Cipher.Key[NumInputs];
+                for (int i = 0; i < NumInputs; i++)
+                {
+                    PseudoOutputs[i] = new Cipher.Key(s);
+                }
             }
         }
 

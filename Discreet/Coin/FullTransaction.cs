@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -37,7 +38,7 @@ namespace Discreet.Coin
         public Triptych[] PSignatures;
         public Key[] PseudoOutputs;
 
-        public FullTransaction() { }
+        public FullTransaction() { Version = byte.MaxValue; }
 
         public FullTransaction(byte[] bytes)
         {
@@ -210,6 +211,28 @@ namespace Discreet.Coin
             };
         }
 
+        public void Unmarshal(Stream s)
+        {
+            Version = (byte)s.ReadByte();
+            switch (Version)
+            {
+                case 0:
+                    FromCoinbase(s);
+                    break;
+                case 1 or 2:
+                    FromPrivate(s);
+                    break;
+                case 3:
+                    FromTransparent(s);
+                    break;
+                case 4:
+                    FromMixed(s);
+                    break;
+                default:
+                    throw new Exception("Unknown transaction type: " + Version);
+            }
+        }
+
         public SHA256 Hash()
         {
             return Version switch
@@ -250,10 +273,184 @@ namespace Discreet.Coin
             }
         }
 
+        public void Marshal(Stream s)
+        {
+            switch (Version)
+            {
+                case 0:
+                    ToCoinbaseBytes(s);
+                    break;
+                case 1:
+                case 2:
+                    ToPrivateBytes(s);
+                    break;
+                case 3:
+                    ToTransparentBytes(s);
+                    break;
+                case 4:
+                    ToMixedBytes(s);
+                    break;
+                default:
+                    throw new Exception("Unknown transaction type: " + Version);
+            }
+        }
+
         public void Marshal(byte[] bytes, uint offset)
         {
             byte[] data = Marshal();
             Array.Copy(data, 0, bytes, offset, data.Length);
+        }
+
+        public void ToCoinbaseBytes(Stream s)
+        {
+            s.WriteByte(Version);
+            s.WriteByte(NumInputs);
+            s.WriteByte(NumOutputs);
+            s.WriteByte(NumSigs);
+
+            s.Write(TransactionKey.bytes);
+
+            for (int i = 0; i < POutputs.Length; i++)
+            {
+                POutputs[i].TXMarshal(s);
+            }
+        }
+
+        public void ToPrivateBytes(Stream s)
+        {
+            s.WriteByte(Version);
+            s.WriteByte(NumInputs);
+            s.WriteByte(NumOutputs);
+            s.WriteByte(NumSigs);
+
+            Serialization.CopyData(s, Fee);
+
+            s.Write(TransactionKey.bytes);
+
+            for (int i = 0; i < PInputs.Length; i++)
+            {
+                PInputs[i].Marshal(s);
+            }
+
+            for (int i = 0; i < POutputs.Length; i++)
+            {
+                POutputs[i].TXMarshal(s);
+            }
+
+            if (Version == 2)
+            {
+                RangeProofPlus.Marshal(s);
+            }
+            else
+            {
+                RangeProof.Marshal(s);
+            }
+
+            for (int i = 0; i < NumSigs; i++)
+            {
+                PSignatures[i].Marshal(s);
+            }
+
+            for (int i = 0; i < PseudoOutputs.Length; i++)
+            {
+                s.Write(PseudoOutputs[i].bytes);
+            }
+        }
+
+        public void ToTransparentBytes(Stream s)
+        {
+            s.WriteByte(Version);
+            s.WriteByte(NumInputs);
+            s.WriteByte(NumOutputs);
+            s.WriteByte(NumSigs);
+
+            Serialization.CopyData(s, Fee);
+
+            s.Write(SigningHash.Bytes);
+
+            for (int i = 0; i < TInputs.Length; i++)
+            {
+                TInputs[i].Marshal(s);
+            }
+
+            for (int i = 0; i < TOutputs.Length; i++)
+            {
+                TOutputs[i].TXMarshal(s);
+            }
+
+            for (int i = 0; i < TSignatures.Length; i++)
+            {
+                s.Write(TSignatures[i].ToBytes());
+            }
+        }
+
+        public void ToMixedBytes(Stream s)
+        {
+            s.WriteByte(Version);
+            s.WriteByte(NumInputs);
+            s.WriteByte(NumOutputs);
+            s.WriteByte(NumSigs);
+
+            s.WriteByte(NumTInputs);
+            s.WriteByte(NumPInputs);
+            s.WriteByte(NumTOutputs);
+            s.WriteByte(NumPOutputs);
+
+            int lenTInputs = TInputs == null ? 0 : TInputs.Length;
+            int lenTOutputs = TOutputs == null ? 0 : TOutputs.Length;
+            int lenPInputs = PInputs == null ? 0 : PInputs.Length;
+            int lenPOutputs = POutputs == null ? 0 : POutputs.Length;
+            int lenTSigs = TSignatures == null ? 0 : TSignatures.Length;
+            int lenPSigs = PSignatures == null ? 0 : PSignatures.Length;
+
+            Serialization.CopyData(s, Fee);
+
+            s.Write(SigningHash.Bytes);
+
+            for (int i = 0; i < lenTInputs; i++)
+            {
+                TInputs[i].Marshal(s);
+            }
+
+            for (int i = 0; i < lenTOutputs; i++)
+            {
+                TOutputs[i].TXMarshal(s);
+            }
+
+            for (int i = 0; i < lenTSigs; i++)
+            {
+                s.Write(TSignatures[i].ToBytes());
+            }
+
+            if (lenPOutputs > 0)
+            {
+                s.Write(TransactionKey.bytes);
+            }
+
+            for (int i = 0; i < lenPInputs; i++)
+            {
+                PInputs[i].Marshal(s);
+            }
+
+            for (int i = 0; i < lenPOutputs; i++)
+            {
+                POutputs[i].TXMarshal(s);
+            }
+
+            if (RangeProofPlus != null && lenPOutputs > 0)
+            {
+                RangeProofPlus.Marshal(s);
+            }
+
+            for (int i = 0; i < lenPSigs; i++)
+            {
+                PSignatures[i].Marshal(s);
+            }
+
+            for (int i = 0; i < NumInputs; i++)
+            {
+                s.Write(PseudoOutputs[i].bytes);
+            }
         }
 
         public byte[] ToCoinbaseBytes()
@@ -290,13 +487,7 @@ namespace Discreet.Coin
 
             uint offset = 4;
 
-            byte[] fee = BitConverter.GetBytes(Fee);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Array.Copy(fee, 0, bytes, offset, 8);
+            Serialization.CopyData(bytes, offset, Fee);
             offset += 8;
 
             Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
@@ -351,19 +542,11 @@ namespace Discreet.Coin
 
             uint offset = 4;
 
-            byte[] fee = BitConverter.GetBytes(Fee);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Array.Copy(fee, 0, bytes, offset, 8);
+            Serialization.CopyData(bytes, offset, Fee);
             offset += 8;
 
             Array.Copy(SigningHash.Bytes, 0, bytes, offset, 32);
             offset += 32;
-
 
             for (int i = 0; i < TInputs.Length; i++)
             {
@@ -447,7 +630,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < lenPOutputs; i++)
             {
-                POutputs[i].Marshal(bytes, offset);
+                POutputs[i].TXMarshal(bytes, offset);
                 offset += 72;
             }
 
@@ -463,7 +646,6 @@ namespace Discreet.Coin
                 offset += Triptych.Size();
             }
 
-            /* all MixedTransactions will contain PseudoOutputs */
             for (int i = 0; i < NumInputs; i++)
             {
                 Array.Copy(PseudoOutputs[i].bytes, 0, bytes, offset, 32);
@@ -471,6 +653,208 @@ namespace Discreet.Coin
             }
 
             return bytes;
+        }
+
+        public void FromCoinbase(Stream s)
+        {
+            if (Version != byte.MaxValue)
+            {
+                Version = (byte)s.ReadByte();
+            }
+            NumInputs = (byte)s.ReadByte();
+            NumOutputs = (byte)s.ReadByte();
+            NumSigs = (byte)s.ReadByte();
+
+            NumPInputs = 0;
+            NumPOutputs = NumOutputs;
+            NumTInputs = 0;
+            NumTOutputs = 0;
+
+            TransactionKey = new Key(s);
+
+            POutputs = new TXOutput[NumOutputs];
+            for (int i = 0; i < NumOutputs; i++)
+            {
+                POutputs[i] = new TXOutput();
+                POutputs[i].TXUnmarshal(s);
+            }
+        }
+
+        public void FromPrivate(Stream s)
+        {
+            if (Version != byte.MaxValue)
+            {
+                Version = (byte)s.ReadByte();
+            }
+            NumInputs = (byte)s.ReadByte();
+            NumOutputs = (byte)s.ReadByte();
+            NumSigs = (byte)s.ReadByte();
+
+            NumPInputs = NumInputs;
+            NumPOutputs = NumOutputs;
+            NumTInputs = 0;
+            NumTOutputs = 0;
+
+            Serialization.CopyData(s, Fee);
+
+            TransactionKey = new Key(s);
+
+            PInputs = new TXInput[NumInputs];
+            for (int i = 0; i < NumInputs; i++)
+            {
+                PInputs[i] = new TXInput();
+                PInputs[i].Unmarshal(s);
+            }
+
+            POutputs = new TXOutput[NumOutputs];
+            for (int i = 0; i < NumOutputs; i++)
+            {
+                POutputs[i] = new TXOutput();
+                POutputs[i].TXUnmarshal(s);
+            }
+
+            if (Version == 2)
+            {
+                RangeProofPlus = new BulletproofPlus();
+                RangeProofPlus.Unmarshal(s);
+            }
+            else
+            {
+                RangeProof = new Bulletproof();
+                RangeProof.Unmarshal(s);
+            }
+
+            PSignatures = new Triptych[NumInputs];
+            for (int i = 0; i < NumInputs; i++)
+            {
+                PSignatures[i] = new Triptych();
+                PSignatures[i].Unmarshal(s);
+            }
+
+            PseudoOutputs = new Key[NumInputs];
+            for (int i = 0; i < NumInputs; i++)
+            {
+                PseudoOutputs[i] = new Key(s);
+            }
+        }
+
+        public void FromTransparent(Stream s)
+        {
+            if (Version != byte.MaxValue)
+            {
+                Version = (byte)s.ReadByte();
+            }
+            NumInputs = (byte)s.ReadByte();
+            NumOutputs = (byte)s.ReadByte();
+            NumSigs = (byte)s.ReadByte();
+
+            NumTInputs = NumInputs;
+            NumTOutputs = NumOutputs;
+            NumPInputs = 0;
+            NumPOutputs = 0;
+
+            Fee = Serialization.GetUInt64(s);
+
+            SigningHash = new SHA256(s);
+
+            TInputs = new Transparent.TXOutput[NumInputs];
+            TOutputs = new Transparent.TXOutput[NumOutputs];
+            TSignatures = new Signature[NumSigs];
+
+            for (int i = 0; i < NumInputs; i++)
+            {
+                TInputs[i] = new Transparent.TXOutput();
+                TInputs[i].Unmarshal(s);
+            }
+
+            for (int i = 0; i < NumOutputs; i++)
+            {
+                TOutputs[i] = new Transparent.TXOutput();
+                TOutputs[i].TXUnmarshal(s);
+            }
+
+            for (int i = 0; i < NumSigs; i++)
+            {
+                TSignatures[i] = new Signature(s);
+            }
+        }
+
+        public void FromMixed(Stream s)
+        {
+            if (Version != byte.MaxValue)
+            {
+                Version = (byte)s.ReadByte();
+            }
+            NumInputs = (byte)s.ReadByte();
+            NumOutputs = (byte)s.ReadByte();
+            NumSigs = (byte)s.ReadByte();
+
+            NumTInputs = (byte)s.ReadByte();
+            NumPInputs = (byte)s.ReadByte();
+            NumTOutputs = (byte)s.ReadByte();
+            NumPOutputs = (byte)s.ReadByte();
+
+            Serialization.CopyData(s, Fee);
+
+            SigningHash = new SHA256(s);
+
+            TInputs = new Transparent.TXOutput[NumTInputs];
+            for (int i = 0; i < NumTInputs; i++)
+            {
+                TInputs[i] = new Transparent.TXOutput();
+                TInputs[i].TXUnmarshal(s);
+            }
+
+            TOutputs = new Transparent.TXOutput[NumTOutputs];
+            for (int i = 0; i < NumTOutputs; i++)
+            {
+                TOutputs[i] = new Transparent.TXOutput();
+                TOutputs[i].TXUnmarshal(s);
+            }
+
+            TSignatures = new Signature[NumTInputs];
+            for (int i = 0; i < NumTInputs; i++)
+            {
+                TSignatures[i] = new Signature(s);
+            }
+
+            if (NumPOutputs > 0)
+            {
+                TransactionKey = new Key(s);
+            }
+
+            PInputs = new TXInput[NumPInputs];
+            for (int i = 0; i < NumPInputs; i++)
+            {
+                PInputs[i] = new TXInput();
+                PInputs[i].Unmarshal(s);
+            }
+
+            POutputs = new TXOutput[NumPOutputs];
+            for (int i = 0; i < NumPOutputs; i++)
+            {
+                POutputs[i] = new TXOutput();
+                POutputs[i].TXUnmarshal(s);
+            }
+
+            if (NumPOutputs > 0)
+            {
+                RangeProofPlus = new BulletproofPlus();
+                RangeProofPlus.Unmarshal(s);
+            }
+
+            PSignatures = new Triptych[NumPInputs];
+            for (int i = 0; i < NumPInputs; i++)
+            {
+                PSignatures[i] = new Triptych();
+                PSignatures[i].Unmarshal(s);
+            }
+
+            PseudoOutputs = new Key[NumInputs];
+            for (int i = 0; i < NumInputs; i++)
+            {
+                PseudoOutputs[i] = new Key(s);
+            }
         }
 
         public uint FromCoinbase(byte[] bytes, uint offset)
@@ -487,16 +871,13 @@ namespace Discreet.Coin
 
             offset += 4;
 
-            TransactionKey = new Cipher.Key(new byte[32]);
-            Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
+            TransactionKey = new Key(bytes, offset);
             offset += 32;
 
             POutputs = new TXOutput[NumOutputs];
-
             for (int i = 0; i < NumOutputs; i++)
             {
                 POutputs[i] = new TXOutput();
-
                 POutputs[i].TXUnmarshal(bytes, offset);
                 offset += 72;
             }
@@ -518,38 +899,24 @@ namespace Discreet.Coin
 
             offset += 4;
 
-            byte[] fee = new byte[8];
-
-            Array.Copy(bytes, offset, fee, 0, 8);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Fee = BitConverter.ToUInt64(fee);
+            Fee = Serialization.GetUInt64(bytes, offset);
             offset += 8;
 
-            TransactionKey = new Cipher.Key(new byte[32]);
-            Array.Copy(bytes, offset, TransactionKey.bytes, 0, 32);
+            TransactionKey = new Key(bytes, offset);
             offset += 32;
 
             PInputs = new TXInput[NumInputs];
-
             for (int i = 0; i < NumInputs; i++)
             {
                 PInputs[i] = new TXInput();
-
                 PInputs[i].Unmarshal(bytes, offset);
                 offset += TXInput.Size();
             }
 
             POutputs = new TXOutput[NumOutputs];
-
             for (int i = 0; i < NumOutputs; i++)
             {
                 POutputs[i] = new TXOutput();
-
                 POutputs[i].TXUnmarshal(bytes, offset);
                 offset += 72;
             }
@@ -557,24 +924,20 @@ namespace Discreet.Coin
             if (Version == 2)
             {
                 RangeProofPlus = new BulletproofPlus();
-
                 RangeProofPlus.Unmarshal(bytes, offset);
                 offset += RangeProofPlus.Size();
             }
             else
             {
                 RangeProof = new Bulletproof();
-
                 RangeProof.Unmarshal(bytes, offset);
                 offset += RangeProof.Size();
             }
 
             PSignatures = new Triptych[NumSigs];
-
             for (int i = 0; i < NumSigs; i++)
             {
                 PSignatures[i] = new Triptych();
-
                 PSignatures[i].Unmarshal(bytes, offset);
                 offset += Triptych.Size();
             }
@@ -582,8 +945,7 @@ namespace Discreet.Coin
             PseudoOutputs = new Key[NumInputs];
             for (int i = 0; i < NumInputs; i++)
             {
-                PseudoOutputs[i] = new Key(new byte[32]);
-                Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
+                PseudoOutputs[i] = new Key(bytes, offset);
                 offset += 32;
             }
 
@@ -602,13 +964,15 @@ namespace Discreet.Coin
             NumPInputs = 0;
             NumPOutputs = 0;
 
-            SigningHash = new SHA256(new byte[32], false);
-            Array.Copy(bytes, 4, SigningHash.Bytes, 0, 32);
+            offset += 4;
 
-            offset += 36;
+            Fee = Serialization.GetUInt64(bytes, offset);
+            return offset + 8;
+
+            SigningHash = new SHA256(bytes, offset);
+            offset += 32;
 
             TInputs = new Transparent.TXOutput[NumInputs];
-
             for (int i = 0; i < TInputs.Length; i++)
             {
                 TInputs[i] = new Transparent.TXOutput();
@@ -617,7 +981,6 @@ namespace Discreet.Coin
             }
 
             TOutputs = new Transparent.TXOutput[NumOutputs];
-
             for (int i = 0; i < TOutputs.Length; i++)
             {
                 TOutputs[i] = new Transparent.TXOutput();
@@ -626,23 +989,11 @@ namespace Discreet.Coin
             }
 
             TSignatures = new Signature[NumSigs];
-
             for (int i = 0; i < TSignatures.Length; i++)
             {
                 TSignatures[i] = new Signature(bytes, offset);
                 offset += 96;
             }
-
-            byte[] fee = new byte[8];
-            Array.Copy(bytes, offset, fee, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Fee = BitConverter.ToUInt64(fee);
-
-            return offset + 8;
         }
 
         public uint FromMixed(byte[] bytes, uint offset)
@@ -662,9 +1013,7 @@ namespace Discreet.Coin
             Fee = Serialization.GetUInt64(bytes, offset);
             offset += 8;
 
-            byte[] signingHash = new byte[32];
-            Array.Copy(bytes, offset, signingHash, 0, 32);
-            SigningHash = new SHA256(signingHash, false);
+            SigningHash = new SHA256(bytes, offset);
             offset += 32;
 
             TInputs = new Transparent.TXOutput[NumTInputs];
@@ -690,10 +1039,11 @@ namespace Discreet.Coin
                 offset += 96;
             }
 
-            byte[] transactionKey = new byte[32];
-            Array.Copy(bytes, offset, transactionKey, 0, 32);
-            TransactionKey = new Key(transactionKey);
-            offset += 32;
+            if (NumPOutputs > 0)
+            {
+                TransactionKey = new Key(bytes, offset);
+                offset += 32;
+            }
 
             PInputs = new TXInput[NumPInputs];
             for (int i = 0; i < NumPInputs; i++)
@@ -726,8 +1076,7 @@ namespace Discreet.Coin
             PseudoOutputs = new Key[NumInputs];
             for (int i = 0; i < NumInputs; i++)
             {
-                PseudoOutputs[i] = new Cipher.Key(new byte[32]);
-                Array.Copy(bytes, offset, PseudoOutputs[i].bytes, 0, 32);
+                PseudoOutputs[i] = new Key(bytes, offset);
                 offset += 32;
             }
 

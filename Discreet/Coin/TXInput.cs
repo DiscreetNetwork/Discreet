@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
+using System.IO;
 
 namespace Discreet.Coin
 {
@@ -26,34 +27,18 @@ namespace Discreet.Coin
 
             for (int i = 0; i < 64; i++)
             {
-                byte[] offset = BitConverter.GetBytes(Offsets[i]);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(offset);
-                }
-
-                Array.Copy(offset, 0, rv, i*((Config.OutputVersion > 1) ? 8 : 4), (Config.OutputVersion > 1) ? 8 : 4);
+                Serialization.CopyData(rv, (uint)(i * 4), Offsets[i]);
             }
 
-            Array.Copy(KeyImage.bytes, 0, rv, ((Config.OutputVersion > 1) ? 8 : 4)*64, 32);
+            Array.Copy(KeyImage.bytes, 0, rv, 4*64, 32);
 
             return rv;
         }
 
         public void Marshal(byte[] bytes, uint offset)
         {
-            for (int i = 0; i < 64; i++)
-            {
-                byte[] _offset = BitConverter.GetBytes(Offsets[i]);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(_offset);
-                }
-
-                Array.Copy(_offset, 0, bytes, offset + i * ((Config.OutputVersion > 1) ? 8 : 4), (Config.OutputVersion > 1) ? 8 : 4);
-            }
-
-            Array.Copy(KeyImage.bytes, 0, bytes, offset + ((Config.OutputVersion > 1) ? 8 : 4) * 64, 32);
+            byte[] rv = Marshal();
+            Array.Copy(rv, 0, bytes, offset, rv.Length);
         }
 
         public string Readable()
@@ -68,22 +53,7 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes)
         {
-            Offsets = new uint[64];
-            for (int i = 0; i < 64; i++)
-            {
-                byte[] _offset = new byte[((Config.OutputVersion > 1) ? 8 : 4)];
-                Array.Copy(bytes, ((Config.OutputVersion > 1) ? 8 : 4) * i, _offset, 0, (Config.OutputVersion > 1) ? 8 : 4);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(_offset);
-                }
-
-                Offsets[i] = BitConverter.ToUInt32(_offset);
-            }
-
-            KeyImage = new Key(new byte[32]);
-
-            Array.Copy(bytes, ((Config.OutputVersion > 1) ? 8 : 4) * 64, KeyImage.bytes, 0, 32);
+            Unmarshal(bytes, 0);
         }
 
         public uint Unmarshal(byte[] bytes, uint offset)
@@ -91,27 +61,38 @@ namespace Discreet.Coin
             Offsets = new uint[64];
             for (int i = 0; i < 64; i++)
             {
-                byte[] _offset = new byte[((Config.OutputVersion > 1) ? 8 : 4)];
-                Array.Copy(bytes, offset + ((Config.OutputVersion > 1) ? 8 : 4) * i, _offset, 0, (Config.OutputVersion > 1) ? 8 : 4);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(_offset);
-                }
-
-                Offsets[i] = BitConverter.ToUInt32(_offset);
+                Offsets[i] = Serialization.GetUInt32(bytes, offset + (uint)(i * 4));
             }
 
-            KeyImage = new Key(new byte[32]);
+            KeyImage = new Key(bytes, offset + 4 * 64);
 
-            Array.Copy(bytes, offset + ((Config.OutputVersion > 1) ? 8 : 4) * 64, KeyImage.bytes, 0, 32);
+            return offset + Size();
+        }
 
-            /* C# is broken; we need to cast to avoid compilation errors */
-            return (uint)(offset + ((((Config.OutputVersion > 1) ? 8 : 4) * 64) + 32));
+        public void Marshal(Stream s)
+        {
+            for (int i = 0; i < 64; i++)
+            {
+                Serialization.CopyData(s, Offsets[i]);
+            }
+
+            s.Write(KeyImage.bytes);
+        }
+
+        public void Unmarshal(Stream s)
+        {
+            Offsets = new uint[64];
+            for (int i = 0; i < 64; i++)
+            {
+                Offsets[i] = Serialization.GetUInt32(s);
+            }
+
+            KeyImage = new Key(s);
         }
 
         public static uint Size()
         {
-            return (uint)((Config.OutputVersion > 1) ? 8 : 4) * 64 + 32;
+            return 4 * 64 + 32;
         }
 
         public static TXInput GenerateMock()

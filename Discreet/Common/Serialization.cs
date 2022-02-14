@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 
 namespace Discreet.Coin
@@ -170,6 +171,106 @@ namespace Discreet.Coin
         {
             byte[] data = new byte[sizeof(ulong)];
             Array.Copy(bytes, offset, data, 0, sizeof(ulong));
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return BitConverter.ToUInt64(data);
+        }
+
+        public static void CopyData(Stream s, int value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            s.Write(data);
+        }
+
+        public static void CopyData(Stream s, uint value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            s.Write(data);
+        }
+
+        public static void CopyData(Stream s, long value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            s.Write(data);
+        }
+
+        public static void CopyData(Stream s, ulong value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            s.Write(data);
+        }
+
+        public static int GetInt32(Stream s)
+        {
+            byte[] data = new byte[sizeof(int)];
+            s.Read(data);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return BitConverter.ToInt32(data);
+        }
+
+        public static uint GetUInt32(Stream s)
+        {
+            byte[] data = new byte[sizeof(uint)];
+            s.Read(data);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return BitConverter.ToUInt32(data);
+        }
+
+        public static long GetInt64(Stream s)
+        {
+            byte[] data = new byte[sizeof(long)];
+            s.Read(data);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return BitConverter.ToInt64(data);
+        }
+
+        public static ulong GetUInt64(Stream s)
+        {
+            byte[] data = new byte[sizeof(ulong)];
+            s.Read(data);
 
             if (BitConverter.IsLittleEndian)
             {

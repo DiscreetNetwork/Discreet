@@ -4,6 +4,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using System.Linq;
 using System.Numerics;
+using System.IO;
 
 namespace Discreet.Cipher
 {
@@ -26,6 +27,18 @@ namespace Discreet.Cipher
         public Key(byte[] _bytes)
         {
             bytes = _bytes;
+        }
+
+        public Key(byte[] _bytes, uint offset)
+        {
+            bytes = new byte[32];
+            Array.Copy(_bytes, offset, bytes, 0, 32);
+        }
+
+        public Key(Stream s)
+        {
+            bytes = new byte[32];
+            s.Read(bytes);
         }
 
         /// <summary>

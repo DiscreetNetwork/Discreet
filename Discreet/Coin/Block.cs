@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
+using System.IO;
 
 namespace Discreet.Coin
 {
@@ -98,6 +99,54 @@ namespace Discreet.Coin
             }
 
             return bytes;
+        }
+
+        public virtual void Marshal(Stream s)
+        {
+            s.WriteByte(Version);
+
+            Serialization.CopyData(s, Timestamp);
+            Serialization.CopyData(s, Height);
+            Serialization.CopyData(s, Fee);
+
+            s.Write(PreviousBlock.Bytes);
+            s.Write(BlockHash.Bytes);
+            s.Write(MerkleRoot.Bytes);
+
+            Serialization.CopyData(s, NumTXs);
+            Serialization.CopyData(s, BlockSize);
+            Serialization.CopyData(s, NumOutputs);
+
+            Coinbase.Marshal(s);
+
+            for (int i = 0; i < NumTXs; i++)
+            {
+                s.Write(Transactions[i].Bytes);
+            }
+        }
+
+        public virtual void MarshalFull(Stream s)
+        {
+            s.WriteByte(Version);
+
+            Serialization.CopyData(s, Timestamp);
+            Serialization.CopyData(s, Height);
+            Serialization.CopyData(s, Fee);
+
+            s.Write(PreviousBlock.Bytes);
+            s.Write(BlockHash.Bytes);
+            s.Write(MerkleRoot.Bytes);
+
+            Serialization.CopyData(s, NumTXs);
+            Serialization.CopyData(s, BlockSize);
+            Serialization.CopyData(s, NumOutputs);
+
+            Coinbase.Marshal(s);
+
+            for (int i = 0; i < NumTXs; i++)
+            {
+                transactions[i].Marshal(s);
+            }
         }
 
         public virtual void MarshalFull(byte[] bytes, uint offset)
@@ -252,6 +301,59 @@ namespace Discreet.Coin
             }
 
             return _offset + SizeFull();
+        }
+
+        public virtual void Unmarshal(Stream s)
+        {
+            Version = (byte)s.ReadByte();
+
+            Timestamp = Serialization.GetUInt64(s);
+            Height = Serialization.GetInt64(s);
+            Fee = Serialization.GetUInt64(s);
+
+            PreviousBlock = new SHA256(s);
+            BlockHash = new SHA256(s);
+            MerkleRoot = new SHA256(s);
+
+            NumTXs = Serialization.GetUInt32(s);
+            BlockSize = Serialization.GetUInt32(s);
+            NumOutputs = Serialization.GetUInt32(s);
+
+            Coinbase = new Transaction();
+            Coinbase.Unmarshal(s);
+
+            Transactions = new SHA256[NumTXs];
+            for (int i = 0; i < NumTXs; i++)
+            {
+                Transactions[i] = new SHA256(s);
+            }
+        }
+
+        public virtual void UnmarshalFull(Stream s)
+        {
+            Version = (byte)s.ReadByte();
+
+            Timestamp = Serialization.GetUInt64(s);
+            Height = Serialization.GetInt64(s);
+            Fee = Serialization.GetUInt64(s);
+
+            PreviousBlock = new SHA256(s);
+            BlockHash = new SHA256(s);
+            MerkleRoot = new SHA256(s);
+
+            NumTXs = Serialization.GetUInt32(s);
+            BlockSize = Serialization.GetUInt32(s);
+            NumOutputs = Serialization.GetUInt32(s);
+
+            Coinbase = new Transaction();
+            Coinbase.Unmarshal(s);
+
+            transactions = new FullTransaction[NumTXs];
+            for (int i = 0; i < NumTXs; i++)
+            {
+                transactions[i] = new FullTransaction();
+                transactions[i].Unmarshal(s);
+            }
         }
 
         public virtual uint Size()

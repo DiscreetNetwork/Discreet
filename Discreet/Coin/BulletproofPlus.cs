@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
+using System.IO;
 
 namespace Discreet.Coin
 {
@@ -49,13 +50,8 @@ namespace Discreet.Coin
         public byte[] Marshal()
         {
             byte[] bytes = new byte[L.Length * 64 + 6 * 32 + 4];
-            byte[] sz = BitConverter.GetBytes(size);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(sz);
-            }
+            Serialization.CopyData(bytes, 0, size);
 
-            Array.Copy(sz, 0, bytes, 0, 4);
             Array.Copy(A.bytes, 0, bytes, 4, 32);
             Array.Copy(A1.bytes, 0, bytes, 4 + 32, 32);
             Array.Copy(B.bytes, 0, bytes, 4 + 32 * 2, 32);
@@ -94,71 +90,19 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes)
         {
-            byte[] sz = new byte[4];
-            Array.Copy(bytes, 0, sz, 0, 4);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(sz);
-            }
-
-            size = BitConverter.ToUInt32(sz);
-
-            A = new Key(new byte[32]);
-            A1 = new Key(new byte[32]);
-            B = new Key(new byte[32]);
-            r1 = new Key(new byte[32]);
-            s1 = new Key(new byte[32]);
-            d1 = new Key(new byte[32]);
-
-            Array.Copy(bytes, 4, A.bytes, 0, 32);
-            Array.Copy(bytes, 4 + 32, A1.bytes, 0, 32);
-            Array.Copy(bytes, 4 + 32 * 2, B.bytes, 0, 32);
-            Array.Copy(bytes, 4 + 32 * 3, r1.bytes, 0, 32);
-            Array.Copy(bytes, 4 + 32 * 4, s1.bytes, 0, 32);
-            Array.Copy(bytes, 4 + 32 * 5, d1.bytes, 0, 32);
-
-            int _size = (size > 8 ? 10 : (size > 4 ? 9 : (size > 2 ? 8 : (size > 1 ? 7 : 6))));
-
-            L = new Key[_size];
-            R = new Key[_size];
-
-            for (int i = 0; i < _size; i++)
-            {
-                L[i] = new Key(new byte[32]);
-                Array.Copy(bytes, 4 + 32 * 6 + 32 * i, L[i].bytes, 0, 32);
-            }
-
-            for (int i = 0; i < _size; i++)
-            {
-                R[i] = new Key(new byte[32]);
-                Array.Copy(bytes, 4 + 32 * 6 + L.Length * 32 + 32 * i, R[i].bytes, 0, 32);
-            }
+            Unmarshal(bytes, 0);
         }
 
         public uint Unmarshal(byte[] bytes, uint offset)
         {
-            byte[] sz = new byte[4];
-            Array.Copy(bytes, offset, sz, 0, 4);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(sz);
-            }
+            size = Serialization.GetUInt32(bytes, offset);
 
-            size = BitConverter.ToUInt32(sz);
-
-            A = new Key(new byte[32]);
-            A1 = new Key(new byte[32]);
-            B = new Key(new byte[32]);
-            r1 = new Key(new byte[32]);
-            s1 = new Key(new byte[32]);
-            d1 = new Key(new byte[32]);
-
-            Array.Copy(bytes, offset + 4, A.bytes, 0, 32);
-            Array.Copy(bytes, offset + 4 + 32, A1.bytes, 0, 32);
-            Array.Copy(bytes, offset + 4 + 32 * 2, B.bytes, 0, 32);
-            Array.Copy(bytes, offset + 4 + 32 * 3, r1.bytes, 0, 32);
-            Array.Copy(bytes, offset + 4 + 32 * 4, s1.bytes, 0, 32);
-            Array.Copy(bytes, offset + 4 + 32 * 5, d1.bytes, 0, 32);
+            A = new Key(bytes, offset + 4);
+            A1 = new Key(bytes, offset + 4 + 32);
+            B = new Key(bytes, offset + 4 + 32 * 2);
+            r1 = new Key(bytes, offset + 4 + 32 * 3);
+            s1 = new Key(bytes, offset + 4 + 32 * 4);
+            d1 = new Key(bytes, offset + 4 + 32 * 5);
 
             int _size = (size > 8 ? 10 : (size > 4 ? 9 : (size > 2 ? 8 : (size > 1 ? 7 : 6))));
 
@@ -167,17 +111,64 @@ namespace Discreet.Coin
 
             for (int i = 0; i < _size; i++)
             {
-                L[i] = new Key(new byte[32]);
-                Array.Copy(bytes, offset + 4 + 32 * 6 + 32 * i, L[i].bytes, 0, 32);
+                L[i] = new Key(bytes, offset + 4 + 32 * 6 + 32 * (uint)i);
             }
 
             for (int i = 0; i < _size; i++)
             {
-                R[i] = new Key(new byte[32]);
-                Array.Copy(bytes, offset + 4 + 32 * 6 + L.Length * 32 + 32 * i, R[i].bytes, 0, 32);
+                R[i] = new Key(bytes, offset + 4 + 32 * 6 + (uint)L.Length * 32 + 32 * (uint)i);
             }
 
             return offset + Size();
+        }
+
+        public void Marshal(Stream s)
+        {
+            Serialization.CopyData(s, size);
+
+            s.Write(A.bytes);
+            s.Write(A1.bytes);
+            s.Write(B.bytes);
+            s.Write(r1.bytes);
+            s.Write(s1.bytes);
+            s.Write(d1.bytes);
+
+            for (int i = 0; i < L.Length; i++)
+            {
+                s.Write(L[i].bytes);
+            }
+
+            for (int i = 0; i < R.Length; i++)
+            {
+                s.Write(R[i].bytes);
+            }
+        }
+
+        public void Unmarshal(Stream s)
+        {
+            size = Serialization.GetUInt32(s);
+
+            A = new Key(s);
+            A1 = new Key(s);
+            B = new Key(s);
+            r1 = new Key(s);
+            s1 = new Key(s);
+            d1 = new Key(s);
+
+            int _size = (size > 8 ? 10 : (size > 4 ? 9 : (size > 2 ? 8 : (size > 1 ? 7 : 6))));
+
+            L = new Key[_size];
+            R = new Key[_size];
+
+            for (int i = 0; i < size; i++)
+            {
+                L[i] = new Key(s);
+            }
+
+            for (int i = 0; i < size; i++)
+            {
+                R[i] = new Key(s);
+            }
         }
 
         public uint Size()

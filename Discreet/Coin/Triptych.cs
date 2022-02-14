@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
+using System.IO;
 
 namespace Discreet.Coin
 {
@@ -95,63 +96,16 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes)
         {
-            K = new Key(new byte[32]);
-            A = new Key(new byte[32]);
-            B = new Key(new byte[32]);
-            C = new Key(new byte[32]);
-            D = new Key(new byte[32]);
-
-            Array.Copy(bytes, 0, K.bytes, 0, 32);
-            Array.Copy(bytes, 32, A.bytes, 0, 32);
-            Array.Copy(bytes, 32 * 2, B.bytes, 0, 32);
-            Array.Copy(bytes, 32 * 3, C.bytes, 0, 32);
-            Array.Copy(bytes, 32 * 4, D.bytes, 0, 32);
-
-            X = new Key[6];
-            Y = new Key[6];
-            f = new Key[6];
-
-            for (int i = 0; i < 6; i++)
-            {
-                X[i] = new Key(new byte[32]);
-
-                Array.Copy(bytes, 32 * 5 + 32 * i, X[i].bytes, 0, 32);
-            }
-
-            for (int i = 0; i < 6; i++)
-            {
-                Y[i] = new Key(new byte[32]);
-                Array.Copy(bytes, 32 * 11 + 32 * i, Y[i].bytes, 0, 32);
-            }
-
-            for (int i = 0; i < 6; i++)
-            {
-                f[i] = new Key(new byte[32]);
-                Array.Copy(bytes, 32 * 17 + 32 * i, f[i].bytes, 0, 32);
-            }
-
-            zA = new Key(new byte[32]);
-            zC = new Key(new byte[32]);
-            z = new Key(new byte[32]);
-
-            Array.Copy(bytes, 23 * 32, zA.bytes, 0, 32);
-            Array.Copy(bytes, 24 * 32, zC.bytes, 0, 32);
-            Array.Copy(bytes, 25 * 32, z.bytes, 0, 32);
+            Unmarshal(bytes, 0);
         }
 
         public uint Unmarshal(byte[] bytes, uint offset)
         {
-            K = new Key(new byte[32]);
-            A = new Key(new byte[32]);
-            B = new Key(new byte[32]);
-            C = new Key(new byte[32]);
-            D = new Key(new byte[32]);
-
-            Array.Copy(bytes, offset, K.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32, A.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32 * 2, B.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32 * 3, C.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32 * 4, D.bytes, 0, 32);
+            K = new Key(bytes, offset);
+            A = new Key(bytes, offset + 32);
+            B = new Key(bytes, offset + 32 * 2);
+            C = new Key(bytes, offset + 32 * 3);
+            D = new Key(bytes, offset + 32 * 4);
 
             X = new Key[6];
             Y = new Key[6];
@@ -159,32 +113,84 @@ namespace Discreet.Coin
 
             for (int i = 0; i < 6; i++)
             {
-                X[i] = new Key(new byte[32]);
-
-                Array.Copy(bytes, offset + 32 * 5 + 32 * i, X[i].bytes, 0, 32);
+                X[i] = new Key(bytes, offset + 32 * 5 + 32 * (uint)i);
             }
 
             for (int i = 0; i < 6; i++)
             {
-                Y[i] = new Key(new byte[32]);
-                Array.Copy(bytes, offset + 32 * 11 + 32 * i, Y[i].bytes, 0, 32);
+                Y[i] = new Key(bytes, offset + 32 * 11 + 32 * (uint)i);
             }
 
             for (int i = 0; i < 6; i++)
             {
-                f[i] = new Key(new byte[32]);
-                Array.Copy(bytes, offset + 32 * 17 + 32 * i, f[i].bytes, 0, 32);
+                f[i] = new Key(bytes, offset + 32 * 17 + 32 * (uint)i);
             }
 
-            zA = new Key(new byte[32]);
-            zC = new Key(new byte[32]);
-            z = new Key(new byte[32]);
-
-            Array.Copy(bytes, offset + 23 * 32, zA.bytes, 0, 32);
-            Array.Copy(bytes, offset + 24 * 32, zC.bytes, 0, 32);
-            Array.Copy(bytes, offset + 25 * 32, z.bytes, 0, 32);
+            zA = new Key(bytes, offset + 23 * 32);
+            zC = new Key(bytes, offset + 24 * 32);
+            z = new Key(bytes, offset + 25 * 32);
 
             return offset + Size();
+        }
+
+        public void Marshal(Stream s)
+        {
+            s.Write(K.bytes);
+            s.Write(A.bytes);
+            s.Write(B.bytes);
+            s.Write(C.bytes);
+            s.Write(D.bytes);
+
+            for (int i = 0; i < 6; i++)
+            {
+                s.Write(X[i].bytes);
+            }
+
+            for (int i = 0; i < 6; i++)
+            {
+                s.Write(Y[i].bytes);
+            }
+
+            for (int i = 0; i < 6; i++)
+            {
+                s.Write(f[i].bytes);
+            }
+
+            s.Write(zA.bytes);
+            s.Write(zC.bytes);
+            s.Write(z.bytes);
+        }
+
+        public void Unmarshal(Stream s)
+        {
+            K = new Key(s);
+            A = new Key(s);
+            B = new Key(s);
+            C = new Key(s);
+            D = new Key(s);
+
+            X = new Key[6];
+            Y = new Key[6];
+            f = new Key[6];
+
+            for (int i = 0; i < 6; i++)
+            {
+                X[i] = new Key(s);
+            }
+
+            for (int i = 0; i < 6; i++)
+            {
+                Y[i] = new Key(s);
+            }
+
+            for (int i = 0; i < 6; i++)
+            {
+                f[i] = new Key(s);
+            }
+
+            zA = new Key(s);
+            zC = new Key(s);
+            z = new Key(s);
         }
 
         public static uint Size()

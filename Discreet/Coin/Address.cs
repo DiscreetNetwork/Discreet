@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Common;
+using System.IO;
 
 namespace Discreet.Coin
 {
@@ -72,6 +73,26 @@ namespace Discreet.Coin
             hash = new Discreet.Cipher.RIPEMD160(_hash, false);
             checksum = new byte[4];
             Array.Copy(bytes, 21, checksum, 0, 4);
+        }
+
+        public TAddress(byte[] bytes, uint offset)
+        {
+            version = bytes[offset];
+            byte[] _hash = new byte[20];
+            Array.Copy(bytes, offset + 1, _hash, 0, 20);
+            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+            checksum = new byte[4];
+            Array.Copy(bytes, offset + 21, checksum, 0, 4);
+        }
+
+        public TAddress(Stream s)
+        {
+            version = (byte)s.ReadByte();
+            byte[] _hash = new byte[20];
+            s.Read(_hash);
+            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+            checksum = new byte[4];
+            s.Read(checksum);
         }
 
         public TAddress(string addr)
@@ -187,6 +208,30 @@ namespace Discreet.Coin
             Array.Copy(bytes, 1, spend.bytes, 0, 32);
             Array.Copy(bytes, 33, view.bytes, 0, 32);
             Array.Copy(bytes, 65, checksum, 0, 4);
+        }
+
+        public StealthAddress(byte[] bytes, uint offset)
+        {
+            version = bytes[offset];
+
+            spend = new Cipher.Key(new byte[32]);
+            view = new Cipher.Key(new byte[32]);
+            checksum = new byte[4];
+
+            Array.Copy(bytes, offset + 1, spend.bytes, 0, 32);
+            Array.Copy(bytes, offset + 33, view.bytes, 0, 32);
+            Array.Copy(bytes, offset + 65, checksum, 0, 4);
+        }
+
+        public StealthAddress(Stream s)
+        {
+            version = (byte) s.ReadByte();
+
+            spend = new Cipher.Key(s);
+            view = new Cipher.Key(s);
+            checksum = new byte[4];
+
+            s.Read(checksum);
         }
 
         public StealthAddress(string data)

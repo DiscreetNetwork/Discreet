@@ -4,6 +4,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
 using System.Text.Json.Serialization;
+using System.IO;
 
 namespace Discreet.Coin
 {
@@ -50,14 +51,7 @@ namespace Discreet.Coin
             Array.Copy(TransactionSrc.Bytes, 0, rv, 0, 32);
             Array.Copy(UXKey.bytes, 0, rv, 32, 32);
             Array.Copy(Commitment.bytes, 0, rv, 64, 32);
-
-            byte[] amount = BitConverter.GetBytes(Amount);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Array.Copy(amount, 0, rv, 96, 8);
+            Serialization.CopyData(rv, 96, Amount);
 
             return rv;
         }
@@ -65,7 +59,6 @@ namespace Discreet.Coin
         public void Marshal(byte[] bytes, uint offset)
         {
             byte[] rv = Marshal();
-
             Array.Copy(bytes, offset, rv, 0, Size());
         }
 
@@ -75,14 +68,7 @@ namespace Discreet.Coin
 
             Array.Copy(UXKey.bytes, 0, rv, 0, 32);
             Array.Copy(Commitment.bytes, 0, rv, 32, 32);
-
-            byte[] amount = BitConverter.GetBytes(Amount);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Array.Copy(amount, 0, rv, 64, 8);
+            Serialization.CopyData(rv, 64, Amount);
 
             return rv;
         }
@@ -116,86 +102,61 @@ namespace Discreet.Coin
 
         public void Unmarshal(byte[] bytes)
         {
-            byte[] transactionSrc = new byte[32];
-            Array.Copy(bytes, 0, transactionSrc, 0, 32);
-            TransactionSrc = new SHA256(transactionSrc, false);
-
-            UXKey = new Key(new byte[32]);
-            Commitment = new Key(new byte[32]);
-
-            Array.Copy(bytes, 32, UXKey.bytes, 0, 32);
-            Array.Copy(bytes, 64, Commitment.bytes, 0, 32);
-
-            byte[] amount = new byte[8];
-            Array.Copy(bytes, 96, amount, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Amount = BitConverter.ToUInt64(amount);
+            Unmarshal(bytes, 0);
         }
 
         public uint Unmarshal(byte[] bytes, uint offset)
         {
-            byte[] transactionSrc = new byte[32];
-            Array.Copy(bytes, offset, transactionSrc, 0, 32);
-            TransactionSrc = new SHA256(transactionSrc, false);
-
-            UXKey = new Key(new byte[32]);
-            Commitment = new Key(new byte[32]);
-
-            Array.Copy(bytes, offset + 32, UXKey.bytes, 0, 32);
-            Array.Copy(bytes, offset + 64, Commitment.bytes, 0, 32);
-
-            byte[] amount = new byte[8];
-            Array.Copy(bytes, offset + 96, amount, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Amount = BitConverter.ToUInt64(amount);
+            TransactionSrc = new SHA256(bytes, offset);
+            UXKey = new Key(bytes, offset + 32);
+            Commitment = new Key(bytes, offset + 64);
+            Amount = Serialization.GetUInt64(bytes, offset + 96);
 
             return offset + 104;
         }
 
         public void TXUnmarshal(byte[] bytes)
         {
-            UXKey = new Key(new byte[32]);
-            Commitment = new Key(new byte[32]);
-
-            Array.Copy(bytes, 0, UXKey.bytes, 0, 32);
-            Array.Copy(bytes, 32, Commitment.bytes, 0, 32);
-
-            byte[] amount = new byte[8];
-            Array.Copy(bytes, 64, amount, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Amount = BitConverter.ToUInt64(amount);
+            TXUnmarshal(bytes, 0);
         }
 
         public uint TXUnmarshal(byte[] bytes, uint offset)
         {
-            UXKey = new Key(new byte[32]);
-            Commitment = new Key(new byte[32]);
-
-            Array.Copy(bytes, offset, UXKey.bytes, 0, 32);
-            Array.Copy(bytes, offset + 32, Commitment.bytes, 0, 32);
-
-            byte[] amount = new byte[8];
-            Array.Copy(bytes, offset + 64, amount, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Amount = BitConverter.ToUInt64(amount);
+            UXKey = new Key(bytes, offset);
+            Commitment = new Key(bytes, offset + 32);
+            Amount = Serialization.GetUInt64(bytes, offset + 64);
 
             return offset + 72;
+        }
+
+        public void Marshal(Stream s)
+        {
+            s.Write(TransactionSrc.Bytes);
+            s.Write(UXKey.bytes);
+            s.Write(Commitment.bytes);
+            Serialization.CopyData(s, Amount);
+        }
+
+        public void Unmarshal(Stream s)
+        {
+            TransactionSrc = new SHA256(s);
+            UXKey = new Key(s);
+            Commitment = new Key(s);
+            Amount = Serialization.GetUInt64(s);
+        }
+
+        public void TXMarshal(Stream s)
+        {
+            s.Write(UXKey.bytes);
+            s.Write(Commitment.bytes);
+            Serialization.CopyData(s, Amount);
+        }
+
+        public void TXUnmarshal(Stream s)
+        {
+            UXKey = new Key(s);
+            Commitment = new Key(s);
+            Amount = Serialization.GetUInt64(s);
         }
 
         public static TXOutput GenerateMock()

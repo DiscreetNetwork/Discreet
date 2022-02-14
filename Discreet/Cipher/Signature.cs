@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.IO;
 
 namespace Discreet.Cipher
 {
@@ -35,6 +36,13 @@ namespace Discreet.Cipher
             Array.Copy(bytes, offset, s.bytes, 00, 32);
             Array.Copy(bytes, offset + 32, e.bytes, 0, 32);
             Array.Copy(bytes, offset + 64, y.bytes, 0, 32);
+        }
+
+        public Signature(Stream _s)
+        {
+            s = new Key(_s);
+            e = new Key(_s);
+            y = new Key(_s);
         }
 
         public Signature(bool blank)

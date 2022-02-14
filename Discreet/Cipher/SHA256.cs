@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.IO;
 
 namespace Discreet.Cipher
 {
@@ -85,6 +86,12 @@ namespace Discreet.Cipher
             {
                 bytes = data;
             }
+        }
+
+        public SHA256(Stream s)
+        {
+            bytes = new byte[32];
+            s.Read(bytes);
         }
 
         public SHA256(byte[] data, uint offset)

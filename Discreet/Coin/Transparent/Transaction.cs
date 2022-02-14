@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
+using System.IO;
 
 namespace Discreet.Coin.Transparent
 {
@@ -51,7 +52,7 @@ namespace Discreet.Coin.Transparent
         public SHA256 SigningHash()
         {
             /* Version, NumInputs, NumOutputs, Inputs, Outputs, and Fee are included. NumSigs is not since this is used to track signing progress. */
-            byte[] bytes = new byte[33 * Outputs.Length + TXOutput.Size() * Inputs.Length + 13];
+            byte[] bytes = new byte[33 * Outputs.Length + TXOutput.Size() * Inputs.Length + 11];
 
             bytes[0] = Version;
             bytes[1] = NumInputs;
@@ -71,14 +72,7 @@ namespace Discreet.Coin.Transparent
                 offset += 33;
             }
 
-            byte[] fee = BitConverter.GetBytes(Fee);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Array.Copy(fee, 0, bytes, offset, 8);
+            Serialization.CopyData(bytes, offset, Fee);
 
             return SHA256.HashData(bytes);
         }
@@ -94,19 +88,11 @@ namespace Discreet.Coin.Transparent
 
             uint offset = 4;
 
-            byte[] fee = BitConverter.GetBytes(Fee);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Array.Copy(fee, 0, bytes, offset, 8);
+            Serialization.CopyData(bytes, offset, Fee);
             offset += 8;
 
             Array.Copy(InnerHash.Bytes, 0, bytes, offset, 32);
             offset += 32;
-
 
             for (int i = 0; i < Inputs.Length; i++)
             {
@@ -148,52 +134,7 @@ namespace Discreet.Coin.Transparent
 
         public void Unmarshal(byte[] bytes)
         {
-            Version = bytes[0];
-            NumInputs = bytes[1];
-            NumOutputs = bytes[2];
-            NumSigs = bytes[3];
-
-            uint offset = 4;
-
-            byte[] fee = new byte[8];
-            Array.Copy(bytes, offset, fee, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Fee = BitConverter.ToUInt64(fee);
-            offset += 8;
-
-            InnerHash = new SHA256(new byte[32], false);
-            Array.Copy(bytes, offset, InnerHash.Bytes, 0, 32);
-            offset += 32;
-
-            Inputs = new TXOutput[NumInputs];
-
-            for (int i = 0; i < Inputs.Length; i++)
-            {
-                Inputs[i] = new TXOutput();
-                Inputs[i].Unmarshal(bytes, offset);
-                offset += TXOutput.Size();
-            }
-
-            Outputs = new TXOutput[NumOutputs];
-
-            for (int i = 0; i < Outputs.Length; i++)
-            {
-                Outputs[i] = new TXOutput();
-                Outputs[i].TXUnmarshal(bytes, offset);
-                offset += 33;
-            }
-
-            Signatures = new Signature[NumSigs];
-
-            for (int i = 0; i < Signatures.Length; i++)
-            {
-                Signatures[i] = new Signature(bytes, offset);
-                offset += 96;
-            }
+            Unmarshal(bytes, 0);
         }
 
         public uint Unmarshal(byte[] bytes, uint offset)
@@ -205,18 +146,10 @@ namespace Discreet.Coin.Transparent
 
             offset += 4;
 
-            byte[] fee = new byte[8];
-            Array.Copy(bytes, offset, fee, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(fee);
-            }
-
-            Fee = BitConverter.ToUInt64(fee);
+            Fee = Serialization.GetUInt64(bytes, offset);
             offset += 8;
 
-            InnerHash = new SHA256(new byte[32], false);
-            Array.Copy(bytes, offset, InnerHash.Bytes, 0, 32);
+            InnerHash = new SHA256(bytes, offset);
             offset += 32;
 
             Inputs = new TXOutput[NumInputs];
@@ -246,6 +179,66 @@ namespace Discreet.Coin.Transparent
             }
 
             return offset;
+        }
+
+        public void Marshal(Stream s)
+        {
+            s.WriteByte(Version);
+            s.WriteByte(NumInputs);
+            s.WriteByte(NumOutputs);
+            s.WriteByte(NumSigs);
+
+            Serialization.CopyData(s, Fee);
+
+            s.Write(InnerHash.Bytes);
+
+            for (int i = 0; i < Inputs.Length; i++)
+            {
+                Inputs[i].Marshal(s);
+            }
+
+            for (int i = 0; i < Outputs.Length; i++)
+            {
+                Outputs[i].TXMarshal(s);
+            }
+
+            for (int i = 0; i < Signatures.Length; i++)
+            {
+                s.Write(Signatures[i].ToBytes());
+            }
+        }
+
+        public void Unmarshal(Stream s)
+        {
+            Version = (byte)s.ReadByte();
+            NumInputs = (byte)s.ReadByte();
+            NumOutputs = (byte)s.ReadByte();
+            NumSigs = (byte)s.ReadByte();
+
+            Fee = Serialization.GetUInt64(s);
+
+            InnerHash = new SHA256(s);
+
+            Inputs = new TXOutput[NumInputs];
+            Outputs = new TXOutput[NumOutputs];
+            Signatures = new Signature[NumSigs];
+
+            for (int i = 0; i < Inputs.Length; i++)
+            {
+                Inputs[i] = new TXOutput();
+                Inputs[i].Unmarshal(s);
+            }
+
+            for (int i = 0; i < Outputs.Length; i++)
+            {
+                Outputs[i] = new TXOutput();
+                Outputs[i].TXUnmarshal(s);
+            }
+
+            for (int i = 0; i < Signatures.Length; i++)
+            {
+                Signatures[i] = new Signature(s);
+            }
         }
 
         public uint Size()
@@ -368,8 +361,6 @@ namespace Discreet.Coin.Transparent
                 return new VerifyException("Transparent.Transaction", $"InnerHash {InnerHash.ToHexShort()} does not match computed inner hash {SigningHash().ToHexShort()}");
             }
 
-            //WIP
-
             if (Signatures.Length != NumInputs)
             {
                 return new VerifyException("Transparent.Transaction", $"Signature number mismatch: expected {NumInputs}, but got {Signatures.Length}");
@@ -409,7 +400,6 @@ namespace Discreet.Coin.Transparent
             }
 
             return null;
-            
         }
 
         public VerifyException Verify()

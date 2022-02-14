@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
+using System.IO;
 
 namespace Discreet.Coin.Transparent
 {
@@ -41,15 +42,7 @@ namespace Discreet.Coin.Transparent
 
             Array.Copy(TransactionSrc.Bytes, bytes, 32);
             Array.Copy(Address.Bytes(), 0, bytes, 32, 25);
-
-            byte[] amount = BitConverter.GetBytes(Amount);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Array.Copy(amount, 0, bytes, 57, 8);
+            Serialization.CopyData(bytes, 57, Amount);
 
             return bytes;
         }
@@ -59,15 +52,7 @@ namespace Discreet.Coin.Transparent
             byte[] bytes = new byte[33];
 
             Array.Copy(Address.Bytes(), 0, bytes, 0, 25);
-
-            byte[] amount = BitConverter.GetBytes(Amount);
-
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Array.Copy(amount, 0, bytes, 25, 8);
+            Serialization.CopyData(bytes, 25, Amount);
 
             return bytes;
         }
@@ -99,78 +84,55 @@ namespace Discreet.Coin.Transparent
 
         public void Unmarshal(byte[] bytes)
         {
-            byte[] transactionSrc = new byte[32];
-            Array.Copy(bytes, 0, transactionSrc, 0, 32);
-            TransactionSrc = new SHA256(transactionSrc, false);
-
-            byte[] address = new byte[25];
-            Array.Copy(bytes, 32, address, 0, 25);
-            Address = new TAddress(address);
-
-            byte[] amount = new byte[8];
-            Array.Copy(bytes, 57, amount, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Amount = BitConverter.ToUInt64(amount);
+            Unmarshal(bytes, 0);
         }
 
         public uint Unmarshal(byte[] bytes, uint offset)
         {
-            byte[] transactionSrc = new byte[32];
-            Array.Copy(bytes, offset, transactionSrc, 0, 32);
-            TransactionSrc = new SHA256(transactionSrc, false);
-
-            byte[] address = new byte[25];
-            Array.Copy(bytes, offset + 32, address, 0, 25);
-            Address = new TAddress(address);
-
-            byte[] amount = new byte[8];
-            Array.Copy(bytes, offset + 57, amount, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Amount = BitConverter.ToUInt64(amount);
+            TransactionSrc = new SHA256(bytes, offset);
+            Address = new TAddress(bytes, offset + 32);
+            Amount = Serialization.GetUInt64(bytes, offset + 57);
 
             return offset + Size();
         }
 
         public void TXUnmarshal(byte[] bytes)
         {
-            byte[] address = new byte[25];
-            Array.Copy(bytes, 0, address, 0, 25);
-            Address = new TAddress(address);
-
-            byte[] amount = new byte[8];
-            Array.Copy(bytes, 25, amount, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Amount = BitConverter.ToUInt64(amount);
+            TXUnmarshal(bytes, 0);
         }
 
         public uint TXUnmarshal(byte[] bytes, uint offset)
         {
-            byte[] address = new byte[25];
-            Array.Copy(bytes, offset, address, 0, 25);
-            Address = new TAddress(address);
-
-            byte[] amount = new byte[8];
-            Array.Copy(bytes, offset + 25, amount, 0, 8);
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(amount);
-            }
-
-            Amount = BitConverter.ToUInt64(amount);
+            Address = new TAddress(bytes, offset);
+            Amount = Serialization.GetUInt64(bytes, offset + 25);
 
             return offset + 33;
+        }
+
+        public void Marshal(Stream s)
+        {
+            s.Write(TransactionSrc.Bytes);
+            s.Write(Address.Bytes());
+            s.Write(Serialization.UInt64(Amount));
+        }
+
+        public void TXMarshal(Stream s)
+        {
+            s.Write(Address.Bytes());
+            s.Write(Serialization.UInt64(Amount));
+        }
+
+        public void Unmarshal(Stream s)
+        {
+            TransactionSrc = new SHA256(s);
+            Address = new TAddress(s);
+            Amount = Serialization.GetUInt64(s);
+        }
+
+        public void TXUnmarshal(Stream s)
+        {
+            Address = new TAddress(s);
+            Amount = Serialization.GetUInt64(s);
         }
 
         public static uint Size()
