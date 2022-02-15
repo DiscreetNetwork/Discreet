@@ -358,7 +358,7 @@ namespace Discreet.Coin
                 block.BlockSize += txs[i].Size();
             }
 
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             block.Height = db.GetChainHeight() + 1;
 
@@ -499,7 +499,7 @@ namespace Discreet.Coin
                 return new VerifyException("Block", $"Unsupported version (signed blocks are either version 1 or 2); got version {Version}");
             }
 
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             if (Height != db.GetChainHeight() + 1)
             {

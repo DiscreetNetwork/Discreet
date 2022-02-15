@@ -858,7 +858,7 @@ namespace Discreet.Coin
                 return bpexc;
             }
 
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             /* validate inputs */
             for (int i = 0; i < lenPInputs; i++)

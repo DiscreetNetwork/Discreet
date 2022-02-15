@@ -380,7 +380,7 @@ namespace Discreet.Coin
                 block.BlockSize += txs[i].Size();
             }
 
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             block.Height = db.GetChainHeight() + 1;
 
@@ -586,7 +586,7 @@ namespace Discreet.Coin
              * is not needed, as blocks are always processed in order.
              */
 
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             if (Height != db.GetChainHeight() + 1)
             {
@@ -726,7 +726,7 @@ namespace Discreet.Coin
              * is not needed, as blocks are always processed in order.
              */
 
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             if (Height != db.GetChainHeight() + 1)
             {

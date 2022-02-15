@@ -551,7 +551,7 @@ namespace Discreet.Coin
          */
         public VerifyException Verify(bool inBlock = false)
         {
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             /* this function is the most important one for coin logic. We must verify everything. */
             

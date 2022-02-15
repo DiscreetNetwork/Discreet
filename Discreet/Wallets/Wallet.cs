@@ -415,7 +415,7 @@ namespace Discreet.Wallets
 
                     if (block.Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
                     {
-                        DB.DB db = DB.DB.GetDB();
+                        DB.DisDB db = DB.DisDB.GetDB();
 
                         (int index, UTXO utxo) = db.AddWalletOutput(Addresses[i], block.Coinbase.ToFull(), i, false, true);
 
@@ -510,9 +510,9 @@ namespace Discreet.Wallets
 
         private void ProcessOutput(WalletAddress addr, FullTransaction transaction, int i, int walletIndex, bool transparent)
         {
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
-            lock (DB.DB.DBLock)
+            lock (DB.DisDB.DBLock)
             {
                 (int index, UTXO utxo) = db.AddWalletOutput(addr, transaction, i, transparent);
 

@@ -435,7 +435,7 @@ namespace Discreet.Wallets
 
         public UnsignedTX CreateUnsignedTransaction(IAddress[] to, ulong[] amount)
         {
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             UnsignedTX utx = new();
             utx.Version = 4;
@@ -695,7 +695,7 @@ namespace Discreet.Wallets
                 throw new Exception($"Discreet.Wallets.WalletAddress.CreateTransaction: version cannot be {version}; currently supporting 1 and 2");
             }
 
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             /* mahjick happens now. */
             if (Encrypted) throw new Exception("Discreet.Wallets.WalletAddress.CreateTransaction: Wallet is still encrypted!");

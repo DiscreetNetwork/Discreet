@@ -39,7 +39,7 @@ namespace Discreet.Visor
 
         public TXPool()
         {
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             pool = db.GetTXPool();
         }
@@ -66,10 +66,10 @@ namespace Discreet.Visor
             }
 
             /* try adding to database */
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
             try
             {
-                lock (DB.DB.DBLock)
+                lock (DB.DisDB.DBLock)
                 {
                     db.AddTXToPool(tx);
                 }
@@ -96,10 +96,10 @@ namespace Discreet.Visor
             }
 
             /* try adding to database */
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
             try
             {
-                lock (DB.DB.DBLock)
+                lock (DB.DisDB.DBLock)
                 {
                     db.AddTXToPool(tx);
                 }
@@ -141,7 +141,7 @@ namespace Discreet.Visor
 
         public bool Contains(Cipher.SHA256 txhash)
         {
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             return db.TXPoolContains(txhash);
         }

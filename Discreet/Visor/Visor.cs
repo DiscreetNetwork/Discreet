@@ -21,7 +21,7 @@ namespace Discreet.Visor
         Network.Handler handler;
         Network.Peerbloom.Network network;
         Network.MessageCache messageCache;
-        DB.DB db;
+        DB.DisDB db;
         VisorConfig config;
 
         RPC.RPCServer _rpcServer;
@@ -47,7 +47,7 @@ namespace Discreet.Visor
             handler = Network.Handler.GetHandler();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
-            db = DB.DB.GetDB();
+            db = DB.DisDB.GetDB();
 
             handler.visor = this;
 
@@ -244,7 +244,7 @@ namespace Discreet.Visor
 
                     try
                     {
-                        lock (DB.DB.DBLock)
+                        lock (DB.DisDB.DBLock)
                         {
                             db.AddBlock(block);
                         }
@@ -330,7 +330,7 @@ namespace Discreet.Visor
 
                 try
                 {
-                    lock (DB.DB.DBLock)
+                    lock (DB.DisDB.DBLock)
                     {
                         db.AddBlock(blk);
                     }
@@ -352,11 +352,11 @@ namespace Discreet.Visor
         {
             if (wallet.Addresses[0].Type != 0) throw new Exception("Discreet.Visor.Visor.Mint: Cannot mint a block with transparent wallet!");
 
-            DB.DB db = DB.DB.GetDB();
+            DB.DisDB db = DB.DisDB.GetDB();
 
             try
             {
-                lock (DB.DB.DBLock)
+                lock (DB.DisDB.DBLock)
                 {
                     db.AddBlock(blk);
                 }

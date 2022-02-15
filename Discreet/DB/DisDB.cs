@@ -43,7 +43,6 @@ namespace Discreet.DB
 
         public static object DBLock { get { return db_update_lock; } }
 
-        /* table keys */
         public static ColumnFamilyHandle SpentKeys;
         public static ColumnFamilyHandle TxPoolBlob;
         public static ColumnFamilyHandle TxPoolSpentKeys;
@@ -73,7 +72,6 @@ namespace Discreet.DB
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
 
-        /* Environment */
         private RocksDb db;
 
         public string Folder
@@ -87,10 +85,6 @@ namespace Discreet.DB
         private U32 indexer_output = new U32(0);
 
         private L64 height = new L64(-1);
-
-        private U64 previouslySeenTimestamp = new U64((ulong)DateTime.Now.Ticks);
-
-        private long mapsize = 0;
 
         private U32 indexer_owned_outputs = new U32(0);
 
@@ -151,7 +145,7 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB: Fatal error: could not get indexer_tx");
+                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_tx");
                 }
 
                 indexer_tx.Value = Serialization.GetUInt64(result, 0);
@@ -160,7 +154,7 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB: Fatal error: could not get indexer_output");
+                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_output");
                 }
 
                 indexer_output.Value = Serialization.GetUInt32(result, 0);
@@ -169,7 +163,7 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB: Fatal error: could not get height");
+                    throw new Exception($"Discreet.DisDB: Fatal error: could not get height");
                 }
 
                 height.Value = Serialization.GetInt64(result, 0);
@@ -178,7 +172,7 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB: Fatal error: could not get indexer_owned_outputs");
+                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_owned_outputs");
                 }
 
                 indexer_owned_outputs.Value = Serialization.GetUInt32(result, 0);
@@ -194,7 +188,7 @@ namespace Discreet.DB
 
         public void MustBeOpen()
         {
-            if (!IsOpen()) throw new Exception("Discreet.DB.DisDB: database is not open.");
+            if (!IsOpen()) throw new Exception("Discreet.DisDB.DisDB: database is not open.");
         }
 
         /** 
@@ -233,17 +227,17 @@ namespace Discreet.DB
 
             if (result != null)
             {
-                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} (height {blk.Height}) already in database!");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} (height {blk.Height}) already in database!");
             }
 
             if (blk.transactions == null || blk.transactions.Length == 0 || blk.NumTXs == 0)
             {
-                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} has no transactions!");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} has no transactions!");
             }
 
             if ((long)blk.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
             {
-                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} from too far in the future!");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} from too far in the future!");
             }
 
             /* unfortunately, we can't check the transactions yet, since some output indices might not be present. We check a few things though. */
@@ -251,20 +245,20 @@ namespace Discreet.DB
             {
                 if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
                 {
-                    throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
+                    throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
                 }
             }
 
             if (blk.GetMerkleRoot() != blk.MerkleRoot)
             {
-                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} has invalid Merkle root");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} has invalid Merkle root");
             }
 
             if (blk is SignedBlock block)
             {
                 if (!block.CheckSignature())
                 {
-                    throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} has missing or invalid signature!");
+                    throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} has missing or invalid signature!");
                 }
             }
 
@@ -282,7 +276,7 @@ namespace Discreet.DB
 
             if (result != null)
             {
-                throw new Exception($"Discreet.DB.AddBlock: Block {blk.BlockHash.ToHexShort()} (height {blk.Height}) already in database!");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} (height {blk.Height}) already in database!");
             }
 
             if (blk.Height > 0)
@@ -291,13 +285,13 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not found");
+                    throw new Exception($"Discreet.DisDB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not found");
                 }
 
                 long prevBlockHeight = Serialization.GetInt64(result, 0);
                 if (prevBlockHeight != height.Value)
                 {
-                    throw new Exception($"Discreet.DB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not previous one in sequence (at height {prevBlockHeight})");
+                    throw new Exception($"Discreet.DisDB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not previous one in sequence (at height {prevBlockHeight})");
                 }
             }
 
@@ -313,7 +307,7 @@ namespace Discreet.DB
 
             if (blk.NumTXs != blk.Transactions.Length)
             {
-                throw new Exception($"Discreet.DB.AddBlock: NumTXs field not equal to length of Transaction array in block ({blk.NumTXs} != {blk.Transactions.Length})");
+                throw new Exception($"Discreet.DisDB.AddBlock: NumTXs field not equal to length of Transaction array in block ({blk.NumTXs} != {blk.Transactions.Length})");
             }
 
             if (blk.Height > 0 && blk.transactions == null)
@@ -355,7 +349,7 @@ namespace Discreet.DB
             Cipher.SHA256 txhash = tx.Hash();
             if (db.Get(txhash.Bytes, cf: TxIndices) != null)
             {
-                throw new Exception($"Discreet.DB.AddTransactionFromPool: Transaction {txhash.ToHexShort()} already in TX table!");
+                throw new Exception($"Discreet.DisDB.AddTransactionFromPool: Transaction {txhash.ToHexShort()} already in TX table!");
             }
 
             ulong txIndex;
@@ -389,7 +383,7 @@ namespace Discreet.DB
         {
             if (db.Get(txhash.Bytes, cf: TxIndices) != null)
             {
-                throw new Exception($"Discreet.DB.AddTransactionFromPool: Transaction {txhash.ToHexShort()} already in TX table!");
+                throw new Exception($"Discreet.DisDB.AddTransactionFromPool: Transaction {txhash.ToHexShort()} already in TX table!");
             }
 
             ulong txIndex;
@@ -405,7 +399,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.AddTransactionFromPool: could not get transaction from pool with hash {txhash.ToHexShort()}");
+                throw new Exception($"Discreet.DisDB.AddTransactionFromPool: could not get transaction from pool with hash {txhash.ToHexShort()}");
             }
 
             db.Remove(txhash.Bytes, cf: TxPoolBlob);
@@ -450,7 +444,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetTXOutputIndex: database get exception: could not find with tx {tx.Hash().ToHexShort()}");
+                throw new Exception($"Discreet.DisDB.GetTXOutputIndex: database get exception: could not find with tx {tx.Hash().ToHexShort()}");
             }
 
             uint[] outputIndices = Serialization.GetUInt32Array(result);
@@ -512,7 +506,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetWalletOutput: database get exception: could not get output at index {index}");
+                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get output at index {index}");
             }
 
             Wallets.UTXO utxo = new Wallets.UTXO();
@@ -532,7 +526,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetTXFromPool: database get exception: could not get tx {txhash.ToHexShort()}");
+                throw new Exception($"Discreet.DisDB.GetTXFromPool: database get exception: could not get tx {txhash.ToHexShort()}");
             }
 
             FullTransaction tx = new FullTransaction();
@@ -551,7 +545,7 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB.GetTXsFromPool: database get exception: could not get tx {txhashs[i].ToHexShort()}");
+                    throw new Exception($"Discreet.DisDB.GetTXsFromPool: database get exception: could not get tx {txhashs[i].ToHexShort()}");
                 }
 
                 FullTransaction tx = new FullTransaction();
@@ -630,19 +624,19 @@ namespace Discreet.DB
 
             if (db.Get(txhash.Bytes, cf: TxIndices) != null)
             {
-                throw new Exception($"Discreet.DB.AddTXToPool: Transaction {txhash.ToHexShort()} already present in TXPool");
+                throw new Exception($"Discreet.DisDB.AddTXToPool: Transaction {txhash.ToHexShort()} already present in TXPool");
             }
 
             for (int i = 0; i < tx.NumPInputs; i++)
             {
                 if (!CheckSpentKey(tx.PInputs[i].KeyImage))
                 {
-                    throw new Exception($"Discreet.DB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                    throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
                 }
 
                 if (!CheckSpentKeyBlock(tx.PInputs[i].KeyImage))
                 {
-                    throw new Exception($"Discreet.DB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                    throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
                 }
             }
 
@@ -670,7 +664,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetOutput: No output exists with index {index}");
+                throw new Exception($"Discreet.DisDB.GetOutput: No output exists with index {index}");
             }
 
             TXOutput output = new TXOutput();
@@ -690,7 +684,7 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB.GetMixins: could not get output at index {index[i]}");
+                    throw new Exception($"Discreet.DisDB.GetMixins: could not get output at index {index[i]}");
                 }
 
                 rv[i] = new TXOutput();
@@ -722,7 +716,7 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB.GetMixins: could not get output at index {rindex}");
+                    throw new Exception($"Discreet.DisDB.GetMixins: could not get output at index {rindex}");
                 }
 
                 rv[i] = new TXOutput();
@@ -745,7 +739,7 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB.GetMixins: could not get output at index {rindex}");
+                    throw new Exception($"Discreet.DisDB.GetMixins: could not get output at index {rindex}");
                 }
 
                 rv[i] = new TXOutput();
@@ -760,7 +754,7 @@ namespace Discreet.DB
 
             if (iresult == null)
             {
-                throw new Exception($"Discreet.DB.GetMixins: could not get output at index {index}");
+                throw new Exception($"Discreet.DisDB.GetMixins: could not get output at index {index}");
             }
 
             var OutAtIndex = rv[i] = new TXOutput();
@@ -796,7 +790,7 @@ namespace Discreet.DB
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DB.GetMixins: could not get output at index {rindex}");
+                    throw new Exception($"Discreet.DisDB.GetMixins: could not get output at index {rindex}");
                 }
 
                 rv[i] = new TXOutput();
@@ -811,7 +805,7 @@ namespace Discreet.DB
 
             if (iresult == null)
             {
-                throw new Exception($"Discreet.DB.GetMixins: could not get output at index {index}");
+                throw new Exception($"Discreet.DisDB.GetMixins: could not get output at index {index}");
             }
 
             var OutAtIndex = rv[i] = new TXOutput();
@@ -829,7 +823,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetTransaction: No transaction exists with index {txid}");
+                throw new Exception($"Discreet.DisDB.GetTransaction: No transaction exists with index {txid}");
             }
 
             FullTransaction tx = new FullTransaction();
@@ -843,7 +837,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetTransaction: No transaction exists with transaction hash {txhash.ToHexShort()}");
+                throw new Exception($"Discreet.DisDB.GetTransaction: No transaction exists with transaction hash {txhash.ToHexShort()}");
             }
 
             ulong txid = Serialization.GetUInt64(result, 0);
@@ -856,7 +850,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetBlock: No block exists with height {height}");
+                throw new Exception($"Discreet.DisDB.GetBlock: No block exists with height {height}");
             }
 
             SignedBlock blk = new SignedBlock();
@@ -870,7 +864,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetBlock: No block exists with block hash {blockHash.ToHexShort()}");
+                throw new Exception($"Discreet.DisDB.GetBlock: No block exists with block hash {blockHash.ToHexShort()}");
             }
 
             long height = Serialization.GetInt64(result, 0);
@@ -899,7 +893,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetTransactionIndex: No transaction exists with transaction hash {txhash.ToHexShort()}");
+                throw new Exception($"Discreet.DisDB.GetTransactionIndex: No transaction exists with transaction hash {txhash.ToHexShort()}");
             }
 
             return Serialization.GetUInt64(result, 0);
@@ -911,7 +905,7 @@ namespace Discreet.DB
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DB.GetBlockHeight: No block exists with block hash {blockHash.ToHexShort()}");
+                throw new Exception($"Discreet.DisDB.GetBlockHeight: No block exists with block hash {blockHash.ToHexShort()}");
             }
 
             return Serialization.GetInt64(result, 0);

@@ -142,7 +142,7 @@ namespace Discreet.Readable
 
             if (UTXOs != null)
             {
-                DB.DB db = DB.DB.GetDB();
+                DB.DisDB db = DB.DisDB.GetDB();
 
                 for (int i = 0; i < UTXOs.Count; i++)
                 {

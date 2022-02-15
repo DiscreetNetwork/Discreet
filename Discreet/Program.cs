@@ -208,7 +208,7 @@ namespace Discreet
 
 		public static void GenerateGenesis()
         {
-			DB.DB db = DB.DB.GetDB();
+			DB.DisDB db = DB.DisDB.GetDB();
 
 			//db.DropAll();
 
@@ -992,7 +992,7 @@ namespace Discreet
 		[RPCEndpoint(endpoint_name: "getBlock")]
 		public static object GetBlock(long height)
         {
-			DB.DB db = DB.DB.GetDB();
+			DB.DisDB db = DB.DisDB.GetDB();
 
 			try
             {
