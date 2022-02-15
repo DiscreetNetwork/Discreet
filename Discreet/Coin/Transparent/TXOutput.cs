@@ -33,10 +33,10 @@ namespace Discreet.Coin.Transparent
 
         public SHA256 Hash()
         {
-            return new SHA256(Marshal(), true);
+            return new SHA256(Serialize(), true);
         }
 
-        public byte[] Marshal()
+        public byte[] Serialize()
         {
             byte[] bytes = new byte[65];
 
@@ -57,9 +57,9 @@ namespace Discreet.Coin.Transparent
             return bytes;
         }
 
-        public void Marshal(byte[] bytes, uint offset)
+        public void Serialize(byte[] bytes, uint offset)
         {
-            Array.Copy(Marshal(), 0, bytes, offset, 65);
+            Array.Copy(Serialize(), 0, bytes, offset, 65);
         }
 
         public void TXMarshal(byte[] bytes, uint offset)
@@ -82,12 +82,12 @@ namespace Discreet.Coin.Transparent
             return Discreet.Readable.Transparent.TXOutput.FromReadable(json);
         }
 
-        public void Unmarshal(byte[] bytes)
+        public void Deserialize(byte[] bytes)
         {
-            Unmarshal(bytes, 0);
+            Deserialize(bytes, 0);
         }
 
-        public uint Unmarshal(byte[] bytes, uint offset)
+        public uint Deserialize(byte[] bytes, uint offset)
         {
             TransactionSrc = new SHA256(bytes, offset);
             Address = new TAddress(bytes, offset + 32);
@@ -109,7 +109,7 @@ namespace Discreet.Coin.Transparent
             return offset + 33;
         }
 
-        public void Marshal(Stream s)
+        public void Serialize(Stream s)
         {
             s.Write(TransactionSrc.Bytes);
             s.Write(Address.Bytes());
@@ -122,7 +122,7 @@ namespace Discreet.Coin.Transparent
             s.Write(Serialization.UInt64(Amount));
         }
 
-        public void Unmarshal(Stream s)
+        public void Deserialize(Stream s)
         {
             TransactionSrc = new SHA256(s);
             Address = new TAddress(s);

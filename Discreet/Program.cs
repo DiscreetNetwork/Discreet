@@ -263,7 +263,7 @@ namespace Discreet
 			genesisTXsPlus.Add(Transaction.GenerateTransactionNoSpend((StealthAddress)myWallet.Addresses[0].GetAddress(), (ulong)6_000_000 * 1_000_000_000_0).ToFull());
 			Block genesis = Block.BuildRandomPlus(addresses, numOutputs, genesisTXsPlus);
 
-            Console.WriteLine(genesis.MarshalFull().Length);
+            Console.WriteLine(genesis.SerializeFull().Length);
 
 			Console.WriteLine("Genesis block generated. ");
 

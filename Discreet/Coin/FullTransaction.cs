@@ -42,7 +42,7 @@ namespace Discreet.Coin
 
         public FullTransaction(byte[] bytes)
         {
-            Unmarshal(bytes);
+            Deserialize(bytes);
         }
 
         public FullTransaction(Transaction tx)
@@ -197,9 +197,9 @@ namespace Discreet.Coin
             SigningHash = tx.SigningHash;
         }
 
-        public void Unmarshal(byte[] bytes) { Unmarshal(bytes, 0); }
+        public void Deserialize(byte[] bytes) { Deserialize(bytes, 0); }
 
-        public uint Unmarshal(byte[] bytes, uint offset)
+        public uint Deserialize(byte[] bytes, uint offset)
         {
             return bytes[offset] switch
             {
@@ -211,7 +211,7 @@ namespace Discreet.Coin
             };
         }
 
-        public void Unmarshal(Stream s)
+        public void Deserialize(Stream s)
         {
             Version = (byte)s.ReadByte();
             switch (Version)
@@ -255,7 +255,7 @@ namespace Discreet.Coin
             return Discreet.Readable.FullTransaction.FromReadable(json);
         }
 
-        public byte[] Marshal()
+        public byte[] Serialize()
         {
             switch (Version)
             {
@@ -273,7 +273,7 @@ namespace Discreet.Coin
             }
         }
 
-        public void Marshal(Stream s)
+        public void Serialize(Stream s)
         {
             switch (Version)
             {
@@ -295,9 +295,9 @@ namespace Discreet.Coin
             }
         }
 
-        public void Marshal(byte[] bytes, uint offset)
+        public void Serialize(byte[] bytes, uint offset)
         {
-            byte[] data = Marshal();
+            byte[] data = Serialize();
             Array.Copy(data, 0, bytes, offset, data.Length);
         }
 
@@ -329,7 +329,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < PInputs.Length; i++)
             {
-                PInputs[i].Marshal(s);
+                PInputs[i].Serialize(s);
             }
 
             for (int i = 0; i < POutputs.Length; i++)
@@ -339,16 +339,16 @@ namespace Discreet.Coin
 
             if (Version == 2)
             {
-                RangeProofPlus.Marshal(s);
+                RangeProofPlus.Serialize(s);
             }
             else
             {
-                RangeProof.Marshal(s);
+                RangeProof.Serialize(s);
             }
 
             for (int i = 0; i < NumSigs; i++)
             {
-                PSignatures[i].Marshal(s);
+                PSignatures[i].Serialize(s);
             }
 
             for (int i = 0; i < PseudoOutputs.Length; i++)
@@ -370,7 +370,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < TInputs.Length; i++)
             {
-                TInputs[i].Marshal(s);
+                TInputs[i].Serialize(s);
             }
 
             for (int i = 0; i < TOutputs.Length; i++)
@@ -409,7 +409,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < lenTInputs; i++)
             {
-                TInputs[i].Marshal(s);
+                TInputs[i].Serialize(s);
             }
 
             for (int i = 0; i < lenTOutputs; i++)
@@ -429,7 +429,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < lenPInputs; i++)
             {
-                PInputs[i].Marshal(s);
+                PInputs[i].Serialize(s);
             }
 
             for (int i = 0; i < lenPOutputs; i++)
@@ -439,12 +439,12 @@ namespace Discreet.Coin
 
             if (RangeProofPlus != null && lenPOutputs > 0)
             {
-                RangeProofPlus.Marshal(s);
+                RangeProofPlus.Serialize(s);
             }
 
             for (int i = 0; i < lenPSigs; i++)
             {
-                PSignatures[i].Marshal(s);
+                PSignatures[i].Serialize(s);
             }
 
             for (int i = 0; i < NumInputs; i++)
@@ -495,7 +495,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < PInputs.Length; i++)
             {
-                PInputs[i].Marshal(bytes, offset);
+                PInputs[i].Serialize(bytes, offset);
                 offset += TXInput.Size();
             }
 
@@ -507,18 +507,18 @@ namespace Discreet.Coin
 
             if (Version == 2)
             {
-                RangeProofPlus.Marshal(bytes, offset);
+                RangeProofPlus.Serialize(bytes, offset);
                 offset += RangeProofPlus.Size();
             }
             else
             {
-                RangeProof.Marshal(bytes, offset);
+                RangeProof.Serialize(bytes, offset);
                 offset += RangeProof.Size();
             }
 
             for (int i = 0; i < NumSigs; i++)
             {
-                PSignatures[i].Marshal(bytes, offset);
+                PSignatures[i].Serialize(bytes, offset);
                 offset += Triptych.Size();
             }
 
@@ -550,7 +550,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < TInputs.Length; i++)
             {
-                TInputs[i].Marshal(bytes, offset);
+                TInputs[i].Serialize(bytes, offset);
                 offset += 65;
             }
 
@@ -600,7 +600,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < lenTInputs; i++)
             {
-                TInputs[i].Marshal(bytes, offset);
+                TInputs[i].Serialize(bytes, offset);
                 offset += 65;
             }
 
@@ -624,7 +624,7 @@ namespace Discreet.Coin
 
             for (int i = 0; i < lenPInputs; i++)
             {
-                PInputs[i].Marshal(bytes, offset);
+                PInputs[i].Serialize(bytes, offset);
                 offset += TXInput.Size();
             }
 
@@ -636,13 +636,13 @@ namespace Discreet.Coin
 
             if (RangeProof != null && lenPOutputs > 0)
             {
-                RangeProof.Marshal(bytes, offset);
+                RangeProof.Serialize(bytes, offset);
                 offset += RangeProof.Size();
             }
 
             for (int i = 0; i < lenPSigs; i++)
             {
-                PSignatures[i].Marshal(bytes, offset);
+                PSignatures[i].Serialize(bytes, offset);
                 offset += Triptych.Size();
             }
 
@@ -703,7 +703,7 @@ namespace Discreet.Coin
             for (int i = 0; i < NumInputs; i++)
             {
                 PInputs[i] = new TXInput();
-                PInputs[i].Unmarshal(s);
+                PInputs[i].Deserialize(s);
             }
 
             POutputs = new TXOutput[NumOutputs];
@@ -716,19 +716,19 @@ namespace Discreet.Coin
             if (Version == 2)
             {
                 RangeProofPlus = new BulletproofPlus();
-                RangeProofPlus.Unmarshal(s);
+                RangeProofPlus.Deserialize(s);
             }
             else
             {
                 RangeProof = new Bulletproof();
-                RangeProof.Unmarshal(s);
+                RangeProof.Deserialize(s);
             }
 
             PSignatures = new Triptych[NumInputs];
             for (int i = 0; i < NumInputs; i++)
             {
                 PSignatures[i] = new Triptych();
-                PSignatures[i].Unmarshal(s);
+                PSignatures[i].Deserialize(s);
             }
 
             PseudoOutputs = new Key[NumInputs];
@@ -764,7 +764,7 @@ namespace Discreet.Coin
             for (int i = 0; i < NumInputs; i++)
             {
                 TInputs[i] = new Transparent.TXOutput();
-                TInputs[i].Unmarshal(s);
+                TInputs[i].Deserialize(s);
             }
 
             for (int i = 0; i < NumOutputs; i++)
@@ -827,7 +827,7 @@ namespace Discreet.Coin
             for (int i = 0; i < NumPInputs; i++)
             {
                 PInputs[i] = new TXInput();
-                PInputs[i].Unmarshal(s);
+                PInputs[i].Deserialize(s);
             }
 
             POutputs = new TXOutput[NumPOutputs];
@@ -840,14 +840,14 @@ namespace Discreet.Coin
             if (NumPOutputs > 0)
             {
                 RangeProofPlus = new BulletproofPlus();
-                RangeProofPlus.Unmarshal(s);
+                RangeProofPlus.Deserialize(s);
             }
 
             PSignatures = new Triptych[NumPInputs];
             for (int i = 0; i < NumPInputs; i++)
             {
                 PSignatures[i] = new Triptych();
-                PSignatures[i].Unmarshal(s);
+                PSignatures[i].Deserialize(s);
             }
 
             PseudoOutputs = new Key[NumInputs];
@@ -909,7 +909,7 @@ namespace Discreet.Coin
             for (int i = 0; i < NumInputs; i++)
             {
                 PInputs[i] = new TXInput();
-                PInputs[i].Unmarshal(bytes, offset);
+                PInputs[i].Deserialize(bytes, offset);
                 offset += TXInput.Size();
             }
 
@@ -924,13 +924,13 @@ namespace Discreet.Coin
             if (Version == 2)
             {
                 RangeProofPlus = new BulletproofPlus();
-                RangeProofPlus.Unmarshal(bytes, offset);
+                RangeProofPlus.Deserialize(bytes, offset);
                 offset += RangeProofPlus.Size();
             }
             else
             {
                 RangeProof = new Bulletproof();
-                RangeProof.Unmarshal(bytes, offset);
+                RangeProof.Deserialize(bytes, offset);
                 offset += RangeProof.Size();
             }
 
@@ -938,7 +938,7 @@ namespace Discreet.Coin
             for (int i = 0; i < NumSigs; i++)
             {
                 PSignatures[i] = new Triptych();
-                PSignatures[i].Unmarshal(bytes, offset);
+                PSignatures[i].Deserialize(bytes, offset);
                 offset += Triptych.Size();
             }
 
@@ -976,7 +976,7 @@ namespace Discreet.Coin
             for (int i = 0; i < TInputs.Length; i++)
             {
                 TInputs[i] = new Transparent.TXOutput();
-                TInputs[i].Unmarshal(bytes, offset);
+                TInputs[i].Deserialize(bytes, offset);
                 offset += Transparent.TXOutput.Size();
             }
 
@@ -1020,7 +1020,7 @@ namespace Discreet.Coin
             for (int i = 0; i < NumTInputs; i++)
             {
                 TInputs[i] = new Transparent.TXOutput();
-                TInputs[i].Unmarshal(bytes, offset);
+                TInputs[i].Deserialize(bytes, offset);
                 offset += 65;
             }
 
@@ -1049,7 +1049,7 @@ namespace Discreet.Coin
             for (int i = 0; i < NumPInputs; i++)
             {
                 PInputs[i] = new TXInput();
-                PInputs[i].Unmarshal(bytes, offset);
+                PInputs[i].Deserialize(bytes, offset);
                 offset += TXInput.Size();
             }
 
@@ -1062,14 +1062,14 @@ namespace Discreet.Coin
             }
 
             RangeProofPlus = new BulletproofPlus();
-            RangeProofPlus.Unmarshal(bytes, offset);
+            RangeProofPlus.Deserialize(bytes, offset);
             offset += RangeProofPlus.Size();
 
             PSignatures = new Triptych[NumPInputs];
             for (int i = 0; i < NumPInputs; i++)
             {
                 PSignatures[i] = new Triptych();
-                PSignatures[i].Unmarshal(bytes, offset);
+                PSignatures[i].Deserialize(bytes, offset);
                 offset += Triptych.Size();
             }
 

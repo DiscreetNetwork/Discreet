@@ -24,7 +24,7 @@ namespace Discreet.Coin
 
         public SHA256 Hash()
         {
-            return SHA256.HashData(Marshal());
+            return SHA256.HashData(Serialize());
         }
 
         public Triptych() { }
@@ -46,7 +46,7 @@ namespace Discreet.Coin
             z = proof.z;
         }
 
-        public byte[] Marshal()
+        public byte[] Serialize()
         {
             byte[] bytes = new byte[Size()];
 
@@ -78,9 +78,9 @@ namespace Discreet.Coin
             return bytes;
         }
 
-        public void Marshal(byte[] bytes, uint offset)
+        public void Serialize(byte[] bytes, uint offset)
         {
-            byte[] _bytes = Marshal();
+            byte[] _bytes = Serialize();
             Array.Copy(_bytes, 0, bytes, offset, _bytes.Length);
         }
 
@@ -94,12 +94,12 @@ namespace Discreet.Coin
             return Discreet.Readable.Triptych.FromReadable(json);
         }
 
-        public void Unmarshal(byte[] bytes)
+        public void Deserialize(byte[] bytes)
         {
-            Unmarshal(bytes, 0);
+            Deserialize(bytes, 0);
         }
 
-        public uint Unmarshal(byte[] bytes, uint offset)
+        public uint Deserialize(byte[] bytes, uint offset)
         {
             K = new Key(bytes, offset);
             A = new Key(bytes, offset + 32);
@@ -133,7 +133,7 @@ namespace Discreet.Coin
             return offset + Size();
         }
 
-        public void Marshal(Stream s)
+        public void Serialize(Stream s)
         {
             s.Write(K.bytes);
             s.Write(A.bytes);
@@ -161,7 +161,7 @@ namespace Discreet.Coin
             s.Write(z.bytes);
         }
 
-        public void Unmarshal(Stream s)
+        public void Deserialize(Stream s)
         {
             K = new Key(s);
             A = new Key(s);

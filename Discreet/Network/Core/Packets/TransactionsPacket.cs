@@ -36,7 +36,7 @@ namespace Discreet.Network.Core.Packets
             for (int i = 0; i < TxsLen; i++)
             {
                 Txs[i] = new Coin.FullTransaction();
-                offset += Txs[i].Unmarshal(b, offset);
+                offset += Txs[i].Deserialize(b, offset);
             }
         }
 
@@ -63,7 +63,7 @@ namespace Discreet.Network.Core.Packets
 
             for (int i = 0; i < TxsLen; i++)
             {
-                Txs[i].Marshal(b, offset);
+                Txs[i].Serialize(b, offset);
                 offset += Txs[i].Size();
             }
 
@@ -76,7 +76,7 @@ namespace Discreet.Network.Core.Packets
 
             foreach (Coin.FullTransaction tx in Txs)
             {
-                s.Write(tx.Marshal());
+                s.Write(tx.Serialize());
             }
         }
 

@@ -35,7 +35,7 @@ namespace Discreet.Network.Core.Packets
 
             try
             {
-                Tx.Unmarshal(b, offset);
+                Tx.Deserialize(b, offset);
             }
             catch (Exception e)
             {
@@ -59,7 +59,7 @@ namespace Discreet.Network.Core.Packets
 
             try
             {
-                Tx.Unmarshal(_ms.ToArray());
+                Tx.Deserialize(_ms.ToArray());
             }
             catch (Exception e)
             {
@@ -69,14 +69,14 @@ namespace Discreet.Network.Core.Packets
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Tx.Marshal(b, offset);
+            Tx.Serialize(b, offset);
 
             return offset + Tx.Size();
         }
 
         public void Serialize(Stream s)
         {
-            s.Write(Tx.Marshal());
+            s.Write(Tx.Serialize());
         }
 
         public int Size()

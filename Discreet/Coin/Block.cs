@@ -40,7 +40,7 @@ namespace Discreet.Coin
         /* used for full blocks (not packed with blocks) */
         public FullTransaction[] transactions;
 
-        public virtual byte[] Marshal()
+        public virtual byte[] Serialize()
         {
             byte[] bytes = new byte[Size()];
 
@@ -58,7 +58,7 @@ namespace Discreet.Coin
             Serialization.CopyData(bytes, 125, BlockSize);
             Serialization.CopyData(bytes, 129, NumOutputs);
 
-            byte[] coinbase = Coinbase.Marshal();
+            byte[] coinbase = Coinbase.Serialize();
             Array.Copy(coinbase, 0, bytes, 133, coinbase.Length);
 
             for (int i = 0; i < NumTXs; i++)
@@ -69,7 +69,7 @@ namespace Discreet.Coin
             return bytes;
         }
 
-        public virtual byte[] MarshalFull()
+        public virtual byte[] SerializeFull()
         {
             byte[] bytes = new byte[SizeFull()];
 
@@ -88,20 +88,20 @@ namespace Discreet.Coin
             Serialization.CopyData(bytes, 129, NumOutputs);
 
             uint offset = 133;
-            byte[] coinbase = Coinbase.Marshal();
+            byte[] coinbase = Coinbase.Serialize();
             Array.Copy(coinbase, 0, bytes, 133, coinbase.Length);
             offset += (uint)coinbase.Length;
 
             for (int i = 0; i < NumTXs; i++)
             {
-                transactions[i].Marshal(bytes, offset);
+                transactions[i].Serialize(bytes, offset);
                 offset += transactions[i].Size();
             }
 
             return bytes;
         }
 
-        public virtual void Marshal(Stream s)
+        public virtual void Serialize(Stream s)
         {
             s.WriteByte(Version);
 
@@ -117,7 +117,7 @@ namespace Discreet.Coin
             Serialization.CopyData(s, BlockSize);
             Serialization.CopyData(s, NumOutputs);
 
-            Coinbase.Marshal(s);
+            Coinbase.Serialize(s);
 
             for (int i = 0; i < NumTXs; i++)
             {
@@ -125,7 +125,7 @@ namespace Discreet.Coin
             }
         }
 
-        public virtual void MarshalFull(Stream s)
+        public virtual void SerializeFull(Stream s)
         {
             s.WriteByte(Version);
 
@@ -141,22 +141,22 @@ namespace Discreet.Coin
             Serialization.CopyData(s, BlockSize);
             Serialization.CopyData(s, NumOutputs);
 
-            Coinbase.Marshal(s);
+            Coinbase.Serialize(s);
 
             for (int i = 0; i < NumTXs; i++)
             {
-                transactions[i].Marshal(s);
+                transactions[i].Serialize(s);
             }
         }
 
-        public virtual void MarshalFull(byte[] bytes, uint offset)
+        public virtual void SerializeFull(byte[] bytes, uint offset)
         {
-            Array.Copy(MarshalFull(), 0, bytes, offset, SizeFull());
+            Array.Copy(SerializeFull(), 0, bytes, offset, SizeFull());
         }
 
-        public virtual void Marshal(byte[] bytes, uint offset)
+        public virtual void Serialize(byte[] bytes, uint offset)
         {
-            Array.Copy(Marshal(), 0, bytes, offset, Size());
+            Array.Copy(Serialize(), 0, bytes, offset, Size());
         }
 
         public virtual string Readable()
@@ -174,7 +174,7 @@ namespace Discreet.Coin
             return Discreet.Readable.Block.FromReadable(json);
         }
 
-        public virtual void Unmarshal(byte[] bytes)
+        public virtual void Deserialize(byte[] bytes)
         {
             Version = bytes[0];
 
@@ -193,7 +193,7 @@ namespace Discreet.Coin
             Transactions = new Cipher.SHA256[NumTXs];
 
             Coinbase = new Transaction();
-            uint offset = Coinbase.Unmarshal(bytes, 133);
+            uint offset = Coinbase.Deserialize(bytes, 133);
 
             for (int i = 0; i < NumTXs; i++)
             {
@@ -204,7 +204,7 @@ namespace Discreet.Coin
             }
         }
 
-        public virtual void UnmarshalFull(byte[] bytes)
+        public virtual void DeserializeFull(byte[] bytes)
         {
             Version = bytes[0];
 
@@ -223,20 +223,20 @@ namespace Discreet.Coin
             Transactions = new Cipher.SHA256[NumTXs];
 
             Coinbase = new Transaction();
-            uint _offset = Coinbase.Unmarshal(bytes, 133);
+            uint _offset = Coinbase.Deserialize(bytes, 133);
 
             transactions = new FullTransaction[NumTXs];
 
             for (int i = 0; i < NumTXs; i++)
             {
                 transactions[i] = new FullTransaction();
-                transactions[i].Unmarshal(bytes, _offset);
+                transactions[i].Deserialize(bytes, _offset);
                 _offset += transactions[i].Size();
                 Transactions[i] = transactions[i].Hash();
             }
         }
 
-        public virtual uint Unmarshal(byte[] bytes, uint _offset)
+        public virtual uint Deserialize(byte[] bytes, uint _offset)
         {
             int offset = (int)_offset;
             Version = bytes[offset];
@@ -256,7 +256,7 @@ namespace Discreet.Coin
             Transactions = new Cipher.SHA256[NumTXs];
 
             Coinbase = new Transaction();
-            _offset = Coinbase.Unmarshal(bytes, _offset + 133);
+            _offset = Coinbase.Deserialize(bytes, _offset + 133);
 
             for (int i = 0; i < NumTXs; i++)
             {
@@ -269,7 +269,7 @@ namespace Discreet.Coin
             return _offset + Size();
         }
 
-        public virtual uint UnmarshalFull(byte[] bytes, uint _offset)
+        public virtual uint DeserializeFull(byte[] bytes, uint _offset)
         {
             int offset = (int)_offset;
             Version = bytes[offset];
@@ -290,12 +290,12 @@ namespace Discreet.Coin
             transactions = new FullTransaction[NumTXs];
 
             Coinbase = new Transaction();
-            _offset = Coinbase.Unmarshal(bytes, _offset + 133);
+            _offset = Coinbase.Deserialize(bytes, _offset + 133);
 
             for (int i = 0; i < NumTXs; i++)
             {
                 transactions[i] = new FullTransaction();
-                transactions[i].Unmarshal(bytes, _offset);
+                transactions[i].Deserialize(bytes, _offset);
                 _offset += transactions[i].Size();
                 Transactions[i] = transactions[i].Hash();
             }
@@ -303,7 +303,7 @@ namespace Discreet.Coin
             return _offset + SizeFull();
         }
 
-        public virtual void Unmarshal(Stream s)
+        public virtual void Deserialize(Stream s)
         {
             Version = (byte)s.ReadByte();
 
@@ -320,7 +320,7 @@ namespace Discreet.Coin
             NumOutputs = Serialization.GetUInt32(s);
 
             Coinbase = new Transaction();
-            Coinbase.Unmarshal(s);
+            Coinbase.Deserialize(s);
 
             Transactions = new SHA256[NumTXs];
             for (int i = 0; i < NumTXs; i++)
@@ -329,7 +329,7 @@ namespace Discreet.Coin
             }
         }
 
-        public virtual void UnmarshalFull(Stream s)
+        public virtual void DeserializeFull(Stream s)
         {
             Version = (byte)s.ReadByte();
 
@@ -346,13 +346,13 @@ namespace Discreet.Coin
             NumOutputs = Serialization.GetUInt32(s);
 
             Coinbase = new Transaction();
-            Coinbase.Unmarshal(s);
+            Coinbase.Deserialize(s);
 
             transactions = new FullTransaction[NumTXs];
             for (int i = 0; i < NumTXs; i++)
             {
                 transactions[i] = new FullTransaction();
-                transactions[i].Unmarshal(s);
+                transactions[i].Deserialize(s);
             }
         }
 

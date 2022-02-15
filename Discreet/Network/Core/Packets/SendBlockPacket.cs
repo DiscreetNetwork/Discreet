@@ -35,7 +35,7 @@ namespace Discreet.Network.Core.Packets
 
             try
             {
-                Block.UnmarshalFull(b, offset);
+                Block.DeserializeFull(b, offset);
             }
             catch (Exception e)
             {
@@ -59,7 +59,7 @@ namespace Discreet.Network.Core.Packets
 
             try
             {
-                Block.UnmarshalFull(_ms.ToArray());
+                Block.DeserializeFull(_ms.ToArray());
             }
             catch (Exception e)
             {
@@ -69,14 +69,14 @@ namespace Discreet.Network.Core.Packets
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Block.MarshalFull(b, offset);
+            Block.SerializeFull(b, offset);
 
             return offset + Block.SizeFull();
         }
 
         public void Serialize(Stream s)
         {
-            s.Write(Block.MarshalFull());
+            s.Write(Block.SerializeFull());
         }
 
         public int Size()

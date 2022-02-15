@@ -36,7 +36,7 @@ namespace Discreet.Network.Core.Packets
             for (int i = 0; i < BlocksLen; i++)
             {
                 Blocks[i] = new Coin.SignedBlock();
-                offset += Blocks[i].UnmarshalFull(b, offset);
+                offset += Blocks[i].DeserializeFull(b, offset);
             }
         }
 
@@ -62,7 +62,7 @@ namespace Discreet.Network.Core.Packets
 
             for (int i = 0; i < BlocksLen; i++)
             {
-                Blocks[i].MarshalFull(b, offset);
+                Blocks[i].SerializeFull(b, offset);
                 offset += Blocks[i].Size();
             }
 
@@ -75,7 +75,7 @@ namespace Discreet.Network.Core.Packets
 
             foreach (Coin.SignedBlock block in Blocks)
             {
-                s.Write(block.MarshalFull());
+                s.Write(block.SerializeFull());
             }
         }
 

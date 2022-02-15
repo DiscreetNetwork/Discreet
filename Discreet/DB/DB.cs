@@ -406,7 +406,7 @@ namespace Discreet.DB
                 }
             }
 
-            var resCode = txn.Put(BlockCache, blk.BlockHash.Bytes, blk.MarshalFull());
+            var resCode = txn.Put(BlockCache, blk.BlockHash.Bytes, blk.SerializeFull());
 
             if (resCode != MDBResultCode.Success)
             {
@@ -493,7 +493,7 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DB.AddBlock: database update exception: {resCode}");
             }
 
-            resCode = txn.Put(Blocks, Serialization.Int64(blk.Height), blk.MarshalFull());
+            resCode = txn.Put(Blocks, Serialization.Int64(blk.Height), blk.SerializeFull());
 
             if (resCode != MDBResultCode.Success)
             {
@@ -648,7 +648,7 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DB.AddTransactionFromPool: database update exception: {resultCode}");
             }
 
-            byte[] txraw = tx.Marshal();
+            byte[] txraw = tx.Serialize();
 
             resultCode = txn.Put(TXs, Serialization.UInt64(txIndex), txraw);
 
@@ -829,7 +829,7 @@ namespace Discreet.DB
                 outputIndex = indexer_output.Value;
             }
 
-            var resultCode = txn.Put(Outputs, Serialization.UInt32(outputIndex), output.Marshal());
+            var resultCode = txn.Put(Outputs, Serialization.UInt32(outputIndex), output.Serialize());
 
             if (resultCode != MDBResultCode.Success)
             {
@@ -991,7 +991,7 @@ namespace Discreet.DB
                 }
 
                 FullTransaction tx = new FullTransaction();
-                tx.Unmarshal(result.value.CopyToNewArray());
+                tx.Deserialize(result.value.CopyToNewArray());
 
                 return tx;
             }
@@ -1022,7 +1022,7 @@ namespace Discreet.DB
                     }
 
                     FullTransaction tx = new FullTransaction();
-                    tx.Unmarshal(result.value.CopyToNewArray());
+                    tx.Deserialize(result.value.CopyToNewArray());
 
                     txs[i] = tx;
                 }
@@ -1061,7 +1061,7 @@ namespace Discreet.DB
             foreach (var value in values)
             {
                 FullTransaction tx = new FullTransaction();
-                tx.Unmarshal(value.CopyToNewArray());
+                tx.Deserialize(value.CopyToNewArray());
 
                 pool.Add(tx);
             }
@@ -1099,14 +1099,14 @@ namespace Discreet.DB
                 if (bytes[0] == 1 || bytes[0] == 2)
                 {
                     SignedBlock block = new SignedBlock();
-                    block.UnmarshalFull(bytes);
+                    block.DeserializeFull(bytes);
 
                     blockCache.Add(block.Height, block);
                 }
                 else
                 {
                     Block block = new Block();
-                    block.UnmarshalFull(bytes);
+                    block.DeserializeFull(bytes);
 
                     blockCache.Add(block.Height, block);
                 }
@@ -1191,7 +1191,7 @@ namespace Discreet.DB
                 }
             }
 
-            resultCode = txn.Put(TXPoolBlob, txhash.Bytes, tx.Marshal());
+            resultCode = txn.Put(TXPoolBlob, txhash.Bytes, tx.Serialize());
 
             if (resultCode != MDBResultCode.Success)
             {
@@ -1257,7 +1257,7 @@ namespace Discreet.DB
             }
 
             TXOutput output = new TXOutput();
-            output.Unmarshal(result.value.CopyToNewArray());
+            output.Deserialize(result.value.CopyToNewArray());
             return output;
         }
 
@@ -1284,7 +1284,7 @@ namespace Discreet.DB
                 }
 
                 rv[i] = new TXOutput();
-                rv[i].Unmarshal(result.value.CopyToNewArray());
+                rv[i].Deserialize(result.value.CopyToNewArray());
             }
 
             return rv;
@@ -1327,7 +1327,7 @@ namespace Discreet.DB
                 }
 
                 rv[i] = new TXOutput();
-                rv[i].Unmarshal(result.value.CopyToNewArray());
+                rv[i].Deserialize(result.value.CopyToNewArray());
 
                 rv[i].Index = rindex;
 
@@ -1353,7 +1353,7 @@ namespace Discreet.DB
                 }
 
                 rv[i] = new TXOutput();
-                rv[i].Unmarshal(result.value.CopyToNewArray());
+                rv[i].Deserialize(result.value.CopyToNewArray());
 
                 rv[i].Index = rindex;
 
@@ -1371,7 +1371,7 @@ namespace Discreet.DB
             }
 
             var OutAtIndex = rv[i] = new TXOutput();
-            rv[i].Unmarshal(iresult.value.CopyToNewArray());
+            rv[i].Deserialize(iresult.value.CopyToNewArray());
 
             rv[i].Index = index;
 
@@ -1417,7 +1417,7 @@ namespace Discreet.DB
                 }
 
                 rv[i] = new TXOutput();
-                rv[i].Unmarshal(result.value.CopyToNewArray());
+                rv[i].Deserialize(result.value.CopyToNewArray());
 
                 rv[i].Index = rindex;
 
@@ -1435,7 +1435,7 @@ namespace Discreet.DB
             }
 
             var OutAtIndex = rv[i] = new TXOutput();
-            rv[i].Unmarshal(iresult.value.CopyToNewArray());
+            rv[i].Deserialize(iresult.value.CopyToNewArray());
 
             rv[i].Index = index;
 
@@ -1461,7 +1461,7 @@ namespace Discreet.DB
             }
 
             FullTransaction tx = new FullTransaction();
-            tx.Unmarshal(result.value.CopyToNewArray());
+            tx.Deserialize(result.value.CopyToNewArray());
             return tx;
         }
 
@@ -1496,7 +1496,7 @@ namespace Discreet.DB
             }
 
             FullTransaction tx = new FullTransaction();
-            tx.Unmarshal(result.value.CopyToNewArray());
+            tx.Deserialize(result.value.CopyToNewArray());
             return tx;
         }
 
@@ -1517,7 +1517,7 @@ namespace Discreet.DB
             }
 
             SignedBlock blk = new SignedBlock();
-            blk.UnmarshalFull(result.value.CopyToNewArray());
+            blk.DeserializeFull(result.value.CopyToNewArray());
             return blk;
         }
 
@@ -1552,7 +1552,7 @@ namespace Discreet.DB
             }
 
             SignedBlock blk = new SignedBlock();
-            blk.UnmarshalFull(result.value.CopyToNewArray());
+            blk.DeserializeFull(result.value.CopyToNewArray());
             return blk;
         }
 

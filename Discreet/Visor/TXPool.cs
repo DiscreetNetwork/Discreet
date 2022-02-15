@@ -50,7 +50,7 @@ namespace Discreet.Visor
             FullTransaction tx = new FullTransaction();
             try
             {
-                tx.Unmarshal(txBytes);
+                tx.Deserialize(txBytes);
             }
             catch (Exception e)
             {

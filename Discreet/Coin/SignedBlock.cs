@@ -15,7 +15,7 @@ namespace Discreet.Coin
     {
         public Cipher.Signature Sig;
 
-        public override byte[] Marshal()
+        public override byte[] Serialize()
         {
             byte[] bytes = new byte[Size()];
 
@@ -39,7 +39,7 @@ namespace Discreet.Coin
 
             if (Version == 2)
             {
-                Coinbase.Marshal(bytes, offset);
+                Coinbase.Serialize(bytes, offset);
                 offset += Coinbase.Size();
             }
 
@@ -52,7 +52,7 @@ namespace Discreet.Coin
             return bytes;
         }
 
-        public override byte[] MarshalFull()
+        public override byte[] SerializeFull()
         {
             byte[] bytes = new byte[SizeFull()];
 
@@ -76,20 +76,20 @@ namespace Discreet.Coin
 
             if (Version == 2)
             {
-                Coinbase.Marshal(bytes, offset);
+                Coinbase.Serialize(bytes, offset);
                 offset += Coinbase.Size();
             }
 
             for (int i = 0; i < transactions.Length; i++)
             {
-                transactions[i].Marshal(bytes, offset);
+                transactions[i].Serialize(bytes, offset);
                 offset += transactions[i].Size();
             }
 
             return bytes;
         }
 
-        public override void Marshal(Stream s)
+        public override void Serialize(Stream s)
         {
             s.WriteByte(Version);
 
@@ -109,7 +109,7 @@ namespace Discreet.Coin
 
             if (Version == 2)
             {
-                Coinbase.Marshal(s);
+                Coinbase.Serialize(s);
             }
 
             for (int i = 0; i < NumTXs; i++)
@@ -118,7 +118,7 @@ namespace Discreet.Coin
             }
         }
 
-        public override void MarshalFull(Stream s)
+        public override void SerializeFull(Stream s)
         {
             s.WriteByte(Version);
 
@@ -138,23 +138,23 @@ namespace Discreet.Coin
 
             if (Version == 2)
             {
-                Coinbase.Marshal(s);
+                Coinbase.Serialize(s);
             }
 
             for (int i = 0; i < NumTXs; i++)
             {
-                transactions[i].Marshal(s);
+                transactions[i].Serialize(s);
             }
         }
 
-        public override void Marshal(byte[] bytes, uint offset)
+        public override void Serialize(byte[] bytes, uint offset)
         {
-            Array.Copy(Marshal(), 0, bytes, offset, Size());
+            Array.Copy(Serialize(), 0, bytes, offset, Size());
         }
 
-        public override void MarshalFull(byte[] bytes, uint offset)
+        public override void SerializeFull(byte[] bytes, uint offset)
         {
-            Array.Copy(MarshalFull(), 0, bytes, offset, SizeFull());
+            Array.Copy(SerializeFull(), 0, bytes, offset, SizeFull());
         }
 
         public override string Readable()
@@ -172,7 +172,7 @@ namespace Discreet.Coin
             return Discreet.Readable.SignedBlock.FromReadable(json);
         }
 
-        public override void Unmarshal(byte[] bytes)
+        public override void Deserialize(byte[] bytes)
         {
             Version = bytes[0];
 
@@ -197,7 +197,7 @@ namespace Discreet.Coin
             if (Version == 2)
             {
                 Coinbase = new Transaction();
-                offset = Coinbase.Unmarshal(bytes, offset);
+                offset = Coinbase.Deserialize(bytes, offset);
             }
             
             for (int i = 0; i < NumTXs; i++)
@@ -209,7 +209,7 @@ namespace Discreet.Coin
             }
         }
 
-        public override void UnmarshalFull(byte[] bytes)
+        public override void DeserializeFull(byte[] bytes)
         {
             Version = bytes[0];
 
@@ -234,7 +234,7 @@ namespace Discreet.Coin
             if (Version == 2)
             {
                 Coinbase = new Transaction();
-                _offset = Coinbase.Unmarshal(bytes, _offset);
+                _offset = Coinbase.Deserialize(bytes, _offset);
             }
 
             transactions = new FullTransaction[NumTXs];
@@ -242,13 +242,13 @@ namespace Discreet.Coin
             for (int i = 0; i < NumTXs; i++)
             {
                 transactions[i] = new FullTransaction();
-                transactions[i].Unmarshal(bytes, _offset);
+                transactions[i].Deserialize(bytes, _offset);
                 _offset += transactions[i].Size();
                 Transactions[i] = transactions[i].Hash();
             }
         }
 
-        public override uint Unmarshal(byte[] bytes, uint _offset)
+        public override uint Deserialize(byte[] bytes, uint _offset)
         {
             int offset = (int)_offset;
             Version = bytes[offset];
@@ -272,7 +272,7 @@ namespace Discreet.Coin
             if (Version == 2)
             {
                 Coinbase = new Transaction();
-                _offset = Coinbase.Unmarshal(bytes, _offset + 133 + 96);
+                _offset = Coinbase.Deserialize(bytes, _offset + 133 + 96);
             }
             else
             {
@@ -290,7 +290,7 @@ namespace Discreet.Coin
             return _offset + Size();
         }
 
-        public override uint UnmarshalFull(byte[] bytes, uint _offset)
+        public override uint DeserializeFull(byte[] bytes, uint _offset)
         {
             int offset = (int)_offset;
             Version = bytes[offset];
@@ -315,7 +315,7 @@ namespace Discreet.Coin
             if (Version == 2)
             {
                 Coinbase = new Transaction();
-                _offset = Coinbase.Unmarshal(bytes, _offset + 133 + 96);
+                _offset = Coinbase.Deserialize(bytes, _offset + 133 + 96);
             }
             else
             {
@@ -325,7 +325,7 @@ namespace Discreet.Coin
             for (int i = 0; i < NumTXs; i++)
             {
                 transactions[i] = new FullTransaction();
-                transactions[i].Unmarshal(bytes, _offset);
+                transactions[i].Deserialize(bytes, _offset);
                 _offset += transactions[i].Size();
                 Transactions[i] = transactions[i].Hash();
             }
@@ -333,7 +333,7 @@ namespace Discreet.Coin
             return _offset + SizeFull();
         }
 
-        public override void Unmarshal(Stream s)
+        public override void Deserialize(Stream s)
         {
             Version = (byte)s.ReadByte();
 
@@ -354,7 +354,7 @@ namespace Discreet.Coin
             if (Version == 2)
             {
                 Coinbase = new Transaction();
-                Coinbase.Unmarshal(s);
+                Coinbase.Deserialize(s);
             }
 
             Transactions = new SHA256[NumTXs];
@@ -364,7 +364,7 @@ namespace Discreet.Coin
             }
         }
 
-        public override void UnmarshalFull(Stream s)
+        public override void DeserializeFull(Stream s)
         {
             Version = (byte)s.ReadByte();
 
@@ -385,14 +385,14 @@ namespace Discreet.Coin
             if (Version == 2)
             {
                 Coinbase = new Transaction();
-                Coinbase.Unmarshal(s);
+                Coinbase.Deserialize(s);
             }
 
             transactions = new FullTransaction[NumTXs];
             for (int i = 0; i < NumTXs; i++)
             {
                 transactions[i] = new FullTransaction();
-                transactions[i].Unmarshal(s);
+                transactions[i].Deserialize(s);
             }
         }
 

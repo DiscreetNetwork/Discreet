@@ -18,10 +18,10 @@ namespace Discreet.Coin
 
         public SHA256 Hash()
         {
-            return SHA256.HashData(Marshal());
+            return SHA256.HashData(Serialize());
         }
 
-        public byte[] Marshal()
+        public byte[] Serialize()
         {
             byte[] rv = new byte[Size()];
 
@@ -35,9 +35,9 @@ namespace Discreet.Coin
             return rv;
         }
 
-        public void Marshal(byte[] bytes, uint offset)
+        public void Serialize(byte[] bytes, uint offset)
         {
-            byte[] rv = Marshal();
+            byte[] rv = Serialize();
             Array.Copy(rv, 0, bytes, offset, rv.Length);
         }
 
@@ -51,12 +51,12 @@ namespace Discreet.Coin
             return Discreet.Readable.TXInput.FromReadable(json);
         }
 
-        public void Unmarshal(byte[] bytes)
+        public void Deserialize(byte[] bytes)
         {
-            Unmarshal(bytes, 0);
+            Deserialize(bytes, 0);
         }
 
-        public uint Unmarshal(byte[] bytes, uint offset)
+        public uint Deserialize(byte[] bytes, uint offset)
         {
             Offsets = new uint[64];
             for (int i = 0; i < 64; i++)
@@ -69,7 +69,7 @@ namespace Discreet.Coin
             return offset + Size();
         }
 
-        public void Marshal(Stream s)
+        public void Serialize(Stream s)
         {
             for (int i = 0; i < 64; i++)
             {
@@ -79,7 +79,7 @@ namespace Discreet.Coin
             s.Write(KeyImage.bytes);
         }
 
-        public void Unmarshal(Stream s)
+        public void Deserialize(Stream s)
         {
             Offsets = new uint[64];
             for (int i = 0; i < 64; i++)

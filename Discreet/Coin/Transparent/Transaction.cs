@@ -39,7 +39,7 @@ namespace Discreet.Coin.Transparent
 
         public SHA256 Hash()
         {
-            return SHA256.HashData(Marshal());
+            return SHA256.HashData(Serialize());
         }
 
         public Transaction() { }
@@ -62,7 +62,7 @@ namespace Discreet.Coin.Transparent
 
             for (int i = 0; i < Inputs.Length; i++)
             {
-                Inputs[i].Marshal(bytes, offset);
+                Inputs[i].Serialize(bytes, offset);
                 offset += TXOutput.Size();
             }
 
@@ -77,7 +77,7 @@ namespace Discreet.Coin.Transparent
             return SHA256.HashData(bytes);
         }
 
-        public byte[] Marshal()
+        public byte[] Serialize()
         {
             byte[] bytes = new byte[Size()];
 
@@ -96,7 +96,7 @@ namespace Discreet.Coin.Transparent
 
             for (int i = 0; i < Inputs.Length; i++)
             {
-                Inputs[i].Marshal(bytes, offset);
+                Inputs[i].Serialize(bytes, offset);
                 offset += 65;
             }
 
@@ -115,9 +115,9 @@ namespace Discreet.Coin.Transparent
             return bytes;
         }
 
-        public void Marshal(byte[] bytes, uint offset)
+        public void Serialize(byte[] bytes, uint offset)
         {
-            byte[] rv = Marshal();
+            byte[] rv = Serialize();
 
             Array.Copy(rv, 0, bytes, offset, rv.Length);
         }
@@ -132,12 +132,12 @@ namespace Discreet.Coin.Transparent
             return Discreet.Readable.Transparent.Transaction.FromReadable(json);
         }
 
-        public void Unmarshal(byte[] bytes)
+        public void Deserialize(byte[] bytes)
         {
-            Unmarshal(bytes, 0);
+            Deserialize(bytes, 0);
         }
 
-        public uint Unmarshal(byte[] bytes, uint offset)
+        public uint Deserialize(byte[] bytes, uint offset)
         {
             Version = bytes[offset];
             NumInputs = bytes[offset + 1];
@@ -157,7 +157,7 @@ namespace Discreet.Coin.Transparent
             for (int i = 0; i < Inputs.Length; i++)
             {
                 Inputs[i] = new TXOutput();
-                Inputs[i].Unmarshal(bytes, offset);
+                Inputs[i].Deserialize(bytes, offset);
                 offset += TXOutput.Size();
             }
 
@@ -181,7 +181,7 @@ namespace Discreet.Coin.Transparent
             return offset;
         }
 
-        public void Marshal(Stream s)
+        public void Serialize(Stream s)
         {
             s.WriteByte(Version);
             s.WriteByte(NumInputs);
@@ -194,7 +194,7 @@ namespace Discreet.Coin.Transparent
 
             for (int i = 0; i < Inputs.Length; i++)
             {
-                Inputs[i].Marshal(s);
+                Inputs[i].Serialize(s);
             }
 
             for (int i = 0; i < Outputs.Length; i++)
@@ -208,7 +208,7 @@ namespace Discreet.Coin.Transparent
             }
         }
 
-        public void Unmarshal(Stream s)
+        public void Deserialize(Stream s)
         {
             Version = (byte)s.ReadByte();
             NumInputs = (byte)s.ReadByte();
@@ -226,7 +226,7 @@ namespace Discreet.Coin.Transparent
             for (int i = 0; i < Inputs.Length; i++)
             {
                 Inputs[i] = new TXOutput();
-                Inputs[i].Unmarshal(s);
+                Inputs[i].Deserialize(s);
             }
 
             for (int i = 0; i < Outputs.Length; i++)
