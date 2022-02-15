@@ -447,6 +447,8 @@ namespace Discreet.Wallets
                         {
                             if (Addresses[j].UTXOs[k].LinkingTag == transaction.PInputs[i].KeyImage)
                             {
+                                Addresses[j].UTXOs[k].Decrypt(Addresses[j]);
+                                Addresses[j].Balance -= Addresses[j].UTXOs[k].DecodedAmount;
                                 Addresses[j].UTXOs.RemoveAt(k);
                             }
                         }
@@ -457,6 +459,7 @@ namespace Discreet.Wallets
                         {
                             if (Addresses[j].UTXOs[k].TransactionSrc == transaction.TInputs[i].TransactionSrc && Addresses[j].UTXOs[k].Amount == transaction.TInputs[i].Amount && Addresses[j].Address == transaction.TInputs[i].Address.ToString())
                             {
+                                Addresses[j].Balance -= Addresses[j].UTXOs[k].Amount;
                                 Addresses[j].UTXOs.RemoveAt(k);
                             }
                         }
@@ -501,6 +504,7 @@ namespace Discreet.Wallets
 
                         if (Addresses[addrIndex].Address == address)
                         {
+                            Visor.Logger.Log("You received some Discreet!");
                             ProcessOutput(Addresses[addrIndex], transaction, i, addrIndex, true);
                         }
                     }
@@ -519,6 +523,8 @@ namespace Discreet.Wallets
                 utxo.OwnedIndex = index;
 
                 Addresses[walletIndex].UTXOs.Add(utxo);
+
+                Addresses[walletIndex].Balance += utxo.DecodedAmount;
             }
         }
     }
