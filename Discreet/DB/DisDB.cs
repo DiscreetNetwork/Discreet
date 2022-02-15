@@ -496,7 +496,7 @@ namespace Discreet.DB
                 outputIndex = (int)indexer_owned_outputs.Value;
             }
 
-            db.Put(Serialization.Int32(outputIndex), utxo.Marshal(), cf: OwnedOutputs);
+            db.Put(Serialization.Int32(outputIndex), utxo.Serialize(), cf: OwnedOutputs);
 
             lock (indexer_owned_outputs)
             {
@@ -516,7 +516,7 @@ namespace Discreet.DB
             }
 
             Wallets.UTXO utxo = new Wallets.UTXO();
-            utxo.Unmarshal(result);
+            utxo.Deserialize(result);
 
             return utxo;
         }

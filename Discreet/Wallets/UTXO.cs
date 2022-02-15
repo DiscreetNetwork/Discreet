@@ -39,7 +39,7 @@ namespace Discreet.Wallets
 
         public Key LinkingTag;
 
-        public byte[] Marshal()
+        public byte[] Serialize()
         {
             byte[] bytes = new byte[146 + 32];
 
@@ -59,7 +59,7 @@ namespace Discreet.Wallets
             return bytes;
         }
 
-        public void Unmarshal(byte[] bytes)
+        public void Deserialize(byte[] bytes)
         {
             TransactionSrc = new SHA256(bytes[2..34], false);
             TransactionKey = new Key(bytes[38..70]);

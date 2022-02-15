@@ -911,7 +911,7 @@ namespace Discreet.DB
                 outputIndex = (int)indexer_owned_outputs.Value;
             }
 
-            var resCode = txn.Put(OwnedOutputs, Serialization.Int32(outputIndex), utxo.Marshal());
+            var resCode = txn.Put(OwnedOutputs, Serialization.Int32(outputIndex), utxo.Serialize());
 
             if (resCode != MDBResultCode.Success)
             {
@@ -955,7 +955,7 @@ namespace Discreet.DB
             }
 
             Wallets.UTXO utxo = new Wallets.UTXO();
-            utxo.Unmarshal(result.value.CopyToNewArray());
+            utxo.Deserialize(result.value.CopyToNewArray());
 
             return utxo;
         }
