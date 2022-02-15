@@ -174,78 +174,12 @@ namespace Discreet.Coin
 
         public override void Deserialize(byte[] bytes)
         {
-            Version = bytes[0];
-
-            Timestamp = Serialization.GetUInt64(bytes, 1);
-            Height = Serialization.GetInt64(bytes, 9);
-            Fee = Serialization.GetUInt64(bytes, 17);
-
-            PreviousBlock = new SHA256(bytes[25..57], false);
-            BlockHash = new SHA256(bytes[57..89], false);
-            MerkleRoot = new SHA256(bytes[89..121], false);
-
-            NumTXs = Serialization.GetUInt32(bytes, 121);
-            BlockSize = Serialization.GetUInt32(bytes, 125);
-            NumOutputs = Serialization.GetUInt32(bytes, 129);
-
-            Sig = new Signature(bytes, 133);
-
-            Transactions = new Cipher.SHA256[NumTXs];
-
-            uint offset = 133 + 96;
-
-            if (Version == 2)
-            {
-                Coinbase = new Transaction();
-                offset = Coinbase.Deserialize(bytes, offset);
-            }
-            
-            for (int i = 0; i < NumTXs; i++)
-            {
-                byte[] data = new byte[32];
-                Array.Copy(bytes, offset, data, 0, 32);
-                offset += 32;
-                Transactions[i] = new SHA256(data, false);
-            }
+            Deserialize(bytes, 0);
         }
 
         public override void DeserializeFull(byte[] bytes)
         {
-            Version = bytes[0];
-
-            Timestamp = Serialization.GetUInt64(bytes, 1);
-            Height = Serialization.GetInt64(bytes, 9);
-            Fee = Serialization.GetUInt64(bytes, 17);
-
-            PreviousBlock = new SHA256(bytes[25..57], false);
-            BlockHash = new SHA256(bytes[57..89], false);
-            MerkleRoot = new SHA256(bytes[89..121], false);
-
-            NumTXs = Serialization.GetUInt32(bytes, 121);
-            BlockSize = Serialization.GetUInt32(bytes, 125);
-            NumOutputs = Serialization.GetUInt32(bytes, 129);
-
-            Sig = new Signature(bytes, 133);
-
-            Transactions = new Cipher.SHA256[NumTXs];
-
-            uint _offset = 133 + 96;
-
-            if (Version == 2)
-            {
-                Coinbase = new Transaction();
-                _offset = Coinbase.Deserialize(bytes, _offset);
-            }
-
-            transactions = new FullTransaction[NumTXs];
-
-            for (int i = 0; i < NumTXs; i++)
-            {
-                transactions[i] = new FullTransaction();
-                transactions[i].Deserialize(bytes, _offset);
-                _offset += transactions[i].Size();
-                Transactions[i] = transactions[i].Hash();
-            }
+            DeserializeFull(bytes, 0);
         }
 
         public override uint Deserialize(byte[] bytes, uint _offset)

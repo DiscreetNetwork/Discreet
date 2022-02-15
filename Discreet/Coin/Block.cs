@@ -176,64 +176,12 @@ namespace Discreet.Coin
 
         public virtual void Deserialize(byte[] bytes)
         {
-            Version = bytes[0];
-
-            Timestamp = Serialization.GetUInt64(bytes, 1);
-            Height = Serialization.GetInt64(bytes, 9);
-            Fee = Serialization.GetUInt64(bytes, 17);
-
-            PreviousBlock = new SHA256(bytes[25..57], false);
-            BlockHash = new SHA256(bytes[57..89], false);
-            MerkleRoot = new SHA256(bytes[89..121], false);
-
-            NumTXs = Serialization.GetUInt32(bytes, 121);
-            BlockSize = Serialization.GetUInt32(bytes, 125);
-            NumOutputs = Serialization.GetUInt32(bytes, 129);
-
-            Transactions = new Cipher.SHA256[NumTXs];
-
-            Coinbase = new Transaction();
-            uint offset = Coinbase.Deserialize(bytes, 133);
-
-            for (int i = 0; i < NumTXs; i++)
-            {
-                byte[] data = new byte[32];
-                Array.Copy(bytes, offset, data, 0, 32);
-                offset += 32;
-                Transactions[i] = new SHA256(data, false);
-            }
+            Deserialize(bytes, 0);
         }
 
         public virtual void DeserializeFull(byte[] bytes)
         {
-            Version = bytes[0];
-
-            Timestamp = Serialization.GetUInt64(bytes, 1);
-            Height = Serialization.GetInt64(bytes, 9);
-            Fee = Serialization.GetUInt64(bytes, 17);
-
-            PreviousBlock = new SHA256(bytes[25..57], false);
-            BlockHash = new SHA256(bytes[57..89], false);
-            MerkleRoot = new SHA256(bytes[89..121], false);
-
-            NumTXs = Serialization.GetUInt32(bytes, 121);
-            BlockSize = Serialization.GetUInt32(bytes, 125);
-            NumOutputs = Serialization.GetUInt32(bytes, 129);
-
-            Transactions = new Cipher.SHA256[NumTXs];
-
-            Coinbase = new Transaction();
-            uint _offset = Coinbase.Deserialize(bytes, 133);
-
-            transactions = new FullTransaction[NumTXs];
-
-            for (int i = 0; i < NumTXs; i++)
-            {
-                transactions[i] = new FullTransaction();
-                transactions[i].Deserialize(bytes, _offset);
-                _offset += transactions[i].Size();
-                Transactions[i] = transactions[i].Hash();
-            }
+            DeserializeFull(bytes, 0);
         }
 
         public virtual uint Deserialize(byte[] bytes, uint _offset)
