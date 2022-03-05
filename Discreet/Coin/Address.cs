@@ -158,6 +158,30 @@ namespace Discreet.Coin
         {
             return (byte)AddressType.TRANSPARENT;
         }
+
+        public VerifyException Verify()
+        {
+            if (version != 1)
+            {
+                return new VerifyException("TAddress", $"transparent address version not supported! (supports {AddressVersion.VERSION}; got {version})");
+            }
+
+            byte[] chk = new byte[21];
+            chk[0] = version;
+            Array.Copy(hash.Bytes, 0, chk, 1, 20);
+
+            var chksum = Discreet.Cipher.Base58.GetCheckSum(chk);
+
+            var chksumStr = Printable.Hexify(chksum);
+            var checksumStr = Printable.Hexify(checksum);
+
+            if (chksumStr != checksumStr)
+            {
+                return new VerifyException("TAddress", $"transparent address checksums not equal! (calculated as {chksumStr}; but got {checksumStr})");
+            }
+
+            return null;
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -307,7 +331,7 @@ namespace Discreet.Coin
 
             if (version != 1)
             {
-                return new VerifyException("StealthAddress", $"stealth address version not supported! (supports up to {AddressVersion.VERSION}; got {version})");
+                return new VerifyException("StealthAddress", $"stealth address version not supported! (supports {AddressVersion.VERSION}; got {version})");
             }
 
             byte[] chk = new byte[65];

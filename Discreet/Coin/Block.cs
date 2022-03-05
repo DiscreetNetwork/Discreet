@@ -52,6 +52,11 @@ namespace Discreet.Coin
             return Discreet.Readable.Block.ToReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.Block(this);
+        }
+
         public static Block FromReadable(string json)
         {
             return Discreet.Readable.Block.FromReadable(json);

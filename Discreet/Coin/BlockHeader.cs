@@ -98,6 +98,16 @@ namespace Discreet.Coin
             return Discreet.Readable.BlockHeader.ToReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.BlockHeader(this);
+        }
+
+        public static BlockHeader FromReadable(string json)
+        {
+            return Discreet.Readable.BlockHeader.FromReadable(json);
+        }
+
         public byte[] Serialize()
         {
             byte[] bytes = new byte[Size()];

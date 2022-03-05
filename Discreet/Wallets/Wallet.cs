@@ -42,6 +42,9 @@ namespace Discreet.Wallets
 
         public ulong EntropyChecksum;
 
+        public long LastSeenHeight = -1;
+        public bool Synced = false;
+
         public WalletAddress[] Addresses;
 
         /* default constructor */
@@ -137,7 +140,6 @@ namespace Discreet.Wallets
 
             if (Encrypted)
             {
-
                 byte[] entropyEncryptionKey = new byte[32];
                 byte[] passhash = Cipher.SHA512.HashData(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
                 Cipher.KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
@@ -366,15 +368,6 @@ namespace Discreet.Wallets
             string json = File.ReadAllText(path);
 
             return FromJSON(json);
-
-            try
-            {
-                return FromJSON(json);
-            }
-            catch (Exception e)
-            {
-                throw new Exception($"Discreet.Wallets.Wallet.FromFile: an exception occurred when parsing data from \"{path}\": " + e.Message);
-            }
         }
 
         public void ToFile(string path)
@@ -441,6 +434,8 @@ namespace Discreet.Wallets
             {
                 ProcessTransaction(block.Transactions[i]);
             }
+
+            LastSeenHeight = block.Header.Height;
 
             ToFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, Label + ".dis"));
         }

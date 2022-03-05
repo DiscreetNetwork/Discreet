@@ -46,6 +46,11 @@ namespace Discreet.Coin
             return Discreet.Readable.TXInput.ToReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.TXInput(this);
+        }
+
         public static TXInput FromReadable(string json)
         {
             return Discreet.Readable.TXInput.FromReadable(json);

@@ -9,13 +9,14 @@ using Discreet.Common.Exceptions;
 using Discreet.Cipher;
 using System.Net;
 using System.Threading;
+using System.Collections.Concurrent;
 
 namespace Discreet.Visor
 {
     /* Manages all blockchain operations. Contains the wallet manager, logger, Network manager, RPC manager, DB manager and TXPool manager. */
     public class Visor
     {
-        public Wallet wallet;
+        public ConcurrentBag<Wallet> wallets;
         TXPool txpool;
 
         Network.Handler handler;
@@ -28,20 +29,17 @@ namespace Discreet.Visor
         CancellationToken _cancellationToken;
         CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
+        ConcurrentBag<ConcurrentQueue<SHA256>> syncerQueues;
+
         public static bool DebugMode { get; set; } = false;
 
         public bool IsMasternode;
 
         private Key signingKey;
 
-        public Visor(Wallet wallet)
+        public Visor()
         {
-            if (wallet.Addresses == null || wallet.Addresses.Length == 0 || wallet.Addresses[0].Type == 1)
-            {
-                throw new Exception("Discreet.Visor.Visor: Improper wallet for visor!");
-            }
-
-            this.wallet = wallet;
+            wallets = new ConcurrentBag<Wallet>();
 
             txpool = TXPool.GetTXPool();
             handler = Network.Handler.GetHandler();
@@ -54,6 +52,8 @@ namespace Discreet.Visor
             config = new VisorConfig();
 
             signingKey = new Key(Common.Printable.Byteify("90933561d294e3125c98a90263e1331fc337be71ee3ac9b0d7269728849ac00a"));
+
+            syncerQueues = new ConcurrentBag<ConcurrentQueue<SHA256>>();
 
             _cancellationToken = _tokenSource.Token;
         }
@@ -258,7 +258,10 @@ namespace Discreet.Visor
                         Logger.Log(e.Message);
                     }
 
-                    wallet.ProcessBlock(block);
+                    foreach (var q in syncerQueues)
+                    {
+                        q.Enqueue(block.Header.BlockHash);
+                    }
 
                     beginningHeight++;
                 }
@@ -290,7 +293,61 @@ namespace Discreet.Visor
         {
             txpool.UpdatePool(block.Transactions);
 
-            wallet.ProcessBlock(block);
+            foreach (var q in syncerQueues)
+            {
+                q.Enqueue(block.Header.BlockHash);
+            }
+        }
+
+        public async Task WalletSyncer(Wallet wallet, bool scanForFunds)
+        {
+            ConcurrentQueue<SHA256> queue = new ConcurrentQueue<SHA256>();
+
+            syncerQueues.Add(queue);
+
+            if (scanForFunds)
+            {
+                wallet.Synced = false;
+
+                var initialChainHeight = db.GetChainHeight();
+
+                while (wallet.LastSeenHeight < initialChainHeight)
+                {
+                    wallet.ProcessBlock(db.GetBlock(wallet.LastSeenHeight + 1));
+                }
+
+                while (!queue.IsEmpty || handler.State != Network.PeerState.Normal)
+                {
+                    SHA256 blockHash;
+                    bool success = queue.TryDequeue(out blockHash);
+
+                    if (!success)
+                    {
+                        continue;
+                    }
+
+                    wallet.ProcessBlock(db.GetBlock(blockHash));
+                }
+
+                wallet.Synced = true;
+            }
+
+            while (!_cancellationToken.IsCancellationRequested)
+            {
+                while (!queue.IsEmpty)
+                {
+                    SHA256 blockHash;
+                    bool success = queue.TryDequeue(out blockHash);
+
+                    if (!success)
+                    {
+                        Logger.Fatal("Discreet.Visor.Visor.WalletSyncer: fatal error encountered while trying to dequeue");
+                        return;
+                    }
+
+                    wallet.ProcessBlock(db.GetBlock(blockHash));
+                }
+            }
         }
 
         public async Task SendTransaction(FullTransaction tx)
@@ -315,16 +372,17 @@ namespace Discreet.Visor
 
         public async Task Mint()
         {
-            if (wallet.Addresses[0].Type != 0)
+            /*if (wallet.Addresses[0].Type != 0)
             {
                 Logger.Log("Discreet.Visor.Visor.Mint: Cannot mint a block with transparent wallet!");
                 Shutdown();
-            }
+            }*/
 
             try
             {
                 var txs = txpool.GetTransactionsForBlock();
-                Block blk = Block.Build(txs, (StealthAddress)wallet.Addresses[0].GetAddress(), signingKey);
+                //Block blk = Block.Build(txs, (StealthAddress)wallet.Addresses[0].GetAddress(), signingKey);
+                Block blk = Block.Build(txs, null, signingKey);
 
                 await network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
 
@@ -350,7 +408,7 @@ namespace Discreet.Visor
 
         public void Mint(Block blk)
         {
-            if (wallet.Addresses[0].Type != 0) throw new Exception("Discreet.Visor.Visor.Mint: Cannot mint a block with transparent wallet!");
+            //if (wallet.Addresses[0].Type != 0) throw new Exception("Discreet.Visor.Visor.Mint: Cannot mint a block with transparent wallet!");
 
             DB.DisDB db = DB.DisDB.GetDB();
 

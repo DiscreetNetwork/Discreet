@@ -90,6 +90,16 @@ namespace Discreet.Coin
             return Discreet.Readable.TXOutput.ToTXReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.TXOutput(this);
+        }
+
+        public object ToTXReadable()
+        {
+            return new Discreet.Readable.TXOutput(this, true);
+        }
+
         public static TXOutput FromReadable(string json)
         {
             return Discreet.Readable.TXOutput.FromReadable(json);

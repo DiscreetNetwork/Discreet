@@ -178,7 +178,7 @@ namespace Discreet.Wallets
             }
             else
             {
-                throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
             }
 
             UTXOs = new List<UTXO>();
@@ -227,7 +227,7 @@ namespace Discreet.Wallets
             }
             else
             {
-                throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
             }
 
             Encrypted = true;
@@ -274,7 +274,7 @@ namespace Discreet.Wallets
             }
             else
             {
-                throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
             }
 
             Encrypted = false;
@@ -293,7 +293,7 @@ namespace Discreet.Wallets
             }
             else
             {
-                throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
             }
 
             Encrypted = true;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -180,9 +181,9 @@ namespace Discreet.Network
             mCache.Rejections.Add(p);
         }
 
-        public async Task HandleGetVersion(IPEndPoint senderEndpoint)
+        public VersionPacket MakeVersionPacket()
         {
-            VersionPacket vp = new VersionPacket
+            return new VersionPacket
             {
                 Version = Visor.VisorConfig.GetConfig().NetworkVersion,
                 Services = Services,
@@ -192,6 +193,11 @@ namespace Discreet.Network
                 ID = Peerbloom.Network.GetNetwork().GetNodeID(),
                 Syncing = State == PeerState.Syncing
             };
+        }
+
+        public async Task HandleGetVersion(IPEndPoint senderEndpoint)
+        {
+            VersionPacket vp = MakeVersionPacket();
 
             await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.VERSION, vp));
         }

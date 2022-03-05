@@ -250,6 +250,11 @@ namespace Discreet.Coin
             return Discreet.Readable.FullTransaction.ToReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.FullTransaction(this);
+        }
+
         public static FullTransaction FromReadable(string json)
         {
             return Discreet.Readable.FullTransaction.FromReadable(json);
@@ -967,7 +972,7 @@ namespace Discreet.Coin
             offset += 4;
 
             Fee = Serialization.GetUInt64(bytes, offset);
-            return offset + 8;
+            offset += 8;
 
             SigningHash = new SHA256(bytes, offset);
             offset += 32;
@@ -994,6 +999,8 @@ namespace Discreet.Coin
                 TSignatures[i] = new Signature(bytes, offset);
                 offset += 96;
             }
+
+            return offset;
         }
 
         public uint FromMixed(byte[] bytes, uint offset)

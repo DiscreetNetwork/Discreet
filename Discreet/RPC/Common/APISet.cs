@@ -15,5 +15,6 @@ namespace Discreet.RPC.Common
         WALLET = 1 << 2,
         STORAGE = 1 << 3,
         SEED_RECOVERY = 1 << 4,
+        STATUS = 1 << 5,
     } 
 }

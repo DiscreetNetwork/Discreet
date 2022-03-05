@@ -6,12 +6,16 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using static Discreet.RPC.Common.Utilities;
+using Discreet.RPC.Converters;
+using System.Linq;
 
 namespace Discreet.RPC
 {
     public class RPCProcess
     {
+        public static JsonSerializerOptions defaultOptions;
 
         public class RPCRequest
         {
@@ -34,15 +38,38 @@ namespace Discreet.RPC
             Notification = 2 // Has no id field set.
         }
 
+        public RPCProcess()
+        {
+            if (defaultOptions == null)
+            {
+                defaultOptions = new JsonSerializerOptions();
+
+                new List<JsonConverter>(new JsonConverter[]
+                {
+                    new BytesConverter(),
+                    new IAddressConverter(),
+                    new IPEndPointConverter(),
+                    new KeccakConverter(),
+                    new KeyConverter(),
+                    new RIPEMD160Converter(),
+                    new SHA256Converter(),
+                    new SHA512Converter(),
+                    new SignatureConverter(),
+                    new StealthAddressConverter(),
+                    new TAddressConverter(),
+                    new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
+                    new StringConverter(),
+                }).ForEach(x => defaultOptions.Converters.Add(x));
+            }
+        }
+
 
         public object ProcessRemoteCall(string rpcJsonRequest)
         {
             try
             {
-                var serializeOptions = new JsonSerializerOptions();
-                serializeOptions.Converters.Add(new StringConverter());
                 //var req = JsonDocument.Parse(Encoding.UTF8.GetBytes(rpcJsonRequest));
-                RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest, serializeOptions);
+                RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest, defaultOptions);
                 object result = ExecuteInternal(request.method, request.@params);
                 RPCResponse response = CreateResponse(request, result);
 

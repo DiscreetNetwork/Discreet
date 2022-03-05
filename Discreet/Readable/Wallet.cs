@@ -20,7 +20,12 @@ namespace Discreet.Readable
         public string Entropy { get; set; }
         public uint EntropyLen { get; set; }
         public ulong EntropyChecksum { get; set; }
+
+        public long LastSeenHeight { get; set; }
+        public bool Synced { get; set; }
+
         public List<WalletAddress> Addresses { get; set; }
+
 
         public string JSON()
         {
@@ -43,6 +48,8 @@ namespace Discreet.Readable
             Entropy = wallet.Entropy;
             EntropyLen = wallet.EntropyLen;
             EntropyChecksum = wallet.EntropyChecksum;
+            LastSeenHeight = wallet.LastSeenHeight;
+            Synced = wallet.Synced;
             Addresses = wallet.Addresses;
         }
 
@@ -95,6 +102,8 @@ namespace Discreet.Readable
             
             EntropyLen = obj.EntropyLen;
             EntropyChecksum = obj.EntropyChecksum;
+            LastSeenHeight = obj.LastSeenHeight;
+            Synced = obj.Synced;
 
             if (obj.Addresses != null)
             {
@@ -140,6 +149,8 @@ namespace Discreet.Readable
 
             obj.EntropyLen = EntropyLen;
             obj.EntropyChecksum = EntropyChecksum;
+            obj.LastSeenHeight = LastSeenHeight;
+            obj.Synced = Synced;
 
             if (Addresses != null)
             {
@@ -156,7 +167,6 @@ namespace Discreet.Readable
             return obj;
         }
 
-        [RPCEndpoint(endpoint_name: "create_wallet")]
         public static Wallets.Wallet FromReadable(string json)
         {
             return (Wallets.Wallet)new Wallet(json).ToObject();

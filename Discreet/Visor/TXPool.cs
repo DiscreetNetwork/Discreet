@@ -106,6 +106,11 @@ namespace Discreet.Visor
             return pool.Values.ToList();
         }
 
+        public List<FullTransaction> GetTransactions()
+        {
+            return pool.Values.ToList();
+        }
+
         public void UpdatePool(IEnumerable<Cipher.SHA256> txs)
         {
             txs.ToList().ForEach(x => pool.Remove(x, out _));

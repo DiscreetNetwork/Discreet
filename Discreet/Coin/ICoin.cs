@@ -9,6 +9,7 @@ namespace Discreet.Coin
     {
         public Discreet.Cipher.SHA256 Hash();
         public string Readable();
+        public object ToReadable();
         public byte[] Serialize();
         public void Serialize(byte[] bytes, uint offset);
         public void Deserialize(byte[] bytes);

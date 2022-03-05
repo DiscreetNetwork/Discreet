@@ -89,6 +89,11 @@ namespace Discreet.Coin
             return Discreet.Readable.Triptych.ToReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.Triptych(this);
+        }
+
         public static Triptych FromReadable(string json)
         {
             return Discreet.Readable.Triptych.FromReadable(json);

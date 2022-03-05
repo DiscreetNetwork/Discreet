@@ -135,6 +135,7 @@ namespace Discreet.DB
         public static ColumnFamilyHandle OwnedOutputs;
         public static ColumnFamilyHandle BlockCache;
         public static ColumnFamilyHandle BlockHeaders;
+        public static ColumnFamilyHandle StorageStore;
 
         public static string SPENT_KEYS = "spent_keys";
         public static string TX_POOL_BLOB = "tx_pool_blob";
@@ -149,6 +150,7 @@ namespace Discreet.DB
         public static string OWNED_OUTPUTS = "owned_outputs";
         public static string BLOCK_CACHE = "block_cache";
         public static string BLOCK_HEADERS = "block_headers";
+        public static string STORAGE_STORE = "storage_store";
 
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
@@ -194,7 +196,8 @@ namespace Discreet.DB
                 new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions()),
                 new ColumnFamilies.Descriptor(OWNED_OUTPUTS, new ColumnFamilyOptions()),
                 new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions())
+                new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions()),
+                new ColumnFamilies.Descriptor(STORAGE_STORE, new ColumnFamilyOptions())
             };
 
             db = RocksDb.Open(options, path, _colFamilies);
@@ -212,6 +215,7 @@ namespace Discreet.DB
             OwnedOutputs = db.GetColumnFamily(OWNED_OUTPUTS);
             BlockCache = db.GetColumnFamily(BLOCK_CACHE);
             BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
+            StorageStore = db.GetColumnFamily(STORAGE_STORE);
 
             if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
             {
@@ -419,11 +423,10 @@ namespace Discreet.DB
 
         private void AddTransaction(FullTransaction tx)
         {
-            //TODO: clear tx from txpool if present
             Cipher.SHA256 txhash = tx.Hash();
             if (db.Get(txhash.Bytes, cf: TxIndices) != null)
             {
-                throw new Exception($"Discreet.DisDB.AddTransactionFromPool: Transaction {txhash.ToHexShort()} already in TX table!");
+                throw new Exception($"Discreet.DisDB.AddTransaction: Transaction {txhash.ToHexShort()} already in TX table!");
             }
 
             ulong txIndex;
@@ -952,6 +955,14 @@ namespace Discreet.DB
             }
         }
 
+        public ulong GetTransactionIndex()
+        {
+            lock (indexer_tx)
+            {
+                return indexer_tx.Value;
+            }
+        }
+
         public ulong GetTransactionIndex(Cipher.SHA256 txhash)
         {
             var result = db.Get(txhash.Bytes, cf: TxIndices);
@@ -974,6 +985,53 @@ namespace Discreet.DB
             }
 
             return Serialization.GetInt64(result, 0);
+        }
+
+        public byte[] KVGet(byte[] key)
+        {
+            return db.Get(key, cf: StorageStore);
+        }
+
+        public byte[] KVPut(byte[] key, byte[] value)
+        {
+            var _rv = db.Get(key, cf: StorageStore);
+
+            lock (DBLock)
+            {
+                db.Put(key, value, cf: StorageStore);
+            }
+
+            return _rv;
+        }
+
+        public byte[] KVDel(byte[] key)
+        {
+            var _rv = db.Get(key, cf: StorageStore);
+
+            lock (DBLock)
+            {
+                db.Remove(key, cf: StorageStore);
+            }
+
+            return _rv;
+        }
+
+        public Dictionary<byte[], byte[]> KVAll()
+        {
+            Dictionary<byte[], byte[]> _rv = new();
+
+            var iterator = db.NewIterator(cf: TxPoolBlob);
+
+            iterator.SeekToFirst();
+
+            while (iterator.Valid())
+            {
+                _rv[iterator.Key()] = iterator.Value();
+
+                iterator.Next();
+            }
+
+            return _rv;
         }
     }
 }

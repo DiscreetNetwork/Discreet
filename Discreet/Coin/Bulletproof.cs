@@ -95,6 +95,11 @@ namespace Discreet.Coin
             return Discreet.Readable.Bulletproof.ToReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.Bulletproof(this);
+        }
+
         public static Bulletproof FromReadable(string json)
         {
             return Discreet.Readable.Bulletproof.FromReadable(json);

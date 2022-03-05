@@ -19,6 +19,8 @@ namespace Discreet.RPC.Common
                 if (type == typeof(Coin.FullTransaction))               return Readable.FullTransaction.FromReadable(jsonElement.GetRawText());
                 if (type == typeof(Coin.MixedTransaction))              return Readable.MixedTransaction.FromReadable(jsonElement.GetRawText());
                 if (type == typeof(Coin.Transparent.Transaction))       return Readable.Transparent.Transaction.FromReadable(jsonElement.GetRawText());
+
+                return JsonSerializer.Deserialize(jsonElement.GetRawText(), type, RPCProcess.defaultOptions);
             }
             else if (jsonElement.ValueKind == JsonValueKind.Array)
             {
@@ -35,18 +37,20 @@ namespace Discreet.RPC.Common
             }
             else if (jsonElement.ValueKind == JsonValueKind.Number)
             {
-                if (type == typeof(sbyte))          return jsonElement.GetSByte();
-                if (type == typeof(byte))           return jsonElement.GetByte();
-                if (type == typeof(short))          return jsonElement.GetInt16();
-                if (type == typeof(ushort))         return jsonElement.GetUInt16();
                 if (type == typeof(int))            return jsonElement.GetInt32();
                 if (type == typeof(uint))           return jsonElement.GetUInt32();
                 if (type == typeof(long))           return jsonElement.GetInt64();
                 if (type == typeof(ulong))          return jsonElement.GetUInt64();
+                if (type == typeof(sbyte))          return jsonElement.GetSByte();
+                if (type == typeof(byte))           return jsonElement.GetByte();
+                if (type == typeof(short))          return jsonElement.GetInt16();
+                if (type == typeof(ushort))         return jsonElement.GetUInt16();
                 if (type == typeof(float))          return jsonElement.GetSingle();
                 if (type == typeof(double))         return jsonElement.GetDouble();
                 if (type == typeof(decimal))        return jsonElement.GetDecimal();
                 if (type == typeof(BigInteger))     return BigInteger.Parse(jsonElement.GetRawText());
+
+                return jsonElement.GetUInt64();
             }
             else if (jsonElement.ValueKind == JsonValueKind.String)
             {

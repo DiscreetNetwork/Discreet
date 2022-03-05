@@ -77,6 +77,16 @@ namespace Discreet.Coin.Transparent
             return Discreet.Readable.Transparent.TXOutput.ToTXReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.Transparent.TXOutput(this);
+        }
+
+        public object ToTXReadable()
+        {
+            return new Discreet.Readable.Transparent.TXOutput(this, true);
+        }
+
         public static TXOutput FromReadable(string json)
         {
             return Discreet.Readable.Transparent.TXOutput.FromReadable(json);

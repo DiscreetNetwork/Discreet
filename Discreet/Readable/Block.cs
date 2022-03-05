@@ -15,8 +15,7 @@ namespace Discreet.Readable
     {
         public BlockHeader Header { get; set; }
 
-        /* this is fine since we disallow both serialization of Transactions and transactions; mutually exclusive */
-        public List<FullTransaction> Transactions { get; set; }
+        public List<object> Transactions { get; set; }
 
         public virtual string JSON()
         {
@@ -65,11 +64,18 @@ namespace Discreet.Readable
 
             if (obj.Transactions != null)
             {
-                Transactions = new List<FullTransaction>(obj.Transactions.Length);
+                Transactions = new List<object>(obj.Transactions.Length);
 
                 for (int i = 0; i < obj.Transactions.Length; i++)
                 {
-                    Transactions.Add(new FullTransaction(obj.Transactions[i]));
+                    Transactions.Add(obj.Transactions[i].Version switch 
+                    { 
+                        0 => new Transaction(obj.Transactions[i].ToCoinbase()),
+                        1 or 2 => new Transaction(obj.Transactions[i].ToPrivate()),
+                        3 => new Transparent.Transaction(obj.Transactions[i].ToTransparent()),
+                        4 => new MixedTransaction(obj.Transactions[i].ToMixed()),
+                        _ => new FullTransaction(obj.Transactions[i])
+                    });
                 }
             }
         }
@@ -98,7 +104,10 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < Transactions.Count; i++)
                 {
-                    obj.Transactions[i] = (Coin.FullTransaction)Transactions[i].ToObject();
+                    if      (Transactions[i] is Transaction ptx)                obj.Transactions[i] = ((Coin.Transaction)ptx.ToObject()).ToFull();
+                    else if (Transactions[i] is MixedTransaction mtx)           obj.Transactions[i] = ((Coin.MixedTransaction)mtx.ToObject()).ToFull();
+                    else if (Transactions[i] is Transparent.Transaction ttx)    obj.Transactions[i] = ((Coin.Transparent.Transaction)ttx.ToObject()).ToFull();
+                    else                                                        obj.Transactions[i] = (Coin.FullTransaction)((FullTransaction)Transactions[i]).ToObject();
                 }
             }
 

@@ -989,21 +989,6 @@ namespace Discreet
 			}
 		}
 
-		[RPCEndpoint(endpoint_name: "getBlock")]
-		public static object GetBlock(long height)
-        {
-			DB.DisDB db = DB.DisDB.GetDB();
-
-			try
-            {
-				return db.GetBlock(height).Readable();
-            }
-			catch (Exception e)
-            {
-				return new RPCError(-1, "could not find block; " + e.Message);
-            }
-        }
-
 		[RPCEndpoint(endpoint_name: "saveWallet")]
 		public static object SaveWallet()
         {

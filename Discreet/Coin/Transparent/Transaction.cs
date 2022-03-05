@@ -127,6 +127,11 @@ namespace Discreet.Coin.Transparent
             return Discreet.Readable.Transparent.Transaction.ToReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.Transparent.Transaction(this);
+        }
+
         public static Transaction FromReadable(string json)
         {
             return Discreet.Readable.Transparent.Transaction.FromReadable(json);

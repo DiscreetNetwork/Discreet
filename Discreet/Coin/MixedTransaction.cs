@@ -259,6 +259,11 @@ namespace Discreet.Coin
             return Discreet.Readable.MixedTransaction.ToReadable(this);
         }
 
+        public object ToReadable()
+        {
+            return new Discreet.Readable.MixedTransaction(this);
+        }
+
         public static MixedTransaction FromReadable(string json)
         {
             return Discreet.Readable.MixedTransaction.FromReadable(json);
