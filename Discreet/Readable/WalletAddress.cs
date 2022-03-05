@@ -55,7 +55,12 @@ namespace Discreet.Readable
 
         public WalletAddress(Wallets.WalletAddress obj)
         {
-            FromObject(obj);
+            FromObject(obj, false);
+        }
+
+        public WalletAddress(Wallets.WalletAddress obj, bool encrypted)
+        {
+            FromObject(obj, encrypted);
         }
 
         public WalletAddress(string json)
@@ -69,7 +74,7 @@ namespace Discreet.Readable
         {
             if (typeof(T) == typeof(Wallets.WalletAddress))
             {
-                FromObject((Wallets.WalletAddress)obj);
+                FromObject((Wallets.WalletAddress)obj, false);
             }
             else
             {
@@ -77,7 +82,7 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Wallets.WalletAddress obj)
+        public void FromObject(Wallets.WalletAddress obj, bool encrypted)
         {
             Type = obj.Type;
             Deterministic = obj.Deterministic;
@@ -90,7 +95,14 @@ namespace Discreet.Readable
             if (obj.EncryptedSecKey != null) EncryptedSecKey = Printable.Hexify(obj.EncryptedSecKey);
             if (obj.PubKey.bytes != null) PubKey = obj.PubKey.ToHex();
 
-            Balance = obj.Balance;
+            if (encrypted)
+            {
+                Balance = 0;
+            }
+            else
+            {
+                Balance = obj.Balance;
+            }
 
             if (obj.UTXOs != null)
             {

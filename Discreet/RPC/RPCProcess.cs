@@ -77,7 +77,7 @@ namespace Discreet.RPC
                 _data[i] = ConvertType(_paramInfo[i + 1].ParameterType, (JsonElement)args[i]);
             }
 
-            object result = RPCEndpointResolver.GetEndpoint(endpoint).DynamicInvoke(_data);
+            object result = _endpoint.DynamicInvoke(_data);
             return result;
         }
 
@@ -92,7 +92,7 @@ namespace Discreet.RPC
             RPCResponse response = new();
             if(request.id == "")
             {
-                request.id = null;
+                response.id = null;
             } else
             {
                 response.id = request.id;

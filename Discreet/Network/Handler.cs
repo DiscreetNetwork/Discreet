@@ -182,15 +182,16 @@ namespace Discreet.Network
 
         public async Task HandleGetVersion(IPEndPoint senderEndpoint)
         {
-            VersionPacket vp = new VersionPacket();
-
-            vp.Version = Visor.VisorConfig.GetConfig().NetworkVersion;
-            vp.Services = Services;
-            vp.Timestamp = DateTime.UtcNow.Ticks;
-            vp.Height = DB.DisDB.GetDB().GetChainHeight();
-            vp.Address = Visor.VisorConfig.GetConfig().Endpoint;
-            vp.ID = Peerbloom.Network.GetNetwork().GetNodeID();
-            vp.Syncing = State == PeerState.Syncing;
+            VersionPacket vp = new VersionPacket
+            {
+                Version = Visor.VisorConfig.GetConfig().NetworkVersion,
+                Services = Services,
+                Timestamp = DateTime.UtcNow.Ticks,
+                Height = DB.DisDB.GetDB().GetChainHeight(),
+                Address = Visor.VisorConfig.GetConfig().Endpoint,
+                ID = Peerbloom.Network.GetNetwork().GetNodeID(),
+                Syncing = State == PeerState.Syncing
+            };
 
             await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.VERSION, vp));
         }
@@ -270,7 +271,7 @@ namespace Discreet.Network
         {
             DB.DisDB db = DB.DisDB.GetDB();
 
-            List<Coin.SignedBlock> blocks = new List<Coin.SignedBlock>();
+            List<Coin.Block> blocks = new List<Coin.Block>();
 
             try
             {
@@ -278,11 +279,11 @@ namespace Discreet.Network
                 {
                     if (h.IsLong())
                     {
-                        blocks.Add((Coin.SignedBlock)db.GetBlock(h.ToInt64()));
+                        blocks.Add(db.GetBlock(h.ToInt64()));
                     }
                     else
                     {
-                        blocks.Add((Coin.SignedBlock)db.GetBlock(h));
+                        blocks.Add(db.GetBlock(h));
                     }
                 }
 
@@ -434,7 +435,7 @@ namespace Discreet.Network
 
             if (State == PeerState.Syncing)
             {
-                if (!DB.DisDB.GetDB().BlockCacheHas(p.Block.BlockHash))
+                if (!DB.DisDB.GetDB().BlockCacheHas(p.Block.Header.BlockHash))
                 {
                     try
                     {
@@ -454,7 +455,7 @@ namespace Discreet.Network
                             Reason = e.Message,
                             ReasonLen = (uint)Encoding.UTF8.GetBytes(e.Message).Length,
                             DataLen = 32,
-                            Data = p.Block.BlockHash.Bytes,
+                            Data = p.Block.Header.BlockHash.Bytes,
                             Code = RejectionCode.INVALID,
                         };
 
@@ -465,11 +466,11 @@ namespace Discreet.Network
                     }
                 }
 
-                LastSeenHeight = p.Block.Height;
+                LastSeenHeight = p.Block.Header.Height;
             }
             else if (State == PeerState.Processing)
             {
-                MessageCache.GetMessageCache().BlockCache[p.Block.Height] = p.Block;
+                MessageCache.GetMessageCache().BlockCache[p.Block.Header.Height] = p.Block;
 
                 await Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
                 return;
@@ -478,7 +479,7 @@ namespace Discreet.Network
             {
                 try
                 {
-                    DB.DisDB.GetDB().GetBlockHeight(p.Block.BlockHash);
+                    DB.DisDB.GetDB().GetBlockHeight(p.Block.Header.BlockHash);
                 }
                 catch 
                 {
@@ -492,7 +493,7 @@ namespace Discreet.Network
                             Reason = err.Message,
                             ReasonLen = (uint)Encoding.UTF8.GetBytes(err.Message).Length,
                             DataLen = 32,
-                            Data = p.Block.BlockHash.Bytes,
+                            Data = p.Block.Header.BlockHash.Bytes,
                             Code = RejectionCode.INVALID,
                         };
 
@@ -539,21 +540,21 @@ namespace Discreet.Network
 
                 foreach (var block in p.Blocks)
                 {
-                    if (!db.BlockCacheHas(block.BlockHash))
+                    if (!db.BlockCacheHas(block.Header.BlockHash))
                     {
                         lock (DB.DisDB.DBLock)
                         {
                             db.AddBlockToCache(block);
                         }
                     }
-                    if (!MessageCache.GetMessageCache().BlockCache.ContainsKey(block.Height))
+                    if (!MessageCache.GetMessageCache().BlockCache.ContainsKey(block.Header.Height))
                     {
-                        MessageCache.GetMessageCache().BlockCache.TryAdd(block.Height, block);
+                        MessageCache.GetMessageCache().BlockCache.TryAdd(block.Header.Height, block);
                     }
                 }
 
 
-                LastSeenHeight = p.Blocks[0].Height;
+                LastSeenHeight = p.Blocks[0].Header.Height;
             }
         }
 

@@ -15,7 +15,6 @@ namespace Discreet.RPC.Common
             if (jsonElement.ValueKind == JsonValueKind.Object)
             {
                 if (type == typeof(Coin.Block))                         return Readable.Block.FromReadable(jsonElement.GetRawText());
-                if (type == typeof(Coin.SignedBlock))                   return Readable.SignedBlock.FromReadable(jsonElement.GetRawText());
                 if (type == typeof(Coin.Transaction))                   return Readable.Transaction.FromReadable(jsonElement.GetRawText());
                 if (type == typeof(Coin.FullTransaction))               return Readable.FullTransaction.FromReadable(jsonElement.GetRawText());
                 if (type == typeof(Coin.MixedTransaction))              return Readable.MixedTransaction.FromReadable(jsonElement.GetRawText());
@@ -91,7 +90,6 @@ namespace Discreet.RPC.Common
 
                 throw new JsonException();
             }
-
 
             public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
             {

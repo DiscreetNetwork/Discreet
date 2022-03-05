@@ -76,7 +76,7 @@ namespace Discreet.Readable
             if (obj == null) throw new Exception("Discreet.Readable.Wallet.FromObject: Wallet is null!");
 
             /* due to stateless requirements, we must exception here instead of calling Encrypt() */
-            if (!obj.IsEncrypted) throw new Exception("Discreet.Readable.Wallet.FromObject: Wallet must be encrypted!");
+            //if (!obj.IsEncrypted) throw new Exception("Discreet.Readable.Wallet.FromObject: Wallet must be encrypted!");
 
             Label = obj.Label;
             CoinName = obj.CoinName;
@@ -102,7 +102,7 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < obj.Addresses.Length; i++)
                 {
-                    Addresses.Add(new WalletAddress(obj.Addresses[i]));
+                    Addresses.Add(new WalletAddress(obj.Addresses[i], obj.Encrypted));
                 }
             }
         }
@@ -155,6 +155,7 @@ namespace Discreet.Readable
 
             return obj;
         }
+
         [RPCEndpoint(endpoint_name: "create_wallet")]
         public static Wallets.Wallet FromReadable(string json)
         {

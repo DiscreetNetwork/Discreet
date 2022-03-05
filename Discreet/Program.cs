@@ -263,7 +263,7 @@ namespace Discreet
 			genesisTXsPlus.Add(Transaction.GenerateTransactionNoSpend((StealthAddress)myWallet.Addresses[0].GetAddress(), (ulong)6_000_000 * 1_000_000_000_0).ToFull());
 			Block genesis = Block.BuildRandomPlus(addresses, numOutputs, genesisTXsPlus);
 
-            Console.WriteLine(genesis.SerializeFull().Length);
+            Console.WriteLine(genesis.Serialize().Length);
 
 			Console.WriteLine("Genesis block generated. ");
 
@@ -288,7 +288,7 @@ namespace Discreet
 			Console.Write("wrote wallets to file.");
 			
 
-			File.WriteAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "genesis_block.json"), Printable.Prettify(genesis.ReadableFull()));
+			File.WriteAllText(Path.Combine(Visor.VisorConfig.GetDefault().VisorPath, "genesis_block.json"), Printable.Prettify(genesis.Readable()));
 
 			Console.WriteLine("Genesis block printed to file. ");
 

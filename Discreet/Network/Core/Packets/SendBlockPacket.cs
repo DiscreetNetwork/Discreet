@@ -31,11 +31,11 @@ namespace Discreet.Network.Core.Packets
 
         public void Deserialize(byte[] b, uint offset)
         {
-            Block = new Coin.SignedBlock();
+            Block = new Coin.Block();
 
             try
             {
-                Block.DeserializeFull(b, offset);
+                Block.Deserialize(b, offset);
             }
             catch (Exception e)
             {
@@ -55,11 +55,11 @@ namespace Discreet.Network.Core.Packets
                 _ms.Write(buf, 0, bytesRead);
             }
 
-            Block = new Coin.SignedBlock();
+            Block = new Coin.Block();
 
             try
             {
-                Block.DeserializeFull(_ms.ToArray());
+                Block.Deserialize(_ms.ToArray());
             }
             catch (Exception e)
             {
@@ -69,19 +69,19 @@ namespace Discreet.Network.Core.Packets
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Block.SerializeFull(b, offset);
+            Block.Serialize(b, offset);
 
-            return offset + Block.SizeFull();
+            return offset + Block.Size();
         }
 
         public void Serialize(Stream s)
         {
-            s.Write(Block.SerializeFull());
+            s.Write(Block.Serialize());
         }
 
         public int Size()
         {
-            return (int)Block.SizeFull();
+            return (int)Block.Size();
         }
     }
 }

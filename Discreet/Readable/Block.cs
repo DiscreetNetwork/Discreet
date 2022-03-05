@@ -13,28 +13,12 @@ namespace Discreet.Readable
 {
     public class Block : IReadable
     {
-        public byte Version { get; set; }
-        public ulong Timestamp { get; set; }
-        public long Height { get; set; }
-        public ulong Fee { get; set; }
-
-        public string PreviousBlock { get; set; }
-        public string BlockHash { get; set; }
-
-        public string MerkleRoot { get; set; }
-
-        public uint NumTXs { get; set; }
-        public uint BlockSize { get; set; }
-        public uint NumOutputs { get; set; }
-
-        public Transaction Coinbase { get; set; }
-
-        public List<string> Transactions { get; set; }
+        public BlockHeader Header { get; set; }
 
         /* this is fine since we disallow both serialization of Transactions and transactions; mutually exclusive */
-        public List<FullTransaction> transactions { get; set; }
+        public List<FullTransaction> Transactions { get; set; }
 
-        public string JSON()
+        public virtual string JSON()
         {
             return JsonSerializer.Serialize(this, ReadableOptions.Options);
         }
@@ -44,28 +28,12 @@ namespace Discreet.Readable
             return JSON();
         }
 
-        public void FromJSON(string json)
+        public virtual void FromJSON(string json)
         {
             Block b = JsonSerializer.Deserialize<Block>(json);
-            
-            Version = b.Version;
-            Timestamp = b.Timestamp;
-            Height = b.Height;
-            
-            PreviousBlock = b.PreviousBlock;
-            BlockHash = b.BlockHash;
-            
-            MerkleRoot = b.MerkleRoot;
-            
-            NumTXs = b.NumTXs;
-            BlockSize = b.BlockSize;
-            NumOutputs = b.NumOutputs;
 
-            Coinbase = b.Coinbase;
-            
+            Header = b.Header;
             Transactions = b.Transactions;
-
-            transactions = b.transactions;
         }
 
         public Block(Coin.Block obj)
@@ -79,7 +47,7 @@ namespace Discreet.Readable
 
         public Block() { }
 
-        public void FromObject<T>(object obj)
+        public virtual void FromObject<T>(object obj)
         {
             if (typeof(T) == typeof(Coin.Block))
             {
@@ -91,45 +59,22 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Coin.Block obj)
+        public virtual void FromObject(Coin.Block obj)
         {
-            Version = obj.Version;
-            Timestamp = obj.Timestamp;
-            Height = obj.Height;
-            Fee = obj.Fee;
+            Header = new BlockHeader(obj.Header);
 
-            if (obj.PreviousBlock.Bytes != null) PreviousBlock = obj.PreviousBlock.ToHex();
-            if (obj.BlockHash.Bytes != null) BlockHash = obj.BlockHash.ToHex();
-
-            if (obj.MerkleRoot.Bytes != null) MerkleRoot = obj.MerkleRoot.ToHex();
-
-            NumTXs = obj.NumTXs;
-            BlockSize = obj.BlockSize;
-            NumOutputs = obj.NumOutputs;
-
-            Coinbase = new Transaction(obj.Coinbase);
-
-            if (obj.transactions != null)
+            if (obj.Transactions != null)
             {
-                transactions = new List<FullTransaction>(obj.transactions.Length);
-
-                for (int i = 0; i < obj.transactions.Length; i++)
-                {
-                    transactions.Add(new FullTransaction(obj.transactions[i]));
-                }
-            }
-            else if (obj.Transactions != null)
-            {
-                Transactions = new List<string>(obj.Transactions.Length);
+                Transactions = new List<FullTransaction>(obj.Transactions.Length);
 
                 for (int i = 0; i < obj.Transactions.Length; i++)
                 {
-                    Transactions.Add(obj.Transactions[i].ToHex());
+                    Transactions.Add(new FullTransaction(obj.Transactions[i]));
                 }
             }
         }
 
-        public T ToObject<T>()
+        public virtual T ToObject<T>()
         {
             if (typeof(T) == typeof(Coin.Block))
             {
@@ -141,42 +86,19 @@ namespace Discreet.Readable
             }
         }
 
-        public object ToObject()
+        public virtual object ToObject()
         {
             Coin.Block obj = new();
 
-            obj.Version = Version;
-            obj.Timestamp = Timestamp;
-            obj.Height = Height;
-            obj.Fee = Fee;
+            obj.Header = (Coin.BlockHeader)Header.ToObject();
 
-            if (PreviousBlock != null && PreviousBlock != "") obj.PreviousBlock = new Cipher.SHA256(Printable.Byteify(PreviousBlock), false);
-            if (BlockHash != null && BlockHash != "") obj.BlockHash = new Cipher.SHA256(Printable.Byteify(BlockHash), false);
-
-            if (MerkleRoot != null && MerkleRoot != "") obj.MerkleRoot = new Cipher.SHA256(Printable.Byteify(MerkleRoot), false);
-
-            obj.NumTXs = NumTXs;
-            obj.BlockSize = BlockSize;
-            obj.NumOutputs = NumOutputs;
-
-            obj.Coinbase = (Coin.Transaction)Coinbase.ToObject();
-
-            if (transactions != null)
+            if (Transactions != null)
             {
-                obj.transactions = new Coin.FullTransaction[transactions.Count];
-
-                for (int i = 0; i < transactions.Count; i++)
-                {
-                    obj.transactions[i] = (Coin.FullTransaction)transactions[i].ToObject();
-                }
-            }
-            else if (Transactions != null)
-            {
-                obj.Transactions = new Cipher.SHA256[Transactions.Count];
+                obj.Transactions = new Coin.FullTransaction[Transactions.Count];
 
                 for (int i = 0; i < Transactions.Count; i++)
                 {
-                    obj.Transactions[i] = new Cipher.SHA256(Printable.Byteify(Transactions[i]), false);
+                    obj.Transactions[i] = (Coin.FullTransaction)Transactions[i].ToObject();
                 }
             }
 

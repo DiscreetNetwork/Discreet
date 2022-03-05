@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -35,54 +36,20 @@ namespace Discreet.Visor
             }
         }
 
-        private List<FullTransaction> pool;
+        private ConcurrentDictionary<Cipher.SHA256, FullTransaction> pool;
 
         public TXPool()
         {
+            pool = new();
+
             DB.DisDB db = DB.DisDB.GetDB();
 
-            pool = db.GetTXPool();
-        }
+            var _pool = db.GetTXPool();
 
-        public Exception ProcessIncoming(byte[] txBytes)
-        {
-            /* try to decode the transaction, and catch any error thrown */
-            FullTransaction tx = new FullTransaction();
-            try
+            foreach (var tx in _pool)
             {
-                tx.Deserialize(txBytes);
+                pool[tx.Hash()] = tx;
             }
-            catch (Exception e)
-            {
-                return new DecodeException("Discreet.Visor.TXPool.ProcessIncoming", "Transaction", e.Message);
-            }
-
-            /* verify transaction */
-            var err = tx.Verify();
-
-            if (err != null)
-            {
-                return err;
-            }
-
-            /* try adding to database */
-            DB.DisDB db = DB.DisDB.GetDB();
-            try
-            {
-                lock (DB.DisDB.DBLock)
-                {
-                    db.AddTXToPool(tx);
-                }
-            }
-            catch (Exception e)
-            {
-                return new DatabaseException("Discreet.Visor.TXPool.ProcessIncoming", e.Message);
-            }
-
-            /* no errors, so add TX to pool */
-            pool.Add(tx);
-
-            return null;
         }
 
         public Exception ProcessIncoming(FullTransaction tx)
@@ -110,7 +77,7 @@ namespace Discreet.Visor
             }
 
             /* no errors, so add TX to pool */
-            pool.Add(tx);
+            pool[tx.Hash()] = tx;
 
             return null;
         }
@@ -136,7 +103,14 @@ namespace Discreet.Visor
          */
         public List<FullTransaction> GetTransactionsForBlock()
         {
-            return pool;
+            return pool.Values.ToList();
+        }
+
+        public void UpdatePool(IEnumerable<Cipher.SHA256> txs)
+        {
+            txs.ToList().ForEach(x => pool.Remove(x, out _));
+
+            DB.DisDB.GetDB().UpdateTXPool(txs);
         }
 
         public bool Contains(Cipher.SHA256 txhash)
@@ -146,16 +120,12 @@ namespace Discreet.Visor
             return db.TXPoolContains(txhash);
         }
 
-        /* */
-        public void UpdatePool(List<FullTransaction> blockTxs)
+        public void UpdatePool(IEnumerable<FullTransaction> blockTxs)
         {
-            foreach (FullTransaction tx in blockTxs)
-            {
-                if(!pool.Remove(tx))
-                {
-                    Logger.Log($"Discreet.Visor.TXPool.UpdatePool: transaction with hash {tx.Hash()} not present in txpool");
-                }
-            }
+            var hashes = blockTxs.Select(x => x.Hash());
+            hashes.ToList().ForEach(x => pool.Remove(x, out _));
+
+            DB.DisDB.GetDB().UpdateTXPool(hashes);
         }
     }
 }

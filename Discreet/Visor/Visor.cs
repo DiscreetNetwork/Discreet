@@ -110,7 +110,7 @@ namespace Discreet.Visor
 
                 Logger.Log("Creating genesis block...");
 
-                var block = SignedBlock.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
+                var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
 
                 Logger.Log((block.Verify() == null).ToString());
 
@@ -120,6 +120,10 @@ namespace Discreet.Visor
 
                 handler.SetState(Network.PeerState.Normal);
             }
+
+            Logger.Log($"Starting RPC server...");
+            _rpcServer = new RPC.RPCServer(VisorConfig.GetConfig().RPCPort);
+            _ = _rpcServer.Start();
 
             network.Start();
             await network.Bootstrap();
@@ -274,10 +278,6 @@ namespace Discreet.Visor
                 _ = network.Heartbeat();
             }
 
-            Logger.Log($"Starting RPC server...");
-            _rpcServer = new RPC.RPCServer(VisorConfig.GetConfig().RPCPort);
-            _ = _rpcServer.Start();
-
             Logger.Log($"Visor startup complete.");
 
             while (!_cancellationToken.IsCancellationRequested)
@@ -288,6 +288,8 @@ namespace Discreet.Visor
 
         public void ProcessBlock(Block block)
         {
+            txpool.UpdatePool(block.Transactions);
+
             wallet.ProcessBlock(block);
         }
 
@@ -321,10 +323,8 @@ namespace Discreet.Visor
 
             try
             {
-                var txs = txpool.GetTransactionsForBlock().ToArray().ToList<FullTransaction>();
-                SignedBlock blk = SignedBlock.Build(txs, (StealthAddress)wallet.Addresses[0].GetAddress(), signingKey);
-
-                txpool.UpdatePool(txs);
+                var txs = txpool.GetTransactionsForBlock();
+                Block blk = Block.Build(txs, (StealthAddress)wallet.Addresses[0].GetAddress(), signingKey);
 
                 await network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
 
@@ -348,7 +348,7 @@ namespace Discreet.Visor
             }
         }
 
-        public void Mint(SignedBlock blk)
+        public void Mint(Block blk)
         {
             if (wallet.Addresses[0].Type != 0) throw new Exception("Discreet.Visor.Visor.Mint: Cannot mint a block with transparent wallet!");
 

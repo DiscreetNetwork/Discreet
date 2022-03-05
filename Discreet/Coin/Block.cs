@@ -4,6 +4,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
 using System.IO;
+using System.Linq;
 
 namespace Discreet.Coin
 {
@@ -18,140 +19,27 @@ namespace Discreet.Coin
 
     public class Block: ICoin
     {
-        public byte Version;
+        public BlockHeader Header;
 
-        public ulong Timestamp;
-        public long Height;
-        public ulong Fee;      // 25
-
-        public Cipher.SHA256 PreviousBlock;
-        public Cipher.SHA256 BlockHash;          //  89
-
-        public Cipher.SHA256 MerkleRoot;        // 121
-
-        public uint NumTXs;
-        public uint BlockSize;              // 129
-        public uint NumOutputs;             // 133
-
-        public Transaction Coinbase;
-
-        public Cipher.SHA256[] Transactions; // 32 * len + 133
-
-        /* used for full blocks (not packed with blocks) */
-        public FullTransaction[] transactions;
+        public FullTransaction[] Transactions;
 
         public virtual byte[] Serialize()
         {
-            byte[] bytes = new byte[Size()];
+            using MemoryStream _ms = new MemoryStream();
 
-            bytes[0] = Version;
+            Serialize(_ms);
 
-            Serialization.CopyData(bytes, 1, Timestamp);
-            Serialization.CopyData(bytes, 9, Height);
-            Serialization.CopyData(bytes, 17, Fee);
-
-            Array.Copy(PreviousBlock.Bytes, 0, bytes, 25, 32);
-            Array.Copy(BlockHash.Bytes, 0, bytes, 57, 32);
-            Array.Copy(MerkleRoot.Bytes, 0, bytes, 89, 32);
-
-            Serialization.CopyData(bytes, 121, NumTXs);
-            Serialization.CopyData(bytes, 125, BlockSize);
-            Serialization.CopyData(bytes, 129, NumOutputs);
-
-            byte[] coinbase = Coinbase.Serialize();
-            Array.Copy(coinbase, 0, bytes, 133, coinbase.Length);
-
-            for (int i = 0; i < NumTXs; i++)
-            {
-                Array.Copy(Transactions[i].Bytes, 0, bytes, 133 + coinbase.Length + i * 32, 32);
-            }
-
-            return bytes;
-        }
-
-        public virtual byte[] SerializeFull()
-        {
-            byte[] bytes = new byte[SizeFull()];
-
-            bytes[0] = Version;
-
-            Serialization.CopyData(bytes, 1, Timestamp);
-            Serialization.CopyData(bytes, 9, Height);
-            Serialization.CopyData(bytes, 17, Fee);
-
-            Array.Copy(PreviousBlock.Bytes, 0, bytes, 25, 32);
-            Array.Copy(BlockHash.Bytes, 0, bytes, 57, 32);
-            Array.Copy(MerkleRoot.Bytes, 0, bytes, 89, 32);
-
-            Serialization.CopyData(bytes, 121, NumTXs);
-            Serialization.CopyData(bytes, 125, BlockSize);
-            Serialization.CopyData(bytes, 129, NumOutputs);
-
-            uint offset = 133;
-            byte[] coinbase = Coinbase.Serialize();
-            Array.Copy(coinbase, 0, bytes, 133, coinbase.Length);
-            offset += (uint)coinbase.Length;
-
-            for (int i = 0; i < NumTXs; i++)
-            {
-                transactions[i].Serialize(bytes, offset);
-                offset += transactions[i].Size();
-            }
-
-            return bytes;
+            return _ms.ToArray();
         }
 
         public virtual void Serialize(Stream s)
         {
-            s.WriteByte(Version);
+            Header.Serialize(s);
 
-            Serialization.CopyData(s, Timestamp);
-            Serialization.CopyData(s, Height);
-            Serialization.CopyData(s, Fee);
-
-            s.Write(PreviousBlock.Bytes);
-            s.Write(BlockHash.Bytes);
-            s.Write(MerkleRoot.Bytes);
-
-            Serialization.CopyData(s, NumTXs);
-            Serialization.CopyData(s, BlockSize);
-            Serialization.CopyData(s, NumOutputs);
-
-            Coinbase.Serialize(s);
-
-            for (int i = 0; i < NumTXs; i++)
+            for (int i = 0; i < Transactions.Length; i++)
             {
-                s.Write(Transactions[i].Bytes);
+                Transactions[i].Serialize(s);
             }
-        }
-
-        public virtual void SerializeFull(Stream s)
-        {
-            s.WriteByte(Version);
-
-            Serialization.CopyData(s, Timestamp);
-            Serialization.CopyData(s, Height);
-            Serialization.CopyData(s, Fee);
-
-            s.Write(PreviousBlock.Bytes);
-            s.Write(BlockHash.Bytes);
-            s.Write(MerkleRoot.Bytes);
-
-            Serialization.CopyData(s, NumTXs);
-            Serialization.CopyData(s, BlockSize);
-            Serialization.CopyData(s, NumOutputs);
-
-            Coinbase.Serialize(s);
-
-            for (int i = 0; i < NumTXs; i++)
-            {
-                transactions[i].Serialize(s);
-            }
-        }
-
-        public virtual void SerializeFull(byte[] bytes, uint offset)
-        {
-            Array.Copy(SerializeFull(), 0, bytes, offset, SizeFull());
         }
 
         public virtual void Serialize(byte[] bytes, uint offset)
@@ -164,11 +52,6 @@ namespace Discreet.Coin
             return Discreet.Readable.Block.ToReadable(this);
         }
 
-        public virtual string ReadableFull()
-        {
-            return Readable();
-        }
-
         public static Block FromReadable(string json)
         {
             return Discreet.Readable.Block.FromReadable(json);
@@ -179,143 +62,41 @@ namespace Discreet.Coin
             Deserialize(bytes, 0);
         }
 
-        public virtual void DeserializeFull(byte[] bytes)
+        public virtual uint Deserialize(byte[] bytes, uint offset)
         {
-            DeserializeFull(bytes, 0);
-        }
+            Header = new BlockHeader();
+            offset = Header.Deserialize(bytes, offset);
 
-        public virtual uint Deserialize(byte[] bytes, uint _offset)
-        {
-            int offset = (int)_offset;
-            Version = bytes[offset];
-
-            Timestamp = Serialization.GetUInt64(bytes, _offset + 1);
-            Height = Serialization.GetInt64(bytes, _offset + 9);
-            Fee = Serialization.GetUInt64(bytes, _offset + 17);
-
-            PreviousBlock = new SHA256(bytes[(offset + 25)..(offset + 57)], false);
-            BlockHash = new SHA256(bytes[(offset + 57)..(offset + 89)], false);
-            MerkleRoot = new SHA256(bytes[(offset + 89)..(offset + 121)], false);
-
-            NumTXs = Serialization.GetUInt32(bytes, _offset + 121);
-            BlockSize = Serialization.GetUInt32(bytes, _offset + 125);
-            NumOutputs = Serialization.GetUInt32(bytes, _offset + 129);
-
-            Transactions = new Cipher.SHA256[NumTXs];
-
-            Coinbase = new Transaction();
-            _offset = Coinbase.Deserialize(bytes, _offset + 133);
-
-            for (int i = 0; i < NumTXs; i++)
+            Transactions = new FullTransaction[Header.NumTXs];
+            for (int i = 0; i < Transactions.Length; i++)
             {
-                byte[] data = new byte[32];
-                Array.Copy(bytes, _offset, data, 0, 32);
-                _offset += 32;
-                Transactions[i] = new SHA256(data, false);
+                Transactions[i] = new FullTransaction();
+                offset = Transactions[i].Deserialize(bytes, offset);
             }
 
-            return _offset + Size();
-        }
-
-        public virtual uint DeserializeFull(byte[] bytes, uint _offset)
-        {
-            int offset = (int)_offset;
-            Version = bytes[offset];
-
-            Timestamp = Serialization.GetUInt64(bytes, _offset + 1);
-            Height = Serialization.GetInt64(bytes, _offset + 9);
-            Fee = Serialization.GetUInt64(bytes, _offset + 17);
-
-            PreviousBlock = new SHA256(bytes[(offset + 25)..(offset + 57)], false);
-            BlockHash = new SHA256(bytes[(offset + 57)..(offset + 89)], false);
-            MerkleRoot = new SHA256(bytes[(offset + 89)..(offset + 121)], false);
-
-            NumTXs = Serialization.GetUInt32(bytes, _offset + 121);
-            BlockSize = Serialization.GetUInt32(bytes, _offset + 125);
-            NumOutputs = Serialization.GetUInt32(bytes, _offset + 129);
-
-            Transactions = new Cipher.SHA256[NumTXs];
-            transactions = new FullTransaction[NumTXs];
-
-            Coinbase = new Transaction();
-            _offset = Coinbase.Deserialize(bytes, _offset + 133);
-
-            for (int i = 0; i < NumTXs; i++)
-            {
-                transactions[i] = new FullTransaction();
-                transactions[i].Deserialize(bytes, _offset);
-                _offset += transactions[i].Size();
-                Transactions[i] = transactions[i].Hash();
-            }
-
-            return _offset + SizeFull();
+            return offset;
         }
 
         public virtual void Deserialize(Stream s)
         {
-            Version = (byte)s.ReadByte();
+            Header = new BlockHeader();
+            Header.Deserialize(s);
 
-            Timestamp = Serialization.GetUInt64(s);
-            Height = Serialization.GetInt64(s);
-            Fee = Serialization.GetUInt64(s);
-
-            PreviousBlock = new SHA256(s);
-            BlockHash = new SHA256(s);
-            MerkleRoot = new SHA256(s);
-
-            NumTXs = Serialization.GetUInt32(s);
-            BlockSize = Serialization.GetUInt32(s);
-            NumOutputs = Serialization.GetUInt32(s);
-
-            Coinbase = new Transaction();
-            Coinbase.Deserialize(s);
-
-            Transactions = new SHA256[NumTXs];
-            for (int i = 0; i < NumTXs; i++)
+            Transactions = new FullTransaction[Header.NumTXs];
+            for (int i = 0; i < Transactions.Length; i++)
             {
-                Transactions[i] = new SHA256(s);
-            }
-        }
-
-        public virtual void DeserializeFull(Stream s)
-        {
-            Version = (byte)s.ReadByte();
-
-            Timestamp = Serialization.GetUInt64(s);
-            Height = Serialization.GetInt64(s);
-            Fee = Serialization.GetUInt64(s);
-
-            PreviousBlock = new SHA256(s);
-            BlockHash = new SHA256(s);
-            MerkleRoot = new SHA256(s);
-
-            NumTXs = Serialization.GetUInt32(s);
-            BlockSize = Serialization.GetUInt32(s);
-            NumOutputs = Serialization.GetUInt32(s);
-
-            Coinbase = new Transaction();
-            Coinbase.Deserialize(s);
-
-            transactions = new FullTransaction[NumTXs];
-            for (int i = 0; i < NumTXs; i++)
-            {
-                transactions[i] = new FullTransaction();
-                transactions[i].Deserialize(s);
+                Transactions[i] = new FullTransaction();
+                Transactions[i].Deserialize(s);
             }
         }
 
         public virtual uint Size()
         {
-            return 133 + (Coinbase != null ? Coinbase.Size() : 0) + 32 * (uint)Transactions.Length;
-        }
+            uint size = Header.Size();
 
-        public virtual uint SizeFull()
-        {
-            uint size = 133 + (Coinbase != null ? Coinbase.Size() : 0);
-
-            for (int i = 0; i < transactions.Length; i++)
+            for (int i = 0; i < Transactions.Length; i++)
             {
-                size += transactions[i].Size();
+                size += Transactions[i].Size();
             }
 
             return size;
@@ -339,7 +120,7 @@ namespace Discreet.Coin
                 }
             }
 
-            return Build(txs, null);
+            return Build(txs, null, default);
         }
 
         public static Block BuildRandomPlus(StealthAddress[] addresses, int[] numOutputs, List<FullTransaction> txExtras)
@@ -359,45 +140,48 @@ namespace Discreet.Coin
                 }
             }
 
-            return Build(txs, null);
+            return Build(txs, null, default);
         }
 
-        public static Block Build(List<FullTransaction> txs, StealthAddress miner)
+        public static Block Build(List<FullTransaction> txs, StealthAddress miner, Key signingKey)
         {
-            Block block = new();
-            block.Timestamp = (ulong)DateTime.Now.Ticks;
-            block.NumTXs = (uint)txs.Count;
-            block.Version = 0;
-
-            block.Fee = 0;
-            block.NumOutputs = 0;
-            block.BlockSize = 133;
+            Block block = new Block
+            {
+                Header = new BlockHeader
+                {
+                    Timestamp = (ulong)DateTime.UtcNow.Ticks,
+                    NumTXs = (uint)txs.Count,
+                    Version = 0,
+                    Fee = 0,
+                    NumOutputs = 0,
+                    BlockSize = 137
+                },
+            };
 
             for (int i = 0; i < txs.Count; i++)
             {
-                block.Fee += txs[i].Fee;
-                block.NumOutputs += txs[i].NumOutputs;
-                block.BlockSize += txs[i].Size();
+                block.Header.Fee += txs[i].Fee;
+                block.Header.NumOutputs += txs[i].NumOutputs;
+                block.Header.BlockSize += txs[i].Size();
             }
 
             DB.DisDB db = DB.DisDB.GetDB();
 
-            block.Height = db.GetChainHeight() + 1;
+            block.Header.Height = db.GetChainHeight() + 1;
 
-            if (block.Height > 0)
+            if (block.Header.Height > 0)
             {
-                block.PreviousBlock = db.GetBlock(block.Height - 1).BlockHash;
+                block.Header.PreviousBlock = db.GetBlockHeader(block.Header.Height - 1).BlockHash;
             }
             else
             {
-                block.PreviousBlock = new SHA256(new byte[32], false);
+                block.Header.PreviousBlock = new SHA256(new byte[32], false);
             }
 
-            if (block.Fee > 0 && miner != null)
+            if (block.Header.Fee > 0 && miner != null)
             {
                 /* Construct miner TX */
                 Transaction minertx = new();
-                minertx.Version = 0;
                 minertx.NumInputs = 0;
                 minertx.NumOutputs = 1;
                 minertx.NumSigs = 0;
@@ -412,84 +196,99 @@ namespace Discreet.Coin
 
                 /* the mask is always the identity for miner tx */
                 Key mask = Key.I;
-                KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, block.Fee);
+                KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, block.Header.Fee);
 
                 minerOutput.UXKey = KeyOps.DKSAP(ref r, miner.view, miner.spend, 0);
-                minerOutput.Amount = block.Fee;
+                minerOutput.Amount = block.Header.Fee;
 
                 minertx.Outputs = new TXOutput[1] { minerOutput };
 
                 minertx.TransactionKey = R;
 
-                block.Coinbase = minertx;
+                txs.Insert(0, minertx.ToFull());
+
+                block.Header.BlockSize += minertx.Size();
             }
-            else
+
+            if (signingKey != default)
             {
-                /* Construct miner TX */
-                Transaction minertx = new();
-                minertx.Version = 0;
-                minertx.NumInputs = 0;
-                minertx.NumOutputs = 1;
-                minertx.NumSigs = 0;
+                if (block.Header.Fee > 0 && miner != null)
+                {
+                    block.Header.Version = 2;
+                }
+                else
+                {
+                    block.Header.Version = 1;
+                }
 
-                Key R = new(new byte[32]);
-                Key r = new(new byte[32]);
-
-                KeyOps.GenerateKeypair(ref r, ref R);
-
-                TXOutput minerOutput = new();
-                minerOutput.Commitment = new Key(new byte[32]);
-
-                /* the mask is always the identity for miner tx */
-                Key mask = Key.I;
-                KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, 0);
-
-                minerOutput.UXKey = Key.I;
-                minerOutput.Amount = 0;
-
-                minertx.Outputs = new TXOutput[1] { minerOutput };
-
-                minertx.TransactionKey = R;
-
-                block.Coinbase = minertx;
+                block.Header.ExtraLen = 96;
+                block.Header.BlockSize += 96;
             }
 
-            block.BlockSize += block.Coinbase.Size();
-
-            block.MerkleRoot = GetMerkleRoot(txs, block.Coinbase);
+            block.Header.MerkleRoot = GetMerkleRoot(txs);
 
             /* Block hash is just the header hash, i.e. Hash(Version, Timestamp, Height, BlockSize, NumTXs, NumOutputs, PreviousBlock, MerkleRoot) */
-            block.BlockHash = block.Hash();
+            block.Header.BlockHash = block.Hash();
 
-            block.transactions = txs.ToArray();
-
-            block.Transactions = new SHA256[block.transactions.Length];
-
-            for (int k = 0; k < txs.Count; k++)
+            if (signingKey != default)
             {
-                block.Transactions[k] = txs[k].Hash();
+                block.Header.Extra = KeyOps.Sign(ref signingKey, block.Header.BlockHash).ToBytes();
             }
+
+            block.Transactions = txs.ToArray();
 
             return block;
         }
 
-        public static SHA256 GetMerkleRoot(List<FullTransaction> txs, Transaction tx)
+        public static Block BuildGenesis(StealthAddress[] addresses, ulong[] values, int numDummy, Key signingKey)
         {
-            List<SHA256> hashes = new();
+            List<FullTransaction> txs = new();
 
-            hashes.Add(tx.Hash());
-
-            for (int k = 0; k < txs.Count; k++)
+            for (int i = 0; i < numDummy / 16; i++)
             {
-                hashes.Add(txs[k].Hash());
-            } 
-
-            while (hashes.Count > 1)
-            {
-                hashes = GetMerkleRoot(hashes);
+                txs.Add(Transaction.GenerateRandomNoSpend(new StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey()), 16).ToFull());
             }
 
-            return hashes[0];
+            if (numDummy % 16 != 0)
+            {
+                txs.Add(Transaction.GenerateRandomNoSpend(new StealthAddress(KeyOps.GeneratePubkey(), KeyOps.GeneratePubkey()), numDummy % 16).ToFull());
+            }
+
+            for (int i = 0; i < addresses.Length; i++)
+            {
+                Transaction tx = new()
+                {
+                    Version = 0,
+                    NumInputs = 0,
+                    NumOutputs = 1,
+                    NumSigs = 0,
+                };
+
+                Key r = new(new byte[32]);
+                Key R = new(new byte[32]);
+
+                KeyOps.GenerateKeypair(ref r, ref R);
+
+                tx.Outputs = new TXOutput[1];
+
+
+                tx.Outputs[0] = new TXOutput
+                {
+                    Commitment = new Key(new byte[32])
+                };
+
+                Key mask = KeyOps.GenCommitmentMask(ref r, ref addresses[i].view, 0);
+                KeyOps.GenCommitment(ref tx.Outputs[0].Commitment, ref mask, values[i]);
+                tx.Outputs[0].UXKey = KeyOps.DKSAP(ref r, addresses[i].view, addresses[i].spend, 0);
+                tx.Outputs[0].Amount = KeyOps.GenAmountMask(ref r, ref addresses[i].view, 0, values[i]);
+
+
+                tx.TransactionKey = R;
+
+                txs.Add(tx.ToFull());
+            }
+
+            return Build(txs, null, signingKey);
         }
 
         public static SHA256 GetMerkleRoot(List<FullTransaction> txs)
@@ -511,22 +310,15 @@ namespace Discreet.Coin
 
         public SHA256 GetMerkleRoot()
         {
-            if (Transactions == null && transactions != null)
-            {
-                Transactions = new SHA256[transactions.Length];
 
-                for (int k = 0; k < transactions.Length; k++)
-                {
-                    Transactions[k] = transactions[k].Hash();
-                }
+            var _transactions = new SHA256[Transactions.Length];
+
+            for (int k = 0; k < Transactions.Length; k++)
+            {
+                _transactions[k] = Transactions[k].Hash();
             }
 
-            List<SHA256> hashes = new(Transactions);
-
-            if (Version != 1)
-            {
-                hashes.Insert(0, Coinbase.Hash());
-            }
+            List<SHA256> hashes = new(_transactions);
 
             while (hashes.Count > 1)
             {
@@ -558,18 +350,7 @@ namespace Discreet.Coin
 
         public SHA256 Hash()
         {
-            byte[] bytes = new byte[93];
-            bytes[0] = Version;
-
-            Serialization.CopyData(bytes, 1, Timestamp);
-            Serialization.CopyData(bytes, 9, Height);
-            Serialization.CopyData(bytes, 17, NumTXs);
-            Serialization.CopyData(bytes, 21, BlockSize);
-            Serialization.CopyData(bytes, 25, NumOutputs);
-            Array.Copy(PreviousBlock.Bytes, 0, bytes, 29, 32);
-            Array.Copy(MerkleRoot.Bytes, 0, bytes, 61, 32);
-
-            return SHA256.HashData(bytes);
+            return Header.Hash();
         }
 
         public virtual VerifyException Verify()
@@ -588,119 +369,136 @@ namespace Discreet.Coin
 
             DB.DisDB db = DB.DisDB.GetDB();
 
-            if (Height != db.GetChainHeight() + 1)
+            if (Header.Version != 1 && Header.Version != 2)
             {
-                return new VerifyException("Block", $"Block is not next in sequence (expected {db.GetChainHeight() + 1}, but got {Height})");
+                return new VerifyException("Block", $"Unsupported version (blocks are either version 1 or 2); got version {Header.Version}");
             }
 
-            if (transactions == null)
+            if (Header.Height != db.GetChainHeight() + 1)
+            {
+                return new VerifyException("Block", $"Block is not next in sequence (expected {db.GetChainHeight() + 1}, but got {Header.Height})");
+            }
+
+            if (Transactions == null || Transactions.Length == 0)
             {
                 return new VerifyException("Block", $"Block does not contain full transaction information (malformed)");
             }
 
-            if (NumTXs != transactions.Length)
+            if (Header.NumTXs != Transactions.Length)
             {
-                return new VerifyException("Block", $"Transaction count mismatch: expected {NumTXs}, but got {Transactions.Length})");
+                return new VerifyException("Block", $"Transaction count mismatch: expected {Header.NumTXs}, but got {Transactions.Length})");
             }
 
             SHA256 merkleRoot = GetMerkleRoot();
 
-            if(!merkleRoot.Equals(MerkleRoot))
+            if(!merkleRoot.Equals(Header.MerkleRoot))
             {
-                return new VerifyException("Block", $"Merkle root mismatch: expected {MerkleRoot.ToHexShort()}, but got {merkleRoot.ToHexShort()}");
+                return new VerifyException("Block", $"Merkle root mismatch: expected {Header.MerkleRoot.ToHexShort()}, but got {merkleRoot.ToHexShort()}");
             }
 
-            if (Height == 0)
+            if (Header.Height == 0)
             {
-                if (!PreviousBlock.Equals(new SHA256(new byte[32], false)))
+                if (!Header.PreviousBlock.Equals(new SHA256(new byte[32], false)))
                 {
-                    return new VerifyException("Block", $"genesis block should point to zero hash, but got {PreviousBlock.ToHexShort()}");
+                    return new VerifyException("Block", $"genesis block should point to zero hash, but got {Header.PreviousBlock.ToHexShort()}");
                 }
             }
             else
             {
-                SHA256 prevBlockHash = db.GetBlock(Height - 1).BlockHash;
+                SHA256 prevBlockHash = db.GetBlockHeader(Header.Height - 1).BlockHash;
 
-                if (!prevBlockHash.Equals(PreviousBlock))
+                if (!prevBlockHash.Equals(Header.PreviousBlock))
                 {
-                    return new VerifyException("Block", $"previous block mismatch: expected {prevBlockHash.ToHexShort()} (previous block in database), but got {PreviousBlock.ToHexShort()}");
+                    return new VerifyException("Block", $"previous block mismatch: expected {prevBlockHash.ToHexShort()} (previous block in database), but got {Header.PreviousBlock.ToHexShort()}");
                 }
+            }
+
+            if (Header.ExtraLen != (Header.Extra?.Length ?? 0))
+            {
+                return new VerifyException("Block", $"Block extra mismatch: expected length {Header.ExtraLen}, but got {Header.Extra?.Length ?? 0}");
             }
 
             SHA256 blockHash = Hash();
 
-            if (!blockHash.Equals(BlockHash))
+            if (!blockHash.Equals(Header.BlockHash))
             {
-                return new VerifyException("Block", $"block hash mismatch: expected {BlockHash.ToHexShort()}, but got {blockHash.ToHexShort()}");
+                return new VerifyException("Block", $"block hash mismatch: expected {Header.BlockHash.ToHexShort()}, but got {blockHash.ToHexShort()}");
             }
 
             ulong fee = 0;
             uint numOutputs = 0;
-            uint blockSize = 133 + ((Coinbase == null) ? 0 : Coinbase.Size());
+            uint blockSize = 137 + (uint)(Header.Extra?.Length ?? 0);
 
-            for (int i = 0; i < transactions.Length; i++)
+            for (int i = 0; i < Transactions.Length; i++)
             {
-                fee += transactions[i].Fee;
-                numOutputs += transactions[i].NumOutputs;
-                blockSize += transactions[i].Size();
+                fee += Transactions[i].Fee;
+                numOutputs += Transactions[i].NumOutputs;
+                blockSize += Transactions[i].Size();
             }
 
-            if (fee != Fee)
+            if (fee != Header.Fee)
             {
-                return new VerifyException("Block", $"block fee mismatch: expected {Fee} as included in block, but got {fee} from calculations");
+                return new VerifyException("Block", $"block fee mismatch: expected {Header.Fee} as included in block, but got {fee} from calculations");
             }
 
-            if (numOutputs != NumOutputs)
+            if (numOutputs != Header.NumOutputs)
             {
-                return new VerifyException("Block", $"block output count mismatch: expected {NumOutputs} as included in block, but got {numOutputs} from calculations");
+                return new VerifyException("Block", $"block output count mismatch: expected {Header.NumOutputs} as included in block, but got {numOutputs} from calculations");
             }
 
-            if (blockSize != BlockSize)
+            if (blockSize != Header.BlockSize)
             {
-                return new VerifyException("Block", $"block size (in bytes) mismatch: expected {BlockSize} as included in block, but got {blockSize} from calculations");
+                return new VerifyException("Block", $"block size (in bytes) mismatch: expected {Header.BlockSize} as included in block, but got {blockSize} from calculations");
             }
 
             /* verify coinbase */
-            if (Coinbase == null)
+            if (Header.Version == 2)
             {
-                return new VerifyException("Block", "No coinbase transaction detected");
+                var _coinbase = Transactions[0];
+
+                if (_coinbase == null)
+                {
+                    return new VerifyException("Block", "No coinbase transaction detected");
+                }
+
+                if (_coinbase.Version != 0)
+                {
+                    return new VerifyException("Block", "Miner tx not present or invalid");
+                }
+
+                var coinbase = _coinbase.ToPrivate();
+
+                if (coinbase.Outputs == null || coinbase.Outputs.Length != 1)
+                {
+                    return new VerifyException("Block", "Miner tx has invalid outputs");
+                }
+
+                var minerexc = coinbase.Verify();
+
+                if (minerexc != null)
+                {
+                    return minerexc;
+                }
+
+                /* now verify output amount matches commitment */
+                Key feeComm = new(new byte[32]);
+                Key _I = Key.Copy(Key.I);
+                KeyOps.GenCommitment(ref feeComm, ref _I, Header.Fee);
+
+                if (!feeComm.Equals(coinbase.Outputs[0].Commitment))
+                {
+                    return new VerifyException("Block", "Coinbase transaction in block does not balance with fee commitment!");
+                }
             }
 
-            if (Coinbase.Version != 0)
+            for (int i = Header.Version == 1 ? 0 : 1; i < Transactions.Length; i++)
             {
-                return new VerifyException("Block", "Miner tx not present or invalid");
-            }
-
-            if (Coinbase.Outputs == null || Coinbase.Outputs.Length != 1)
-            {
-                return new VerifyException("Block", "Miner tx has invalid outputs");
-            }
-
-            var minerexc = Coinbase.Verify();
-
-            if (minerexc != null)
-            {
-                return minerexc;
-            }
-
-            /* now verify output amount matches commitment */
-            Key feeComm = new(new byte[32]);
-            Key _I = Key.Copy(Key.I);
-            KeyOps.GenCommitment(ref feeComm, ref _I, Fee);
-
-            if (!feeComm.Equals(Coinbase.Outputs[0].Commitment))
-            {
-                return new VerifyException("Block", "Coinbase transaction in block does not balance with fee commitment!");
-            }
-
-            for (int i = 0; i < transactions.Length; i++)
-            {
-                if (Height > 0 && transactions[i].Version == 0)
+                if (Header.Height > 0 && Transactions[i].Version == 0)
                 {
                     return new VerifyException("Block", "block contains coinbase transaction outside of miner tx");
                 }
 
-                var txexc = transactions[i].Verify(inBlock: true);
+                var txexc = Transactions[i].Verify(inBlock: true);
 
                 if (txexc != null)
                 {
@@ -708,104 +506,27 @@ namespace Discreet.Coin
                 }
             }
 
+            if ((Header.Version == 1 || Header.Version == 2) && !CheckSignature())
+            {
+                return new VerifyException("Block", "block signature is invalid and/or does not come from a masternode!");
+            }
+
             return null;
         }
 
-        /* Should not be called on genesis block. */
-        public virtual VerifyException VerifyIncoming()
+        public bool CheckSignature()
         {
-            /* VerifyIncoming does the following:
-             *   - ensures Height is equal to db.GetChainHeight() + 1
-             *   - ensures all transactions are present in TXPool 
-             *   - ensures MerkleRoot is proper
-             *   - ensures PreviousBlock is the result of db.GetBlock(block.Height - 1).BlockHash
-             *   - ensures BlockHash is proper
-             *   - ensures BlockSize, NumOutputs, NumTXs and Fee are proper
-             *   
-             * VerifyIncoming() should be used for incoming blocks only. Validating previous blocks 
-             * is not needed, as blocks are always processed in order.
-             */
+            if (Header.Extra == null || Header.Extra.Length != 96) return true;
 
-            DB.DisDB db = DB.DisDB.GetDB();
+            var sig = new Signature(Header.Extra);
+            return sig.Verify(Header.BlockHash) && IsMasternode(sig.y);
+        }
 
-            if (Height != db.GetChainHeight() + 1)
-            {
-                return new VerifyException("Block", "Incoming", $"Block is not next in sequence (expected {db.GetChainHeight() + 1}, but got {Height})");
-            }
-
-            if (transactions == null)
-            {
-                try
-                {
-                    transactions = db.GetTXsFromPool(Transactions);
-                }
-                catch (Exception e)
-                {
-                    return new VerifyException("Block", "Incoming", $"Error while getting transactions from TXPool: " + e.Message);
-                }
-
-                for (int i = 0; i < Transactions.Length; i++)
-                {
-                    if (transactions[i] == null)
-                    {
-                        return new VerifyException("Block", "Incoming", $"Not all transactions in block are in TXPool: first tx not present is {Transactions[i].ToHexShort()}");
-                    }
-                }
-            }
-
-            if (NumTXs != transactions.Length)
-            {
-                return new VerifyException("Block", "Incoming", $"Transaction count mismatch: expected {NumTXs}, but got {Transactions.Length})");
-            }
-
-            SHA256 merkleRoot = GetMerkleRoot();
-
-            if (!merkleRoot.Equals(MerkleRoot))
-            {
-                return new VerifyException("Block", "Incoming", $"Merkle root mismatch: expected {MerkleRoot.ToHexShort()}, but got {merkleRoot.ToHexShort()}");
-            }
-
-            SHA256 prevBlockHash = db.GetBlock(Height - 1).BlockHash;
-
-            if (!prevBlockHash.Equals(PreviousBlock))
-            {
-                return new VerifyException("Block", "Incoming", $"previous block mismatch: expected {prevBlockHash.ToHexShort()} (previous block in database), but got {PreviousBlock.ToHexShort()}");
-            }
-
-            SHA256 blockHash = Hash();
-
-            if (!blockHash.Equals(BlockHash))
-            {
-                return new VerifyException("Block", "Incoming", $"block hash mismatch: expected {BlockHash.ToHexShort()}, but got {blockHash.ToHexShort()}");
-            }
-
-            ulong fee = 0;
-            uint numOutputs = 0;
-            uint blockSize = 133;
-
-            for (int i = 0; i < transactions.Length; i++)
-            {
-                fee += transactions[i].Fee;
-                numOutputs += transactions[i].NumOutputs;
-                blockSize += transactions[i].Size();
-            }
-
-            if (fee != Fee)
-            {
-                return new VerifyException("Block", "Incoming", $"block fee mismatch: expected {Fee} as included in block, but got {fee} from calculations");
-            }
-
-            if (numOutputs != NumOutputs)
-            {
-                return new VerifyException("Block", "Incoming", $"block output count mismatch: expected {NumOutputs} as included in block, but got {numOutputs} from calculations");
-            }
-
-            if (blockSize != BlockSize)
-            {
-                return new VerifyException("Block", "Incoming", $"block size (in bytes) mismatch: expected {BlockSize} as included in block, but got {blockSize} from calculations");
-            }
-
-            return null;
+        public static bool IsMasternode(Key k)
+        {
+            //TODO: Implement hardcoded masternode IDs
+            return k == Key.FromHex("74df105d0d37ef0c31ef2656297e514c52ec49ce387b587f97a13e2c3a57065e");
+            //return true;
         }
     }
 }

@@ -10,6 +10,85 @@ using RocksDbSharp;
 namespace Discreet.DB
 {
     /**
+     * The following DB schema is adopted from Monero, with some simplification.
+     * 
+     * Table            Key             Value
+     * -----            ---             -----
+     * spent_keys       input hash      -
+     * 
+     * tx_pool_meta     tx hash         tx metadata
+     * tx_pool_blob     tx hash         tx blob
+     * 
+     * outputs          output index    tx output
+     * 
+     * tx_indices       tx hash         {tx ID, metadata}
+     * txs              tx ID           tx
+     * 
+     * tx_outputs       tx hash         {array of output indices}
+     * owned_outputs    owned index     utxo
+     * 
+     * block_info       block ID        {block metadata}
+     * block_heights    block hash      block height
+     * blocks           block ID        block blob
+     * cacheblock       block hash      block blob
+     * block_headers    block ID        block header
+     * 
+     * For the sake of efficiency, certain data is duplicated slightly for better retrieval.
+     * Spent keys (I.E. linking tags) are duplicated for quick double spend verification.
+     * TX Outputs are duplicated (save for TransactionSrc) in transactions/outputs tables for quick use in mixin rings.
+     * 
+     * For the sake of clarification, a description of "indices" will be used here.
+     * Wherever the word "index/indices" is used, I have done my best to clarify specifically what this means in each 
+     * context. Usually this will refer to the output index, which is used for quick grabbing of outputs for use in
+     * mixins. This is called the Global Index of the output, and is determined when the head block is added to the 
+     * database. Since we guarantee a topological sort of transactions via consensus, we can deterministically add 
+     * each transaction to the database to get transaction indices and the outputs for each transaction to the 
+     * database consistently to get the global indices for each output. As such, global index and transaction index
+     * information is consistent among all honest nodes (at the cost of availability and partition tolerance); yet,
+     * validation/consensus regains availablility and partition tolerance (CAP theorem). 
+     * 
+     * A note on DAGs:
+     * We currently do not have Aleph implemented to the point where we are ready to use it for testnet. As such,
+     * database information regarding the block DAG is not present. Once consensus implementation matures, such changes
+     * will be reflected in this file. For now, we support a blockchain for the sake of quick development towards a
+     * viable testnet.
+     * 
+     * Another note:
+     * Block metadata is currently not being tracked since testnet blocks will all be minted by similar parties.
+     * Same goes for transaction metadata for now.
+     * For tx_indices, we only store tx ID. 
+     */
+    public class U64
+    {
+        public ulong Value;
+
+        public U64(ulong value)
+        {
+            Value = value;
+        }
+    }
+
+    public class L64
+    {
+        public long Value;
+
+        public L64(long value)
+        {
+            Value = value;
+        }
+    }
+
+    public class U32
+    {
+        public uint Value;
+
+        public U32(uint value)
+        {
+            Value = value;
+        }
+    }
+
+    /**
      * New implementation of kvstore backend using RocksDbSharp
      */
     public class DisDB
@@ -55,6 +134,7 @@ namespace Discreet.DB
         public static ColumnFamilyHandle OutputIndices;
         public static ColumnFamilyHandle OwnedOutputs;
         public static ColumnFamilyHandle BlockCache;
+        public static ColumnFamilyHandle BlockHeaders;
 
         public static string SPENT_KEYS = "spent_keys";
         public static string TX_POOL_BLOB = "tx_pool_blob";
@@ -68,6 +148,7 @@ namespace Discreet.DB
         public static string OUTPUT_INDICES = "output_indices";
         public static string OWNED_OUTPUTS = "owned_outputs";
         public static string BLOCK_CACHE = "block_cache";
+        public static string BLOCK_HEADERS = "block_headers";
 
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
@@ -112,7 +193,8 @@ namespace Discreet.DB
                 new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions()),
                 new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions()),
                 new ColumnFamilies.Descriptor(OWNED_OUTPUTS, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions())
+                new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions()),
+                new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions())
             };
 
             db = RocksDb.Open(options, path, _colFamilies);
@@ -129,6 +211,7 @@ namespace Discreet.DB
             OutputIndices = db.GetColumnFamily(OUTPUT_INDICES);
             OwnedOutputs = db.GetColumnFamily(OWNED_OUTPUTS);
             BlockCache = db.GetColumnFamily(BLOCK_CACHE);
+            BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
 
             if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
             {
@@ -223,46 +306,43 @@ namespace Discreet.DB
         {
             MustBeOpen();
 
-            var result = db.Get(Serialization.Int64(blk.Height), cf: BlockHeights);
+            var result = db.Get(Serialization.Int64(blk.Header.Height), cf: BlockHeights);
 
             if (result != null)
             {
-                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} (height {blk.Height}) already in database!");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!");
             }
 
-            if (blk.transactions == null || blk.transactions.Length == 0 || blk.NumTXs == 0)
+            if (blk.Transactions == null || blk.Transactions.Length == 0 || blk.Header.NumTXs == 0)
             {
-                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} has no transactions!");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has no transactions!");
             }
 
-            if ((long)blk.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
+            if ((long)blk.Header.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
             {
-                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} from too far in the future!");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} from too far in the future!");
             }
 
             /* unfortunately, we can't check the transactions yet, since some output indices might not be present. We check a few things though. */
-            foreach (FullTransaction tx in blk.transactions)
+            foreach (FullTransaction tx in blk.Transactions)
             {
                 if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
                 {
-                    throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
+                    throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
                 }
             }
 
-            if (blk.GetMerkleRoot() != blk.MerkleRoot)
+            if (blk.GetMerkleRoot() != blk.Header.MerkleRoot)
             {
-                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} has invalid Merkle root");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has invalid Merkle root");
             }
 
-            if (blk is SignedBlock block)
+            if (!blk.CheckSignature())
             {
-                if (!block.CheckSignature())
-                {
-                    throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} has missing or invalid signature!");
-                }
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has missing or invalid signature!");
             }
 
-            db.Put(blk.BlockHash.Bytes, blk.SerializeFull(), cf: BlockCache);
+            db.Put(blk.Header.BlockHash.Bytes, blk.Serialize(), cf: BlockCache);
         }
 
         public bool BlockCacheHas(Cipher.SHA256 block)
@@ -272,58 +352,49 @@ namespace Discreet.DB
 
         public void AddBlock(Block blk)
         {
-            var result = db.Get(Serialization.Int64(blk.Height), cf: Blocks);
+            var result = db.Get(Serialization.Int64(blk.Header.Height), cf: Blocks);
 
             if (result != null)
             {
-                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.BlockHash.ToHexShort()} (height {blk.Height}) already in database!");
+                throw new Exception($"Discreet.DisDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!");
             }
 
-            if (blk.Height > 0)
+            if (blk.Header.Height > 0)
             {
-                result = db.Get(blk.PreviousBlock.Bytes, cf: BlockHeights);
+                result = db.Get(blk.Header.PreviousBlock.Bytes, cf: BlockHeights);
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DisDB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not found");
+                    throw new Exception($"Discreet.DisDB.AddBlock: Previous block hash {blk.Header.PreviousBlock.ToHexShort()} for block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) not found");
                 }
 
                 long prevBlockHeight = Serialization.GetInt64(result, 0);
                 if (prevBlockHeight != height.Value)
                 {
-                    throw new Exception($"Discreet.DisDB.AddBlock: Previous block hash {blk.PreviousBlock.ToHexShort()} for block {blk.BlockHash.ToHexShort()} (height {blk.Height}) not previous one in sequence (at height {prevBlockHeight})");
+                    throw new Exception($"Discreet.DisDB.AddBlock: Previous block hash {blk.Header.PreviousBlock.ToHexShort()} for block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) not previous one in sequence (at height {prevBlockHeight})");
                 }
             }
 
             lock (height)
             {
-                if (blk.Height != height.Value + 1)
+                if (blk.Header.Height != height.Value + 1)
                 {
-                    throw new Exception($"Discreeet.DB.AddBlock: block height {blk.Height} not in sequence!");
+                    throw new Exception($"Discreeet.DB.AddBlock: block height {blk.Header.Height} not in sequence!");
                 }
 
                 height.Value++;
             }
 
-            if (blk.NumTXs != blk.Transactions.Length)
+            if (blk.Header.NumTXs != blk.Transactions.Length)
             {
-                throw new Exception($"Discreet.DisDB.AddBlock: NumTXs field not equal to length of Transaction array in block ({blk.NumTXs} != {blk.Transactions.Length})");
+                throw new Exception($"Discreet.DisDB.AddBlock: NumTXs field not equal to length of Transaction array in block ({blk.Header.NumTXs} != {blk.Transactions.Length})");
             }
 
-            if (blk.Height > 0 && blk.transactions == null)
+            for (int i = 0; i < blk.Header.NumTXs; i++)
             {
-                for (int i = 0; i < blk.NumTXs; i++)
-                {
-                    AddTransactionFromPool(blk.Transactions[i]);
-                }
+                AddTransaction(blk.Transactions[i]);
             }
-            else
-            {
-                for (int i = 0; i < blk.NumTXs; i++)
-                {
-                    AddTransaction(blk.transactions[i]);
-                }
-            }
+
 
             lock (indexer_tx)
             {
@@ -340,12 +411,15 @@ namespace Discreet.DB
                 db.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
             }
 
-            db.Put(blk.BlockHash.Bytes, Serialization.Int64(blk.Height), cf: BlockHeights);
-            db.Put(Serialization.Int64(blk.Height), blk.SerializeFull(), cf: Blocks);
+            db.Put(blk.Header.BlockHash.Bytes, Serialization.Int64(blk.Header.Height), cf: BlockHeights);
+            db.Put(Serialization.Int64(blk.Header.Height), blk.Serialize(), cf: Blocks);
+
+            db.Put(Serialization.Int64(blk.Header.Height), blk.Header.Serialize(), cf: BlockHeaders);
         }
 
         private void AddTransaction(FullTransaction tx)
         {
+            //TODO: clear tx from txpool if present
             Cipher.SHA256 txhash = tx.Hash();
             if (db.Get(txhash.Bytes, cf: TxIndices) != null)
             {
@@ -376,50 +450,6 @@ namespace Discreet.DB
             for (int i = 0; i < tx.NumPInputs; i++)
             {
                 db.Put(tx.PInputs[i].KeyImage.bytes, ZEROKEY, cf: SpentKeys);
-            }
-        }
-
-        private void AddTransactionFromPool(Cipher.SHA256 txhash)
-        {
-            if (db.Get(txhash.Bytes, cf: TxIndices) != null)
-            {
-                throw new Exception($"Discreet.DisDB.AddTransactionFromPool: Transaction {txhash.ToHexShort()} already in TX table!");
-            }
-
-            ulong txIndex;
-
-            lock (indexer_tx)
-            {
-                indexer_tx.Value++;
-                txIndex = indexer_tx.Value;
-            }
-
-            db.Put(txhash.Bytes, Serialization.UInt64(txIndex), cf: TxIndices);
-            var result = db.Get(txhash.Bytes, cf: TxPoolBlob);
-
-            if (result == null)
-            {
-                throw new Exception($"Discreet.DisDB.AddTransactionFromPool: could not get transaction from pool with hash {txhash.ToHexShort()}");
-            }
-
-            db.Remove(txhash.Bytes, cf: TxPoolBlob);
-            db.Put(Serialization.UInt64(txIndex), result, cf: Txs);
-
-            (TXOutput[] outputs, TXInput[] inputs) = FullTransaction.GetPrivateOutputsAndInputs(result);
-
-            uint[] outputIndices = new uint[outputs.Length];
-
-            for (int i = 0; i < outputs.Length; i++)
-            {
-                outputIndices[i] = AddOutput(outputs[i]);
-            }
-
-            byte[] uintArr = Serialization.UInt32Array(outputIndices);
-            db.Put(txhash.Bytes, uintArr, OutputIndices);
-
-            for (int i = 0; i < inputs.Length; i++)
-            {
-                db.Put(inputs[i].KeyImage.bytes, ZEROKEY, cf: SpentKeys);
             }
         }
 
@@ -557,6 +587,14 @@ namespace Discreet.DB
             return txs;
         }
 
+        public void UpdateTXPool(IEnumerable<Cipher.SHA256> txhashs)
+        {
+            foreach (var hash in txhashs)
+            {
+                db.Remove(hash.Bytes, cf: TxPoolBlob);
+            }
+        }
+
         public List<FullTransaction> GetTXPool()
         {
             List<FullTransaction> pool = new List<FullTransaction>();
@@ -592,17 +630,17 @@ namespace Discreet.DB
 
                 if (bytes[0] == 1 || bytes[0] == 2)
                 {
-                    SignedBlock block = new SignedBlock();
-                    block.DeserializeFull(bytes);
+                    Block block = new Block();
+                    block.Deserialize(bytes);
 
-                    blockCache.Add(block.Height, block);
+                    blockCache.Add(block.Header.Height, block);
                 }
                 else
                 {
                     Block block = new Block();
-                    block.DeserializeFull(bytes);
+                    block.Deserialize(bytes);
 
-                    blockCache.Add(block.Height, block);
+                    blockCache.Add(block.Header.Height, block);
                 }
 
                 iterator.Next();
@@ -853,8 +891,8 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DisDB.GetBlock: No block exists with height {height}");
             }
 
-            SignedBlock blk = new SignedBlock();
-            blk.DeserializeFull(result);
+            Block blk = new Block();
+            blk.Deserialize(result);
             return blk;
         }
 
@@ -869,6 +907,33 @@ namespace Discreet.DB
 
             long height = Serialization.GetInt64(result, 0);
             return GetBlock(height);
+        }
+
+        public BlockHeader GetBlockHeader(Cipher.SHA256 blockHash)
+        {
+            var result = db.Get(blockHash.Bytes, cf: BlockHeights);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.DisDB.GetBlockHeader: No block header exists with block hash {blockHash.ToHexShort()}");
+            }
+
+            long height = Serialization.GetInt64(result, 0);
+            return GetBlockHeader(height);
+        }
+
+        public BlockHeader GetBlockHeader(long height)
+        {
+            var result = db.Get(Serialization.Int64(height), cf: BlockHeaders);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.DisDB.GetBlockHeader: No block header exists with height {height}");
+            }
+
+            BlockHeader header = new BlockHeader();
+            header.Deserialize(result);
+            return header;
         }
 
         public uint GetOutputIndex()

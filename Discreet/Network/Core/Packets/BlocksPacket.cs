@@ -10,7 +10,7 @@ namespace Discreet.Network.Core.Packets
     public class BlocksPacket: IPacketBody
     {
         public uint BlocksLen { get; set; }
-        public Coin.SignedBlock[] Blocks { get; set; }
+        public Coin.Block[] Blocks { get; set; }
 
         public BlocksPacket()
         {
@@ -32,11 +32,11 @@ namespace Discreet.Network.Core.Packets
             BlocksLen = Coin.Serialization.GetUInt32(b, offset);
             offset += 4;
 
-            Blocks = new Coin.SignedBlock[BlocksLen];
+            Blocks = new Coin.Block[BlocksLen];
             for (int i = 0; i < BlocksLen; i++)
             {
-                Blocks[i] = new Coin.SignedBlock();
-                offset += Blocks[i].DeserializeFull(b, offset);
+                Blocks[i] = new Coin.Block();
+                offset += Blocks[i].Deserialize(b, offset);
             }
         }
 
@@ -62,7 +62,7 @@ namespace Discreet.Network.Core.Packets
 
             for (int i = 0; i < BlocksLen; i++)
             {
-                Blocks[i].SerializeFull(b, offset);
+                Blocks[i].Serialize(b, offset);
                 offset += Blocks[i].Size();
             }
 
@@ -73,9 +73,9 @@ namespace Discreet.Network.Core.Packets
         {
             s.Write(Coin.Serialization.UInt32(BlocksLen));
 
-            foreach (Coin.SignedBlock block in Blocks)
+            foreach (Coin.Block block in Blocks)
             {
-                s.Write(block.SerializeFull());
+                s.Write(block.Serialize());
             }
         }
 
@@ -83,9 +83,9 @@ namespace Discreet.Network.Core.Packets
         {
             int rv = 4;
 
-            foreach(Coin.SignedBlock block in Blocks)
+            foreach(Coin.Block block in Blocks)
             {
-                rv += (int)block.SizeFull();
+                rv += (int)block.Size();
             }
 
             return rv;

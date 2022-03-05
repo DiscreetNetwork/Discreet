@@ -121,6 +121,8 @@ namespace Discreet.Wallets
             }
 
             IsEncrypted = encrypted;
+
+            Decrypt(passphrase);
         }
 
         public Wallet(string label, string passphrase, string mnemonic, bool encrypted = true, bool deterministic = true, uint bip39 = 24, uint numStealthAddresses = 1, uint numTransparentAddresses = 0)
@@ -193,6 +195,8 @@ namespace Discreet.Wallets
             }
 
             IsEncrypted = encrypted;
+
+            Decrypt(passphrase);
         }
 
         /**
@@ -337,7 +341,7 @@ namespace Discreet.Wallets
 
         private string JSON()
         {
-            Encrypt();
+            // Encrypt();
 
             return Readable.Wallet.ToReadable(this);
         }
@@ -360,6 +364,8 @@ namespace Discreet.Wallets
             }
 
             string json = File.ReadAllText(path);
+
+            return FromJSON(json);
 
             try
             {
@@ -405,31 +411,38 @@ namespace Discreet.Wallets
         {
             if (IsEncrypted) throw new Exception("Do not call if wallet is encrypted!");
 
-            for (int i = 0; i < Addresses.Length; i++)
+            if (block.Header.Version != 1)
             {
-                if (block.Coinbase != null)
+                var Coinbase = block.Transactions[0].ToPrivate();
+
+                for (int i = 0; i < Addresses.Length; i++)
                 {
-                    Key txKey = block.Coinbase.TransactionKey;
-                    Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[i].SecViewKey, ref Addresses[i].SecSpendKey, i);
-                    Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
-
-                    if (block.Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
+                    if (Coinbase != null)
                     {
-                        DB.DisDB db = DB.DisDB.GetDB();
+                        Key txKey = Coinbase.TransactionKey;
+                        Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[i].SecViewKey, ref Addresses[i].SecSpendKey, i);
+                        Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
 
-                        (int index, UTXO utxo) = db.AddWalletOutput(Addresses[i], block.Coinbase.ToFull(), i, false, true);
+                        if (Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
+                        {
+                            DB.DisDB db = DB.DisDB.GetDB();
 
-                        utxo.OwnedIndex = index;
+                            (int index, UTXO utxo) = db.AddWalletOutput(Addresses[i], Coinbase.ToFull(), i, false, true);
 
-                        Addresses[i].UTXOs.Add(utxo);
+                            utxo.OwnedIndex = index;
+
+                            Addresses[i].UTXOs.Add(utxo);
+                        }
                     }
                 }
             }
-
-            foreach (FullTransaction transaction in block.transactions)
+            
+            for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
             {
-                ProcessTransaction(transaction);
+                ProcessTransaction(block.Transactions[i]);
             }
+
+            ToFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, Label + ".dis"));
         }
 
         private void ProcessTransaction(FullTransaction transaction)
