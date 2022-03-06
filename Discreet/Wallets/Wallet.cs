@@ -581,11 +581,11 @@ namespace Discreet.Wallets
             {
                 if (Addresses[addrIndex].Syncer) continue;
 
-                Key cscalar = KeyOps.ScalarmultKey(ref transaction.TransactionKey, ref Addresses[addrIndex].SecViewKey);
+                Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref transaction.TransactionKey, ref Addresses[addrIndex].SecViewKey) : default;
 
-                for (int i = 0; i < numPOutputs; i++)
+                if (Addresses[addrIndex].Type == (byte)AddressType.STEALTH)
                 {
-                    if (Addresses[addrIndex].Type == (byte)AddressType.STEALTH)
+                    for (int i = 0; i < numPOutputs; i++)
                     {
                         for (int k = 0; k < Addresses[addrIndex].UTXOs.Count; k++)
                         {
@@ -607,12 +607,12 @@ namespace Discreet.Wallets
 
             for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
             {
-                for (int i = 0; i < numTOutputs; i++)
+                if (Addresses[addrIndex].Type == (byte)AddressType.TRANSPARENT)
                 {
-                    if (Addresses[addrIndex].Syncer) continue;
-
-                    if (Addresses[addrIndex].Type == (byte)AddressType.TRANSPARENT)
+                    for (int i = 0; i < numTOutputs; i++)
                     {
+                        if (Addresses[addrIndex].Syncer) continue;
+                    
                         string address = transaction.TOutputs[i].Address.ToString();
 
                         if (Addresses[addrIndex].Address == address)

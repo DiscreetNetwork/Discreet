@@ -891,15 +891,12 @@ namespace Discreet.Wallets
                     }
                 }
             }
-
-            for (int i = 0; i < numPOutputs; i++)
+            if (Type == (byte)AddressType.STEALTH)
             {
-                if (Type == (byte)AddressType.STEALTH)
-                {
-                    Key txKey = transaction.TransactionKey;
-                    Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref SecViewKey, ref SecSpendKey, i);
-                    Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+                Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref transaction.TransactionKey, ref SecViewKey) : default;
 
+                for (int i = 0; i < numPOutputs; i++)
+                {
                     for (int k = 0; k < UTXOs.Count; k++)
                     {
                         if (UTXOs[k].UXKey.Equals(transaction.POutputs[i].UXKey))
@@ -908,7 +905,7 @@ namespace Discreet.Wallets
                         }
                     }
 
-                    if (transaction.POutputs[i].UXKey.Equals(outputPubKey))
+                    if (KeyOps.CheckForBalance(ref cscalar, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
                     {
                         Visor.Logger.Log("You received some Discreet!");
                         ProcessOutput(transaction, i, false);
@@ -916,11 +913,11 @@ namespace Discreet.Wallets
                     }
                 }
             }
-
-            for (int i = 0; i < numTOutputs; i++)
+            if (Type == (byte)AddressType.TRANSPARENT)
             {
-                if (Type == (byte)AddressType.TRANSPARENT)
+                for (int i = 0; i < numTOutputs; i++)
                 {
+                
                     string address = transaction.TOutputs[i].Address.ToString();
 
                     if (Address == address)
