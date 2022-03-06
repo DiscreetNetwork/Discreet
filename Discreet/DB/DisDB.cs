@@ -173,104 +173,111 @@ namespace Discreet.DB
 
         public DisDB(string path)
         {
-            if (File.Exists(path)) throw new Exception("Discreet.DisDB: expects a valid directory path, not a file");
-
-            if (!Directory.Exists(path))
+            try
             {
-                Directory.CreateDirectory(path);
+                if (File.Exists(path)) throw new Exception("Discreet.DisDB: expects a valid directory path, not a file");
+
+                if (!Directory.Exists(path))
+                {
+                    Directory.CreateDirectory(path);
+                }
+
+                var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies();
+
+                var _colFamilies = new ColumnFamilies
+                {
+                    new ColumnFamilies.Descriptor(SPENT_KEYS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(TX_POOL_BLOB, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(TX_POOL_SPENT_KEYS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(OUTPUTS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(TX_INDICES, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(TXS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(BLOCK_HEIGHTS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(BLOCKS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(OWNED_OUTPUTS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(STORAGE_STORE, new ColumnFamilyOptions())
+                };
+
+                db = RocksDb.Open(options, path, _colFamilies);
+
+                SpentKeys = db.GetColumnFamily(SPENT_KEYS);
+                TxPoolBlob = db.GetColumnFamily(TX_POOL_BLOB);
+                TxPoolSpentKeys = db.GetColumnFamily(TX_POOL_SPENT_KEYS);
+                Outputs = db.GetColumnFamily(OUTPUTS);
+                TxIndices = db.GetColumnFamily(TX_INDICES);
+                Txs = db.GetColumnFamily(TXS);
+                BlockHeights = db.GetColumnFamily(BLOCK_HEIGHTS);
+                Blocks = db.GetColumnFamily(BLOCKS);
+                Meta = db.GetColumnFamily(META);
+                OutputIndices = db.GetColumnFamily(OUTPUT_INDICES);
+                OwnedOutputs = db.GetColumnFamily(OWNED_OUTPUTS);
+                BlockCache = db.GetColumnFamily(BLOCK_CACHE);
+                BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
+                StorageStore = db.GetColumnFamily(STORAGE_STORE);
+
+                if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
+                {
+                    /* completely empty and has just been created */
+                    db.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
+                    db.Put(Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value), cf: Meta);
+                    db.Put(Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value), cf: Meta);
+                    db.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
+                    db.Put(Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt32(indexer_owned_outputs.Value), cf: Meta);
+                }
+                else
+                {
+                    var result = db.Get(Encoding.ASCII.GetBytes("indexer_tx"), cf: Meta);
+
+                    if (result == null)
+                    {
+                        throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_tx");
+                    }
+
+                    indexer_tx.Value = Serialization.GetUInt64(result, 0);
+
+                    result = db.Get(Encoding.ASCII.GetBytes("indexer_output"), cf: Meta);
+
+                    if (result == null)
+                    {
+                        throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_output");
+                    }
+
+                    indexer_output.Value = Serialization.GetUInt32(result, 0);
+
+                    result = db.Get(Encoding.ASCII.GetBytes("height"), cf: Meta);
+
+                    if (result == null)
+                    {
+                        throw new Exception($"Discreet.DisDB: Fatal error: could not get height");
+                    }
+
+                    height.Value = Serialization.GetInt64(result, 0);
+
+                    result = db.Get(Encoding.ASCII.GetBytes("indexer_owned_outputs"), cf: Meta);
+
+                    if (result == null)
+                    {
+                        throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_owned_outputs");
+                    }
+
+                    indexer_owned_outputs.Value = Serialization.GetUInt32(result, 0);
+                }
+
+                folder = path;
             }
-
-            var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies();
-
-            var _colFamilies = new ColumnFamilies
+            catch (Exception ex)
             {
-                new ColumnFamilies.Descriptor(SPENT_KEYS, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(TX_POOL_BLOB, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(TX_POOL_SPENT_KEYS, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(OUTPUTS, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(TX_INDICES, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(TXS, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(BLOCK_HEIGHTS, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(BLOCKS, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(OWNED_OUTPUTS, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions()),
-                new ColumnFamilies.Descriptor(STORAGE_STORE, new ColumnFamilyOptions())
-            };
-
-            db = RocksDb.Open(options, path, _colFamilies);
-
-            SpentKeys = db.GetColumnFamily(SPENT_KEYS);
-            TxPoolBlob = db.GetColumnFamily(TX_POOL_BLOB);
-            TxPoolSpentKeys = db.GetColumnFamily(TX_POOL_SPENT_KEYS);
-            Outputs = db.GetColumnFamily(OUTPUTS);
-            TxIndices = db.GetColumnFamily(TX_INDICES);
-            Txs = db.GetColumnFamily(TXS);
-            BlockHeights = db.GetColumnFamily(BLOCK_HEIGHTS);
-            Blocks = db.GetColumnFamily(BLOCKS);
-            Meta = db.GetColumnFamily(META);
-            OutputIndices = db.GetColumnFamily(OUTPUT_INDICES);
-            OwnedOutputs = db.GetColumnFamily(OWNED_OUTPUTS);
-            BlockCache = db.GetColumnFamily(BLOCK_CACHE);
-            BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
-            StorageStore = db.GetColumnFamily(STORAGE_STORE);
-
-            if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
-            {
-                /* completely empty and has just been created */
-                db.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
-                db.Put(Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value), cf: Meta);
-                db.Put(Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value), cf: Meta);
-                db.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
-                db.Put(Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt32(indexer_owned_outputs.Value), cf: Meta);
+                Visor.Logger.Fatal($"failed to create the database: {ex}");
             }
-            else
-            {
-                var result = db.Get(Encoding.ASCII.GetBytes("indexer_tx"), cf: Meta);
-
-                if (result == null)
-                {
-                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_tx");
-                }
-
-                indexer_tx.Value = Serialization.GetUInt64(result, 0);
-
-                result = db.Get(Encoding.ASCII.GetBytes("indexer_output"), cf: Meta);
-
-                if (result == null)
-                {
-                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_output");
-                }
-
-                indexer_output.Value = Serialization.GetUInt32(result, 0);
-
-                result = db.Get(Encoding.ASCII.GetBytes("height"), cf: Meta);
-
-                if (result == null)
-                {
-                    throw new Exception($"Discreet.DisDB: Fatal error: could not get height");
-                }
-
-                height.Value = Serialization.GetInt64(result, 0);
-
-                result = db.Get(Encoding.ASCII.GetBytes("indexer_owned_outputs"), cf: Meta);
-
-                if (result == null)
-                {
-                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_owned_outputs");
-                }
-
-                indexer_owned_outputs.Value = Serialization.GetUInt32(result, 0);
-            }
-
-            folder = path;
         }
 
         public bool IsOpen()
         {
-            return db == null;
+            return db != null;
         }
 
         public void MustBeOpen()
@@ -308,8 +315,6 @@ namespace Discreet.DB
          */
         public void AddBlockToCache(Block blk)
         {
-            MustBeOpen();
-
             var result = db.Get(Serialization.Int64(blk.Header.Height), cf: BlockHeights);
 
             if (result != null)
