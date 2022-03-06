@@ -50,7 +50,7 @@ namespace Discreet.Network
 
         public Handler() 
         {
-            State = PeerState.Normal;
+            State = PeerState.Startup;
 
             Services = ServicesFlag.Full;
 

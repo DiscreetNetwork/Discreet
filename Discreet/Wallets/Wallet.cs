@@ -9,6 +9,8 @@ using System.Linq;
 using Discreet.Coin;
 using System.Runtime.InteropServices;
 using Discreet.Common;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace Discreet.Wallets
 {
@@ -46,6 +48,13 @@ namespace Discreet.Wallets
         public bool Synced = false;
 
         public WalletAddress[] Addresses;
+
+        /* if loaded from file, this will be set. Otherwise it will default to WalletPath/Label.dis */
+        public string WalletPath = null;
+
+        private object locker = new object();
+
+        public CancellationTokenSource syncer = default;
 
         /* default constructor */
         public Wallet() { }
@@ -97,11 +106,11 @@ namespace Discreet.Wallets
             {
                 if (deterministic)
                 {
-                    Addresses[i] = new WalletAddress((byte)WalletType.PRIVATE, Entropy, hash, i);
+                    Addresses[i] = new WalletAddress(this, (byte)WalletType.PRIVATE, Entropy, hash, i);
                 }
                 else
                 {
-                    Addresses[i] = new WalletAddress((byte)WalletType.PRIVATE, true);
+                    Addresses[i] = new WalletAddress(this, (byte)WalletType.PRIVATE, true);
                 }
 
                 Addresses[i].Encrypt(Entropy);
@@ -113,11 +122,11 @@ namespace Discreet.Wallets
             {
                 if (deterministic)
                 {
-                    Addresses[i] = new WalletAddress((byte)WalletType.TRANSPARENT, Entropy, hash, i);
+                    Addresses[i] = new WalletAddress(this, (byte)WalletType.TRANSPARENT, Entropy, hash, i);
                 }
                 else
                 {
-                    Addresses[i] = new WalletAddress((byte)WalletType.TRANSPARENT, true);
+                    Addresses[i] = new WalletAddress(this, (byte)WalletType.TRANSPARENT, true);
                 }
 
                 Addresses[i].Encrypt(Entropy);
@@ -170,11 +179,11 @@ namespace Discreet.Wallets
             {
                 if (deterministic)
                 {
-                    Addresses[i] = new WalletAddress((byte)WalletType.PRIVATE, Entropy, hash, i);
+                    Addresses[i] = new WalletAddress(this, (byte)WalletType.PRIVATE, Entropy, hash, i);
                 }
                 else
                 {
-                    Addresses[i] = new WalletAddress((byte)WalletType.PRIVATE, true);
+                    Addresses[i] = new WalletAddress(this, (byte)WalletType.PRIVATE, true);
                 }
 
                 Addresses[i].Encrypt(Entropy);
@@ -186,11 +195,11 @@ namespace Discreet.Wallets
             {
                 if (deterministic)
                 {
-                    Addresses[i] = new WalletAddress((byte)WalletType.TRANSPARENT, Entropy, hash, i);
+                    Addresses[i] = new WalletAddress(this, (byte)WalletType.TRANSPARENT, Entropy, hash, i);
                 }
                 else
                 {
-                    Addresses[i] = new WalletAddress((byte)WalletType.TRANSPARENT, true);
+                    Addresses[i] = new WalletAddress(this, (byte)WalletType.TRANSPARENT, true);
                 }
 
                 Addresses[i].Encrypt(Entropy);
@@ -202,78 +211,89 @@ namespace Discreet.Wallets
         }
 
         /**
-         * <summary>tries to add a new wallet of the specified type. Returns true on success. </summary>
+         * <summary>tries to add a new wallet of the specified type. </summary>
          * 
          */
-        public bool AddWallet(bool deterministic, bool transparent)
+        public WalletAddress AddWallet(bool deterministic, bool transparent)
         {
-            if (IsEncrypted) return false;
-
-            byte[] hash = new byte[32];
-            WalletAddress lastSeenWallet = null;
-            int index = 0;
-
-            for (int i = 0; i < Addresses.Length; i++)
+            lock (locker)
             {
-                if (transparent && Addresses[i].Type == 1 && Addresses[i].Deterministic)
+                if (IsEncrypted) return null;
+
+                byte[] hash = new byte[32];
+                WalletAddress lastSeenWallet = null;
+                int index = 0;
+
+                for (int i = 0; i < Addresses.Length; i++)
                 {
-                    lastSeenWallet = Addresses[i];
-                    index++;
+                    if (transparent && Addresses[i].Type == 1 && Addresses[i].Deterministic)
+                    {
+                        lastSeenWallet = Addresses[i];
+                        index++;
+                    }
+                    else if (!transparent && Addresses[i].Type == 0 && Addresses[i].Deterministic)
+                    {
+                        lastSeenWallet = Addresses[i];
+                        index++;
+                    }
                 }
-                else if (!transparent && Addresses[i].Type == 0 && Addresses[i].Deterministic)
+
+                if (!deterministic)
                 {
-                    lastSeenWallet = Addresses[i];
-                    index++;
+                    WalletAddress newAddr = new WalletAddress(this, (byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), true);
+                    AddWallet(newAddr);
+                    return newAddr;
                 }
-            }
 
-            if (!deterministic)
-            {
-                WalletAddress newAddr = new WalletAddress((byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), true);
-                AddWallet(newAddr);
-                return true;
-            }
-
-            if (index == 0)
-            {
-                WalletAddress newAddr = new WalletAddress((byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), Entropy, hash, index);
-                AddWallet(newAddr);
-            }
-            else
-            {
-                if (transparent)
+                if (index == 0)
                 {
-                    byte[] hashingData = new byte[64];
-                    Array.Copy(lastSeenWallet.SecSpendKey.bytes, hashingData, 32);
-                    Array.Copy(lastSeenWallet.SecViewKey.bytes, 0, hashingData, 32, 32);
-                    hash = Cipher.SHA256.HashData(Cipher.SHA256.HashData(hashingData).Bytes).Bytes;
-                    Array.Clear(hashingData, 0, hashingData.Length);
+                    WalletAddress newAddr = new WalletAddress(this, (byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), Entropy, hash, index);
+                    AddWallet(newAddr);
+
+                    return newAddr;
                 }
                 else
                 {
-                    hash = Cipher.SHA256.HashData(Cipher.SHA256.HashData(lastSeenWallet.SecKey.bytes).Bytes).Bytes;
+                    if (transparent)
+                    {
+                        byte[] hashingData = new byte[64];
+                        Array.Copy(lastSeenWallet.SecSpendKey.bytes, hashingData, 32);
+                        Array.Copy(lastSeenWallet.SecViewKey.bytes, 0, hashingData, 32, 32);
+                        hash = Cipher.SHA256.HashData(Cipher.SHA256.HashData(hashingData).Bytes).Bytes;
+                        Array.Clear(hashingData, 0, hashingData.Length);
+                    }
+                    else
+                    {
+                        hash = Cipher.SHA256.HashData(Cipher.SHA256.HashData(lastSeenWallet.SecKey.bytes).Bytes).Bytes;
+                    }
+
+                    WalletAddress newAddr = new WalletAddress(this, (byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), Entropy, hash, index);
+                    AddWallet(newAddr);
+
+                    Array.Clear(hash, 0, hash.Length);
+
+                    return newAddr;
                 }
-                
-                WalletAddress newAddr = new WalletAddress((byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), Entropy, hash, index);
-                AddWallet(newAddr);
-
-                Array.Clear(hash, 0, hash.Length);
             }
-
-            return true;
         }
 
-        private void AddWallet(WalletAddress addr)
+        public void AddWallet(WalletAddress addr)
         {
-            WalletAddress[] addrs = new WalletAddress[Addresses.Length + 1];
-            for (int i = 0; i < Addresses.Length; i++)
+            lock (locker)
             {
-                addrs[i] = Addresses[i];
+                addr.Encrypt(Entropy); // populate encrypted fields
+                addr.Decrypt(Entropy);
+
+                WalletAddress[] addrs = new WalletAddress[Addresses.Length + 1];
+                for (int i = 0; i < Addresses.Length; i++)
+                {
+                    addrs[i] = Addresses[i];
+                }
+
+                addrs[Addresses.Length] = addr;
+
+                Addresses = addrs;
             }
-
-            addrs[Addresses.Length] = addr;
-
-            Addresses = addrs;
         }
 
         public string GetMnemonic()
@@ -303,36 +323,104 @@ namespace Discreet.Wallets
             IsEncrypted = true;
         }
 
-        public void Decrypt(string passphrase)
+        public void MustEncrypt()
         {
-            if (!Encrypted) return;
+            lock (locker)
+            {
+                foreach (var addr in Addresses)
+                {
+                    addr.MustEncrypt(Entropy);
+                }
 
+                Encrypt();
+
+                syncer.Cancel();
+            }
+        }
+
+        public bool TryDecrypt(string passphrase = null)
+        {
+            if (!IsEncrypted) return true;
+
+            try
+            {
+                if (Encrypted)
+                {
+                    byte[] entropyEncryptionKey = new byte[32];
+                    byte[] passhash = Cipher.SHA512.HashData(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
+                    Cipher.KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
+
+                    byte[] entropyChecksumFull = Cipher.SHA256.HashData(Cipher.SHA256.HashData(entropyEncryptionKey).Bytes).Bytes;
+
+                    byte[] entropyChecksumBytes = new byte[8];
+                    Array.Copy(entropyChecksumFull, entropyChecksumBytes, 8);
+
+                    if (BitConverter.IsLittleEndian)
+                    {
+                        Array.Reverse(entropyChecksumBytes);
+                    }
+
+                    ulong entropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
+
+                    if (entropyChecksum != EntropyChecksum)
+                    {
+                        throw new Exception("Discreet.Wallets.Wallet.Decrypt: Wrong passphrase!");
+                    }
+
+                    (CipherObject cipherObj, byte[] encryptedEntropyBytes) = CipherObject.GetFromPrependedArray(entropyEncryptionKey, EncryptedEntropy);
+                    Entropy = AESCBC.Decrypt(encryptedEntropyBytes, cipherObj);
+                }
+
+                for (int i = 0; i < Addresses.Length; i++)
+                {
+                    Addresses[i].Decrypt(Entropy);
+
+                    Addresses[i].CheckIntegrity();
+                }
+
+                IsEncrypted = false;
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"Discreet.Wallets.Wallet.TryDecrypt: could not decrypt wallet: {ex}");
+
+                return false;
+            }
+
+            return true;
+        }
+
+        public void Decrypt(string passphrase = null)
+        {
             if (!IsEncrypted) return;
 
-            byte[] entropyEncryptionKey = new byte[32];
-            byte[] passhash = Cipher.SHA512.HashData(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
-            Cipher.KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
-
-            byte[] entropyChecksumFull = Cipher.SHA256.HashData(Cipher.SHA256.HashData(entropyEncryptionKey).Bytes).Bytes;
-
-            byte[] entropyChecksumBytes = new byte[8];
-            Array.Copy(entropyChecksumFull, entropyChecksumBytes, 8);
-
-            if (BitConverter.IsLittleEndian)
+            if (Encrypted)
             {
-                Array.Reverse(entropyChecksumBytes);
+                byte[] entropyEncryptionKey = new byte[32];
+                byte[] passhash = Cipher.SHA512.HashData(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
+                Cipher.KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
+
+                byte[] entropyChecksumFull = Cipher.SHA256.HashData(Cipher.SHA256.HashData(entropyEncryptionKey).Bytes).Bytes;
+
+                byte[] entropyChecksumBytes = new byte[8];
+                Array.Copy(entropyChecksumFull, entropyChecksumBytes, 8);
+
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(entropyChecksumBytes);
+                }
+
+                ulong entropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
+
+                if (entropyChecksum != EntropyChecksum)
+                {
+                    throw new Exception("Discreet.Wallets.Wallet.Decrypt: Wrong passphrase!");
+                }
+
+                (CipherObject cipherObj, byte[] encryptedEntropyBytes) = CipherObject.GetFromPrependedArray(entropyEncryptionKey, EncryptedEntropy);
+                Entropy = AESCBC.Decrypt(encryptedEntropyBytes, cipherObj);
             }
-
-            ulong entropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
-
-            if (entropyChecksum != EntropyChecksum)
-            {
-                throw new Exception("Discreet.Wallets.Wallet.Decrypt: Wrong passphrase!");
-            }
-
-            (CipherObject cipherObj, byte[] encryptedEntropyBytes) = CipherObject.GetFromPrependedArray(entropyEncryptionKey, EncryptedEntropy);
-            Entropy = AESCBC.Decrypt(encryptedEntropyBytes, cipherObj);
-      
+            
             for (int i = 0; i < Addresses.Length; i++)
             {
                 Addresses[i].Decrypt(Entropy);
@@ -402,52 +490,64 @@ namespace Discreet.Wallets
 
         public void ProcessBlock(Block block)
         {
-            if (IsEncrypted) throw new Exception("Do not call if wallet is encrypted!");
-
-            if (block.Header.Version != 1)
+            lock (locker)
             {
-                var Coinbase = block.Transactions[0].ToPrivate();
+                if (IsEncrypted) throw new Exception("Do not call if wallet is encrypted!");
 
-                for (int i = 0; i < Addresses.Length; i++)
+                bool changed = false;
+
+                if (block.Header.Version != 1)
                 {
-                    if (Coinbase != null)
+                    var Coinbase = block.Transactions[0].ToPrivate();
+
+                    for (int i = 0; i < Addresses.Length; i++)
                     {
-                        Key txKey = Coinbase.TransactionKey;
-                        Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[i].SecViewKey, ref Addresses[i].SecSpendKey, i);
-                        Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+                        if (Addresses[i].Syncer) continue;
 
-                        if (Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
+                        if (Coinbase != null && Addresses[i].Type == (byte)AddressType.STEALTH)
                         {
-                            DB.DisDB db = DB.DisDB.GetDB();
+                            Key txKey = Coinbase.TransactionKey;
+                            Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[i].SecViewKey, ref Addresses[i].SecSpendKey, 0);
+                            Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
 
-                            (int index, UTXO utxo) = db.AddWalletOutput(Addresses[i], Coinbase.ToFull(), i, false, true);
+                            if (Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
+                            {
+                                DB.DisDB db = DB.DisDB.GetDB();
 
-                            utxo.OwnedIndex = index;
+                                (int index, UTXO utxo) = db.AddWalletOutput(Addresses[i], Coinbase.ToFull(), 0, false, true);
 
-                            Addresses[i].UTXOs.Add(utxo);
+                                utxo.OwnedIndex = index;
+
+                                Addresses[i].UTXOs.Add(utxo);
+
+                                changed = true;
+                            }
                         }
                     }
                 }
-            }
-            
-            for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
-            {
-                ProcessTransaction(block.Transactions[i]);
-            }
 
-            LastSeenHeight = block.Header.Height;
+                for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
+                {
+                    changed = changed || ProcessTransaction(block.Transactions[i]);
+                }
 
-            ToFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, Label + ".dis"));
+                LastSeenHeight = block.Header.Height;
+
+                if (changed) ToFile(WalletPath ?? Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, Label + ".dis"));
+            }
         }
 
-        private void ProcessTransaction(FullTransaction transaction)
+        private bool ProcessTransaction(FullTransaction transaction)
         {
             int numPOutputs = (transaction.Version == 4) ? transaction.NumPOutputs : ((transaction.Version == 3) ? 0 : transaction.NumOutputs);
             int numTOutputs = (transaction.Version == 4) ? transaction.NumTOutputs : ((transaction.Version == 3) ? transaction.NumOutputs : 0);
 
-            for (int i = 0; i < transaction.NumPInputs; i++)
+            bool changed = false;
+            for (int j = 0; j < Addresses.Length; j++)
             {
-                for (int j = 0; j < Addresses.Length; j++)
+                if (Addresses[j].Syncer) continue;
+
+                for (int i = 0; i < transaction.NumPInputs; i++)
                 {
                     if (Addresses[j].Type == (byte)AddressType.STEALTH)
                     {
@@ -458,6 +558,7 @@ namespace Discreet.Wallets
                                 Addresses[j].UTXOs[k].Decrypt(Addresses[j]);
                                 Addresses[j].Balance -= Addresses[j].UTXOs[k].DecodedAmount;
                                 Addresses[j].UTXOs.RemoveAt(k);
+                                changed = true;
                             }
                         }
                     }
@@ -469,22 +570,23 @@ namespace Discreet.Wallets
                             {
                                 Addresses[j].Balance -= Addresses[j].UTXOs[k].Amount;
                                 Addresses[j].UTXOs.RemoveAt(k);
+                                changed = true;
                             }
                         }
                     }
                 }
             }
 
-            for (int i = 0; i < numPOutputs; i++)
+            for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
             {
-                for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
+                if (Addresses[addrIndex].Syncer) continue;
+
+                Key cscalar = KeyOps.ScalarmultKey(ref transaction.TransactionKey, ref Addresses[addrIndex].SecViewKey);
+
+                for (int i = 0; i < numPOutputs; i++)
                 {
                     if (Addresses[addrIndex].Type == (byte)AddressType.STEALTH)
                     {
-                        Key txKey = transaction.TransactionKey;
-                        Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref Addresses[addrIndex].SecViewKey, ref Addresses[addrIndex].SecSpendKey, i);
-                        Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
-
                         for (int k = 0; k < Addresses[addrIndex].UTXOs.Count; k++)
                         {
                             if (Addresses[addrIndex].UTXOs[k].UXKey.Equals(transaction.POutputs[i].UXKey))
@@ -493,19 +595,22 @@ namespace Discreet.Wallets
                             }
                         }
 
-                        if (transaction.POutputs[i].UXKey.Equals(outputPubKey))
+                        if (KeyOps.CheckForBalance(ref cscalar, ref Addresses[addrIndex].PubSpendKey, ref transaction.POutputs[i].UXKey, i))
                         {
                             Visor.Logger.Log("You received some Discreet!");
                             ProcessOutput(Addresses[addrIndex], transaction, i, addrIndex, false);
+                            changed = true;
                         }
                     }
                 }
             }
 
-            for (int i = 0; i < numTOutputs; i++)
+            for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
             {
-                for (int addrIndex = 0; addrIndex < Addresses.Length; addrIndex++)
+                for (int i = 0; i < numTOutputs; i++)
                 {
+                    if (Addresses[addrIndex].Syncer) continue;
+
                     if (Addresses[addrIndex].Type == (byte)AddressType.TRANSPARENT)
                     {
                         string address = transaction.TOutputs[i].Address.ToString();
@@ -514,10 +619,13 @@ namespace Discreet.Wallets
                         {
                             Visor.Logger.Log("You received some Discreet!");
                             ProcessOutput(Addresses[addrIndex], transaction, i, addrIndex, true);
+                            changed = true;
                         }
                     }
                 }
             }
+
+            return changed;
         }
 
         private void ProcessOutput(WalletAddress addr, FullTransaction transaction, int i, int walletIndex, bool transparent)
@@ -533,6 +641,59 @@ namespace Discreet.Wallets
                 Addresses[walletIndex].UTXOs.Add(utxo);
 
                 Addresses[walletIndex].Balance += utxo.DecodedAmount;
+            }
+        }
+
+        public bool CheckIntegrity()
+        {
+            return Addresses.All(x =>
+            {
+                try
+                {
+                    x.CheckIntegrity();
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    Visor.Logger.Error($"CheckIntegrity failed: {ex}");
+
+                    return false;
+                }
+            });
+        }
+
+        public bool ChangeLabel(string label)
+        {
+            try
+            {
+                lock (locker)
+                {
+                    if (WalletPath != null)
+                    {
+                        Label = label;
+
+                        ToFile(WalletPath);
+                    }
+                    else
+                    {
+                        var oldPath = Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, $"{Label}.dis");
+
+                        if (File.Exists(oldPath)) File.Delete(oldPath);
+
+                        Label = label;
+
+                        ToFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, $"{Label}.dis"));
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"Discreet.Wallets.Wallet.ChangeLabel: {ex}");
+
+                return false;
             }
         }
     }

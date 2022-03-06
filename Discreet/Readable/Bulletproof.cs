@@ -166,8 +166,6 @@ namespace Discreet.Readable
             return obj;
         }
 
-        // Gets a Bulletproof from string
-        [RPCEndpoint(endpoint_name: "construct_bulletproof")]
         public static Coin.Bulletproof FromReadable(string json)
         {
             return (Coin.Bulletproof)new Bulletproof(json).ToObject();

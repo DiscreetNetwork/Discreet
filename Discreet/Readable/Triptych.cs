@@ -176,7 +176,6 @@ namespace Discreet.Readable
             return obj;
         }
 
-        [RPCEndpoint(endpoint_name: "create_triptych")]
         public static Coin.Triptych FromReadable(string json)
         {
             return (Coin.Triptych)new Triptych(json).ToObject();

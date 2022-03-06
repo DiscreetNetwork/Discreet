@@ -206,7 +206,7 @@ namespace Discreet
 			return rv;
         }*/
 
-		public static void GenerateGenesis()
+		/*public static void GenerateGenesis()
         {
 			DB.DisDB db = DB.DisDB.GetDB();
 
@@ -216,7 +216,7 @@ namespace Discreet
 
 			//Console.WriteLine(new Mnemonic(Randomness.Random(32)).GetMnemonic());
 
-			/* generate test wallet */
+			// generate test wallet
 			int numTestWallets = 256;
 			int numTestUTXOs = 16;
 
@@ -317,7 +317,7 @@ namespace Discreet
 			stopwatch.Stop();
 
             Console.WriteLine(stopwatch.ElapsedMilliseconds);
-		}
+		}*/
 
 		//public static void Main(string[] args)
 		//{
@@ -923,7 +923,7 @@ namespace Discreet
 
 		public static Visor.Visor visor;
 
-		[RPCEndpoint(endpoint_name: "getBalance")]
+		/*[RPCEndpoint(endpoint_name: "getBalance")]
 		public static object GetBalance(StealthAddress address)
         {
 			foreach (var addr in visor.wallet.Addresses)
@@ -995,14 +995,14 @@ namespace Discreet
 			visor.wallet.ToFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, $"{visor.wallet.Label}.dis"));
 
 			return "saved wallet!";
-        }
+        }*/
 
 		[RPCEndpoint(endpoint_name: "shutdown")]
 		public static object Shutdown()
         {
 			Visor.Logger.Log("Received shutdown call...");
 
-			SaveWallet();
+			//SaveWallet();
 
 			visor.Shutdown();
 
@@ -1034,11 +1034,11 @@ namespace Discreet
 			visorConfig.Port = port;
 			visorConfig.BootstrapNode = bootstrapIP;
 			visorConfig.Endpoint = new IPEndPoint(visorConfig.Endpoint.Address, port);
-			string passphrase;
+			//string passphrase;
 
 			Visor.VisorConfig.SetConfig(visorConfig);
 
-			Wallet w;
+			/*Wallet w;
 
 			Console.Write("Label: ");
 			string label = Console.ReadLine();
@@ -1120,11 +1120,11 @@ namespace Discreet
 				w = Wallet.FromFile(Path.Combine(visorConfig.WalletPath, $"{label}.dis"));
 
 				w.Decrypt(passphrase);
-			}
+			}*/
 
-			visor = new Visor.Visor(w);
+			visor = new Visor.Visor();
 
-			Console.WriteLine("your address is: " + visor.wallet.Addresses[0].Address);
+			//Console.WriteLine("your address is: " + visor.wallet.Addresses[0].Address);
 
 			Console.Write("If this is a masternode, type \"discreet\" : ");
 
@@ -1133,9 +1133,9 @@ namespace Discreet
 				visor.IsMasternode = true;
             }
 
-			visor.wallet.ToFile(Path.Combine(visorConfig.WalletPath, $"{w.Label}.dis"));
+			//visor.wallet.ToFile(Path.Combine(visorConfig.WalletPath, $"{w.Label}.dis"));
 
-			w.Decrypt(passphrase);
+			//w.Decrypt(passphrase);
 
 			await visor.Start();
 		}

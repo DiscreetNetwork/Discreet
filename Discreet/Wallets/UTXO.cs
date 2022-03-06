@@ -218,6 +218,16 @@ namespace Discreet.Wallets
             IsCoinbase = isCoinbase;
         }
 
+        public void CheckIntegrity()
+        {
+            if (Encrypted) return;
+
+            if (!KeyOps.ScalarmultBase(ref UXSecKey).Equals(UXKey))
+            {
+                throw new Exception("Discreet.Wallets.UTXO.CheckIntegrity: ux secret key does not match public key!");
+            }
+        }
+
 
         public void Encrypt()
         {

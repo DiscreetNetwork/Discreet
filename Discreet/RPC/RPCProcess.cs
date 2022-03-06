@@ -101,7 +101,18 @@ namespace Discreet.RPC
 
             for (int i = 0; i < args.Length; i++)
             {
-                _data[i] = ConvertType(_paramInfo[i + 1].ParameterType, (JsonElement)args[i]);
+                /*if (_paramInfo[i + 1].ParameterType == typeof(Readable.FullTransaction))
+                {
+                    // this simplifies an edge case for TXN endpoints
+                    var _version = ((JsonElement)args[i]).EnumerateObject().Where(x => x.NameEquals("Version")).First().Value.GetByte();
+
+                    _data[i] = _version switch
+                    {
+                        0 or 1 or 2 => JsonSerializer.Deserialize((JsonElement)args[i], typeof(Readable.Transaction)),
+                    };
+                }*/
+
+                _data[i] = JsonSerializer.Deserialize((JsonElement)args[i], _paramInfo[i + 1].ParameterType, defaultOptions);
             }
 
             object result = _endpoint.DynamicInvoke(_data);
@@ -110,7 +121,6 @@ namespace Discreet.RPC
 
         public RPCResponse CreateResponse(RPCRequest request, object result)
         {
-
             /* Per: https://www.jsonrpc.org/specification
             * This member is REQUIRED.
             * It MUST be the same as the value of the id member in the Request Object.
@@ -132,7 +142,7 @@ namespace Discreet.RPC
         {
             try
             {
-                string request = JsonSerializer.Serialize<RPCResponse>(response);
+                string request = JsonSerializer.Serialize<RPCResponse>(response, defaultOptions);
                 return request;
             } catch(Exception ex)
             {

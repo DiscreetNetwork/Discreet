@@ -216,7 +216,6 @@ namespace Discreet.Readable
             return obj;
         }
 
-        [RPCEndpoint(endpoint_name: "create_transaction")]
         public static Coin.Transaction FromReadable(string json)
         {
             return (Coin.Transaction)new Transaction(json).ToObject();
@@ -225,6 +224,11 @@ namespace Discreet.Readable
         public static string ToReadable(Coin.Transaction obj)
         {
             return new Transaction(obj).JSON();
+        }
+
+        public FullTransaction ToFull()
+        {
+            return new FullTransaction(this);
         }
     }
 }

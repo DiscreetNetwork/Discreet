@@ -8,6 +8,10 @@ using System.Text.Json.Serialization;
 using System.Text.Json;
 using System.Linq;
 using System.IO;
+using Discreet.Wallets;
+using Discreet.Common;
+using Discreet.Cipher.Mnemonics;
+using System.Collections.Concurrent;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -113,15 +117,15 @@ namespace Discreet.RPC.Endpoints
 
                 if (_scan && !_save) return new RPCError("Save must be true if scan is true");
 
-                Wallets.Wallet wallet;
+                Wallet wallet;
 
                 if (mnemonic == null)
                 {
-                    wallet = new Wallets.Wallet(_params.Label, _params.Passphrase, _params.Bip39.HasValue ? _params.Bip39.Value : 24, _encrypted, true, numStealthAddresses, numTransparentAddresses);
+                    wallet = new Wallet(_params.Label, _params.Passphrase, _params.Bip39.HasValue ? _params.Bip39.Value : 24, _encrypted, true, numStealthAddresses, numTransparentAddresses);
                 }
                 else
                 {
-                    wallet = new Wallets.Wallet(_params.Label, _params.Passphrase, mnemonic.GetMnemonic(), _encrypted, true, (uint)mnemonic.Words.Length, numStealthAddresses, numTransparentAddresses);
+                    wallet = new Wallet(_params.Label, _params.Passphrase, mnemonic.GetMnemonic(), _encrypted, true, (uint)mnemonic.Words.Length, numStealthAddresses, numTransparentAddresses);
                 }
 
                 if (_save)
@@ -142,5 +146,607 @@ namespace Discreet.RPC.Endpoints
                 return new RPCError($"Could not create wallet");
             }
         }
+
+        public class LoadWalletParams
+        {
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Path { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Label { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Passphrase { get; set; }
+
+            public LoadWalletParams() { }
+        }
+
+        [RPCEndpoint("load_wallet", APISet.WALLET)]
+        public static object LoadWallet(LoadWalletParams _params)
+        {
+            var _visor = Network.Handler.GetHandler().visor;
+
+            if (_params == null) 
+                return new RPCError("load wallet parameters was null");
+
+            if ((_params.Path == null || _params.Path == "") && (_params.Label == null || _params.Label == "")) 
+                return new RPCError("one of the following must be set: Path, Label");
+
+            if (_params.Path != null && _params.Path != "" && _params.Label != null && _params.Label != "") 
+                return new RPCError("only one of the following must be set: Path, Label");
+
+            Wallet wallet;
+
+            try
+            {
+                if (_params.Path != null && _params.Path != "")
+                {
+                    if (!Path.IsPathRooted(_params.Path))
+                        return new RPCError("Path must be absolute");
+
+                    wallet = Wallet.FromFile(_params.Path);
+                }
+                else
+                {
+                    try
+                    {
+                        wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, $"{_params.Label}.dis"));
+                    }
+                    catch (Exception)
+                    {
+                        return new RPCError($"could not load wallet with label {_params.Label}; try checking wallet integrity or seeing if it is missing");
+                    }
+                }
+
+                if (_visor.wallets.Any(x => x.Label == wallet.Label || x.WalletPath == _params.Path))
+                    return new RPCError(-1, "wallet shares label or path with another loaded wallet", new Readable.Wallet(wallet));
+
+                if (wallet.Encrypted && (_params.Passphrase == null || _params.Passphrase == ""))
+                    return new RPCError("Wallet is encrypted; passphrase was not supplied");
+
+                if (!wallet.TryDecrypt(_params.Passphrase))
+                    return new RPCError("Wallet passphrase incorrect");
+
+                wallet.WalletPath = _params.Path;
+
+                _visor.wallets.Add(wallet);
+
+                _ = _visor.WalletSyncer(wallet, true);
+
+                return "OK";
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to LoadWallet failed: {ex}");
+
+                return new RPCError($"Could not load wallet");
+            }
+        }
+
+        public class CheckIntegrityParams
+        {
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Label { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Address { get; set; }
+
+            public CheckIntegrityParams() { }
+        }
+
+        [RPCEndpoint("check_integrity", APISet.WALLET)]
+        public static object CheckIntegrity(CheckIntegrityParams _params)
+        {
+            var _visor = Network.Handler.GetHandler().visor;
+
+            if (_params == null)
+                return new RPCError("check integrity parameters was null");
+
+            if ((_params.Address == null || _params.Address == "") && (_params.Label == null || _params.Label == ""))
+                return new RPCError("one of the following must be set: Address, Label");
+
+            if (_params.Address != null && _params.Address != "" && _params.Label != null && _params.Label != "")
+                return new RPCError("only one of the following must be set: Address, Label");
+
+            try
+            {
+                if (_params.Label != null && _params.Label != "")
+                {
+                    var wallet = _visor.wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
+
+                    if (wallet == null) return new RPCError($"could not find wallet with label {_params.Label}");
+
+                    return wallet.CheckIntegrity() ? "OK" : "wallet integrity check failed. consider using restore_wallet to attempt recovery.";
+                }
+                else
+                {
+
+                    var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == _params.Address).FirstOrDefault() != null).FirstOrDefault();
+
+                    if (wallet == null) return new RPCError($"could not find address {_params.Address}");
+
+                    return wallet.Addresses.Where(x => x.Address == _params.Address).First().TryCheckIntegrity() 
+                        ? "OK" : $"address integrity check failed. consider using restore_wallet on wallet {wallet.Label} to attempt recovery.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to CheckIntegrity failed: {ex}");
+
+                return new RPCError($"failed");
+            }
+        }
+
+        public class LoadWalletsParams
+        {
+            [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+            public string Label { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Passphrase { get; set; }
+
+            public LoadWalletsParams() { }
+        }
+
+        [RPCEndpoint("load_wallets", APISet.WALLET)]
+        public static object LoadWallets(List<LoadWalletParams> _params)
+        {
+            var _visor = Network.Handler.GetHandler().visor;
+
+            if (_params == null || _params.Count == 0) return new RPCError("load wallets params was null");
+
+            try
+            {
+                List<Wallet> wallets = new List<Wallet>();
+
+                foreach (var param in _params)
+                {
+                    if (param == null) return new RPCError("one of the load wallets params was null");
+
+                    if (param.Label == null || param.Label == "") return new RPCError("one of the labels was null");
+
+                    Wallet wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, $"{param.Label}.dis"));
+
+                    if (wallet.Encrypted)
+                    {
+                        if (param.Passphrase == null || param.Passphrase == "") return new RPCError($"wallet {param.Label} requires passphrase");
+
+                        if (!wallet.TryDecrypt(param.Passphrase)) return new RPCError($"wallet {param.Label}: wrong passphrase");
+                    }
+                    else
+                    {
+                        if (!wallet.TryDecrypt()) return new RPCError($"wallet {param.Label} could not be decrypted");
+                    }
+                }
+
+                wallets.ForEach(wallet =>
+                {
+                    _visor.wallets.Add(wallet);
+
+                    _ = _visor.WalletSyncer(wallet, true);
+                });
+
+                return "OK";
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to LoadWallets failed: {ex}");
+
+                return new RPCError($"could not load wallets");
+            }
+        }
+
+        [RPCEndpoint("lock_wallet", APISet.WALLET)]
+        public static object LockWallet(string label)
+        {
+            try
+            {
+                if (label == null || label == "") return new RPCError("label was null");
+
+                var wallet = Network.Handler.GetHandler().visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"could not find wallet with label {label}");
+
+                wallet.MustEncrypt();
+
+                return "OK";
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to LockWallet failed: {ex}");
+
+                return new RPCError($"could not lock wallet");
+            }
+        }
+
+        [RPCEndpoint("lock_wallets", APISet.WALLET)]
+        public static object LockWallets()
+        {
+            try
+            {
+                foreach (Wallet wallet in Network.Handler.GetHandler().visor.wallets)
+                {
+                    wallet.MustEncrypt();
+                }
+
+                return "OK";
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to LockWallets failed: {ex}");
+
+                return new RPCError($"could not lock wallets");
+            }
+        }
+
+        public class UnlockWalletParams
+        {
+            [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+            public string Label { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Passphrase { get; set; }
+
+            public UnlockWalletParams() { }
+        }
+
+        [RPCEndpoint("unlock_wallet", APISet.WALLET)]
+        public static object UnlockWallet(UnlockWalletParams _params)
+        {
+            var _visor = Network.Handler.GetHandler().visor;
+
+            if (_params == null) return new RPCError("unlock wallet params was null");
+
+            if (_params.Label == null || _params.Label == "") return new RPCError("label was null");
+
+            try
+            {
+                Wallet wallet = _visor.wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"no wallet found with label {_params.Label}");
+
+                if (!wallet.IsEncrypted) return new RPCError("wallet is not encrypted");
+
+                if (wallet.Encrypted)
+                {
+                    if (_params.Passphrase == null || _params.Passphrase == "") return new RPCError($"wallet {_params.Label} requires passphrase");
+
+                    if (!wallet.TryDecrypt(_params.Passphrase)) return new RPCError($"wallet {_params.Label}: wrong passphrase");
+                }
+                else
+                {
+                    if (!wallet.TryDecrypt()) return new RPCError($"wallet {_params.Label} could not be decrypted");
+                }
+
+                _ = _visor.WalletSyncer(wallet, true);
+
+                return "OK";
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to UnlockWallet failed: {ex}");
+
+                return new RPCError($"Could not unlock wallet");
+            }
+        }
+
+        [RPCEndpoint("get_wallet_balance", APISet.WALLET)]
+        public static object GetWalletBalance(string label)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().visor;
+
+                if (label == null || label == "") return new RPCError("parameter was null");
+
+                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"no wallet found with label {label}");
+
+                return wallet.Addresses.Select(x => { if (x.Synced && !x.Syncer) return x.Balance; else return 0UL; }).Aggregate((x, y) => x + y);
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to GetWalletBalance failed: {ex}");
+
+                return new RPCError($"Could not get wallet balance");
+            }
+        }
+
+        [RPCEndpoint("get_balance", APISet.WALLET)]
+        public static object GetBalance(string address)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().visor;
+
+                if (address == null || address == "") return new RPCError("parameter was null");
+
+                var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"could not find address {address}");
+
+                return wallet.Addresses.Where(x => x.Address == address).FirstOrDefault().Balance;
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to GetBalance failed: {ex}");
+
+                return new RPCError($"Could not get address balance");
+            }
+        }
+
+        public class CreateAddressParams
+        {
+            [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+            public string Label { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+            public string Type { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+            public bool? Deterministic { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Secret { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Spend { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string View { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public bool? ScanForBalance { get; set; }
+        }
+
+        [RPCEndpoint("create_address", APISet.WALLET)]
+        public static object CreateAddress(CreateAddressParams _params)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().visor;
+
+                if (_params == null) return new RPCError("unlock wallet params was null");
+
+                if (_params.Label == null || _params.Label == "") return new RPCError("label was null");
+
+                Wallet wallet = _visor.wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"no wallet found with label {_params.Label}");
+
+                if (_params.Type == null || _params.Type == "") return new RPCError("type was null");
+
+                AddressType? addrType = null;
+
+                if (_params.Type.ToLower() == "private" || _params.Type.ToLower() == "shielded" || _params.Type.ToLower() == "stealth" || _params.Type.ToLower() == "stealthaddress" || _params.Type.ToLower() == "p")
+                {
+                    addrType = AddressType.STEALTH;
+                }
+                else if (_params.Type.ToLower() == "transparent" || _params.Type.ToLower() == "public" || _params.Type.ToLower() == "t" || _params.Type.ToLower() == "unshielded")
+                {
+                    addrType = AddressType.TRANSPARENT;
+                }
+
+                if (addrType == null) return new RPCError($"unknown address type {_params.Type}");
+
+                if (!_params.Deterministic.HasValue) return new RPCError("deterministic was null");
+
+                bool deterministic = _params.Deterministic.Value;
+
+                if (deterministic && ((_params.Secret != null || _params.Secret != "") ||
+                                      (_params.Spend != null || _params.Spend != "") ||
+                                      (_params.View != null || _params.View != "")))
+                    return new RPCError("Secret, Spend and View cannot be set if deterministic is true");
+
+                WalletAddress addr = null;
+
+                if (deterministic)
+                {
+                    addr = wallet.AddWallet(true, addrType == AddressType.TRANSPARENT);
+                }
+                else
+                {
+                    if (addrType == AddressType.STEALTH && (_params.Secret != null || _params.Secret != ""))
+                        return new RPCError($"Secret cannot be set if type is {_params.Type}");
+
+                    if (addrType == AddressType.TRANSPARENT && ((_params.Spend != null || _params.Spend != "") || (_params.View != null || _params.View != "")))
+                        return new RPCError($"Spend and View cannot be set if type is {_params.Type}");
+
+                    bool random = (_params.Spend == null || _params.Spend == "") && (_params.View == null || _params.View == "") && (_params.Secret == null || _params.Secret == "");
+
+                    if (random)
+                    {
+                        addr = wallet.AddWallet(false, addrType == AddressType.TRANSPARENT);
+                    }
+                    else
+                    {
+                        if (addrType == AddressType.STEALTH)
+                        {
+                            Key spend, view;
+
+                            if (Printable.IsHex(_params.Spend) && _params.Spend.Length == 64)
+                            {
+                                spend = Key.FromHex(_params.Spend);
+                            }
+                            else if (Mnemonic.IsMnemonic(_params.Spend, 24))
+                            {
+                                spend = new Key(Mnemonic.GetEntropy(_params.Spend));
+                            }
+                            else
+                            {
+                                return new RPCError($"Spend is not a valid key mnemonic or key hex string");
+                            }
+
+                            if (Printable.IsHex(_params.View) && _params.View.Length == 64)
+                            {
+                                view = Key.FromHex(_params.View);
+                            }
+                            else if (Mnemonic.IsMnemonic(_params.View))
+                            {
+                                view = new Key(Mnemonic.GetEntropy(_params.View));
+                            }
+                            else
+                            {
+                                return new RPCError($"View is not a valid key mnemonic or key hex string");
+                            }
+
+                            addr = new WalletAddress(wallet, (byte)addrType, default, spend, view);
+                        }
+                        else if (addrType == AddressType.TRANSPARENT)
+                        {
+                            Key secret;
+
+                            if (Printable.IsHex(_params.Secret) && _params.Secret.Length == 64)
+                            {
+                                secret = Key.FromHex(_params.Spend);
+                            }
+                            else if (Mnemonic.IsMnemonic(_params.Secret, 24))
+                            {
+                                secret = new Key(Mnemonic.GetEntropy(_params.Spend));
+                            }
+                            else
+                            {
+                                return new RPCError($"Spend is not a valid key mnemonic or key hex string");
+                            }
+
+                            addr = new WalletAddress(wallet, (byte)addrType, secret, default, default);
+                        }
+
+                        wallet.AddWallet(addr);
+                    }
+                }
+
+                bool scan = _params.ScanForBalance.HasValue ? _params.ScanForBalance.Value : false;
+
+                if (scan)
+                {
+                    _ = _visor.AddressSyncer(addr);
+                }
+
+                return new Readable.WalletAddress(addr);
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to CreateAddress failed: {ex}");
+
+                return new RPCError($"Could not create address");
+            }
+        }
+
+        [RPCEndpoint("get_addresses", APISet.WALLET)]
+        public static object GetAddresses(string label)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().visor;
+
+                if (label == null || label == "") return new RPCError("parameter was null");
+
+                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"no wallet found with label {label}");
+
+                return wallet.Addresses.Select(x => x.Address).ToList();
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to GetAddresses failed: {ex}");
+
+                return new RPCError($"Could not get addresses");
+            }
+        }
+
+        [RPCEndpoint("get_wallets", APISet.WALLET)]
+        public static object GetWallets()
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().visor;
+
+                return _visor.wallets.Select(x => new Readable.Wallet(x)).ToList();
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to GetWallets failed: {ex}");
+
+                return new RPCError($"Could not get wallets");
+            }
+        }
+
+        [RPCEndpoint("stop_wallet", APISet.WALLET)]
+        public static object StopWallet(string label)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().visor;
+
+                if (label == null || label == "") return new RPCError("label was null");
+
+                var wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"could not find wallet with label {label}");
+
+                wallet.MustEncrypt();
+
+                _visor.wallets = new ConcurrentBag<Wallet>(_visor.wallets.Where(x => x.Label != label).ToList());
+
+                return "OK";
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to StopWallet failed: {ex}");
+
+                return new RPCError($"could not stop wallet");
+            }
+        }
+
+        [RPCEndpoint("get_wallet_version", APISet.WALLET)]
+        public static object GetWalletVersion(string label)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().visor;
+
+                if (label == null || label == "") return new RPCError("parameter was null");
+
+                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"no wallet found with label {label}");
+
+                return wallet.Version;
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to GetWalletVersion failed: {ex}");
+
+                return new RPCError($"Could not get wallet version");
+            }
+        }
+
+        [RPCEndpoint("change_wallet_label", APISet.WALLET)]
+        public static object ChangeWalletLabel(string label)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().visor;
+
+                if (label == null || label == "") return new RPCError("parameter was null");
+
+                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"no wallet found with label {label}");
+
+                return wallet.ChangeLabel(label) ? "OK" : "failed to change wallet label";
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to GetWalletVersion failed: {ex}");
+
+                return new RPCError($"Could not get wallet version");
+            }
+        }
+
+        // WIP
     }
 }

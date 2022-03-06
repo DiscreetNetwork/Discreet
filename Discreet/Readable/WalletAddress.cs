@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace Discreet.Readable
 {
@@ -24,6 +23,10 @@ namespace Discreet.Readable
         public string EncryptedSecKey { get; set; }
         public string PubKey { get; set; }
         
+        public bool Synced { get; set; }
+        public bool Syncer { get; set; }
+        public long LastSeenHeight { get; set; }
+
         public ulong Balance { get; set; }
 
         public List<int> UTXOs { get; set; }
@@ -50,6 +53,9 @@ namespace Discreet.Readable
             PubKey = addr.PubKey;
             EncryptedSecKey = addr.EncryptedSecKey;
             Address = addr.Address;
+            LastSeenHeight = addr.LastSeenHeight;
+            Synced = addr.Synced;
+            Syncer = addr.Syncer;
             UTXOs = addr.UTXOs;
         }
 
@@ -94,6 +100,10 @@ namespace Discreet.Readable
 
             if (obj.EncryptedSecKey != null) EncryptedSecKey = Printable.Hexify(obj.EncryptedSecKey);
             if (obj.PubKey.bytes != null) PubKey = obj.PubKey.ToHex();
+
+            LastSeenHeight = obj.LastSeenHeight;
+            Synced = obj.Synced;
+            Syncer = obj.Syncer;
 
             if (encrypted)
             {
@@ -161,6 +171,10 @@ namespace Discreet.Readable
                     obj.UTXOs.Add(db.GetWalletOutput(UTXOs[i]));
                 }
             }
+
+            obj.Syncer = Syncer;
+            obj.Synced = Synced;
+            obj.LastSeenHeight = LastSeenHeight;
 
             obj.Encrypted = true;
 

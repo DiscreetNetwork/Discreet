@@ -159,6 +159,7 @@ namespace Discreet.Readable
                 for (int i = 0; i < Addresses.Count; i++)
                 {
                     obj.Addresses[i] = (Wallets.WalletAddress)Addresses[i].ToObject();
+                    obj.Addresses[i].wallet = obj;
                 }
             }
 

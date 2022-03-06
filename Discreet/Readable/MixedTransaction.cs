@@ -18,7 +18,7 @@ namespace Discreet.Readable
 
         public byte NumTInputs { get; set; }
         public byte NumPInputs { get; set; }
-        public byte NumTOuputs { get; set; }
+        public byte NumTOutputs { get; set; }
         public byte NumPOutputs { get; set; }
 
         public ulong Fee { get; set; }
@@ -56,7 +56,7 @@ namespace Discreet.Readable
 
             NumTInputs = transaction.NumTInputs;
             NumPInputs = transaction.NumPInputs;
-            NumTOuputs = transaction.NumTOuputs;
+            NumTOutputs = transaction.NumTOutputs;
             NumPOutputs = transaction.NumPOutputs;
 
             SigningHash = transaction.SigningHash;
@@ -107,7 +107,7 @@ namespace Discreet.Readable
 
             NumTInputs = obj.NumTInputs;
             NumPInputs = obj.NumPInputs;
-            NumTOuputs = obj.NumTOutputs;
+            NumTOutputs = obj.NumTOutputs;
             NumPOutputs = obj.NumPOutputs;
 
             if (obj.SigningHash.Bytes != null) SigningHash = obj.SigningHash.ToHex();
@@ -205,7 +205,7 @@ namespace Discreet.Readable
 
             obj.NumTInputs = NumTInputs;
             obj.NumPInputs = NumPInputs;
-            obj.NumTOutputs = NumTOuputs;
+            obj.NumTOutputs = NumTOutputs;
             obj.NumPOutputs = NumPOutputs;
 
             if (SigningHash != null && SigningHash != "") obj.SigningHash = new Cipher.SHA256(Printable.Byteify(SigningHash), false);
@@ -289,6 +289,11 @@ namespace Discreet.Readable
         public static string ToReadable(Coin.MixedTransaction obj)
         {
             return new MixedTransaction(obj).JSON();
+        }
+
+        public FullTransaction ToFull()
+        {
+            return new FullTransaction(this);
         }
     }
 }

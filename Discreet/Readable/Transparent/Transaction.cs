@@ -175,5 +175,10 @@ namespace Discreet.Readable.Transparent
         {
             return new Transaction(obj).JSON();
         }
+
+        public FullTransaction ToFull()
+        {
+            return new FullTransaction(this);
+        }
     }
 }

@@ -99,7 +99,7 @@ namespace Discreet.RPC.Endpoints
             public GetSecretKeyTRV() { }
         }
 
-        [RPCEndpoint("get_secret_key")]
+        [RPCEndpoint("get_secret_key", APISet.SEED_RECOVERY)]
         public static object GetSecretKey(string label, string passphrase, string address)
         {
             try

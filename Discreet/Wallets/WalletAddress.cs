@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Discreet.Cipher;
 using Discreet.Coin;
@@ -49,16 +51,31 @@ namespace Discreet.Wallets
 
         public ulong Balance;
 
+        /* used by the AddressSyncer and WalletSyncer */
+        public bool Synced = true; // represents if address is synced with wallet syncer
+        public bool Syncer = false; // represents if address is being synced with an address syncer
+
+        private long _lastSeenHeight = -1;
+        public long LastSeenHeight { get { if (Synced && !Syncer) return wallet.LastSeenHeight; else return _lastSeenHeight;  } set { if (Syncer && !Synced) _lastSeenHeight = value; } }
+
+        /* back reference to wallet */
+        public Wallet wallet;
+
         /* UTXO data for the wallet. Stored in a local JSON database. */
         public List<UTXO> UTXOs;
+
+        private object locker = new object();
+        public CancellationTokenSource syncerSource = null;
 
         public IAddress GetAddress()
         {
             return (Type == 0) ? new StealthAddress(PubViewKey, PubSpendKey) : new TAddress(PubKey);
         }
 
-        public WalletAddress(byte type, bool random)
+        public WalletAddress(Wallet wallet, byte type, bool random)
         {
+            this.wallet = wallet;
+
             Type = type; 
 
             if (random)
@@ -90,6 +107,38 @@ namespace Discreet.Wallets
             Deterministic = !random;
         }
 
+        public WalletAddress(Wallet wallet, byte type, Key secKey, Key secSpendKey, Key secViewKey)
+        {
+            this.wallet = wallet;
+
+            Type = type;
+
+            if (type == 0)
+            {
+                SecSpendKey = secSpendKey;
+                SecViewKey = secViewKey;
+
+                PubSpendKey = Cipher.KeyOps.ScalarmultBase(ref SecSpendKey);
+                PubViewKey = Cipher.KeyOps.ScalarmultBase(ref SecViewKey);
+
+                Address = new StealthAddress(PubViewKey, PubSpendKey).ToString();
+            }
+            else if (type == 1)
+            {
+                SecKey = secKey;
+                PubKey = Cipher.KeyOps.ScalarmultBase(ref SecKey);
+                Address = new TAddress(PubKey).ToString();
+            }
+            else
+            {
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown transaction type " + Type);
+            }
+
+            UTXOs = new List<UTXO>();
+
+            Deterministic = false;
+        }
+
         /* default constructor, used for falling back on JSON deserialize */
         public WalletAddress() { }
 
@@ -104,8 +153,9 @@ namespace Discreet.Wallets
          * hash = SHA256(SHA256(tsk1))
          * ...
          */
-        public WalletAddress(byte type, byte[] entropy, byte[] hash, int index)
+        public WalletAddress(Wallet wallet, byte type, byte[] entropy, byte[] hash, int index)
         {
+            this.wallet = wallet;
             Type = type;
 
             if (type == 0)
@@ -188,9 +238,13 @@ namespace Discreet.Wallets
 
         public void MustEncrypt(byte[] key)
         {
-            if (Encrypted) throw new Exception("Discreet.Wallet.WalletAddress.Encrypt: wallet is already encrypted!");
+            //if (Encrypted) throw new Exception("Discreet.Wallet.WalletAddress.Encrypt: wallet is already encrypted!");
+            lock (locker)
+            {
+                Encrypt(key);
 
-            Encrypt(key);
+                if (syncerSource != null) syncerSource.Cancel();
+            }
         }
 
         public void Encrypt(byte[] key)
@@ -238,6 +292,91 @@ namespace Discreet.Wallets
             if (!Encrypted) throw new Exception("Discreet.Wallet.WalletAddress.Decrypt: wallet is not encrypted!");
 
             Decrypt(key);
+        }
+
+        public void CheckIntegrity()
+        {
+            if (Encrypted) return;
+
+            if (Type == (byte)AddressType.STEALTH)
+            {
+                if (!KeyOps.InMainSubgroup(ref PubSpendKey))
+                {
+                    throw new Exception("Discreet.Wallets.WalletAddress.CheckIntegrity: public spend key is not in main subgroup!");
+                }
+
+                if (!KeyOps.InMainSubgroup(ref PubViewKey))
+                {
+                    throw new Exception("Discreet.Wallets.WalletAddress.CheckIntegrity: public view key is not in main subgroup!");
+                }
+
+                if (!KeyOps.ScalarmultBase(ref SecSpendKey).Equals(PubSpendKey))
+                {
+                    throw new Exception("Discreet.Wallets.WalletAddress.Decrypt: spend key does not match public key!");
+                }
+
+                if (!KeyOps.ScalarmultBase(ref SecViewKey).Equals(PubViewKey))
+                {
+                    throw new Exception("Discreet.Wallets.WalletAddress.Decrypt: view key does not match public key!");
+                }
+
+                if (new StealthAddress(PubViewKey, PubSpendKey).ToString() != Address)
+                {
+                    throw new Exception("Discreet.Wallets.WalletAddress.CheckIntegrity: address string does not match with public keys!");
+                }
+
+                var _verifyAddress = new StealthAddress(Address).Verify();
+                if (_verifyAddress != null)
+                {
+                    throw _verifyAddress;
+                }
+            }
+            else if (Type == (byte)AddressType.TRANSPARENT)
+            {
+                if (!KeyOps.InMainSubgroup(ref PubKey))
+                {
+                    throw new Exception("Discreet.Wallets.WalletAddress.CheckIntegrity: public key is not in main subgroup!");
+                }
+
+                if (!KeyOps.ScalarmultBase(ref SecKey).Equals(PubKey))
+                {
+                    throw new Exception("Discreet.Wallets.WalletAddress.Decrypt: secret key does not match public key!");
+                }
+
+                if (new TAddress(PubKey).ToString() != Address)
+                {
+                    throw new Exception("Discreet.Wallets.WalletAddress.CheckIntegrity: address string does not match with public key!");
+                }
+
+                var _verifyAddress = new TAddress(Address).Verify();
+                if (_verifyAddress != null)
+                {
+                    throw _verifyAddress;
+                }
+            }
+            else
+            {
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
+            }
+
+            foreach (UTXO utxo in UTXOs)
+            {
+                utxo.CheckIntegrity();
+            }
+        }
+
+        public bool TryCheckIntegrity()
+        {
+            try
+            {
+                CheckIntegrity();
+
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         public void Decrypt(byte[] key)
@@ -368,7 +507,6 @@ namespace Discreet.Wallets
                 default:
                     throw new Exception("Discreet.Wallets.WalletAddress.CreateTransaction: unsupported transaction type");
             }
-
 
             UnsignedTX utx = CreateUnsignedTransaction(to, amount);
             return SignTransaction(utx);
@@ -678,6 +816,138 @@ namespace Discreet.Wallets
             return tx;
         }
 
+        public void ProcessBlock(Block block)
+        {
+            lock (locker)
+            {
+                if (Encrypted) throw new Exception("Do not call if wallet address is encrypted!");
+
+                bool changed = false;
+
+                if (block.Header.Version != 1)
+                {
+                    var Coinbase = block.Transactions[0].ToPrivate();
+
+                    if (Coinbase != null && Type == (byte)AddressType.STEALTH)
+                    {
+                        Key txKey = Coinbase.TransactionKey;
+                        Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref SecViewKey, ref SecSpendKey, 0);
+                        Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+
+                        if (Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
+                        {
+                            DB.DisDB db = DB.DisDB.GetDB();
+                            (int index, UTXO utxo) = db.AddWalletOutput(this, Coinbase.ToFull(), 0, false, true);
+                            utxo.OwnedIndex = index;
+                            UTXOs.Add(utxo);
+                            changed = true;
+                        }
+                    }
+                }
+
+                for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
+                {
+                    changed = changed || ProcessTransaction(block.Transactions[i]);
+                }
+
+                LastSeenHeight = block.Header.Height;
+
+                if (changed) wallet.ToFile(wallet.WalletPath ?? Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, wallet.Label + ".dis"));
+            }
+        }
+
+        private bool ProcessTransaction(FullTransaction transaction)
+        {
+            bool changed = false;
+
+            int numPOutputs = (transaction.Version == 4) ? transaction.NumPOutputs : ((transaction.Version == 3) ? 0 : transaction.NumOutputs);
+            int numTOutputs = (transaction.Version == 4) ? transaction.NumTOutputs : ((transaction.Version == 3) ? transaction.NumOutputs : 0);
+
+            for (int i = 0; i < transaction.NumPInputs; i++)
+            {
+                if (Type == (byte)AddressType.STEALTH)
+                {
+                    for (int k = 0; k < UTXOs.Count; k++)
+                    {
+                        if (UTXOs[k].LinkingTag == transaction.PInputs[i].KeyImage)
+                        {
+                            UTXOs[k].Decrypt(this);
+                            Balance -= UTXOs[k].DecodedAmount;
+                            UTXOs.RemoveAt(k);
+                            changed = true;
+                        }
+                    }
+                }
+                else if (Type == (byte)AddressType.TRANSPARENT)
+                {
+                    for (int k = 0; k < UTXOs.Count; k++)
+                    {
+                        if (UTXOs[k].TransactionSrc == transaction.TInputs[i].TransactionSrc && UTXOs[k].Amount == transaction.TInputs[i].Amount && Address == transaction.TInputs[i].Address.ToString())
+                        {
+                            Balance -= UTXOs[k].Amount;
+                            UTXOs.RemoveAt(k);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            for (int i = 0; i < numPOutputs; i++)
+            {
+                if (Type == (byte)AddressType.STEALTH)
+                {
+                    Key txKey = transaction.TransactionKey;
+                    Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref SecViewKey, ref SecSpendKey, i);
+                    Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+
+                    for (int k = 0; k < UTXOs.Count; k++)
+                    {
+                        if (UTXOs[k].UXKey.Equals(transaction.POutputs[i].UXKey))
+                        {
+                            throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
+                        }
+                    }
+
+                    if (transaction.POutputs[i].UXKey.Equals(outputPubKey))
+                    {
+                        Visor.Logger.Log("You received some Discreet!");
+                        ProcessOutput(transaction, i, false);
+                        changed = true;
+                    }
+                }
+            }
+
+            for (int i = 0; i < numTOutputs; i++)
+            {
+                if (Type == (byte)AddressType.TRANSPARENT)
+                {
+                    string address = transaction.TOutputs[i].Address.ToString();
+
+                    if (Address == address)
+                    {
+                        Visor.Logger.Log("You received some Discreet!");
+                        ProcessOutput(transaction, i, true);
+                        changed = true;
+                    }
+                }
+            }
+
+            return changed;
+        }
+
+        private void ProcessOutput(FullTransaction transaction, int i, bool transparent)
+        {
+            DB.DisDB db = DB.DisDB.GetDB();
+
+            lock (DB.DisDB.DBLock)
+            {
+                (int index, UTXO utxo) = db.AddWalletOutput(this, transaction, i, transparent);
+                utxo.OwnedIndex = index;
+                UTXOs.Add(utxo);
+                Balance += utxo.DecodedAmount;
+            }
+        }
+
         public Transaction CreateTransaction(StealthAddress to, ulong amount)
         {
             return CreateTransaction(new StealthAddress[] { to }, new ulong[] { amount });
@@ -690,6 +960,8 @@ namespace Discreet.Wallets
 
         public Transaction CreateTransaction(StealthAddress[] to, ulong[] amount, byte version)
         {
+            if (Type != (byte)WalletType.PRIVATE) throw new Exception("Discreet.Wallets.WalletAddress.CreateTransaction: transparent wallet cannot create fully private transaction!");
+
             if (version != 1 && version != 2)
             {
                 throw new Exception($"Discreet.Wallets.WalletAddress.CreateTransaction: version cannot be {version}; currently supporting 1 and 2");

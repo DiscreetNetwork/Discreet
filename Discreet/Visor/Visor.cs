@@ -29,7 +29,7 @@ namespace Discreet.Visor
         CancellationToken _cancellationToken;
         CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
-        ConcurrentBag<ConcurrentQueue<SHA256>> syncerQueues;
+        ConcurrentDictionary<object, ConcurrentQueue<SHA256>> syncerQueues;
 
         public static bool DebugMode { get; set; } = false;
 
@@ -53,7 +53,7 @@ namespace Discreet.Visor
 
             signingKey = new Key(Common.Printable.Byteify("90933561d294e3125c98a90263e1331fc337be71ee3ac9b0d7269728849ac00a"));
 
-            syncerQueues = new ConcurrentBag<ConcurrentQueue<SHA256>>();
+            syncerQueues = new ConcurrentDictionary<object, ConcurrentQueue<SHA256>>();
 
             _cancellationToken = _tokenSource.Token;
         }
@@ -258,9 +258,9 @@ namespace Discreet.Visor
                         Logger.Log(e.Message);
                     }
 
-                    foreach (var q in syncerQueues)
+                    foreach (var toq in syncerQueues)
                     {
-                        q.Enqueue(block.Header.BlockHash);
+                        toq.Value.Enqueue(block.Header.BlockHash);
                     }
 
                     beginningHeight++;
@@ -293,17 +293,20 @@ namespace Discreet.Visor
         {
             txpool.UpdatePool(block.Transactions);
 
-            foreach (var q in syncerQueues)
+            foreach (var toq in syncerQueues)
             {
-                q.Enqueue(block.Header.BlockHash);
+                toq.Value.Enqueue(block.Header.BlockHash);
             }
         }
 
         public async Task WalletSyncer(Wallet wallet, bool scanForFunds)
         {
+            CancellationTokenSource _tokenSource = new CancellationTokenSource();
+            wallet.syncer = _tokenSource;
+
             ConcurrentQueue<SHA256> queue = new ConcurrentQueue<SHA256>();
 
-            syncerQueues.Add(queue);
+            syncerQueues[wallet] = queue;
 
             if (scanForFunds)
             {
@@ -311,12 +314,12 @@ namespace Discreet.Visor
 
                 var initialChainHeight = db.GetChainHeight();
 
-                while (wallet.LastSeenHeight < initialChainHeight)
+                while (wallet.LastSeenHeight < initialChainHeight && !_tokenSource.IsCancellationRequested)
                 {
                     wallet.ProcessBlock(db.GetBlock(wallet.LastSeenHeight + 1));
                 }
 
-                while (!queue.IsEmpty || handler.State != Network.PeerState.Normal)
+                while ((!queue.IsEmpty || handler.State != Network.PeerState.Normal) && !_tokenSource.IsCancellationRequested)
                 {
                     SHA256 blockHash;
                     bool success = queue.TryDequeue(out blockHash);
@@ -328,13 +331,13 @@ namespace Discreet.Visor
 
                     wallet.ProcessBlock(db.GetBlock(blockHash));
                 }
-
-                wallet.Synced = true;
             }
 
-            while (!_cancellationToken.IsCancellationRequested)
+            wallet.Synced = !_tokenSource.IsCancellationRequested;
+
+            while (!_tokenSource.IsCancellationRequested)
             {
-                while (!queue.IsEmpty)
+                while (!queue.IsEmpty && !_tokenSource.IsCancellationRequested)
                 {
                     SHA256 blockHash;
                     bool success = queue.TryDequeue(out blockHash);
@@ -348,6 +351,94 @@ namespace Discreet.Visor
                     wallet.ProcessBlock(db.GetBlock(blockHash));
                 }
             }
+
+            syncerQueues.TryRemove(wallet, out _);
+        }
+
+        public async Task AddressSyncer(WalletAddress address)
+        {
+            CancellationTokenSource _tokenSource = new CancellationTokenSource();
+            address.syncerSource = _tokenSource;
+
+            ConcurrentQueue<SHA256> queue = new ConcurrentQueue<SHA256>();
+
+            syncerQueues[address] = queue;
+
+            address.Synced = false;
+            address.Syncer = true;
+
+            var initialChainHeight = db.GetChainHeight();
+
+            while (address.LastSeenHeight < initialChainHeight && address.LastSeenHeight < address.wallet.LastSeenHeight && _tokenSource.IsCancellationRequested)
+            {
+                address.ProcessBlock(db.GetBlock(address.LastSeenHeight + 1));
+            }
+
+            if (address.LastSeenHeight == address.wallet.LastSeenHeight)
+            {
+                syncerQueues.Remove(address, out _);
+
+                address.Synced = true;
+                address.Syncer = false;
+                return;
+            }
+            else if (_tokenSource.IsCancellationRequested)
+            {
+                return;
+            }
+
+            while ((!queue.IsEmpty || handler.State != Network.PeerState.Normal) && address.LastSeenHeight < address.wallet.LastSeenHeight && _tokenSource.IsCancellationRequested)
+            {
+                SHA256 blockHash;
+                bool success = queue.TryDequeue(out blockHash);
+
+                if (!success)
+                {
+                    continue;
+                }
+
+                address.ProcessBlock(db.GetBlock(blockHash));
+            }
+
+            if (address.LastSeenHeight == address.wallet.LastSeenHeight)
+            {
+                syncerQueues.Remove(address, out _);
+
+                address.Synced = true;
+                address.Syncer = false;
+                return;
+            }
+            else if (_tokenSource.IsCancellationRequested)
+            {
+                return;
+            }
+
+            while (address.LastSeenHeight < address.wallet.LastSeenHeight && _tokenSource.IsCancellationRequested)
+            {
+                while (!queue.IsEmpty && _tokenSource.IsCancellationRequested)
+                {
+                    SHA256 blockHash;
+                    bool success = queue.TryDequeue(out blockHash);
+
+                    if (!success)
+                    {
+                        continue;
+                    }
+
+                    address.ProcessBlock(db.GetBlock(blockHash));
+                }
+            }
+
+            if (_tokenSource.IsCancellationRequested)
+            {
+                return;
+            }
+
+            syncerQueues.Remove(address, out _);
+
+            address.Synced = true;
+            address.Syncer = false;
+            return;
         }
 
         public async Task SendTransaction(FullTransaction tx)

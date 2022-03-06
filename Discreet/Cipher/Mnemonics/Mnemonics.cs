@@ -400,5 +400,39 @@ namespace Discreet.Cipher.Mnemonics
 
             return entropy;
         }
+
+        /// <summary>
+        /// Checks whether or not the specified string represents a mnemonic.
+        /// </summary>
+        /// <param name="mnemonic">The mnemonic string to check.</param>
+        /// <param name="numWords">If set, the length in words the mnemonic should be.</param>
+        /// <returns></returns>
+        public static bool IsMnemonic(string mnemonic, int numWords = 0)
+        {
+            try
+            {
+                if (mnemonic == null) return false;
+
+                Mnemonic _mnemonic = new Mnemonic(mnemonic);
+
+                if (numWords != 0 && _mnemonic.Words.Length != numWords) return false;
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Returns the specified mnemonic string as a byte array of entropy.
+        /// </summary>
+        /// <param name="mnemonic">The mnemonic string to get the entropy from.</param>
+        /// <returns>The entropy of the mnemonic string, or null if the string is not a mnemonic.</returns>
+        public static byte[] GetEntropy(string mnemonic)
+        {
+            return IsMnemonic(mnemonic) ? new Mnemonic(mnemonic).GetEntropy() : null;
+        }
     }
 }

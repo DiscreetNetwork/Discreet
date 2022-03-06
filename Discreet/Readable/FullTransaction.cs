@@ -18,7 +18,7 @@ namespace Discreet.Readable
 
         public byte NumTInputs { get; set; }
         public byte NumPInputs { get; set; }
-        public byte NumTOuputs { get; set; }
+        public byte NumTOutputs { get; set; }
         public byte NumPOutputs { get; set; }
 
         public ulong Fee { get; set; }
@@ -64,7 +64,7 @@ namespace Discreet.Readable
 
             transaction.NumTInputs = NumTInputs;
             transaction.NumPInputs = NumPInputs;
-            transaction.NumTOuputs = NumTOuputs;
+            transaction.NumTOutputs = NumTOutputs;
             transaction.NumPOutputs = NumPOutputs;
 
             transaction.SigningHash = SigningHash;
@@ -137,7 +137,7 @@ namespace Discreet.Readable
 
             NumTInputs = transaction.NumTInputs;
             NumPInputs = transaction.NumPInputs;
-            NumTOuputs = transaction.NumTOuputs;
+            NumTOutputs = transaction.NumTOutputs;
             NumPOutputs = transaction.NumPOutputs;
 
             SigningHash = transaction.SigningHash;
@@ -161,6 +161,68 @@ namespace Discreet.Readable
         {
             FromObject(obj);
         }
+
+        public FullTransaction(Transaction tx)
+        {
+            Version = tx.Version;
+            NumInputs = tx.NumInputs;
+            NumOutputs = tx.NumOutputs;
+            NumPInputs = tx.NumInputs;
+            NumPOutputs = tx.NumOutputs;
+            NumTInputs = 0;
+            NumTOutputs = 0;
+            NumSigs = tx.NumSigs;
+            Fee = tx.Fee;
+            TransactionKey = tx.TransactionKey;
+            PInputs = tx.Inputs;
+            POutputs = tx.Outputs;
+            PSignatures = tx.Signatures;
+            RangeProof = tx.RangeProof;
+            RangeProofPlus = tx.RangeProofPlus;
+            PseudoOutputs = tx.PseudoOutputs;
+        }
+
+        public FullTransaction(MixedTransaction tx)
+        {
+            Version = tx.Version;
+            NumInputs = tx.NumInputs;
+            NumOutputs = tx.NumOutputs;
+            NumPInputs = tx.NumPInputs;
+            NumPOutputs = tx.NumPOutputs;
+            NumTInputs = tx.NumTInputs;
+            NumTOutputs = tx.NumTOutputs;
+            NumSigs = tx.NumSigs;
+            Fee = tx.Fee;
+            TransactionKey = tx.TransactionKey;
+            PInputs = tx.PInputs;
+            POutputs = tx.POutputs;
+            PSignatures = tx.PSignatures;
+            RangeProofPlus = tx.RangeProofPlus;
+            PseudoOutputs = tx.PseudoOutputs;
+            TInputs = tx.TInputs;
+            TOutputs = tx.TOutputs;
+            TSignatures = tx.TSignatures;
+            SigningHash = tx.SigningHash;
+        }
+
+        public FullTransaction(Transparent.Transaction tx)
+        {
+            Version = tx.Version;
+            NumInputs = tx.NumInputs;
+            NumOutputs = tx.NumOutputs;
+            NumSigs = tx.NumSigs;
+            NumTInputs = tx.NumInputs;
+            NumTOutputs = tx.NumOutputs;
+            NumPInputs = 0;
+            NumPOutputs = 0;
+            Fee = tx.Fee;
+            SigningHash = tx.InnerHash;
+            Fee = tx.Fee;
+            TInputs = tx.Inputs;
+            TOutputs = tx.Outputs;
+            TSignatures = tx.Signatures;
+        }
+
         public FullTransaction(string json)
         {
             FromJSON(json);
@@ -189,7 +251,7 @@ namespace Discreet.Readable
 
             NumTInputs = obj.NumTInputs;
             NumPInputs = obj.NumPInputs;
-            NumTOuputs = obj.NumTOutputs;
+            NumTOutputs = obj.NumTOutputs;
             NumPOutputs = obj.NumPOutputs;
 
             if (obj.SigningHash.Bytes != null) SigningHash = obj.SigningHash.ToHex();
@@ -288,7 +350,7 @@ namespace Discreet.Readable
 
             obj.NumTInputs = NumTInputs;
             obj.NumPInputs = NumPInputs;
-            obj.NumTOutputs = NumTOuputs;
+            obj.NumTOutputs = NumTOutputs;
             obj.NumPOutputs = NumPOutputs;
 
             if (SigningHash != null && SigningHash != "") obj.SigningHash = new Cipher.SHA256(Printable.Byteify(SigningHash), false);
