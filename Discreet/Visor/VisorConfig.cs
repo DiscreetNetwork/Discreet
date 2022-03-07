@@ -44,6 +44,7 @@ namespace Discreet.Visor
 
         public int Port { get; set; }
         public int RPCPort { get; set; }
+        public int HTTPPort { get; set; }
         public IPEndPoint Endpoint { get; set; }
         public IPAddress BootstrapNode { get; set; }
 
@@ -80,6 +81,8 @@ namespace Discreet.Visor
             NetworkVersion = 1;
 
             RPCPort = 8350;
+
+            HTTPPort = 8351;
 
             ID = new Network.Peerbloom.NodeId().Value;
         }

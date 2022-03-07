@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -229,6 +230,10 @@ namespace Discreet.Network.Peerbloom
                 try
                 {
                     Core.Packet packet = new Core.Packet(await client.ReadBytesAsync());
+                    
+                   
+                    if (packet.Header.Length > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Received packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+                    
                     await Handler.GetHandler().Handle(packet, _connectionPool.FindNodeInPool(senderEndpoint));
                 }
                 catch (InvalidOperationException e)

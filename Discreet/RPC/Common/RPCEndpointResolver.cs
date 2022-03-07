@@ -31,6 +31,8 @@ namespace Discreet.RPC
                 RPCEndpoint RPCMethodName = (RPCEndpoint)method.GetCustomAttributes(typeof(RPCEndpoint), true)[0];
                 endpoints.Add(RPCMethodName.endpoint_name, methodDelegate);
             }
+
+            Visor.Logger.Log($"{endpoints.Count} RPC endpoints loaded successfully.");
         }
 
         public static Delegate GetEndpoint(string endpoint)

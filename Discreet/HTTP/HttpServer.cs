@@ -1,19 +1,21 @@
-﻿using System;
+﻿using Discreet.RPC;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Discreet.RPC
+namespace Discreet.HTTP
 {
-    public class RPCServer
-    {   
+    public class HttpServer
+    {
         private readonly HttpListener _listener;
 
-        public RPCServer(int portNumber)
+        public HttpServer(int portNumber)
         {
-            Visor.Logger.Log("Starting RPC server");
+            Console.WriteLine("Server running...");
             RPCEndpointResolver.ReflectEndpoints();
             _listener = new HttpListener();
             _listener.Prefixes.Add($"http://localhost:{portNumber}/");
@@ -30,7 +32,7 @@ namespace Discreet.RPC
 
                 Visor.Logger.Log($"Discreet.RPC: {ex.Message}");
             }
-          
+
 
             while (true)
             {
@@ -49,13 +51,6 @@ namespace Discreet.RPC
             }
         }
 
-        public void Stop()
-        {
-            if (_listener.IsListening)
-            {
-                _listener.Stop();
-                _listener.Close();
-            }
-        }
+
     }
 }

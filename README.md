@@ -7,4 +7,4 @@ This is the main repository for the Discreet Network. This project interfaces wi
 
 For a cross-platform graphical user interface you can review the [discreet-gui](https://github.com/DiscreetNetwork/discreet-gui) repository.
 
-#### Copyright © 2021 - Juche SIA
+#### Copyright © 2022 - Juche SIA

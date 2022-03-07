@@ -7,7 +7,6 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using static Discreet.RPC.Common.Utilities;
 using Discreet.RPC.Converters;
 using System.Linq;
 
@@ -77,7 +76,7 @@ namespace Discreet.RPC
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Discreet.RPC: parsing RPC request failed: {ex.Message}");
+                Visor.Logger.Log($"Discreet.RPC: parsing RPC request failed: {ex.Message}");
             }
 
             return null;
@@ -127,7 +126,7 @@ namespace Discreet.RPC
             * If there was an error in detecting the id in the Request object (e.g. Parse error/Invalid Request), it MUST be Null
             */
             RPCResponse response = new();
-            if(request.id == "")
+            if(request.id == String.Empty)
             {
                 response.id = null;
             } else
