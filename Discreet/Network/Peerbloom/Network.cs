@@ -284,6 +284,14 @@ namespace Discreet.Network.Peerbloom
 
         public async Task<bool> Send(IPEndPoint endpoint, Core.Packet packet)
         {
+            try
+            {
+                if (Marshal.SizeOf(packet) > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Log(ex.Message);
+            }
             Visor.Logger.Log($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
 
             var node = _connectionPool.FindNodeInPool(endpoint);
@@ -297,6 +305,14 @@ namespace Discreet.Network.Peerbloom
 
         public async Task<bool> SendSync(IPEndPoint endpoint, Core.Packet packet)
         {
+            try
+            {
+                if (Marshal.SizeOf(packet) > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Log(ex.Message);
+            }
             Visor.Logger.Log($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
 
             var node = _connectionPool.FindNodeInPool(endpoint);
