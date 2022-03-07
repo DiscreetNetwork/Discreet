@@ -451,7 +451,7 @@ namespace Discreet.RPC.Endpoints
                 GetTransactionCountRV _rv = new GetTransactionCountRV
                 {
                     TransactionCount = DB.DisDB.GetDB().GetTransactionIndex(),
-                    Synced = _handler.State != Network.PeerState.Normal,
+                    Synced = _handler.State == Network.PeerState.Normal,
                     Untrusted = false,
                     Status = "OK"
                 };
@@ -492,7 +492,7 @@ namespace Discreet.RPC.Endpoints
                 GetPrivateOutputCountRV _rv = new GetPrivateOutputCountRV
                 {
                     PrivateOutputCount = DB.DisDB.GetDB().GetOutputIndex(),
-                    Synced = _handler.State != Network.PeerState.Normal,
+                    Synced = _handler.State == Network.PeerState.Normal,
                     Untrusted = false,
                     Status = "OK"
                 };
@@ -544,7 +544,7 @@ namespace Discreet.RPC.Endpoints
                         4 => x.ToMixed().ToReadable(),
                         _ => x.ToReadable()
                     }).ToList(),
-                    Synced = _handler.State != Network.PeerState.Normal,
+                    Synced = _handler.State == Network.PeerState.Normal,
                     Status = "OK"
                 };
 

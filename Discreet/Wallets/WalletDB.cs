@@ -1,0 +1,241 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using Discreet.Coin;
+using RocksDbSharp;
+
+namespace Discreet.Wallets
+{
+    public class WalletDB
+    {
+        private static WalletDB disdb;
+
+        private static object disdb_lock = new object();
+
+        public static WalletDB GetDB()
+        {
+            lock (disdb_lock)
+            {
+                if (disdb == null) Initialize();
+
+                return disdb;
+            }
+        }
+
+        public static void Initialize()
+        {
+            lock (disdb_lock)
+            {
+                if (disdb == null)
+                {
+                    disdb = new WalletDB(Visor.VisorConfig.GetDefault().DBPath);
+                }
+            }
+        }
+
+        private static readonly object db_update_lock = new object();
+
+        public static object DBLock { get { return db_update_lock; } }
+
+        public static string UTXOS = "utxos";
+        public static string STORAGE = "storage";
+        public static string WALLETS = "wallets";
+        public static string WALLET_HEIGHTS = "wallet_heights";
+        public static string ADDRESS_BOOK = "address_book";
+        public static string TX_HISTORY = "tx_history";
+        public static string META = "meta";
+
+        public static ColumnFamilyHandle UTXOs;
+        public static ColumnFamilyHandle Storage;
+        public static ColumnFamilyHandle Wallets;
+        public static ColumnFamilyHandle WalletHeights;
+        public static ColumnFamilyHandle AddressBook;
+        public static ColumnFamilyHandle TxHistory;
+        public static ColumnFamilyHandle Meta;
+
+        private DB.U32 indexer_owned_outputs = new DB.U32(0);
+
+        public string Folder
+        {
+            get { return folder; }
+        }
+
+        private string folder;
+
+        public static byte[] ZEROKEY = new byte[8];
+
+        private RocksDb db;
+
+        public WalletDB(string path)
+        {
+            if(File.Exists(path)) throw new Exception("Discreet.DisDB: expects a valid directory path, not a file");
+
+            if (!Directory.Exists(path))
+            {
+                Directory.CreateDirectory(path);
+            }
+
+            var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies();
+
+            var _colFamilies = new ColumnFamilies
+                {
+                    new ColumnFamilies.Descriptor(UTXOS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(STORAGE, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(WALLETS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(WALLET_HEIGHTS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(ADDRESS_BOOK, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(TX_HISTORY, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions())
+                };
+
+            db = RocksDb.Open(options, path, _colFamilies);
+
+            UTXOs = db.GetColumnFamily(UTXOS);
+            Storage = db.GetColumnFamily(STORAGE);
+            Wallets = db.GetColumnFamily(WALLETS);
+            WalletHeights = db.GetColumnFamily(WALLET_HEIGHTS);
+            AddressBook = db.GetColumnFamily(ADDRESS_BOOK);
+            TxHistory = db.GetColumnFamily(TX_HISTORY);
+            Meta = db.GetColumnFamily(META);
+
+            if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
+            {
+                /* completely empty and has just been created */
+                db.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
+                db.Put(Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt64(indexer_owned_outputs.Value), cf: Meta);
+            }
+            else
+            {
+                var result = db.Get(Encoding.ASCII.GetBytes("indexer_owned_outputs"), cf: Meta);
+
+                if (result == null)
+                {
+                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_owned_outputs");
+                }
+
+                indexer_owned_outputs.Value = Serialization.GetUInt32(result, 0);
+            }
+
+            folder = path;
+        }
+
+        public uint GetTXOutputIndex(FullTransaction tx, int i)
+        {
+            return DB.DisDB.GetDB().GetOutputIndices(tx.Hash())[i];
+        }
+
+        public (int, UTXO) AddWalletOutput(WalletAddress addr, FullTransaction tx, int i, bool transparent)
+        {
+            return AddWalletOutput(addr, tx, i, transparent, false);
+        }
+
+        public (int, UTXO) AddWalletOutput(WalletAddress addr, FullTransaction tx, int i, bool transparent, bool coinbase)
+        {
+            UTXO utxo;
+
+            if (tx.Version == 3)
+            {
+                utxo = new UTXO(tx.TOutputs[i]);
+            }
+            else if (tx.Version == 4)
+            {
+                if (transparent)
+                {
+                    utxo = new UTXO(tx.TOutputs[i]);
+                }
+                else
+                {
+                    uint index = GetTXOutputIndex(tx, i);
+                    utxo = new UTXO(addr, index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
+                }
+            }
+            else
+            {
+                uint index = GetTXOutputIndex(tx, i);
+                utxo = new UTXO(addr, index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
+            }
+
+            int outputIndex;
+
+            lock (indexer_owned_outputs)
+            {
+                indexer_owned_outputs.Value++;
+                outputIndex = (int)indexer_owned_outputs.Value;
+            }
+
+            db.Put(Serialization.Int32(outputIndex), utxo.Serialize(), cf: UTXOs);
+
+            lock (indexer_owned_outputs)
+            {
+                db.Put(Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt32(indexer_owned_outputs.Value), cf: Meta);
+            }
+
+            return (outputIndex, utxo);
+        }
+
+        public UTXO GetWalletOutput(int index)
+        {
+            var result = db.Get(Serialization.Int32(index), cf: UTXOs);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get output at index {index}");
+            }
+
+            UTXO utxo = new UTXO();
+            utxo.Deserialize(result);
+
+            return utxo;
+        }
+
+        public byte[] KVGet(byte[] key)
+        {
+            return db.Get(key, cf: Storage);
+        }
+
+        public byte[] KVPut(byte[] key, byte[] value)
+        {
+            var _rv = db.Get(key, cf: Storage);
+
+            lock (DBLock)
+            {
+                db.Put(key, value, cf: Storage);
+            }
+
+            return _rv ?? new byte[0];
+        }
+
+        public byte[] KVDel(byte[] key)
+        {
+            var _rv = db.Get(key, cf: Storage);
+
+            lock (DBLock)
+            {
+                db.Remove(key, cf: Storage);
+            }
+
+            return _rv ?? new byte[0];
+        }
+
+        public Dictionary<byte[], byte[]> KVAll()
+        {
+            Dictionary<byte[], byte[]> _rv = new();
+
+            var iterator = db.NewIterator(cf: Storage);
+
+            iterator.SeekToFirst();
+
+            while (iterator.Valid())
+            {
+                _rv[iterator.Key()] = iterator.Value();
+
+                iterator.Next();
+            }
+
+            return _rv;
+        }
+    }
+}

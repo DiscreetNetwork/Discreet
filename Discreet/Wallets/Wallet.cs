@@ -512,9 +512,14 @@ namespace Discreet.Wallets
 
                             if (Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
                             {
-                                DB.DisDB db = DB.DisDB.GetDB();
+                                WalletDB db = WalletDB.GetDB();
+                                int index; 
+                                UTXO utxo;
 
-                                (int index, UTXO utxo) = db.AddWalletOutput(Addresses[i], Coinbase.ToFull(), 0, false, true);
+                                lock (WalletDB.DBLock)
+                                {
+                                    (index, utxo) = db.AddWalletOutput(Addresses[i], Coinbase.ToFull(), 0, false, true);
+                                }
 
                                 utxo.OwnedIndex = index;
 
@@ -630,9 +635,9 @@ namespace Discreet.Wallets
 
         private void ProcessOutput(WalletAddress addr, FullTransaction transaction, int i, int walletIndex, bool transparent)
         {
-            DB.DisDB db = DB.DisDB.GetDB();
+            WalletDB db = WalletDB.GetDB();
 
-            lock (DB.DisDB.DBLock)
+            lock (WalletDB.DBLock)
             {
                 (int index, UTXO utxo) = db.AddWalletOutput(addr, transaction, i, transparent);
 
