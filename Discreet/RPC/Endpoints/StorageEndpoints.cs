@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Discreet.RPC.Common;
 using Discreet.Common;
+using Discreet.Wallets;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -17,7 +18,7 @@ namespace Discreet.RPC.Endpoints
 
             try
             {
-                val = DB.DisDB.GetDB().KVGet(Encoding.UTF8.GetBytes(key));
+                val = WalletDB.GetDB().KVGet(Encoding.UTF8.GetBytes(key));
 
                 return Encoding.UTF8.GetString(val);
             }
@@ -36,7 +37,7 @@ namespace Discreet.RPC.Endpoints
 
             try
             {
-                val = DB.DisDB.GetDB().KVPut(Encoding.UTF8.GetBytes(key), Encoding.UTF8.GetBytes(value));
+                val = WalletDB.GetDB().KVPut(Encoding.UTF8.GetBytes(key), Encoding.UTF8.GetBytes(value));
 
                 return Encoding.UTF8.GetString(val);
             }
@@ -55,7 +56,7 @@ namespace Discreet.RPC.Endpoints
 
             try
             {
-                val = DB.DisDB.GetDB().KVDel(Encoding.UTF8.GetBytes(key));
+                val = WalletDB.GetDB().KVDel(Encoding.UTF8.GetBytes(key));
 
                 return Encoding.UTF8.GetString(val);
             }
@@ -72,7 +73,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                return DB.DisDB.GetDB().KVAll().ToDictionary(kvp => Encoding.UTF8.GetString(kvp.Key), kvp => Encoding.UTF8.GetString(kvp.Value));
+                return WalletDB.GetDB().KVAll().ToDictionary(kvp => Encoding.UTF8.GetString(kvp.Key), kvp => Encoding.UTF8.GetString(kvp.Value));
             }
             catch (Exception ex)
             {
