@@ -39,5 +39,11 @@ namespace Discreet.Network.Peerbloom
         /// Determines how long we should wait, before iterating all buckets again
         /// </summary>
         public const int BUCKET_REFRESH_LOOP_DELAY_TIME_MILLISECONDS = 5000;
+
+
+        /// <summary>
+        /// The maximum size of any Peerbloom packet. Any packet above this size is discarded.
+        /// </summary>
+        public const int MAX_PEERBLOOM_PACKET_SIZE = 16 * 1024 * 1024;
     }
 }

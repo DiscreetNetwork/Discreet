@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
+using System.Runtime.InteropServices;
 
 namespace Discreet.Network.Peerbloom
 {
@@ -250,6 +251,15 @@ namespace Discreet.Network.Peerbloom
 
         public async Task<int> Broadcast(Core.Packet packet)
         {
+
+            try
+            {
+                if (Marshal.SizeOf(packet) > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+            } catch (Exception ex)
+            {
+                Visor.Logger.Log(ex.Message);
+            }
+
             Visor.Logger.Log($"Discreet.Network.Peerbloom.Network.Send: Broadcasting {packet.Header.Command}");
 
             int i = 0;
