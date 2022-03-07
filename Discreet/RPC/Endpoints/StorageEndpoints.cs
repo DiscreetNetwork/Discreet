@@ -23,7 +23,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to KVGet failed: {ex}");
+                Visor.Logger.Error($"RPC call to KVGet failed: {ex.Message}");
 
                 return new RPCError($"could not get value with key {key}");
             }
@@ -42,7 +42,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to KVPut failed: {ex}");
+                Visor.Logger.Error($"RPC call to KVPut failed: {ex.Message}");
 
                 return new RPCError($"could not put value {value} with key {key}");
             }
@@ -61,7 +61,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to KVDel failed: {ex}");
+                Visor.Logger.Error($"RPC call to KVDel failed: {ex.Message}");
 
                 return new RPCError($"could not delete value with key {key}");
             }
@@ -76,7 +76,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to KVAll failed: {ex}");
+                Visor.Logger.Error($"RPC call to KVAll failed: {ex.Message}");
 
                 return new RPCError($"could not complete request");
             }

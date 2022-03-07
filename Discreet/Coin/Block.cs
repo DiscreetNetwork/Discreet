@@ -23,7 +23,7 @@ namespace Discreet.Coin
 
         public FullTransaction[] Transactions;
 
-        public virtual byte[] Serialize()
+        public byte[] Serialize()
         {
             using MemoryStream _ms = new MemoryStream();
 
@@ -32,7 +32,7 @@ namespace Discreet.Coin
             return _ms.ToArray();
         }
 
-        public virtual void Serialize(Stream s)
+        public void Serialize(Stream s)
         {
             Header.Serialize(s);
 
@@ -42,12 +42,12 @@ namespace Discreet.Coin
             }
         }
 
-        public virtual void Serialize(byte[] bytes, uint offset)
+        public void Serialize(byte[] bytes, uint offset)
         {
             Array.Copy(Serialize(), 0, bytes, offset, Size());
         }
 
-        public virtual string Readable()
+        public string Readable()
         {
             return Discreet.Readable.Block.ToReadable(this);
         }
@@ -62,12 +62,12 @@ namespace Discreet.Coin
             return Discreet.Readable.Block.FromReadable(json);
         }
 
-        public virtual void Deserialize(byte[] bytes)
+        public void Deserialize(byte[] bytes)
         {
             Deserialize(bytes, 0);
         }
 
-        public virtual uint Deserialize(byte[] bytes, uint offset)
+        public uint Deserialize(byte[] bytes, uint offset)
         {
             Header = new BlockHeader();
             offset = Header.Deserialize(bytes, offset);
@@ -82,7 +82,7 @@ namespace Discreet.Coin
             return offset;
         }
 
-        public virtual void Deserialize(Stream s)
+        public void Deserialize(Stream s)
         {
             Header = new BlockHeader();
             Header.Deserialize(s);
@@ -95,7 +95,7 @@ namespace Discreet.Coin
             }
         }
 
-        public virtual uint Size()
+        public uint Size()
         {
             uint size = Header.Size();
 
@@ -358,7 +358,7 @@ namespace Discreet.Coin
             return Header.Hash();
         }
 
-        public virtual VerifyException Verify()
+        public VerifyException Verify()
         {
             /* Verify does the following:
              *   - ensures Height is equal to db.GetChainHeight() + 1

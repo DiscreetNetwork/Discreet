@@ -40,7 +40,7 @@ namespace Discreet.RPC
                 StreamReader reader = new(ss);
 
                 RPCProcess processor = new();
-                object result =  processor.ProcessRemoteCall(reader.ReadToEnd());
+                object result = processor.ProcessRemoteCall(reader.ReadToEnd());
 
 
                 using var sw = new StreamWriter(ctx.Response.OutputStream);

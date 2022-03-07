@@ -7,6 +7,7 @@ using Discreet.RPC.Common;
 using Discreet.Coin;
 using Discreet.Common;
 using Discreet.Cipher;
+using System.Text.Json;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -32,7 +33,7 @@ namespace Discreet.RPC.Endpoints
                 GetBlockCountRV _rv = new GetBlockCountRV
                 {
                     Height = DB.DisDB.GetDB().GetChainHeight(),
-                    Synced = _handler.State != Network.PeerState.Normal,
+                    Synced = _handler.State == Network.PeerState.Normal,
                     Untrusted = false
                 };
 
@@ -56,7 +57,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetBlockCount failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetBlockCount failed: {ex.Message}");
 
                 return new GetBlockCountRV
                 {
@@ -77,7 +78,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetBlockHashByHeight failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetBlockHashByHeight failed: {ex.Message}");
 
                 return "";
             }
@@ -92,7 +93,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetBlockHeaderByHeight failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetBlockHeaderByHeight failed: {ex.Message}");
 
                 return new RPCError($"Could not get header at height {height}");
             }
@@ -113,7 +114,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 catch (Exception ex)
                 {
-                    Visor.Logger.Error($"RPC call to GetBlockHeadersRange failed: {ex}");
+                    Visor.Logger.Error($"RPC call to GetBlockHeadersRange failed: {ex.Message}");
 
                     return new RPCError(-1, $"Could not get header at height {height}", headers);
                 }
@@ -123,30 +124,36 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_block", APISet.READ)]
-        public static object GetBlock(object idx)
+        public static object GetBlock(object _jsonElement)
         {
             try
             {
-                if (idx is string hash)
+                var _kind = ((JsonElement)_jsonElement).ValueKind;
+
+                if (_kind == JsonValueKind.String)
                 {
+                    string hash = ((JsonElement)_jsonElement).GetString();
+
                     if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid block hash {hash}");
 
                     return DB.DisDB.GetDB().GetBlock(SHA256.FromHex(hash)).ToReadable();
                 }
-                else if (idx is ulong height)
+                else if (_kind == JsonValueKind.Number)
                 {
-                    return DB.DisDB.GetDB().GetBlock((long)height).ToReadable();
+                    long height = ((JsonElement)_jsonElement).GetInt64();
+
+                    return DB.DisDB.GetDB().GetBlock(height).ToReadable();
                 }
                 else
                 {
-                    return new RPCError($"Malformed or invalid parameter {idx}");
+                    return new RPCError($"Malformed or invalid parameter {((JsonElement)_jsonElement).GetRawText()}");
                 }
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetBlock failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetBlock failed: {ex.Message}");
 
-                return new RPCError($"Could not get block with parameter {idx}");
+                return new RPCError($"Could not get block with parameter {((JsonElement)_jsonElement).GetRawText()}");
             }
         }
 
@@ -159,7 +166,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetBlockHash failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetBlockHash failed: {ex.Message}");
 
                 return new RPCError($"Could not get block hash at height {height}");
             }
@@ -172,30 +179,36 @@ namespace Discreet.RPC.Endpoints
 
             List<Readable.Block> blocks = new();
 
-            foreach (object idx in idxs)
+            foreach (object _jsonElement in idxs)
             {
                 try
                 {
-                    if (idx is string hash)
+                    var _kind = ((JsonElement)_jsonElement).ValueKind;
+
+                    if (_kind == JsonValueKind.String)
                     {
+                        string hash = ((JsonElement)_jsonElement).GetString();
+
                         if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid block hash {hash}");
 
                         blocks.Add((Readable.Block)DB.DisDB.GetDB().GetBlock(SHA256.FromHex(hash)).ToReadable());
                     }
-                    else if (idx is ulong height)
+                    else if (_kind == JsonValueKind.Number)
                     {
-                        blocks.Add((Readable.Block)DB.DisDB.GetDB().GetBlock((long)height).ToReadable());
+                        long height = ((JsonElement)_jsonElement).GetInt64();
+
+                        blocks.Add((Readable.Block)DB.DisDB.GetDB().GetBlock(height).ToReadable());
                     }
                     else
                     {
-                        return new RPCError(-1, $"Malformed or invalid parameter {idx}", blocks);
+                        return new RPCError(-1, $"Malformed or invalid parameter {((JsonElement)_jsonElement).GetRawText()}", blocks);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Visor.Logger.Error($"RPC call to GetBlocks failed: {ex}");
+                    Visor.Logger.Error($"RPC call to GetBlocks failed: {ex.Message}");
 
-                    return new RPCError(-1, $"Could not get block with parameter {idx}", blocks);
+                    return new RPCError(-1, $"Could not get block with parameter {((JsonElement)_jsonElement).GetRawText()}", blocks);
                 }
             }
 
@@ -211,12 +224,16 @@ namespace Discreet.RPC.Endpoints
 
             var db = DB.DisDB.GetDB();
 
-            foreach (object idx in idxs)
+            foreach (object _jsonElement in idxs)
             {
                 try
                 {
-                    if (idx is string hash)
+                    var _kind = ((JsonElement)_jsonElement).ValueKind;
+
+                    if (_kind == JsonValueKind.String)
                     {
+                        string hash = ((JsonElement)_jsonElement).GetString();
+
                         if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid block or tx hash {hash}");
 
                         try
@@ -239,8 +256,9 @@ namespace Discreet.RPC.Endpoints
                             if (tx.TOutputs != null) outputs.AddRange(tx.TOutputs);
                         }
                     }
-                    else if (idx is ulong id)
+                    else if (_kind == JsonValueKind.Number)
                     {
+                        ulong id = ((JsonElement)_jsonElement).GetUInt64();
                         /* could be block height, tx id, or output index */
                         try
                         {
@@ -271,14 +289,14 @@ namespace Discreet.RPC.Endpoints
                     }
                     else
                     {
-                        return new RPCError(-1, $"Malformed or invalid parameter {idx}", outputs);
+                        return new RPCError(-1, $"Malformed or invalid parameter {((JsonElement)_jsonElement).GetRawText()}", outputs);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Visor.Logger.Error($"RPC call to GetOutputs failed: {ex}");
+                    Visor.Logger.Error($"RPC call to GetOutputs failed: {ex.Message}");
 
-                    return new RPCError(-1, $"Could not get outputs with parameter {idx}", outputs);
+                    return new RPCError(-1, $"Could not get outputs with parameter {((JsonElement)_jsonElement).GetRawText()}", outputs);
                 }
             }
 
@@ -294,7 +312,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetOutput failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetOutput failed: {ex.Message}");
 
                 return new RPCError($"Could not get output at index {index}");
             }
@@ -307,12 +325,16 @@ namespace Discreet.RPC.Endpoints
 
             List<object> txs = new();
 
-            foreach (object idx in idxs)
+            foreach (object _jsonElement in idxs)
             {
                 try
                 {
-                    if (idx is string hash)
+                    var _kind = ((JsonElement)_jsonElement).ValueKind;
+
+                    if (_kind == JsonValueKind.String)
                     {
+                        string hash = ((JsonElement)_jsonElement).GetString();
+
                         if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid transaction hash or id {hash}");
 
                         var tx = DB.DisDB.GetDB().GetTransaction(SHA256.FromHex(hash));
@@ -326,8 +348,10 @@ namespace Discreet.RPC.Endpoints
                             _ => tx.ToReadable()
                         });
                     }
-                    else if (idx is ulong id)
+                    else if (_kind == JsonValueKind.Number)
                     {
+                        ulong id = ((JsonElement)_jsonElement).GetUInt64();
+
                         var tx = DB.DisDB.GetDB().GetTransaction(id);
 
                         txs.Add(tx.Version switch
@@ -341,14 +365,14 @@ namespace Discreet.RPC.Endpoints
                     }
                     else
                     {
-                        return new RPCError(-1, $"Malformed or invalid parameter {idx}", txs);
+                        return new RPCError(-1, $"Malformed or invalid parameter {((JsonElement)_jsonElement).GetRawText()}", txs);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Visor.Logger.Error($"RPC call to GetTransactions failed: {ex}");
+                    Visor.Logger.Error($"RPC call to GetTransactions failed: {ex.Message}");
 
-                    return new RPCError(-1, $"Could not get transaction with parameter {idx}", txs);
+                    return new RPCError(-1, $"Could not get transaction with parameter {((JsonElement)_jsonElement).GetRawText()}", txs);
                 }
             }
 
@@ -356,12 +380,16 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_transaction", APISet.READ)]
-        public static object GetTransaction(object idx)
+        public static object GetTransaction(object _jsonElement)
         {
             try
             {
-                if (idx is string hash)
+                var _kind = ((JsonElement)_jsonElement).ValueKind;
+
+                if (_kind == JsonValueKind.String)
                 {
+                    string hash = ((JsonElement)_jsonElement).GetString();
+
                     if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid transaction hash or id {hash}");
 
                     var tx = DB.DisDB.GetDB().GetTransaction(SHA256.FromHex(hash));
@@ -375,8 +403,10 @@ namespace Discreet.RPC.Endpoints
                         _ => tx.ToReadable()
                     };
                 }
-                else if (idx is ulong id)
+                else if (_kind == JsonValueKind.Number)
                 {
+                    ulong id = ((JsonElement)_jsonElement).GetUInt64();
+
                     var tx = DB.DisDB.GetDB().GetTransaction(id);
 
                     return tx.Version switch
@@ -390,14 +420,14 @@ namespace Discreet.RPC.Endpoints
                 }
                 else
                 {
-                    return new RPCError($"Malformed or invalid parameter {idx}");
+                    return new RPCError($"Malformed or invalid parameter {((JsonElement)_jsonElement).GetRawText()}");
                 }
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetTransaction failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetTransaction failed: {ex.Message}");
 
-                return new RPCError($"Could not get transaction with parameter {idx}");
+                return new RPCError($"Could not get transaction with parameter {((JsonElement)_jsonElement).GetRawText()}");
             }
         }
 
@@ -430,7 +460,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetTransactionCount failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetTransactionCount failed: {ex.Message}");
 
                 return new GetTransactionCountRV
                 {
@@ -471,7 +501,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetPrivateOutputCount failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetPrivateOutputCount failed: {ex.Message}");
 
                 return new GetPrivateOutputCountRV
                 {
@@ -522,7 +552,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetBlockchain failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetBlockchain failed: {ex.Message}");
 
                 return new GetBlockchainRV
                 {
@@ -553,7 +583,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 catch (Exception ex)
                 {
-                    Visor.Logger.Error($"RPC call to GetLastBlocks failed: {ex}");
+                    Visor.Logger.Error($"RPC call to GetLastBlocks failed: {ex.Message}");
 
                     return new RPCError(-1, $"Could not get block with parameter {i}", blocks);
                 }
@@ -578,37 +608,43 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetTransactionPool failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetTransactionPool failed: {ex.Message}");
 
                 return new RPCError("Could not get transaction pool");
             }
         }
 
         [RPCEndpoint("get_raw_transaction", APISet.READ)]
-        public static object GetRawTransaction(object idx)
+        public static object GetRawTransaction(object _jsonElement)
         {
             try
             {
-                if (idx is string hash)
+                var _kind = ((JsonElement)_jsonElement).ValueKind;
+
+                if (_kind == JsonValueKind.String)
                 {
+                    string hash = ((JsonElement)_jsonElement).GetString();
+
                     if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid transaction hash or id {hash}");
 
                     return Printable.Hexify(DB.DisDB.GetDB().GetTransaction(SHA256.FromHex(hash)).Serialize());
                 }
-                else if (idx is ulong id)
+                else if (_kind == JsonValueKind.Number)
                 {
+                    ulong id = ((JsonElement)_jsonElement).GetUInt64();
+
                     return Printable.Hexify(DB.DisDB.GetDB().GetTransaction(id).Serialize());
                 }
                 else
                 {
-                    return new RPCError($"Malformed or invalid parameter {idx}");
+                    return new RPCError($"Malformed or invalid parameter {((JsonElement)_jsonElement).GetRawText()}");
                 }
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetRawTransaction failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetRawTransaction failed: {ex.Message}");
 
-                return new RPCError($"Could not get transaction with parameter {idx}");
+                return new RPCError($"Could not get transaction with parameter {((JsonElement)_jsonElement).GetRawText()}");
             }
         }
 
@@ -632,7 +668,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to VerifyAddress failed: {ex}");
+                Visor.Logger.Error($"RPC call to VerifyAddress failed: {ex.Message}");
 
                 return new RPCError($"unknown type address {addr} is malformed");
             }

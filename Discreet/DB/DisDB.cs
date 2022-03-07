@@ -1006,7 +1006,7 @@ namespace Discreet.DB
                 db.Put(key, value, cf: StorageStore);
             }
 
-            return _rv;
+            return _rv ?? new byte[0];
         }
 
         public byte[] KVDel(byte[] key)
@@ -1018,7 +1018,7 @@ namespace Discreet.DB
                 db.Remove(key, cf: StorageStore);
             }
 
-            return _rv;
+            return _rv ?? new byte[0];
         }
 
         public Dictionary<byte[], byte[]> KVAll()

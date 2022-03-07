@@ -12,6 +12,7 @@ using Discreet.Wallets;
 using Discreet.Common;
 using Discreet.Cipher.Mnemonics;
 using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -33,7 +34,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetWallet failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetWallet failed: {ex.Message}");
 
                 return new RPCError($"Could not get wallet {label}");
             }
@@ -134,14 +135,14 @@ namespace Discreet.RPC.Endpoints
 
                     wallet.ToFile(Path.Join(Visor.VisorConfig.GetConfig().WalletPath, $"{wallet.Label}.dis"));
 
-                    _ = _visor.WalletSyncer(wallet, _scan);
+                    _ = Task.Run(() => _visor.WalletSyncer(wallet, _scan)).ConfigureAwait(false);
                 }
 
                 return new Readable.Wallet(wallet);
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to CreateWallet failed: {ex}");
+                Visor.Logger.Error($"RPC call to CreateWallet failed: {ex.Message}");
 
                 return new RPCError($"Could not create wallet");
             }
@@ -192,8 +193,10 @@ namespace Discreet.RPC.Endpoints
                     {
                         wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, $"{_params.Label}.dis"));
                     }
-                    catch (Exception)
+                    catch (Exception ex)
                     {
+                        Visor.Logger.Error($"RPC call resulted in an error: {ex.Message}");
+
                         return new RPCError($"could not load wallet with label {_params.Label}; try checking wallet integrity or seeing if it is missing");
                     }
                 }
@@ -211,13 +214,13 @@ namespace Discreet.RPC.Endpoints
 
                 _visor.wallets.Add(wallet);
 
-                _ = _visor.WalletSyncer(wallet, true);
+                _ = Task.Run(() => _visor.WalletSyncer(wallet, true)).ConfigureAwait(false);
 
                 return "OK";
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to LoadWallet failed: {ex}");
+                Visor.Logger.Error($"RPC call to LoadWallet failed: {ex.Message}");
 
                 return new RPCError($"Could not load wallet");
             }
@@ -271,7 +274,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to CheckIntegrity failed: {ex}");
+                Visor.Logger.Error($"RPC call to CheckIntegrity failed: {ex.Message}");
 
                 return new RPCError($"failed");
             }
@@ -323,14 +326,14 @@ namespace Discreet.RPC.Endpoints
                 {
                     _visor.wallets.Add(wallet);
 
-                    _ = _visor.WalletSyncer(wallet, true);
+                    _ = Task.Run(() => _visor.WalletSyncer(wallet, true)).ConfigureAwait(false);
                 });
 
                 return "OK";
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to LoadWallets failed: {ex}");
+                Visor.Logger.Error($"RPC call to LoadWallets failed: {ex.Message}");
 
                 return new RPCError($"could not load wallets");
             }
@@ -353,7 +356,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to LockWallet failed: {ex}");
+                Visor.Logger.Error($"RPC call to LockWallet failed: {ex.Message}");
 
                 return new RPCError($"could not lock wallet");
             }
@@ -373,7 +376,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to LockWallets failed: {ex}");
+                Visor.Logger.Error($"RPC call to LockWallets failed: {ex.Message}");
 
                 return new RPCError($"could not lock wallets");
             }
@@ -418,13 +421,13 @@ namespace Discreet.RPC.Endpoints
                     if (!wallet.TryDecrypt()) return new RPCError($"wallet {_params.Label} could not be decrypted");
                 }
 
-                _ = _visor.WalletSyncer(wallet, true);
+                _ = Task.Run(() => _visor.WalletSyncer(wallet, true)).ConfigureAwait(false);
 
                 return "OK";
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to UnlockWallet failed: {ex}");
+                Visor.Logger.Error($"RPC call to UnlockWallet failed: {ex.Message}");
 
                 return new RPCError($"Could not unlock wallet");
             }
@@ -447,7 +450,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetWalletBalance failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetWalletBalance failed: {ex.Message}");
 
                 return new RPCError($"Could not get wallet balance");
             }
@@ -470,7 +473,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetBalance failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetBalance failed: {ex.Message}");
 
                 return new RPCError($"Could not get address balance");
             }
@@ -621,14 +624,14 @@ namespace Discreet.RPC.Endpoints
 
                 if (scan)
                 {
-                    _ = _visor.AddressSyncer(addr);
+                    _ = Task.Run(() => _visor.AddressSyncer(addr)).ConfigureAwait(false);
                 }
 
                 return new Readable.WalletAddress(addr);
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to CreateAddress failed: {ex}");
+                Visor.Logger.Error($"RPC call to CreateAddress failed: {ex.Message}");
 
                 return new RPCError($"Could not create address");
             }
@@ -651,7 +654,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetAddresses failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetAddresses failed: {ex.Message}");
 
                 return new RPCError($"Could not get addresses");
             }
@@ -668,7 +671,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetWallets failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetWallets failed: {ex.Message}");
 
                 return new RPCError($"Could not get wallets");
             }
@@ -695,7 +698,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to StopWallet failed: {ex}");
+                Visor.Logger.Error($"RPC call to StopWallet failed: {ex.Message}");
 
                 return new RPCError($"could not stop wallet");
             }
@@ -718,7 +721,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetWalletVersion failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetWalletVersion failed: {ex.Message}");
 
                 return new RPCError($"Could not get wallet version");
             }
@@ -741,9 +744,32 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetWalletVersion failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetWalletVersion failed: {ex.Message}");
 
                 return new RPCError($"Could not get wallet version");
+            }
+        }
+
+        [RPCEndpoint("get_wallet_height", APISet.WALLET)]
+        public static object GetWalletHeight(string label)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().visor;
+
+                if (label == null || label == "") return new RPCError("parameter was null");
+
+                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"no wallet found with label {label}");
+
+                return wallet.LastSeenHeight;
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to GetWalletHeight failed: {ex.Message}");
+
+                return new RPCError($"Could not get wallet height");
             }
         }
 

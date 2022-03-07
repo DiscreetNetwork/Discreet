@@ -103,7 +103,7 @@ namespace Discreet.Visor
                     coins.Add(ulong.Parse(_input));
                 }*/
 
-                addresses.Add(new StealthAddress("1HhjfqY8MKwYFc8mbkKNyKPHK9zTCCdTF59FdUYkHSneXPvYViW5dfUeVXCvm8tufsHiVDQPudspWA2wzctQGz166LAVHU5"));
+                addresses.Add(new StealthAddress("1L8Vdp5j5YD4qkWgxAD5XH57uK4aAZHEtDFxCX1xuF5TH5CTB3AAzxtHaVsGVBxYqZd5ESummF8Y1cQJRw32Ar28GgpChZa"));
                 addresses.Add(new StealthAddress("1BUVzU7jfQw5UGgWFfcznXRrcUMHXAgERAiCCmr9La2h3hakNVsEMXR5P9L1LJaacKiJg5EeYvxZkYpGZmj5oS3i77LiYR5"));
                 coins.Add(10000000000);
                 coins.Add(50000000000000000);
@@ -138,11 +138,11 @@ namespace Discreet.Visor
                     throw new Exception("FATAL: cannot find any online peers. Exiting.");
                 }
 
-                long timeout = DateTime.UtcNow.AddSeconds(30).Ticks;
+                long timeout = DateTime.UtcNow.AddSeconds(5).Ticks;
 
                 while (nPeers != messageCache.Versions.Count + messageCache.BadVersions.Count && timeout > DateTime.UtcNow.Ticks)
                 {
-                    await Task.Delay(10000);
+                    await Task.Delay(2500);
 
                     Logger.Log("Discreet.Visor: waiting for peers to respond with versions...");
 
@@ -193,7 +193,7 @@ namespace Discreet.Visor
                     }
                 }
 
-                await Task.Delay(10000);
+                await Task.Delay(1000);
 
                 handler.SetState(Network.PeerState.Processing);
                 

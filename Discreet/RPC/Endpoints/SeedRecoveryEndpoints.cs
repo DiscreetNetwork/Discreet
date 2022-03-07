@@ -75,7 +75,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetWalletSeed failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetWalletSeed failed: {ex.Message}");
 
                 return new RPCError($"Could not recover seed for wallet {label}");
             }
@@ -199,7 +199,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetWalletSeed failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetWalletSeed failed: {ex.Message}");
 
                 return new RPCError($"Could not recover seed for wallet {label}'s address {address}");
             }

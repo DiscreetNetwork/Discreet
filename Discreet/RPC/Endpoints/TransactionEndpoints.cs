@@ -74,7 +74,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to RelayTx failed: {ex}");
+                Visor.Logger.Error($"RPC call to RelayTx failed: {ex.Message}");
 
                 return new RPCError($"Could not relay tx");
             }
@@ -191,7 +191,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to CreateTransaction failed: {ex}");
+                Visor.Logger.Error($"RPC call to CreateTransaction failed: {ex.Message}");
 
                 return new RPCError($"Could not create transaction");
             }

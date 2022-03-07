@@ -55,11 +55,17 @@ namespace Discreet.Visor
         {
             VisorPath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
 
-            VisorPath = Path.Combine(VisorPath, ".discreet");
+            VisorPath = Path.Combine($"{VisorPath}\\", ".discreet");
+
+            if (!Directory.Exists(VisorPath)) Directory.CreateDirectory(VisorPath);
 
             DBPath = Path.Combine(VisorPath, "data");
             LogPath = Path.Combine(VisorPath, "logs");
             WalletPath = Path.Combine(VisorPath, "wallets");
+
+            if (!Directory.Exists(DBPath)) Directory.CreateDirectory(DBPath);
+            if (!Directory.Exists(LogPath)) Directory.CreateDirectory(LogPath);
+            if (!Directory.Exists(WalletPath)) Directory.CreateDirectory(WalletPath);
 
             ConfigPath = Path.Combine(VisorPath, "config.json");
 

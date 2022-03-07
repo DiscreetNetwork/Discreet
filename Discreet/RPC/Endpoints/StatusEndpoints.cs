@@ -21,7 +21,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to GetVersion failed: {ex}");
+                Visor.Logger.Error($"RPC call to GetVersion failed: {ex.Message}");
 
                 return new RPCError($"Could not get version data");
             }

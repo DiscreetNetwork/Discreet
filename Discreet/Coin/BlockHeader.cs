@@ -127,16 +127,16 @@ namespace Discreet.Coin
             Serialization.CopyData(bytes, 129, NumOutputs);
 
             Serialization.CopyData(bytes, 133, ExtraLen);
-            Array.Copy(Extra ?? Array.Empty<byte>(), bytes, Extra?.Length ?? 0);
+            Array.Copy(Extra ?? Array.Empty<byte>(), 0, bytes, 137, ExtraLen);
 
             return bytes;
         }
 
         public void Serialize(byte[] bytes, uint offset)
         {
-            byte[] _bytes = Serialize();
+            byte[] _header = Serialize();
 
-            Array.Copy(_bytes, 0, bytes, offset, _bytes.Length);
+            Array.Copy(_header, 0, bytes, offset, _header.Length);
         }
 
         public void Serialize(Stream s)
@@ -166,7 +166,7 @@ namespace Discreet.Coin
 
         public uint Size()
         {
-            return 137 + (uint)(Extra?.Length ?? 0);
+            return 137 + ExtraLen;
         }
     }
 }
