@@ -286,7 +286,7 @@ namespace Discreet.Network.Peerbloom
         {
             try
             {
-                if (Marshal.SizeOf(packet) > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+                if (packet.Header.Length > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
             }
             catch (Exception ex)
             {
@@ -307,7 +307,7 @@ namespace Discreet.Network.Peerbloom
         {
             try
             {
-                if (Marshal.SizeOf(packet) > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+                if (packet.Header.Length > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
             }
             catch (Exception ex)
             {

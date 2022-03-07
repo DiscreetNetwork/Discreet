@@ -232,7 +232,7 @@ namespace Discreet.Network.Peerbloom
                     Core.Packet packet = new Core.Packet(await client.ReadBytesAsync());
                     
                    
-                    if (Marshal.SizeOf(packet) > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Received packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+                    if (packet.Header.Length > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Received packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
                     
                     await Handler.GetHandler().Handle(packet, _connectionPool.FindNodeInPool(senderEndpoint));
                 }
