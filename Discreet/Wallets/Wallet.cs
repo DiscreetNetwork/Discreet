@@ -631,7 +631,10 @@ namespace Discreet.Wallets
             for (int i = 0; i < _numAddresses; i++)
             {
                 Addresses[i] = db.GetWalletAddress(Serialization.GetInt32(s));
+                Addresses[i].wallet = this;
             }
+
+            IsEncrypted = true;
         }
 
         public void Save(bool _new)
