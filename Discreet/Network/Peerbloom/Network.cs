@@ -41,7 +41,7 @@ namespace Discreet.Network.Peerbloom
         }
 
 
-        private LocalNode _localNode;
+        public LocalNode LocalNode;
 
         /// <summary>
         /// The manager class used to perform operations on buckets
@@ -72,12 +72,12 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         public Network(IPEndPoint endpoint)
         {
-            _localNode = new LocalNode(endpoint, new NodeId(Visor.VisorConfig.GetConfig().ID));
-            _bucketManager = new BucketManager(_localNode);
+            LocalNode = new LocalNode(endpoint, new NodeId(Visor.VisorConfig.GetConfig().ID));
+            _bucketManager = new BucketManager(LocalNode);
             _messageStore = new MessageStore();
             _connectionPool = new ConnectionPool();
             _shutdownTokenSource = new CancellationTokenSource();
-            _tcpReceiver = new TcpReceiver(_localNode, _connectionPool, _bucketManager, _shutdownTokenSource.Token);
+            _tcpReceiver = new TcpReceiver(LocalNode, _connectionPool, _bucketManager, _shutdownTokenSource.Token);
 
             // Remove this when done testing
             //Program._messagePacketReceivedEvent += OnSendMessageReceived;
@@ -85,7 +85,7 @@ namespace Discreet.Network.Peerbloom
 
         public Cipher.Key GetNodeID()
         {
-            return _localNode.Id.Value;
+            return LocalNode.Id.Value;
         }
 
         /// <summary>
@@ -138,11 +138,11 @@ namespace Discreet.Network.Peerbloom
             // This check is in case THIS device, is the bootstrap node. In that case, it should not try to bootstrap itself, as it is the first node in the network
             // Eventually this check needs to be modified, when we include multiple bootstrap nodes
             // For now: make sure the int we check against, matches the port of the bootstrap node, in the line above
-            if (_localNode.Endpoint.Port == 5555) return;
+            if (LocalNode.Endpoint.Port == 5555) return;
 
             Visor.Logger.Info("Bootstrapping the node...");
 
-            (bool acknowledged, bool isPublic) = await bootstrapNode.Connect(_localNode);
+            (bool acknowledged, bool isPublic) = await bootstrapNode.Connect(LocalNode);
 
             if(!acknowledged)
             {
@@ -154,7 +154,7 @@ namespace Discreet.Network.Peerbloom
             }
 
             Visor.Logger.Info(isPublic ? "Continuing in public mode" : "Continuing in private mode");
-            _localNode.SetNetworkMode(isPublic); // This determines how 'this' node relays messages
+            LocalNode.SetNetworkMode(isPublic); // This determines how 'this' node relays messages
            
             if (isPublic)
             {
@@ -167,7 +167,7 @@ namespace Discreet.Network.Peerbloom
             _bucketManager.AddRemoteNode(bootstrapNode);
 
 
-            var fetchedNodes = await bootstrapNode.FindNode(_localNode.Id, _localNode.Endpoint, _localNode.Id); // Perform a self-lookup, by calling FindNode with our own NodeId
+            var fetchedNodes = await bootstrapNode.FindNode(LocalNode.Id, LocalNode.Endpoint, LocalNode.Id); // Perform a self-lookup, by calling FindNode with our own NodeId
 
             // We failed at establishing a connection to the bootstrap node
             if(fetchedNodes == null)
@@ -206,7 +206,7 @@ namespace Discreet.Network.Peerbloom
                 {
                     if (_connectionPool.GetOutboundConnections().Any(n => n.Id.Value.Equals(node.Id.Value))) continue;
 
-                    (acknowledged, _) = await node.Connect(_localNode);
+                    (acknowledged, _) = await node.Connect(LocalNode);
                     if (!acknowledged) continue;
 
                     _connectionPool.AddOutboundConnection(node);
@@ -235,7 +235,7 @@ namespace Discreet.Network.Peerbloom
             //messagePacket.WriteString(messageId);                       // Message ID
             //messagePacket.WriteString(content);                         // Message Content
 
-            if(_localNode.IsPublic)
+            if(LocalNode.IsPublic)
             {
                 foreach (var inbound in _connectionPool.GetInboundConnections())
                 {
@@ -265,7 +265,7 @@ namespace Discreet.Network.Peerbloom
 
             int i = 0;
 
-            if (_localNode.IsPublic)
+            if (LocalNode.IsPublic)
             {
                 foreach(var inbound in _connectionPool.GetInboundConnections())
                 {
@@ -353,7 +353,7 @@ namespace Discreet.Network.Peerbloom
             //messagePacket.WriteString(messageId);                       // Message ID
             //messagePacket.WriteString(content);                         // Message Content
 
-            if (_localNode.IsPublic)
+            if (LocalNode.IsPublic)
             {
                 foreach (var inbound in _connectionPool.GetInboundConnections())
                 {
@@ -373,7 +373,7 @@ namespace Discreet.Network.Peerbloom
             {
                 await Task.Delay(90000);
 
-                if (_localNode.IsPublic)
+                if (LocalNode.IsPublic)
                 {
                     foreach (var inbound in _connectionPool.GetInboundConnections())
                     {

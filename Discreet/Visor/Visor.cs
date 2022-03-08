@@ -125,12 +125,12 @@ namespace Discreet.Visor
                 handler.SetState(Network.PeerState.Normal);
             }
 
+            network.Start();
+            await network.Bootstrap();
+
             Logger.Log($"Starting RPC server...");
             _rpcServer = new RPC.RPCServer(VisorConfig.GetConfig().RPCPort);
             _ = _rpcServer.Start();
-
-            network.Start();
-            await network.Bootstrap();
 
             if (!IsMasternode)
             {

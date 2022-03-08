@@ -10,13 +10,22 @@ namespace Discreet.RPC
     public class RPCServer
     {   
         private readonly HttpListener _listener;
+        private int _port;
 
         public RPCServer(int portNumber)
         {
             Visor.Logger.Log("Starting RPC server");
             RPCEndpointResolver.ReflectEndpoints();
+            _port = portNumber;
             _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://*:{portNumber}/");
+            if(Discreet.Network.Peerbloom.Network.GetNetwork().LocalNode.IsPublic)
+            {
+                _listener.Prefixes.Add($"http://*:{portNumber}/");
+            } else
+            {
+                _listener.Prefixes.Add($"http://localhost:{portNumber}/");
+            }
+            
         }
 
         public async Task Start()
@@ -29,6 +38,9 @@ namespace Discreet.RPC
             {
 
                 Visor.Logger.Log($"Discreet.RPC: {ex.Message}");
+
+                if(ex.ErrorCode == 5)
+                    Visor.Logger.Info($"Discreet.RPC: RPC was unable to start due to insufficient privileges. Please start as administrator and open port {_port}. Continuing without RPC.");
             }
           
 
