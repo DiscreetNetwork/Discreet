@@ -389,10 +389,12 @@ namespace Discreet.Wallets
             {
                 (CipherObject cipherObjSpend, byte[] encryptedSecSpendKeyBytes) = CipherObject.GetFromPrependedArray(key, EncryptedSecSpendKey);
                 byte[] unencryptedSpendKey = AESCBC.Decrypt(encryptedSecSpendKeyBytes, cipherObjSpend);
+                SecSpendKey = new(new byte[32]);
                 Array.Copy(unencryptedSpendKey, SecSpendKey.bytes, 32);
 
                 (CipherObject cipherObjView, byte[] encryptedSecViewKeyBytes) = CipherObject.GetFromPrependedArray(key, EncryptedSecViewKey);
                 byte[] unencryptedViewKey = AESCBC.Decrypt(encryptedSecViewKeyBytes, cipherObjView);
+                SecViewKey = new(new byte[32]);
                 Array.Copy(unencryptedViewKey, SecViewKey.bytes, 32);
 
                 for (int i = 0; i < UTXOs.Count; i++)
@@ -409,6 +411,7 @@ namespace Discreet.Wallets
             {
                 (CipherObject cipherObjSec, byte[] encryptedSecKeyBytes) = CipherObject.GetFromPrependedArray(key, EncryptedSecKey);
                 byte[] unencryptedSecKey = AESCBC.Decrypt(encryptedSecKeyBytes, cipherObjSec);
+                SecKey = new(new byte[32]);
                 Array.Copy(unencryptedSecKey, SecKey.bytes, 32);
 
                 Array.Clear(unencryptedSecKey, 0, unencryptedSecKey.Length);
