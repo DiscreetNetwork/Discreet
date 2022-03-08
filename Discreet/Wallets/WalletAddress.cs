@@ -1195,14 +1195,14 @@ namespace Discreet.Wallets
 
             if (Type == 0)
             {
-                _ms.Write(EncryptedSecSpendKey);
-                _ms.Write(EncryptedSecViewKey);
+                Serialization.CopyData(_ms, EncryptedSecSpendKey);
+                Serialization.CopyData(_ms, EncryptedSecViewKey);
                 _ms.Write(PubSpendKey.bytes);
                 _ms.Write(PubViewKey.bytes);
             }
             else
             {
-                _ms.Write(EncryptedSecKey);
+                Serialization.CopyData(_ms, EncryptedSecKey);
                 _ms.Write(PubKey.bytes);
             }
 
@@ -1231,20 +1231,15 @@ namespace Discreet.Wallets
 
             if (Type == 0)
             {
-                EncryptedSecSpendKey = new byte[48];
-                EncryptedSecViewKey = new byte[48];
-
-                s.Read(EncryptedSecSpendKey);
-                s.Read(EncryptedSecViewKey);
+                EncryptedSecSpendKey = Serialization.GetBytes(s);
+                EncryptedSecViewKey = Serialization.GetBytes(s);
 
                 PubSpendKey = new Key(s);
                 PubViewKey = new Key(s);
             }
             else
             {
-                EncryptedSecKey = new byte[48];
-
-                s.Read(EncryptedSecKey);
+                EncryptedSecKey = Serialization.GetBytes(s);
 
                 PubKey = new Key(s);
             }

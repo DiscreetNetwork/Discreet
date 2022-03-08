@@ -204,7 +204,7 @@ namespace Discreet.RPC.Endpoints
                     }
                     catch (Exception ex)
                     {
-                        Visor.Logger.Error($"RPC call resulted in an error: {ex.Message}");
+                        Visor.Logger.Error($"RPC call resulted in an error: {ex}");
 
                         return new RPCError($"could not load wallet with label {_params.Label}; try checking wallet integrity or seeing if it is missing");
                     }

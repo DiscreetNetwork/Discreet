@@ -91,7 +91,7 @@ namespace Discreet.Cipher
         /// </summary>
         /// <param name="key">The key.</param>
         /// <param name="bytes">The encrypted object, prepended with the initialization vector used to generate it.</param>
-        /// <returns>A tuple storin the CipherObject and the encrypted object data, without the initialization vector prepended to it.</returns>
+        /// <returns>A tuple storing the CipherObject and the encrypted object data, without the initialization vector prepended to it.</returns>
         public static (CipherObject, byte[]) GetFromPrependedArray(byte[] key, byte[] bytes)
         {
             CipherObject cipherObject = new()

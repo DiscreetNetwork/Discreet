@@ -340,5 +340,42 @@ namespace Discreet.Coin
         {
             return s.ReadByte() == (byte)1;
         }
+
+        public static void CopyData(byte[] bytes, uint offset, byte[] data)
+        {
+            CopyData(bytes, offset, data.Length);
+            offset += 4;
+
+            Array.Copy(data, 0, bytes, offset, data.Length);
+        }
+
+        public static void CopyData(Stream s, byte[] data)
+        {
+            CopyData(s, data.Length);
+
+            s.Write(data);
+        }
+
+        public static (uint, byte[]) GetBytes(byte[] bytes, uint offset)
+        {
+            int len = GetInt32(bytes, offset);
+
+            offset += 4;
+
+            byte[] data = new byte[len];
+            Array.Copy(bytes, offset, data, 0, len);
+
+            return (offset + (uint)len, data);
+        }
+
+        public static byte[] GetBytes(Stream s)
+        {
+            int length = GetInt32(s);
+            byte[] data = new byte[length];
+
+            s.Read(data, 0, length);
+
+            return data;
+        }
     }
 }

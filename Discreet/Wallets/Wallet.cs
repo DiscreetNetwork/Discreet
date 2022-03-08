@@ -571,9 +571,17 @@ namespace Discreet.Wallets
             Serialization.CopyData(_ms, Timestamp);
             Serialization.CopyData(_ms, Version);
             Serialization.CopyData(_ms, EntropyLen);
-            _ms.Write(Encrypted ? EncryptedEntropy : Entropy);
+            Serialization.CopyData(_ms, Encrypted ? EncryptedEntropy : Entropy);
             Serialization.CopyData(_ms, EntropyChecksum);
-            Serialization.CopyData(_ms, WalletPath ?? "");
+            
+            if (WalletPath != null)
+            {
+                Serialization.CopyData(_ms, WalletPath);
+            }
+            else
+            {
+                Serialization.CopyData(_ms, string.Empty);
+            }
 
             Serialization.CopyData(_ms, Synced);
 
@@ -596,8 +604,7 @@ namespace Discreet.Wallets
             Version = Serialization.GetString(s);
             EntropyLen = Serialization.GetUInt32(s);
 
-            byte[] _entropy = new byte[Encrypted ? EntropyLen + 16 : EntropyLen];
-            s.Read(_entropy);
+            byte[] _entropy = Serialization.GetBytes(s);
 
             if (Encrypted)
             {
