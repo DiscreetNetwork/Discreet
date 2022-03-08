@@ -16,7 +16,7 @@ namespace Discreet.RPC
             Visor.Logger.Log("Starting RPC server");
             RPCEndpointResolver.ReflectEndpoints();
             _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://localhost:{portNumber}/");
+            _listener.Prefixes.Add($"http://*:{portNumber}/");
         }
 
         public async Task Start()
