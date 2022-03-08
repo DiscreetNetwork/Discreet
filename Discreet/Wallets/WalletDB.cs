@@ -31,7 +31,7 @@ namespace Discreet.Wallets
             {
                 if (disdb == null)
                 {
-                    disdb = new WalletDB(Visor.VisorConfig.GetDefault().DBPath);
+                    disdb = new WalletDB(Visor.VisorConfig.GetDefault().WalletPath);
                 }
             }
         }
@@ -43,6 +43,7 @@ namespace Discreet.Wallets
         public static string UTXOS = "utxos";
         public static string STORAGE = "storage";
         public static string WALLETS = "wallets";
+        public static string WALLET_ADDRESSES = "wallet_addresses";
         public static string WALLET_HEIGHTS = "wallet_heights";
         public static string ADDRESS_BOOK = "address_book";
         public static string TX_HISTORY = "tx_history";
@@ -51,12 +52,14 @@ namespace Discreet.Wallets
         public static ColumnFamilyHandle UTXOs;
         public static ColumnFamilyHandle Storage;
         public static ColumnFamilyHandle Wallets;
+        public static ColumnFamilyHandle WalletAddresses;
         public static ColumnFamilyHandle WalletHeights;
         public static ColumnFamilyHandle AddressBook;
         public static ColumnFamilyHandle TxHistory;
         public static ColumnFamilyHandle Meta;
 
         private DB.U32 indexer_owned_outputs = new DB.U32(0);
+        private DB.U32 indexer_wallet_addresses = new DB.U32(0);
 
         public string Folder
         {
@@ -85,6 +88,7 @@ namespace Discreet.Wallets
                     new ColumnFamilies.Descriptor(UTXOS, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(STORAGE, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(WALLETS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(WALLET_ADDRESSES, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(WALLET_HEIGHTS, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(ADDRESS_BOOK, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(TX_HISTORY, new ColumnFamilyOptions()),
@@ -96,6 +100,7 @@ namespace Discreet.Wallets
             UTXOs = db.GetColumnFamily(UTXOS);
             Storage = db.GetColumnFamily(STORAGE);
             Wallets = db.GetColumnFamily(WALLETS);
+            WalletAddresses = db.GetColumnFamily(WALLET_ADDRESSES);
             WalletHeights = db.GetColumnFamily(WALLET_HEIGHTS);
             AddressBook = db.GetColumnFamily(ADDRESS_BOOK);
             TxHistory = db.GetColumnFamily(TX_HISTORY);
@@ -106,6 +111,7 @@ namespace Discreet.Wallets
                 /* completely empty and has just been created */
                 db.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
                 db.Put(Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt64(indexer_owned_outputs.Value), cf: Meta);
+                db.Put(Encoding.ASCII.GetBytes("indexer_wallet_addresses"), Serialization.UInt32(indexer_wallet_addresses.Value), cf: Meta);
             }
             else
             {
@@ -117,9 +123,126 @@ namespace Discreet.Wallets
                 }
 
                 indexer_owned_outputs.Value = Serialization.GetUInt32(result, 0);
+
+                result = db.Get(Encoding.ASCII.GetBytes("indexer_wallet_addresses"), cf: Meta);
+
+                if (result == null)
+                {
+                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_wallet_addresses");
+                }
+
+                indexer_wallet_addresses.Value = Serialization.GetUInt32(result, 0);
             }
 
             folder = path;
+        }
+
+        public void AddWallet(Wallet wallet)
+        {
+            if (TryGetWallet(wallet.Label) != null)
+            {
+                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: wallet with label {wallet.Label} already exists");
+            }
+
+            wallet.Addresses.ToList().ForEach(address => AddWalletAddress(address));
+
+            UpdateWallet(wallet);
+        }
+
+        public void UpdateWallet(Wallet wallet)
+        {
+            db.Put(Encoding.UTF8.GetBytes(wallet.Label), wallet.Serialize(), cf: Wallets);
+
+            SetWalletHeight(wallet.Label, wallet.LastSeenHeight);
+        }
+
+        public bool ContainsWallet(string label)
+        {
+            return db.Get(Encoding.UTF8.GetBytes(label), cf: Wallets) != null;
+        }
+
+        public Wallet GetWallet(string label)
+        {
+            var res = db.Get(Encoding.UTF8.GetBytes(label), cf: Wallets);
+
+            if (res == null)
+            {
+                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get wallet with label {label}");
+            }
+
+            Wallet wallet = new Wallet();
+            wallet.Deserialize(new MemoryStream(res));
+            wallet.LastSeenHeight = GetWalletHeight(wallet.Label);
+
+            return wallet;
+        }
+
+        public Wallet TryGetWallet(string label)
+        {
+            var res = db.Get(Encoding.UTF8.GetBytes(label), cf: Wallets);
+
+            if (res == null)
+            {
+                return null;
+            }
+
+            Wallet wallet = new Wallet();
+            wallet.Deserialize(new MemoryStream(res));
+            wallet.LastSeenHeight = GetWalletHeight(wallet.Label);
+
+            return wallet;
+        }
+
+        public void AddWalletAddress(WalletAddress address)
+        {
+            lock (indexer_wallet_addresses)
+            {
+                address.DBIndex = (int)indexer_wallet_addresses.Value++;
+            }
+
+            db.Put(Serialization.Int32(address.DBIndex), address.Serialize(), cf: WalletAddresses);
+
+            lock (indexer_wallet_addresses)
+            {
+                db.Put(Encoding.ASCII.GetBytes("indexer_wallet_addresses"), Serialization.UInt32(indexer_wallet_addresses.Value), cf: Meta);
+            }
+        }
+
+        public void UpdateWalletAddress(WalletAddress address)
+        {
+            db.Put(Serialization.Int32(address.DBIndex), address.Serialize(), cf: WalletAddresses);
+        }
+
+        public void SetWalletHeight(string label, long height)
+        {
+            db.Put(Encoding.UTF8.GetBytes(label), Serialization.Int64(height), cf: WalletHeights);
+        }
+
+        public long GetWalletHeight(string label)
+        {
+            var res = db.Get(Encoding.UTF8.GetBytes(label), cf: WalletHeights);
+
+            if (res == null)
+            {
+                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get wallet height with label {label}");
+            }
+
+            return Serialization.GetInt64(res, 0);
+        }
+
+        public WalletAddress GetWalletAddress(int index)
+        {
+            var res = db.Get(Serialization.Int32(index), cf: WalletAddresses);
+
+            if (res == null)
+            {
+                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get wallet address at index {index}");
+            }
+
+            WalletAddress address = new WalletAddress();
+            address.Deserialize(new MemoryStream(res));
+
+            return address;
         }
 
         public uint GetTXOutputIndex(FullTransaction tx, int i)

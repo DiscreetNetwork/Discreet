@@ -133,7 +133,7 @@ namespace Discreet.RPC.Endpoints
                 {
                     _visor.wallets.Add(wallet);
 
-                    wallet.ToFile(Path.Join(Visor.VisorConfig.GetConfig().WalletPath, $"{wallet.Label}.dis"));
+                    wallet.Save(true);
 
                     _ = Task.Run(() => _visor.WalletSyncer(wallet, _scan)).ConfigureAwait(false);
                 }
@@ -178,6 +178,8 @@ namespace Discreet.RPC.Endpoints
 
             Wallet wallet;
 
+            WalletDB db = WalletDB.GetDB();
+
             try
             {
                 if (_params.Path != null && _params.Path != "")
@@ -186,12 +188,19 @@ namespace Discreet.RPC.Endpoints
                         return new RPCError("Path must be absolute");
 
                     wallet = Wallet.FromFile(_params.Path);
+
+                    if (db.ContainsWallet(wallet.Label))
+                    {
+                        return new RPCError($"Label conflict: walletdb already has a wallet with label {wallet.Label}; consider changing the label");
+                    }
+
+                    wallet.Save(true);
                 }
                 else
                 {
                     try
                     {
-                        wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, $"{_params.Label}.dis"));
+                        wallet = db.GetWallet(_params.Label);
                     }
                     catch (Exception ex)
                     {
@@ -296,6 +305,8 @@ namespace Discreet.RPC.Endpoints
         {
             var _visor = Network.Handler.GetHandler().visor;
 
+            WalletDB db = WalletDB.GetDB();
+
             if (_params == null || _params.Count == 0) return new RPCError("load wallets params was null");
 
             try
@@ -308,7 +319,9 @@ namespace Discreet.RPC.Endpoints
 
                     if (param.Label == null || param.Label == "") return new RPCError("one of the labels was null");
 
-                    Wallet wallet = Wallet.FromFile(Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, $"{param.Label}.dis"));
+                    Wallet wallet = db.TryGetWallet(param.Label);
+
+                    if (wallet == null) return new RPCError($"no wallet exists with label {param.Label}");
 
                     if (wallet.Encrypted)
                     {
@@ -320,6 +333,8 @@ namespace Discreet.RPC.Endpoints
                     {
                         if (!wallet.TryDecrypt()) return new RPCError($"wallet {param.Label} could not be decrypted");
                     }
+
+                    wallets.Add(wallet);
                 }
 
                 wallets.ForEach(wallet =>
@@ -773,6 +788,35 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
+        public class GetMnemonicRV
+        {
+            [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+            public string Mnemonic { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+            public string Entropy { get; set; }
+        }
+
+        [RPCEndpoint("get_mnemonic", APISet.WALLET)]
+        public static object GetMnemonic()
+        {
+            try
+            {
+                Mnemonic mnemonic = new Mnemonic(Randomness.Random(32));
+
+                return new GetMnemonicRV
+                {
+                    Mnemonic = mnemonic.GetMnemonic(),
+                    Entropy = Printable.Hexify(mnemonic.GetEntropy())
+                };
+            }
+            catch (Exception ex)
+            {
+                Visor.Logger.Error($"RPC call to GetMnemonic failed: {ex.Message}");
+
+                return new RPCError($"Could not get mnemonic");
+            }
+        }
         // WIP
     }
 }

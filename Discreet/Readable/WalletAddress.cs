@@ -1,7 +1,10 @@
-﻿using Discreet.Common;
+﻿using Discreet.Coin;
+using Discreet.Common;
 using Discreet.Common.Exceptions;
+using Discreet.Wallets;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -164,7 +167,7 @@ namespace Discreet.Readable
 
             if (UTXOs != null)
             {
-                DB.DisDB db = DB.DisDB.GetDB();
+                WalletDB db = WalletDB.GetDB();
 
                 for (int i = 0; i < UTXOs.Count; i++)
                 {
