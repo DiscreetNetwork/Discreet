@@ -619,6 +619,8 @@ namespace Discreet.Wallets
 
             WalletDB db = WalletDB.GetDB();
 
+            Addresses = new WalletAddress[_numAddresses];
+
             for (int i = 0; i < _numAddresses; i++)
             {
                 Addresses[i] = db.GetWalletAddress(Serialization.GetInt32(s));
