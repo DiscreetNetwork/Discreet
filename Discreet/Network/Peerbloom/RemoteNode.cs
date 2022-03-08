@@ -91,7 +91,7 @@ namespace Discreet.Network.Peerbloom
                 //ConnectionAcknowledged = responsePacket.ReadBoolean();
                 //Id = new NodeId(responsePacket.ReadKey());
 
-                Core.Packet connectAck = new Core.Packet(await _tcpClient.ReadBytesAsync());
+                Core.Packet connectAck = await _tcpClient.ReadPacketAsync();
                 Core.Packets.Peerbloom.ConnectAck connectAckBody = (Core.Packets.Peerbloom.ConnectAck)connectAck.Body;
 
                 bool isPublic = connectAckBody.IsPublic;
@@ -103,13 +103,13 @@ namespace Discreet.Network.Peerbloom
             }
             catch (SocketException e)
             {
-                Visor.Logger.Log(e.Message);
+                Visor.Logger.Error(e.Message);
 
                 return (false, false);
             }
             catch (Exception ex)
             {
-                Visor.Logger.Log(ex.Message);
+                Visor.Logger.Error(ex.Message);
 
                 return (false, false);
             }
@@ -138,7 +138,7 @@ namespace Discreet.Network.Peerbloom
                 await client.GetStream().WriteAsync(packet.Serialize());
 
                 //ReadPacketBase responsePacket = new ReadPacketBase(await client.ReadBytesAsync());
-                Core.Packet resp = new Core.Packet(await client.ReadBytesAsync());
+                Core.Packet resp = await client.ReadPacketAsync();
 
                 client.Close();
 
@@ -147,28 +147,28 @@ namespace Discreet.Network.Peerbloom
                 {
                     SetLastSeen();
                     Core.Packets.Peerbloom.NetPong respBody = (Core.Packets.Peerbloom.NetPong)resp.Body;
-                    Visor.Logger.Log($"Pinged: {Endpoint.Address}:{Endpoint.Port} and got data \"{Common.Printable.Hexify(respBody.Data)}\"");
+                    Visor.Logger.Info($"Pinged: {Endpoint.Address}:{Endpoint.Port} and got data \"{Common.Printable.Hexify(respBody.Data)}\"");
                     return true;
                 }
 
-                Visor.Logger.Log($"Could not ping: {Endpoint.Address}:{Endpoint.Port}");
+                Visor.Logger.Error($"Could not ping: {Endpoint.Address}:{Endpoint.Port}");
                 return false;
             }
             catch (SocketException e)
             {
-                Visor.Logger.Log(e.Message);
+                Visor.Logger.Error(e.Message);
 
                 return false;
             }
             catch (IOException e)
             {
-                Visor.Logger.Log($"RemoteNode.Ping: Client timed out at {Endpoint}");
+                Visor.Logger.Error($"RemoteNode.Ping: Client timed out at {Endpoint}");
 
                 return false;
             }
             catch (Exception ex)
             {
-                Visor.Logger.Log(ex.Message);
+                Visor.Logger.Error(ex.Message);
 
                 return false;
             }
@@ -195,7 +195,7 @@ namespace Discreet.Network.Peerbloom
                 await client.GetStream().WriteAsync(findNode.Serialize());
 
                 //ReadPacketBase responsePacket = new ReadPacketBase(await client.ReadBytesAsync());
-                Core.Packet resp = new Core.Packet(await client.ReadBytesAsync());
+                Core.Packet resp = await client.ReadPacketAsync();
                 Core.Packets.Peerbloom.FindNodeResp respBody = (Core.Packets.Peerbloom.FindNodeResp)resp.Body;
 
                 List<RemoteNode> remoteNodes = new List<RemoteNode>();
@@ -205,17 +205,17 @@ namespace Discreet.Network.Peerbloom
                     remoteNodes.Add(new RemoteNode(id, elem.Endpoint));
                 }
 
-                Visor.Logger.Log($"Sent `FindNode` to: {Endpoint.Address}:{Endpoint.Port}");
+                Visor.Logger.Info($"Sent `FindNode` to: {Endpoint.Address}:{Endpoint.Port}");
                 return remoteNodes;
             }
             catch (SocketException e)
             {
-                Visor.Logger.Log($"Failed to send `FindNode` to: {Endpoint.Address}:{Endpoint.Port} : {e.Message}");
+                Visor.Logger.Error($"Failed to send `FindNode` to: {Endpoint.Address}:{Endpoint.Port} : {e.Message}");
                 return null;
             }
             catch (Exception ex)
             {
-                Visor.Logger.Log(ex.Message);
+                Visor.Logger.Error(ex.Message);
 
                 return null;
             }

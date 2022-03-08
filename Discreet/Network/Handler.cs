@@ -77,10 +77,10 @@ namespace Discreet.Network
 
             if (State == PeerState.Startup && p.Header.Command != PacketType.VERSION)
             {
-                Visor.Logger.Log($"Ignoring message from {senderEndpoint.Endpoint} during startup");
+                Visor.Logger.Warn($"Ignoring message from {senderEndpoint.Endpoint} during startup");
             }
 
-            Visor.Logger.Log($"Discreet.Network.Handler.Handle: received packet {p.Header.Command} from {senderEndpoint.Endpoint}");
+            Visor.Logger.Info($"Discreet.Network.Handler.Handle: received packet {p.Header.Command} from {senderEndpoint.Endpoint}");
 
             /* Packet header and structure is already verified prior to this function. */
             //WIP
@@ -95,10 +95,10 @@ namespace Discreet.Network
                 case PacketType.FINDNODERESP:
                 case PacketType.NETPING:
                 case PacketType.NETPONG:
-                    Visor.Logger.Log($"Discreet.Network.Handler.Handle: invalid packet received with type {p.Header.Command}; should not be visible to handler");
+                    Visor.Logger.Error($"Discreet.Network.Handler.Handle: invalid packet received with type {p.Header.Command}; should not be visible to handler");
                     break;
                 case PacketType.NONE:
-                    Visor.Logger.Log($"Discreet.Network.Handler.Handle: invalid packet with type NONE found");
+                    Visor.Logger.Error($"Discreet.Network.Handler.Handle: invalid packet with type NONE found");
                     break;
                 case PacketType.REJECT:
                     await HandleReject((RejectPacket)p.Body);
@@ -137,7 +137,7 @@ namespace Discreet.Network
                     await HandleNotFound((NotFoundPacket)p.Body);
                     break;
                 default:
-                    Visor.Logger.Log($"Discreet.Network.Handler.Handle: received unsupported packet from {senderEndpoint.Endpoint} with type {p.Header.Command}");
+                    Visor.Logger.Error($"Discreet.Network.Handler.Handle: received unsupported packet from {senderEndpoint.Endpoint} with type {p.Header.Command}");
                     break;
             }
             /* REMOVE IN FUTURE; USED FOR TESTING */
@@ -159,17 +159,17 @@ namespace Discreet.Network
             var _checksum = Cipher.SHA256.HashData(Cipher.SHA256.HashData(Encoding.UTF8.GetBytes(p.Message)).Bytes);
             if (_checksum != p.Checksum)
             {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleAlert: alert received with invalid checksum ({p.Checksum.ToHexShort()} != {_checksum.ToHexShort()})");
+                Visor.Logger.Error($"Discreet.Network.Handler.HandleAlert: alert received with invalid checksum ({p.Checksum.ToHexShort()} != {_checksum.ToHexShort()})");
                 return;
             }
 
             if (!p.Sig.Verify(p.Checksum))
             {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleAlert: alert received with invalid signature \"{p.Sig.ToHexShort()}\"");
+                Visor.Logger.Error($"Discreet.Network.Handler.HandleAlert: alert received with invalid signature \"{p.Sig.ToHexShort()}\"");
                 return;
             }
 
-            Visor.Logger.Log($"Alert received from {p.Sig.y.ToHexShort()}: {p.Message}");
+            Visor.Logger.Info($"Alert received from {p.Sig.y.ToHexShort()}: {p.Message}");
 
             MessageCache.GetMessageCache().Alerts.Add(p);
         }
@@ -206,7 +206,7 @@ namespace Discreet.Network
         {
             if (State != PeerState.Startup)
             {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: received a version packet from peer {senderEndpoint} after startup; ignoring");
+                Visor.Logger.Warn($"Discreet.Network.Handler.HandleVersion: received a version packet from peer {senderEndpoint} after startup; ignoring");
                 return;
             }
 
@@ -214,7 +214,7 @@ namespace Discreet.Network
 
             if (mCache.Versions.ContainsKey(senderEndpoint))
             {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: already received version from {senderEndpoint}");
+                Visor.Logger.Warn($"Discreet.Network.Handler.HandleVersion: already received version from {senderEndpoint}");
                 return;
             }
 
@@ -243,21 +243,21 @@ namespace Discreet.Network
 
             if (p.Version != Visor.VisorConfig.GetConfig().NetworkVersion)
             {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: Bad network version for peer {p.Address}; expected {Visor.VisorConfig.GetConfig().NetworkVersion}, but got {p.Version}");
+                Visor.Logger.Error($"Discreet.Network.Handler.HandleVersion: Bad network version for peer {p.Address}; expected {Visor.VisorConfig.GetConfig().NetworkVersion}, but got {p.Version}");
                 mCache.BadVersions[senderEndpoint] = p;
                 return;
             }
 
             if (mCache.Versions.ContainsKey(senderEndpoint) || mCache.BadVersions.ContainsKey(senderEndpoint))
             {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: version packet already recieved for peer {p.Address}");
+                Visor.Logger.Warn($"Discreet.Network.Handler.HandleVersion: version packet already recieved for peer {p.Address}");
                 mCache.BadVersions[senderEndpoint] = p;
                 return;
             }
 
             if (p.Timestamp > DateTime.UtcNow.Add(TimeSpan.FromHours(2)).Ticks || p.Timestamp < DateTime.UtcNow.Subtract(TimeSpan.FromHours(2)).Ticks)
             {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: version packet timestamp for peer {p.Address} is either too old or too far in the future!");
+                Visor.Logger.Error($"Discreet.Network.Handler.HandleVersion: version packet timestamp for peer {p.Address} is either too old or too far in the future!");
                 mCache.BadVersions[senderEndpoint] = p;
                 return;
             }
@@ -269,7 +269,7 @@ namespace Discreet.Network
 
             if (!mCache.Versions.TryAdd(senderEndpoint, p))
             {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: failed to add version for {senderEndpoint}");
+                Visor.Logger.Error($"Discreet.Network.Handler.HandleVersion: failed to add version for {senderEndpoint}");
             }
         }
 
@@ -366,7 +366,7 @@ namespace Discreet.Network
         {
             if (!MessageCache.GetMessageCache().Messages.Contains(p.Message))
             {
-                Visor.Logger.Log($"Message received from {senderEndpoint}: {p.Message}");
+                Visor.Logger.Info($"Message received from {senderEndpoint}: {p.Message}");
 
                 MessageCache.GetMessageCache().Messages.Add(p.Message);
             }
@@ -386,7 +386,7 @@ namespace Discreet.Network
                     Code = RejectionCode.MALFORMED,
                 };
 
-                Visor.Logger.Log($"Malformed transaction received from peer {senderEndpoint}: {p.Error}");
+                Visor.Logger.Error($"Malformed transaction received from peer {senderEndpoint}: {p.Error}");
 
                 await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                 return;
@@ -408,7 +408,7 @@ namespace Discreet.Network
                         Code = RejectionCode.INVALID,
                     };
 
-                    Visor.Logger.Log($"Malformed transaction received from peer {senderEndpoint}: {err.Message}");
+                    Visor.Logger.Error($"Malformed transaction received from peer {senderEndpoint}: {err.Message}");
 
                     await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                     return;
@@ -433,7 +433,7 @@ namespace Discreet.Network
                     Code = RejectionCode.MALFORMED,
                 };
 
-                Visor.Logger.Log($"Malformed block received from peer {senderEndpoint}: {p.Error}");
+                Visor.Logger.Error($"Malformed block received from peer {senderEndpoint}: {p.Error}");
 
                 await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                 return;
@@ -465,7 +465,7 @@ namespace Discreet.Network
                             Code = RejectionCode.INVALID,
                         };
 
-                        Visor.Logger.Log($"Malformed block received from peer {senderEndpoint}: {e.Message}");
+                        Visor.Logger.Error($"Malformed block received from peer {senderEndpoint}: {e.Message}");
 
                         await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                         return;
@@ -503,7 +503,7 @@ namespace Discreet.Network
                             Code = RejectionCode.INVALID,
                         };
 
-                        Visor.Logger.Log($"Malformed block received from peer {senderEndpoint}: {err.Message}");
+                        Visor.Logger.Error($"Malformed block received from peer {senderEndpoint}: {err.Message}");
 
                         await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                         return;
@@ -523,7 +523,7 @@ namespace Discreet.Network
                     }
                     catch (Exception e)
                     {
-                        Visor.Logger.Log(new Common.Exceptions.DatabaseException("Discreet.Visor.Visor.ProcessBlock", e.Message).Message);
+                        Visor.Logger.Error(new Common.Exceptions.DatabaseException("Discreet.Visor.Visor.ProcessBlock", e.Message).Message);
                     }
 
                     try
@@ -532,7 +532,7 @@ namespace Discreet.Network
                     }
                     catch (Exception e)
                     {
-                        Visor.Logger.Log(e.Message);
+                        Visor.Logger.Error(e.Message);
                     }
                 }
             }
@@ -579,7 +579,7 @@ namespace Discreet.Network
                 }
             }
 
-            Visor.Logger.Log($"Could not find objects: {items}");
+            Visor.Logger.Error($"Could not find objects: {items}");
         }
 
         public void Handle(string s)

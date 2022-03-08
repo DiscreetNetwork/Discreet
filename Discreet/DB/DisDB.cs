@@ -131,26 +131,22 @@ namespace Discreet.DB
         public static ColumnFamilyHandle BlockHeights;
         public static ColumnFamilyHandle Blocks;
         public static ColumnFamilyHandle Meta;
-        public static ColumnFamilyHandle OutputIndices;
-        public static ColumnFamilyHandle OwnedOutputs;
+        public static ColumnFamilyHandle OutputIndices;        
         public static ColumnFamilyHandle BlockCache;
         public static ColumnFamilyHandle BlockHeaders;
-        public static ColumnFamilyHandle StorageStore;
 
         public static string SPENT_KEYS = "spent_keys";
         public static string TX_POOL_BLOB = "tx_pool_blob";
         public static string TX_POOL_SPENT_KEYS = "tx_pool_spent_keys";
         public static string OUTPUTS = "outputs";
+        public static string OUTPUT_INDICES = "output_indices";
         public static string TX_INDICES = "tx_indices";
         public static string TXS = "txs";
         public static string BLOCK_HEIGHTS = "block_heights";
         public static string BLOCKS = "blocks";
         public static string META = "meta";
-        public static string OUTPUT_INDICES = "output_indices";
-        public static string OWNED_OUTPUTS = "owned_outputs";
         public static string BLOCK_CACHE = "block_cache";
         public static string BLOCK_HEADERS = "block_headers";
-        public static string STORAGE_STORE = "storage_store";
 
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
@@ -168,8 +164,6 @@ namespace Discreet.DB
         private U32 indexer_output = new U32(0);
 
         private L64 height = new L64(-1);
-
-        private U32 indexer_owned_outputs = new U32(0);
 
         public DisDB(string path)
         {
@@ -196,10 +190,8 @@ namespace Discreet.DB
                     new ColumnFamilies.Descriptor(BLOCKS, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(OWNED_OUTPUTS, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(STORAGE_STORE, new ColumnFamilyOptions())
+                    new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions())
                 };
 
                 db = RocksDb.Open(options, path, _colFamilies);
@@ -214,10 +206,8 @@ namespace Discreet.DB
                 Blocks = db.GetColumnFamily(BLOCKS);
                 Meta = db.GetColumnFamily(META);
                 OutputIndices = db.GetColumnFamily(OUTPUT_INDICES);
-                OwnedOutputs = db.GetColumnFamily(OWNED_OUTPUTS);
                 BlockCache = db.GetColumnFamily(BLOCK_CACHE);
                 BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
-                StorageStore = db.GetColumnFamily(STORAGE_STORE);
 
                 if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
                 {
@@ -226,7 +216,6 @@ namespace Discreet.DB
                     db.Put(Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value), cf: Meta);
                     db.Put(Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value), cf: Meta);
                     db.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
-                    db.Put(Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt32(indexer_owned_outputs.Value), cf: Meta);
                 }
                 else
                 {
@@ -256,15 +245,6 @@ namespace Discreet.DB
                     }
 
                     height.Value = Serialization.GetInt64(result, 0);
-
-                    result = db.Get(Encoding.ASCII.GetBytes("indexer_owned_outputs"), cf: Meta);
-
-                    if (result == null)
-                    {
-                        throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_owned_outputs");
-                    }
-
-                    indexer_owned_outputs.Value = Serialization.GetUInt32(result, 0);
                 }
 
                 folder = path;
@@ -300,10 +280,10 @@ namespace Discreet.DB
             db.DropColumnFamily(TXS);
             db.DropColumnFamily(BLOCK_HEIGHTS);
             db.DropColumnFamily(BLOCKS);
-            db.DropColumnFamily(OUTPUT_INDICES);
-            db.DropColumnFamily(OWNED_OUTPUTS);
             db.DropColumnFamily(META);
+            db.DropColumnFamily(OUTPUT_INDICES);
             db.DropColumnFamily(BLOCK_CACHE);
+            db.DropColumnFamily(BLOCK_HEADERS);
 
             disdb = null;
             db.Dispose();
@@ -476,83 +456,6 @@ namespace Discreet.DB
             return outputIndex;
         }
 
-        public uint GetTXOutputIndex(FullTransaction tx, int i)
-        {
-            var result = db.Get(tx.Hash().Bytes, cf: OutputIndices);
-
-            if (result == null)
-            {
-                throw new Exception($"Discreet.DisDB.GetTXOutputIndex: database get exception: could not find with tx {tx.Hash().ToHexShort()}");
-            }
-
-            uint[] outputIndices = Serialization.GetUInt32Array(result);
-            return outputIndices[i];
-        }
-
-        public (int, Wallets.UTXO) AddWalletOutput(Wallets.WalletAddress addr, FullTransaction tx, int i, bool transparent)
-        {
-            return AddWalletOutput(addr, tx, i, transparent, false);
-        }
-
-        public (int, Wallets.UTXO) AddWalletOutput(Wallets.WalletAddress addr, FullTransaction tx, int i, bool transparent, bool coinbase)
-        {
-            Wallets.UTXO utxo;
-
-            if (tx.Version == 3)
-            {
-                utxo = new Wallets.UTXO(tx.TOutputs[i]);
-            }
-            else if (tx.Version == 4)
-            {
-                if (transparent)
-                {
-                    utxo = new Wallets.UTXO(tx.TOutputs[i]);
-                }
-                else
-                {
-                    uint index = GetTXOutputIndex(tx, i);
-                    utxo = new Wallets.UTXO(addr, index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
-                }
-            }
-            else
-            {
-                uint index = GetTXOutputIndex(tx, i);
-                utxo = new Wallets.UTXO(addr, index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
-            }
-
-            int outputIndex;
-
-            lock (indexer_owned_outputs)
-            {
-                indexer_owned_outputs.Value++;
-                outputIndex = (int)indexer_owned_outputs.Value;
-            }
-
-            db.Put(Serialization.Int32(outputIndex), utxo.Serialize(), cf: OwnedOutputs);
-
-            lock (indexer_owned_outputs)
-            {
-                db.Put(Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt32(indexer_owned_outputs.Value), cf: Meta);
-            }
-
-            return (outputIndex, utxo);
-        }
-
-        public Wallets.UTXO GetWalletOutput(int index)
-        {
-            var result = db.Get(Serialization.Int32(index), cf: OwnedOutputs);
-
-            if (result == null)
-            {
-                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get output at index {index}");
-            }
-
-            Wallets.UTXO utxo = new Wallets.UTXO();
-            utxo.Deserialize(result);
-
-            return utxo;
-        }
-
         public bool TXPoolContains(Cipher.SHA256 txhash)
         {
             return db.Get(txhash.Bytes, cf: TxPoolBlob) != null;
@@ -702,6 +605,18 @@ namespace Discreet.DB
         public bool CheckSpentKeyBlock(Cipher.Key j)
         {
             return db.Get(j.bytes, cf: SpentKeys) == null;
+        }
+
+        public uint[] GetOutputIndices(Cipher.SHA256 tx)
+        {
+            var result = db.Get(tx.Bytes, cf: OutputIndices);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.DisDB.GetOutputIndices: database get exception: could not find with tx {tx.ToHexShort()}");
+            }
+
+            return Serialization.GetUInt32Array(result);
         }
 
         public TXOutput GetOutput(uint index)
@@ -990,53 +905,6 @@ namespace Discreet.DB
             }
 
             return Serialization.GetInt64(result, 0);
-        }
-
-        public byte[] KVGet(byte[] key)
-        {
-            return db.Get(key, cf: StorageStore);
-        }
-
-        public byte[] KVPut(byte[] key, byte[] value)
-        {
-            var _rv = db.Get(key, cf: StorageStore);
-
-            lock (DBLock)
-            {
-                db.Put(key, value, cf: StorageStore);
-            }
-
-            return _rv ?? new byte[0];
-        }
-
-        public byte[] KVDel(byte[] key)
-        {
-            var _rv = db.Get(key, cf: StorageStore);
-
-            lock (DBLock)
-            {
-                db.Remove(key, cf: StorageStore);
-            }
-
-            return _rv ?? new byte[0];
-        }
-
-        public Dictionary<byte[], byte[]> KVAll()
-        {
-            Dictionary<byte[], byte[]> _rv = new();
-
-            var iterator = db.NewIterator(cf: TxPoolBlob);
-
-            iterator.SeekToFirst();
-
-            while (iterator.Valid())
-            {
-                _rv[iterator.Key()] = iterator.Value();
-
-                iterator.Next();
-            }
-
-            return _rv;
         }
     }
 }

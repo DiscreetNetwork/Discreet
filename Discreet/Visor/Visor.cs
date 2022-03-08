@@ -86,6 +86,12 @@ namespace Discreet.Visor
                 List<StealthAddress> addresses = new List<StealthAddress>();
                 List<ulong> coins = new List<ulong>();
 
+                Wallet wallet = new Wallet("DBG_MASTERNODE", "password");
+
+                wallet.Save(true);
+
+                wallets.Add(wallet);
+
                 /*while (_input != "EXIT")
                 {
                     Console.Write("Wallet: ");
@@ -103,9 +109,7 @@ namespace Discreet.Visor
                     coins.Add(ulong.Parse(_input));
                 }*/
 
-                addresses.Add(new StealthAddress("1L8Vdp5j5YD4qkWgxAD5XH57uK4aAZHEtDFxCX1xuF5TH5CTB3AAzxtHaVsGVBxYqZd5ESummF8Y1cQJRw32Ar28GgpChZa"));
-                addresses.Add(new StealthAddress("1BUVzU7jfQw5UGgWFfcznXRrcUMHXAgERAiCCmr9La2h3hakNVsEMXR5P9L1LJaacKiJg5EeYvxZkYpGZmj5oS3i77LiYR5"));
-                coins.Add(10000000000);
+                addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
                 coins.Add(50000000000000000);
 
                 Logger.Log("Creating genesis block...");
@@ -137,6 +141,8 @@ namespace Discreet.Visor
                 {
                     throw new Exception("FATAL: cannot find any online peers. Exiting.");
                 }
+
+                await Task.Delay(2500);
 
                 long timeout = DateTime.UtcNow.AddSeconds(5).Ticks;
 
@@ -270,6 +276,17 @@ namespace Discreet.Visor
             {
                 Logger.Log($"Starting minter...");
                 _ = Minter();
+
+                if (wallets.IsEmpty)
+                {
+                    Wallet wallet = WalletDB.GetDB().TryGetWallet("DBG_MASTERNODE");
+
+                    wallet.Decrypt("password");
+
+                    wallets.Add(wallet);
+                }
+
+                _ = Task.Run(() => WalletSyncer(wallets.First(), true)).ConfigureAwait(false);
             }
 
             Logger.Log($"Starting handler...");

@@ -64,6 +64,8 @@ namespace Discreet.Wallets
         /* UTXO data for the wallet. Stored in a local JSON database. */
         public List<UTXO> UTXOs;
 
+        public int DBIndex;
+
         private object locker = new object();
         public CancellationTokenSource syncerSource = null;
 
@@ -818,6 +820,8 @@ namespace Discreet.Wallets
 
         public void ProcessBlock(Block block)
         {
+            WalletDB db = WalletDB.GetDB();
+
             lock (locker)
             {
                 if (Encrypted) throw new Exception("Do not call if wallet address is encrypted!");
@@ -836,8 +840,14 @@ namespace Discreet.Wallets
 
                         if (Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
                         {
-                            DB.DisDB db = DB.DisDB.GetDB();
-                            (int index, UTXO utxo) = db.AddWalletOutput(this, Coinbase.ToFull(), 0, false, true);
+                            int index;
+                            UTXO utxo;
+
+                            lock (WalletDB.DBLock)
+                            {
+                                (index, utxo) = db.AddWalletOutput(this, Coinbase.ToFull(), 0, false, true);
+                            }
+
                             utxo.OwnedIndex = index;
                             UTXOs.Add(utxo);
                             changed = true;
@@ -852,7 +862,13 @@ namespace Discreet.Wallets
 
                 LastSeenHeight = block.Header.Height;
 
-                if (changed) wallet.ToFile(wallet.WalletPath ?? Path.Combine(Visor.VisorConfig.GetConfig().WalletPath, wallet.Label + ".dis"));
+                if (changed || Syncer)
+                {
+                    lock (WalletDB.DBLock)
+                    {
+                        db.UpdateWalletAddress(this);
+                    }
+                }
             }
         }
 
@@ -934,9 +950,9 @@ namespace Discreet.Wallets
 
         private void ProcessOutput(FullTransaction transaction, int i, bool transparent)
         {
-            DB.DisDB db = DB.DisDB.GetDB();
+            WalletDB db = WalletDB.GetDB();
 
-            lock (DB.DisDB.DBLock)
+            lock (WalletDB.DBLock)
             {
                 (int index, UTXO utxo) = db.AddWalletOutput(this, transaction, i, transparent);
                 utxo.OwnedIndex = index;
@@ -1168,6 +1184,90 @@ namespace Discreet.Wallets
             }
 
             return tx;
+        }
+
+        public byte[] Serialize()
+        {
+            MemoryStream _ms = new MemoryStream();
+
+            _ms.WriteByte(Type);
+            Serialization.CopyData(_ms, Deterministic);
+
+            if (Type == 0)
+            {
+                _ms.Write(EncryptedSecSpendKey);
+                _ms.Write(EncryptedSecViewKey);
+                _ms.Write(PubSpendKey.bytes);
+                _ms.Write(PubViewKey.bytes);
+            }
+            else
+            {
+                _ms.Write(EncryptedSecKey);
+                _ms.Write(PubKey.bytes);
+            }
+
+            Serialization.CopyData(_ms, Address);
+            Serialization.CopyData(_ms, Synced);
+            Serialization.CopyData(_ms, Syncer);
+            Serialization.CopyData(_ms, _lastSeenHeight);
+
+            Serialization.CopyData(_ms, DBIndex);
+
+            Serialization.CopyData(_ms, UTXOs.Count);
+
+            foreach (var utxo in UTXOs)
+            {
+                Serialization.CopyData(_ms, utxo.OwnedIndex);
+            }
+
+            return _ms.ToArray();
+        }
+
+        public void Deserialize(Stream s)
+        {
+            Type = (byte)s.ReadByte();
+            Encrypted = true;
+            Deterministic = Serialization.GetBool(s);
+
+            if (Type == 0)
+            {
+                EncryptedSecSpendKey = new byte[48];
+                EncryptedSecViewKey = new byte[48];
+
+                s.Read(EncryptedSecSpendKey);
+                s.Read(EncryptedSecViewKey);
+
+                PubSpendKey = new Key(s);
+                PubViewKey = new Key(s);
+            }
+            else
+            {
+                EncryptedSecKey = new byte[48];
+
+                s.Read(EncryptedSecKey);
+
+                PubKey = new Key(s);
+            }
+
+            Address = Serialization.GetString(s);
+            Synced = Serialization.GetBool(s);
+            Syncer = Serialization.GetBool(s);
+            _lastSeenHeight = Serialization.GetInt64(s);
+
+            DBIndex = Serialization.GetInt32(s);
+
+            UTXOs = new List<UTXO>();
+
+            WalletDB db = WalletDB.GetDB();
+
+            var utxoCount = Serialization.GetInt32(s);
+
+            for (int i = 0; i < utxoCount; i++)
+            {
+                int idx = Serialization.GetInt32(s);
+
+                UTXOs.Add(db.GetWalletOutput(idx));
+            }
         }
     }
 }

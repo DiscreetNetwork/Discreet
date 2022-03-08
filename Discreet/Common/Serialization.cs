@@ -279,5 +279,66 @@ namespace Discreet.Coin
 
             return BitConverter.ToUInt64(data);
         }
+
+        public static string GetString(Stream s)
+        {
+            int length = GetInt32(s);
+            byte[] data = new byte[length];
+
+            s.Read(data, 0, length);
+
+            return Encoding.UTF8.GetString(data);
+        }
+
+        public static (uint, string) GetString(byte[] bytes, uint offset)
+        {
+            int len = GetInt32(bytes, offset);
+
+            offset += 4;
+
+            return (offset + (uint)len, Encoding.UTF8.GetString(bytes, (int)offset, len));
+        }
+
+        public static void CopyData(byte[] bytes, uint offset, string str)
+        {
+            byte[] strBytes = Encoding.UTF8.GetBytes(str);
+
+            CopyData(bytes, offset, strBytes.Length);
+            offset += 4;
+            Array.Copy(strBytes, 0, bytes, offset, strBytes.Length);
+        }
+
+        public static void CopyData(Stream s, string str)
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(str);
+
+            s.Write(Int32(bytes.Length));
+            s.Write(bytes);
+        }
+
+        public static void CopyData(byte[] bytes, uint offset, bool b)
+        {
+            bytes[offset] = b ? (byte)1 : (byte)0;
+        }
+
+        public static void CopyData(Stream s, bool b)
+        {
+            s.WriteByte(b ? (byte)1 : (byte)0);
+        }
+
+        public static byte[] Bool(bool b)
+        {
+            return new byte[] { b ? (byte)1 : (byte)0 };
+        }
+
+        public static bool GetBool(byte[] bytes, uint offset)
+        {
+            return (bytes[offset] == (byte)1);
+        }
+
+        public static bool GetBool(Stream s)
+        {
+            return s.ReadByte() == (byte)1;
+        }
     }
 }

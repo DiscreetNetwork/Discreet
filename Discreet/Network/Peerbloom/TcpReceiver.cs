@@ -35,7 +35,7 @@ namespace Discreet.Network.Peerbloom
             while (!_cancellationToken.IsCancellationRequested)
             {
                 TcpClient client = await listener.AcceptTcpClientAsync();
-                Visor.Logger.Log($"TcpReceiver found a connection to client {client.Client.RemoteEndPoint}");
+                Visor.Logger.Info($"TcpReceiver found a connection to client {client.Client.RemoteEndPoint}");
                 _ = HandleConnection(client);
             }
         }
@@ -46,11 +46,11 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                Core.Packet packet = new(await client.ReadBytesAsync());
+                Core.Packet packet = await client.ReadPacketAsync();
                 switch (packet.Header.Command)
                 {
                     case Core.PacketType.CONNECT:
-                        Visor.Logger.Log($"Received `Connect` from: {senderEndpoint.Address}");
+                        Visor.Logger.Info($"Received `Connect` from: {senderEndpoint.Address}");
 
                         Core.Packets.Peerbloom.Connect connect = (Core.Packets.Peerbloom.Connect)packet.Body;
                         NodeId remoteNodeId = new NodeId(connect.ID);
@@ -85,7 +85,7 @@ namespace Discreet.Network.Peerbloom
 
 
                     case Core.PacketType.FINDNODE:
-                        Visor.Logger.Log($"Received `FindNode` from: {senderEndpoint.Address}");
+                        Visor.Logger.Info($"Received `FindNode` from: {senderEndpoint.Address}");
 
                         Core.Packets.Peerbloom.FindNode findNode = (Core.Packets.Peerbloom.FindNode)packet.Body;
                         senderEndpoint.Port = findNode.Port;
@@ -109,7 +109,7 @@ namespace Discreet.Network.Peerbloom
                         client.Dispose(); // Dispose this client, as its just a request response packet
                         break;
                     default:
-                        Visor.Logger.Log("Unknown packet type found: " + Common.Printable.Hexify(packet.Serialize()));
+                        Visor.Logger.Error("Unknown packet type found: " + Common.Printable.Hexify(packet.Serialize()));
                         break;
                 }
                 
@@ -118,10 +118,10 @@ namespace Discreet.Network.Peerbloom
             {
                 if (ex is IOException)
                 {
-                    Visor.Logger.Log($"Client timed out at {senderEndpoint}");
+                    Visor.Logger.Error($"Client timed out at {senderEndpoint}");
                 }
 
-                Visor.Logger.Log($"An error was encountered: {ex.Message}");
+                Visor.Logger.Error($"An error was encountered: {ex.Message}");
             }
 
             //Visor.Logger.Log("Control fallthrough; this statement should be unreachable (Discreet.Network.Peerbloom.TcpReceiver.HandleConnection)");
@@ -229,28 +229,29 @@ namespace Discreet.Network.Peerbloom
             {
                 try
                 {
-                    Core.Packet packet = new Core.Packet(await client.ReadBytesAsync());
-                    
-                   
-                    if (packet.Header.Length > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Received packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
-                    
+                    Core.Packet packet = await client.ReadPacketAsync();
+                                
                     await Handler.GetHandler().Handle(packet, _connectionPool.FindNodeInPool(senderEndpoint));
                 }
                 catch (InvalidOperationException e)
                 {
-                    Visor.Logger.Log($"TcpReceiver: {e.Message}");
+                    Visor.Logger.Error($"TcpReceiver: {e.Message}");
                     break;
                 }
                 catch (SocketException e)
                 {
-                    Visor.Logger.Log($"TcpReceiver: {e.Message}");
+                    Visor.Logger.Error($"TcpReceiver: {e.Message}");
                     break;
                 }
                 catch (Exception e)
                 {
-                    Visor.Logger.Log($"TcpReceiver: {e.Message}");
+                    Visor.Logger.Error($"TcpReceiver: {e.Message}");
                 }
             }
+
+            Visor.Logger.Error($"Error encountered; ending handler loop for peer {senderEndpoint}");
+
+            client.Dispose();
         }
     }
 }

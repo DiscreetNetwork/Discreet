@@ -15,8 +15,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="API\**" />
     <Compile Remove="Network\Tests\**" />
+    <EmbeddedResource Remove="API\**" />
     <EmbeddedResource Remove="Network\Tests\**" />
+    <None Remove="API\**" />
     <None Remove="Network\Tests\**" />
   </ItemGroup>
 
@@ -25,10 +28,6 @@
     <PackageReference Include="LightningDB" Version="0.14.0" />
     <PackageReference Include="RocksDb" Version="6.28.2.25302" />
     <PackageReference Include="xunit" Version="2.4.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="HTTP\Common\" />
   </ItemGroup>
 
 </Project>
