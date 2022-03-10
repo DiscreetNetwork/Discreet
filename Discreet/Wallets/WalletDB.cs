@@ -31,7 +31,7 @@ namespace Discreet.Wallets
             {
                 if (disdb == null)
                 {
-                    disdb = new WalletDB(Visor.VisorConfig.GetDefault().WalletPath);
+                    disdb = new WalletDB(Daemon.DaemonConfig.GetDefault().WalletPath);
                 }
             }
         }
@@ -261,22 +261,26 @@ namespace Discreet.Wallets
 
             if (tx.Version == 3)
             {
+                tx.TOutputs[i].TransactionSrc = tx.Hash();
                 utxo = new UTXO(tx.TOutputs[i]);
             }
             else if (tx.Version == 4)
             {
                 if (transparent)
                 {
+                    tx.TOutputs[i].TransactionSrc = tx.Hash();
                     utxo = new UTXO(tx.TOutputs[i]);
                 }
                 else
                 {
+                    tx.POutputs[i].TransactionSrc = tx.Hash();
                     uint index = GetTXOutputIndex(tx, i);
-                    utxo = new UTXO(addr, index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
+                    utxo = new UTXO(addr, index, tx.POutputs[i], tx.ToMixed(), i, coinbase);
                 }
             }
             else
             {
+                tx.POutputs[i].TransactionSrc = tx.Hash();
                 uint index = GetTXOutputIndex(tx, i);
                 utxo = new UTXO(addr, index, tx.POutputs[i], tx.ToPrivate(), i, coinbase);
             }
@@ -288,6 +292,8 @@ namespace Discreet.Wallets
                 indexer_owned_outputs.Value++;
                 outputIndex = (int)indexer_owned_outputs.Value;
             }
+
+            utxo.OwnedIndex = outputIndex;
 
             db.Put(Serialization.Int32(outputIndex), utxo.Serialize(), cf: UTXOs);
 

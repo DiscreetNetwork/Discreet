@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 
-namespace Discreet.Visor
+namespace Discreet.Daemon
 {
     /**
      * Logs messages to the console and a log file.
@@ -35,7 +35,7 @@ namespace Discreet.Visor
             {
                 if (logger == null)
                 {
-                    logger = new Logger(VisorConfig.GetDefault().LogPath);
+                    logger = new Logger(DaemonConfig.GetDefault().LogPath);
                 }
             }
         }

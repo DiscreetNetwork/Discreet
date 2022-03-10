@@ -393,7 +393,7 @@ namespace Discreet.Wallets
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"Discreet.Wallets.Wallet.TryDecrypt: could not decrypt wallet: {ex}");
+                Daemon.Logger.Error($"Discreet.Wallets.Wallet.TryDecrypt: could not decrypt wallet: {ex}");
 
                 return false;
             }
@@ -501,18 +501,25 @@ namespace Discreet.Wallets
 
         public void ProcessBlock(Block block)
         {
-            foreach (WalletAddress address in Addresses)
+            try
             {
-                address.ProcessBlock(block);
+                foreach (WalletAddress address in Addresses)
+                {
+                    address.ProcessBlock(block);
+                }
+
+                LastSeenHeight = block.Header.Height;
+
+                WalletDB db = WalletDB.GetDB();
+
+                lock (WalletDB.DBLock)
+                {
+                    db.SetWalletHeight(Label, LastSeenHeight);
+                }
             }
-
-            LastSeenHeight = block.Header.Height;
-
-            WalletDB db = WalletDB.GetDB();
-
-            lock (WalletDB.DBLock)
+            catch (Exception ex)
             {
-                db.SetWalletHeight(Label, LastSeenHeight);
+                Daemon.Logger.Error($"Wallet: ProcessBlock failed: {ex}");
             }
         }
 
@@ -528,7 +535,7 @@ namespace Discreet.Wallets
                 }
                 catch (Exception ex)
                 {
-                    Visor.Logger.Error($"CheckIntegrity failed: {ex}");
+                    Daemon.Logger.Error($"CheckIntegrity failed: {ex}");
 
                     return false;
                 }
@@ -555,7 +562,7 @@ namespace Discreet.Wallets
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"Discreet.Wallets.Wallet.ChangeLabel: {ex}");
+                Daemon.Logger.Error($"Discreet.Wallets.Wallet.ChangeLabel: {ex}");
 
                 return false;
             }

@@ -39,7 +39,7 @@ namespace Discreet.Network.Core
 
         public PacketHeader(PacketType type, IPacketBody body)
         {
-            NetworkID = Visor.VisorConfig.GetDefault().NetworkID;
+            NetworkID = Daemon.DaemonConfig.GetDefault().NetworkID;
             Command = type;
             Length = (uint)body.Size();
             Checksum = body.Checksum();

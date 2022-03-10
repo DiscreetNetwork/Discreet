@@ -36,7 +36,7 @@ namespace Discreet.Network.Peerbloom
         {
             lock (network_lock)
             {
-                if (_network == null) _network = new Network(Visor.VisorConfig.GetDefault().Endpoint);
+                if (_network == null) _network = new Network(Daemon.DaemonConfig.GetDefault().Endpoint);
             }
         }
 
@@ -72,7 +72,7 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         public Network(IPEndPoint endpoint)
         {
-            LocalNode = new LocalNode(endpoint, new NodeId(Visor.VisorConfig.GetConfig().ID));
+            LocalNode = new LocalNode(endpoint, new NodeId(Daemon.DaemonConfig.GetConfig().ID));
             _bucketManager = new BucketManager(LocalNode);
             _messageStore = new MessageStore();
             _connectionPool = new ConnectionPool();
@@ -130,7 +130,7 @@ namespace Discreet.Network.Peerbloom
         public async Task Bootstrap()
         {
             // For actual live chatting
-            RemoteNode bootstrapNode = new RemoteNode(new IPEndPoint(Visor.VisorConfig.GetDefault().BootstrapNode, 5555));
+            RemoteNode bootstrapNode = new RemoteNode(new IPEndPoint(Daemon.DaemonConfig.GetDefault().BootstrapNode, 5555));
 
             // For testing locally
             //RemoteNode bootstrapNode = new RemoteNode(new IPEndPoint(IPAddress.Loopback, 5555));
@@ -140,20 +140,20 @@ namespace Discreet.Network.Peerbloom
             // For now: make sure the int we check against, matches the port of the bootstrap node, in the line above
             if (LocalNode.Endpoint.Port == 5555) return;
 
-            Visor.Logger.Info("Bootstrapping the node...");
+            Daemon.Logger.Info("Bootstrapping the node...");
 
             (bool acknowledged, bool isPublic) = await bootstrapNode.Connect(LocalNode);
 
             if(!acknowledged)
             {
-                Visor.Logger.Warn($"Retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                Daemon.Logger.Warn($"Retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                 //Console.Clear();
                 await Bootstrap();
                 return;
             }
 
-            Visor.Logger.Info(isPublic ? "Continuing in public mode" : "Continuing in private mode");
+            Daemon.Logger.Info(isPublic ? "Continuing in public mode" : "Continuing in private mode");
             LocalNode.SetNetworkMode(isPublic); // This determines how 'this' node relays messages
            
             if (isPublic)
@@ -172,7 +172,7 @@ namespace Discreet.Network.Peerbloom
             // We failed at establishing a connection to the bootstrap node
             if(fetchedNodes == null)
             {
-                Visor.Logger.Warn($"Failed to contact the bootstrap node with a `FindNode` command, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                Daemon.Logger.Warn($"Failed to contact the bootstrap node with a `FindNode` command, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                 //Console.Clear();
                 await Bootstrap();
@@ -182,9 +182,9 @@ namespace Discreet.Network.Peerbloom
             // If we didnt get any peers, dont consider the bootstrap a success
             if(fetchedNodes.Count == 0)
             {
-                if (!Visor.Visor.DebugMode)
+                if (!Daemon.Daemon.DebugMode)
                 {
-                    Visor.Logger.Warn($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                    Daemon.Logger.Warn($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                     await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                     //Console.Clear();
                     await Bootstrap();
@@ -199,7 +199,7 @@ namespace Discreet.Network.Peerbloom
             List<Bucket> otherBuckets = _bucketManager.GetBuckets().Where(x => x != bootstrapBucket).ToList();
             otherBuckets.ForEach(async x => await _bucketManager.RefreshBucket(x));
 
-            Visor.Logger.Info("Connecting to nodes...");
+            Daemon.Logger.Info("Connecting to nodes...");
             foreach (var bucket in _bucketManager.GetBuckets())
             {
                 foreach (var node in bucket.GetNodes())
@@ -215,7 +215,7 @@ namespace Discreet.Network.Peerbloom
                 }
             }
 
-            Visor.Logger.Info("Bootstrap completed. Continuing in 2 seconds...");
+            Daemon.Logger.Info("Bootstrap completed. Continuing in 2 seconds...");
             await Task.Delay(2000);
             //Console.Clear();
         }
@@ -257,11 +257,11 @@ namespace Discreet.Network.Peerbloom
                 if (packet.Header.Length + 10 > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
             } catch (Exception ex)
             {
-                Visor.Logger.Error(ex.Message);
+                Daemon.Logger.Error(ex.Message);
                 return -1;
             }
 
-            Visor.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Broadcasting {packet.Header.Command}");
+            Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Broadcasting {packet.Header.Command}");
 
             int i = 0;
 
@@ -291,11 +291,11 @@ namespace Discreet.Network.Peerbloom
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error(ex.Message);
+                Daemon.Logger.Error(ex.Message);
                 return false;
             }
 
-            Visor.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
+            Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
 
             var node = _connectionPool.FindNodeInPool(endpoint);
 
@@ -314,10 +314,10 @@ namespace Discreet.Network.Peerbloom
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error(ex.Message);
+                Daemon.Logger.Error(ex.Message);
                 return false;
             }
-            Visor.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
+            Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
 
             var node = _connectionPool.FindNodeInPool(endpoint);
 

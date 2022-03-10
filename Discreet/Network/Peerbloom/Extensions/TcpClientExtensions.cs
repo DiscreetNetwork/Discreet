@@ -32,7 +32,7 @@ namespace Discreet.Network.Peerbloom.Extensions
                 }
                 catch (Exception e)
                 {
-                    Visor.Logger.Log("ReadBytesAsync error: " + e.Message);
+                    Daemon.Logger.Log("ReadBytesAsync error: " + e.Message);
                 }
                 _ms.Write(buf, 0, bytesRead);
             } while (bytesRead == buf.Length);
@@ -50,9 +50,9 @@ namespace Discreet.Network.Peerbloom.Extensions
                 await ns.ReadAsync(_headerBytes, 0, 10);
                 PacketHeader Header = new PacketHeader(_headerBytes);
 
-                if (Header.NetworkID != Visor.VisorConfig.GetConfig().NetworkID)
+                if (Header.NetworkID != Daemon.DaemonConfig.GetConfig().NetworkID)
                 {
-                    throw new Exception($"wrong network ID; expected {Visor.VisorConfig.GetConfig().NetworkID} but got {Header.NetworkID}");
+                    throw new Exception($"wrong network ID; expected {Daemon.DaemonConfig.GetConfig().NetworkID} but got {Header.NetworkID}");
                 }
 
                 if ((Header.Length + 10) > Constants.MAX_PEERBLOOM_PACKET_SIZE)

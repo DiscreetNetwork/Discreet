@@ -32,7 +32,7 @@ namespace Discreet.RPC
                 endpoints.Add(RPCMethodName.endpoint_name, methodDelegate);
             }
 
-            Visor.Logger.Log($"{endpoints.Count} RPC endpoints loaded successfully.");
+            Daemon.Logger.Log($"{endpoints.Count} RPC endpoints loaded successfully.");
         }
 
         public static Delegate GetEndpoint(string endpoint)

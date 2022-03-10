@@ -590,7 +590,7 @@ namespace Discreet.Coin
 
             int lenTInputs = TInputs == null ? 0 : TInputs.Length;
             int lenTOutputs = TOutputs == null ? 0 : TOutputs.Length;
-            int lenPInputs = PInputs == null ? 0 : POutputs.Length;
+            int lenPInputs = PInputs == null ? 0 : PInputs.Length;
             int lenPOutputs = POutputs == null ? 0 : POutputs.Length;
             int lenTSigs = TSignatures == null ? 0 : TSignatures.Length;
             int lenPSigs = PSignatures == null ? 0 : PSignatures.Length;
@@ -639,10 +639,10 @@ namespace Discreet.Coin
                 offset += 72;
             }
 
-            if (RangeProof != null && lenPOutputs > 0)
+            if (RangeProofPlus != null && lenPOutputs > 0)
             {
-                RangeProof.Serialize(bytes, offset);
-                offset += RangeProof.Size();
+                RangeProofPlus.Serialize(bytes, offset);
+                offset += RangeProofPlus.Size();
             }
 
             for (int i = 0; i < lenPSigs; i++)
@@ -1040,7 +1040,7 @@ namespace Discreet.Coin
             }
 
             TSignatures = new Signature[NumTInputs];
-            for (int i = 0; i < NumTOutputs; i++)
+            for (int i = 0; i < NumTInputs; i++)
             {
                 TSignatures[i] = new Signature(bytes, offset);
                 offset += 96;
@@ -1104,7 +1104,7 @@ namespace Discreet.Coin
                                + (NumPOutputs > 0 ? 32 : 0)
                                + (PInputs == null ? 0 : PInputs.Length) * TXInput.Size()
                                + (POutputs == null ? 0 : POutputs.Length) * 72
-                               + ((RangeProof == null && NumPOutputs > 0) ? 0 : RangeProof.Size())
+                               + ((RangeProofPlus == null && NumPOutputs > 0) ? 0 : RangeProofPlus.Size())
                                + Triptych.Size() * (PSignatures == null ? 0 : PSignatures.Length)
                                + 32 * PseudoOutputs.Length),
                 _ => throw new Exception("Unknown transaction type: " + Version),

@@ -105,8 +105,12 @@ namespace Discreet.Wallets
             Type = UTXOType.TRANSPARENT;
             TransactionSrc = output.TransactionSrc;
             Amount = output.Amount;
+            UXKey = new Key(new byte[32]);
+            Commitment = new Key(new byte[32]);
+            LinkingTag = new Key(new byte[32]);
+            TransactionKey = new Key(new byte[32]);
             IsCoinbase = false;
-
+            DecodedAmount = output.Amount;
             Encrypted = false;
         }
 
@@ -222,9 +226,12 @@ namespace Discreet.Wallets
         {
             if (Encrypted) return;
 
-            if (!KeyOps.ScalarmultBase(ref UXSecKey).Equals(UXKey))
+            if (Type == UTXOType.PRIVATE)
             {
-                throw new Exception("Discreet.Wallets.UTXO.CheckIntegrity: ux secret key does not match public key!");
+                if (!KeyOps.ScalarmultBase(ref UXSecKey).Equals(UXKey))
+                {
+                    throw new Exception("Discreet.Wallets.UTXO.CheckIntegrity: ux secret key does not match public key!");
+                }
             }
         }
 
@@ -280,6 +287,10 @@ namespace Discreet.Wallets
                         LinkingTag = KeyOps.GenerateLinkingTag(ref UXSecKey);
                     }
                 }
+            }
+            else if (Type == UTXOType.TRANSPARENT)
+            {
+                DecodedAmount = Amount;
             }
 
             Encrypted = false;

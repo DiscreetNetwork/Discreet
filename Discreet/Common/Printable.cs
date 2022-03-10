@@ -8,7 +8,6 @@ namespace Discreet.Common
 {
     public static class Printable
     {
-        public static uint NUMSPACE = 4;
         private static readonly Regex sWhitespace = new Regex(@"\s+");
 
         private static void ForEach<T>(this IEnumerable<T> ie, Action<T> action)
@@ -19,7 +18,7 @@ namespace Discreet.Common
             }
         }
 
-        public static string Prettify(string s)
+        public static string Prettify(string s, bool useTabs, int numSpace)
         {
             s = sWhitespace.Replace(s, "");
 
@@ -30,9 +29,16 @@ namespace Discreet.Common
 
             bool quoted = false;
 
-            for (int i = 0; i < NUMSPACE; i++)
+            if (useTabs)
             {
-                spaces += " ";
+                spaces = "\t";
+            }
+            else
+            {
+                for (int i = 0; i < numSpace; i++)
+                {
+                    spaces += " ";
+                }
             }
 
             for (int i = 0; i < s.Length; i++)
@@ -98,6 +104,11 @@ namespace Discreet.Common
             }
 
             return rv.ToString();
+        }
+
+        public static string Prettify(string s)
+        {
+            return Prettify(s, false, 4);
         }
 
         public static string Hexify(byte[] bytes)

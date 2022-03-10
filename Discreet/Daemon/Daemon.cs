@@ -11,10 +11,10 @@ using System.Net;
 using System.Threading;
 using System.Collections.Concurrent;
 
-namespace Discreet.Visor
+namespace Discreet.Daemon
 {
     /* Manages all blockchain operations. Contains the wallet manager, logger, Network manager, RPC manager, DB manager and TXPool manager. */
-    public class Visor
+    public class Daemon
     {
         public ConcurrentBag<Wallet> wallets;
         TXPool txpool;
@@ -23,7 +23,7 @@ namespace Discreet.Visor
         Network.Peerbloom.Network network;
         Network.MessageCache messageCache;
         DB.DisDB db;
-        VisorConfig config;
+        DaemonConfig config;
 
         RPC.RPCServer _rpcServer;
         CancellationToken _cancellationToken;
@@ -37,7 +37,7 @@ namespace Discreet.Visor
 
         private Key signingKey;
 
-        public Visor()
+        public Daemon()
         {
             wallets = new ConcurrentBag<Wallet>();
 
@@ -49,7 +49,7 @@ namespace Discreet.Visor
 
             handler.visor = this;
 
-            config = new VisorConfig();
+            config = new DaemonConfig();
 
             signingKey = new Key(Common.Printable.Byteify("90933561d294e3125c98a90263e1331fc337be71ee3ac9b0d7269728849ac00a"));
 
@@ -129,7 +129,7 @@ namespace Discreet.Visor
             await network.Bootstrap();
 
             Logger.Log($"Starting RPC server...");
-            _rpcServer = new RPC.RPCServer(VisorConfig.GetConfig().RPCPort);
+            _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort);
             _ = _rpcServer.Start();
 
             if (!IsMasternode)
@@ -202,7 +202,7 @@ namespace Discreet.Visor
                 await Task.Delay(1000);
 
                 handler.SetState(Network.PeerState.Processing);
-                
+
                 //var blocks = db.GetBlockCache();
 
                 /*while (blocks.Count > 0)
@@ -236,10 +236,10 @@ namespace Discreet.Visor
                     beginningHeight++;
                 }*/
 
+                beginningHeight += 1;
+
                 while (!messageCache.BlockCache.IsEmpty)
                 {
-                    beginningHeight += 1;
-
                     Block block;
                     messageCache.BlockCache.Remove(beginningHeight, out block);
 

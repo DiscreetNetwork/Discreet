@@ -30,7 +30,7 @@ namespace Discreet.HTTP
             catch (HttpListenerException ex)
             {
 
-                Visor.Logger.Log($"Discreet.RPC: {ex.Message}");
+                Daemon.Logger.Log($"Discreet.RPC: {ex.Message}");
             }
 
 

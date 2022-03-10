@@ -103,13 +103,13 @@ namespace Discreet.Network.Peerbloom
             }
             catch (SocketException e)
             {
-                Visor.Logger.Error(e.Message);
+                Daemon.Logger.Error(e.Message);
 
                 return (false, false);
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error(ex.Message);
+                Daemon.Logger.Error(ex.Message);
 
                 return (false, false);
             }
@@ -147,28 +147,28 @@ namespace Discreet.Network.Peerbloom
                 {
                     SetLastSeen();
                     Core.Packets.Peerbloom.NetPong respBody = (Core.Packets.Peerbloom.NetPong)resp.Body;
-                    Visor.Logger.Info($"Pinged: {Endpoint.Address}:{Endpoint.Port} and got data \"{Common.Printable.Hexify(respBody.Data)}\"");
+                    Daemon.Logger.Info($"Pinged: {Endpoint.Address}:{Endpoint.Port} and got data \"{Common.Printable.Hexify(respBody.Data)}\"");
                     return true;
                 }
 
-                Visor.Logger.Error($"Could not ping: {Endpoint.Address}:{Endpoint.Port}");
+                Daemon.Logger.Error($"Could not ping: {Endpoint.Address}:{Endpoint.Port}");
                 return false;
             }
             catch (SocketException e)
             {
-                Visor.Logger.Error(e.Message);
+                Daemon.Logger.Error(e.Message);
 
                 return false;
             }
             catch (IOException e)
             {
-                Visor.Logger.Error($"RemoteNode.Ping: Client timed out at {Endpoint}");
+                Daemon.Logger.Error($"RemoteNode.Ping: Client timed out at {Endpoint}");
 
                 return false;
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error(ex.Message);
+                Daemon.Logger.Error(ex.Message);
 
                 return false;
             }
@@ -205,17 +205,17 @@ namespace Discreet.Network.Peerbloom
                     remoteNodes.Add(new RemoteNode(id, elem.Endpoint));
                 }
 
-                Visor.Logger.Info($"Sent `FindNode` to: {Endpoint.Address}:{Endpoint.Port}");
+                Daemon.Logger.Info($"Sent `FindNode` to: {Endpoint.Address}:{Endpoint.Port}");
                 return remoteNodes;
             }
             catch (SocketException e)
             {
-                Visor.Logger.Error($"Failed to send `FindNode` to: {Endpoint.Address}:{Endpoint.Port} : {e.Message}");
+                Daemon.Logger.Error($"Failed to send `FindNode` to: {Endpoint.Address}:{Endpoint.Port} : {e.Message}");
                 return null;
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error(ex.Message);
+                Daemon.Logger.Error(ex.Message);
 
                 return null;
             }

@@ -42,7 +42,7 @@ namespace Discreet.Network.Peerbloom
             if(b.IsNodeInRange(_localNode.Id) || (b.Depth() % Constants.ALPHA) != 0)
             {
                 (Bucket b1, Bucket b2) = b.Split();
-                Visor.Logger.Log($"Performed bucket split: {_buckets.Count} total buckets");
+                Daemon.Logger.Log($"Performed bucket split: {_buckets.Count} total buckets");
                 b1.SetLastUpdated();
                 b2.SetLastUpdated();
 
@@ -78,7 +78,7 @@ namespace Discreet.Network.Peerbloom
 
         public async Task RefreshBucket(Bucket b)
         {
-            Visor.Logger.Log("Refreshing a bucket\n");
+            Daemon.Logger.Log("Refreshing a bucket\n");
             foreach (var node in b.GetNodes())
             {
                 var fetchedNodes = await node.FindNode(_localNode.Id, _localNode.Endpoint, new NodeId(Utility.GetRandomPositiveBigInteger(b.Low, b.High).ToKey()));

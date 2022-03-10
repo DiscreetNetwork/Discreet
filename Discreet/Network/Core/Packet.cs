@@ -44,9 +44,9 @@ namespace Discreet.Network.Core
             byte[] bodyData = new byte[Header.Length];
             int num = s.Read(bodyData);
 
-            if (Header.NetworkID != Visor.VisorConfig.GetConfig().NetworkID)
+            if (Header.NetworkID != Daemon.DaemonConfig.GetConfig().NetworkID)
             {
-                throw new Exception($"Discreet.Network.Core.Packet.Populate: wrong network ID; expected {Visor.VisorConfig.GetConfig().NetworkID} but got {Header.NetworkID}");
+                throw new Exception($"Discreet.Network.Core.Packet.Populate: wrong network ID; expected {Daemon.DaemonConfig.GetConfig().NetworkID} but got {Header.NetworkID}");
             }
 
             if (num < Header.Length)
@@ -67,9 +67,9 @@ namespace Discreet.Network.Core
         {
             Header = new PacketHeader(bytes, 0);
 
-            if (Header.NetworkID != Visor.VisorConfig.GetConfig().NetworkID)
+            if (Header.NetworkID != Daemon.DaemonConfig.GetConfig().NetworkID)
             {
-                throw new Exception($"Discreet.Network.Core.Packet.Populate: wrong network ID; expected {Visor.VisorConfig.GetConfig().NetworkID} but got {Header.NetworkID}");
+                throw new Exception($"Discreet.Network.Core.Packet.Populate: wrong network ID; expected {Daemon.DaemonConfig.GetConfig().NetworkID} but got {Header.NetworkID}");
             }
 
             if ((bytes.Length - 10) < Header.Length)

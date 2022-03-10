@@ -113,7 +113,7 @@ namespace Discreet.DB
             {
                 if (disdb == null)
                 {
-                    disdb = new DisDB(Visor.VisorConfig.GetDefault().DBPath);
+                    disdb = new DisDB(Daemon.DaemonConfig.GetDefault().DBPath);
                 }
             }
         }
@@ -251,7 +251,7 @@ namespace Discreet.DB
             }
             catch (Exception ex)
             {
-                Visor.Logger.Fatal($"failed to create the database: {ex}");
+                Daemon.Logger.Fatal($"failed to create the database: {ex}");
             }
         }
 
@@ -576,22 +576,25 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.DisDB.AddTXToPool: Transaction {txhash.ToHexShort()} already present in TXPool");
             }
 
-            for (int i = 0; i < tx.NumPInputs; i++)
+            if (tx.PInputs != null)
             {
-                if (!CheckSpentKey(tx.PInputs[i].KeyImage))
+                for (int i = 0; i < tx.NumPInputs; i++)
                 {
-                    throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                    if (!CheckSpentKey(tx.PInputs[i].KeyImage))
+                    {
+                        throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                    }
+
+                    if (!CheckSpentKeyBlock(tx.PInputs[i].KeyImage))
+                    {
+                        throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                    }
                 }
 
-                if (!CheckSpentKeyBlock(tx.PInputs[i].KeyImage))
+                foreach (var j in tx.PInputs)
                 {
-                    throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                    db.Put(j.KeyImage.bytes, ZEROKEY, cf: TxPoolSpentKeys);
                 }
-            }
-
-            foreach (var j in tx.PInputs)
-            {
-                db.Put(j.KeyImage.bytes, ZEROKEY, cf: TxPoolSpentKeys);
             }
 
             db.Put(txhash.Bytes, tx.Serialize(), cf: TxPoolBlob);

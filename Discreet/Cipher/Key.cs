@@ -241,6 +241,8 @@ namespace Discreet.Cipher
         /// <returns></returns>
         public override bool Equals(object b)
         {
+            if (b == null) return false;
+            if (b == default && this == default) return true;
             return Compare(this, (Key)b) == 0;
         }
 

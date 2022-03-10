@@ -593,7 +593,7 @@ namespace Discreet.Coin
 
             int lenTInputs = tInNull ? 0 : TInputs.Length;
             int lenTOutputs = tOutNull ? 0 : TOutputs.Length;
-            int lenPInputs = pInNull ? 0 : POutputs.Length;
+            int lenPInputs = pInNull ? 0 : PInputs.Length;
             int lenPOutputs = pOutNull ? 0 : POutputs.Length;
             int lenTSigs = tSigNull ? 0 : TSignatures.Length;
             int lenPSigs = pSigNull ? 0 : PSignatures.Length;
@@ -699,7 +699,7 @@ namespace Discreet.Coin
                 return new VerifyException("MixedTransaction", $"Transaction contains at least one private output, but has no range proof!");
             }
 
-            if (lenPOutputs > 0 && (TransactionKey.Equals(default) || TransactionKey.bytes == null))
+            if (lenPOutputs > 0 && (TransactionKey == default || TransactionKey.bytes == null))
             {
                 return new VerifyException("MixedTransaction", $"Transaction contains at least one private output, but has no transaction key!");
             }

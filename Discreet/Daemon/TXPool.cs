@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Discreet.Coin;
 using Discreet.Common.Exceptions;
 
-namespace Discreet.Visor
+namespace Discreet.Daemon
 {
     public class TXPool
     {

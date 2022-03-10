@@ -415,6 +415,13 @@ namespace Discreet.Wallets
                 Array.Copy(unencryptedSecKey, SecKey.bytes, 32);
 
                 Array.Clear(unencryptedSecKey, 0, unencryptedSecKey.Length);
+
+                for (int i = 0; i < UTXOs.Count; i++)
+                {
+                    UTXOs[i].Decrypt(this);
+
+                    Balance += UTXOs[i].Amount;
+                }
             }
             else
             {
@@ -815,7 +822,13 @@ namespace Discreet.Wallets
             tx.InnerHash = tx.SigningHash();
             for (int i = 0; i < tx.NumInputs; i++)
             {
-                tx.Signatures[i] = new Signature(SecKey, PubKey, tx.InnerHash);
+                byte[] data = new byte[64];
+                Array.Copy(tx.InnerHash.Bytes, data, 32);
+                Array.Copy(tx.Inputs[i].Hash().Bytes, 0, data, 32, 32);
+
+                var hash = SHA256.HashData(data);
+
+                tx.Signatures[i] = new Signature(SecKey, PubKey, hash);
             }
 
             return tx;
@@ -926,7 +939,7 @@ namespace Discreet.Wallets
 
                     if (KeyOps.CheckForBalance(ref cscalar, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
                     {
-                        Visor.Logger.Log("You received some Discreet!");
+                        Daemon.Logger.Log("You received some Discreet!");
                         ProcessOutput(transaction, i, false);
                         changed = true;
                     }
@@ -941,7 +954,7 @@ namespace Discreet.Wallets
 
                     if (Address == address)
                     {
-                        Visor.Logger.Log("You received some Discreet!");
+                        Daemon.Logger.Log("You received some Discreet!");
                         ProcessOutput(transaction, i, true);
                         changed = true;
                     }
@@ -960,7 +973,16 @@ namespace Discreet.Wallets
                 (int index, UTXO utxo) = db.AddWalletOutput(this, transaction, i, transparent);
                 utxo.OwnedIndex = index;
                 UTXOs.Add(utxo);
-                Balance += utxo.DecodedAmount;
+                if (transparent)
+                {
+                    Balance += utxo.Amount;
+                }
+                else
+                {
+                    Balance += utxo.DecodedAmount;
+                }
+                
+                Daemon.Logger.Info($"DBG: Wallet output index is {index}");
             }
         }
 
@@ -1263,8 +1285,10 @@ namespace Discreet.Wallets
             for (int i = 0; i < utxoCount; i++)
             {
                 int idx = Serialization.GetInt32(s);
+                var utxo = db.GetWalletOutput(idx);
 
-                UTXOs.Add(db.GetWalletOutput(idx));
+                utxo.OwnedIndex = idx;
+                UTXOs.Add(utxo);
             }
         }
     }

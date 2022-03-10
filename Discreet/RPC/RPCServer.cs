@@ -12,9 +12,18 @@ namespace Discreet.RPC
         private readonly HttpListener _listener;
         private int _port;
 
+        private bool _indented = false;
+        private int _indentSize = 4;
+        private bool _useTabs = false;
+
+        public bool Indented { get { return _indented; } set { _indented = value; } }
+
+        public int IndentSize { get { return _indentSize; } set { if (value >=  0) _indentSize = value; } }
+
+        public bool UseTabs { get { return _useTabs; } set { if (Indented) _useTabs = value;} }
+
         public RPCServer(int portNumber)
         {
-            Visor.Logger.Log("Starting RPC server");
             RPCEndpointResolver.ReflectEndpoints();
             _port = portNumber;
             _listener = new HttpListener();
@@ -25,7 +34,13 @@ namespace Discreet.RPC
             {
                 _listener.Prefixes.Add($"http://localhost:{portNumber}/");
             }
-            
+        }
+
+        public RPCServer(int portNumber, bool indented, int indentSize, bool useTabs) : this(portNumber)
+        {
+            _indented = indented;
+            _indentSize = indentSize;
+            _useTabs = useTabs;
         }
 
         public async Task Start()
@@ -37,10 +52,10 @@ namespace Discreet.RPC
             catch (HttpListenerException ex)
             {
 
-                Visor.Logger.Log($"Discreet.RPC: {ex.Message}");
+                Daemon.Logger.Log($"Discreet.RPC: {ex.Message}");
 
                 if(ex.ErrorCode == 5)
-                    Visor.Logger.Info($"Discreet.RPC: RPC was unable to start due to insufficient privileges. Please start as administrator and open port {_port}. Continuing without RPC.");
+                    Daemon.Logger.Info($"Discreet.RPC: RPC was unable to start due to insufficient privileges. Please start as administrator and open port {_port}. Continuing without RPC.");
             }
           
 
@@ -52,7 +67,7 @@ namespace Discreet.RPC
                 StreamReader reader = new(ss);
 
                 RPCProcess processor = new();
-                object result = processor.ProcessRemoteCall(reader.ReadToEnd());
+                object result = processor.ProcessRemoteCall(this, reader.ReadToEnd());
 
 
                 using var sw = new StreamWriter(ctx.Response.OutputStream);

@@ -13,7 +13,7 @@ namespace Discreet.RPC.Endpoints
 {
     public static class DebugEndpoints
     {
-        [RPCEndpoint("dbg_faucet_stealth_payout")]
+        [RPCEndpoint("dbg_faucet_stealth")]
         public static object DbgFaucetStealthPayout(string address, ulong amount)
         {
             try
@@ -37,13 +37,20 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to DbgFaucet failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex.Message}");
 
                 return new RPCError($"Could not fulfill faucet request");
             }
         }
 
-        [RPCEndpoint("dbg_faucet_transparent_payout")]
+        public class DbgFaucetTransparentRV
+        {
+            public Readable.FullTransaction Tx { get; set; }
+            public string Txid { get; set; }
+            public string Verify { get; set; }
+        }
+
+        [RPCEndpoint("dbg_faucet_transparent")]
         public static object DbgFaucetTransparentPayout(string address, ulong amount)
         {
             try
@@ -56,9 +63,26 @@ namespace Discreet.RPC.Endpoints
 
                     var tx = addr.CreateTransaction(new IAddress[] { new TAddress(address) }, new ulong[] { amount }).ToFull();
 
+                    var verify = tx.Verify();
+                    string _verify = "";
+
+                    if (verify == null)
+                    {
+                        _verify = "all good!";
+                    }
+                    else
+                    {
+                        _verify = verify.Message;
+                    }
+
                     _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDTX, new Network.Core.Packets.SendTransactionPacket { Tx = tx }));
 
-                    return tx.Hash().ToHex();
+                    return new DbgFaucetTransparentRV
+                    {
+                        Tx = (Readable.FullTransaction)tx.ToReadable(),
+                        Txid = tx.Hash().ToHex(),
+                        Verify = _verify
+                    };
                 }
                 else
                 {
@@ -67,7 +91,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Visor.Logger.Error($"RPC call to DbgFaucet failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex}");
 
                 return new RPCError($"Could not fulfill faucet request");
             }

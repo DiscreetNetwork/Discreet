@@ -63,7 +63,7 @@ namespace Discreet.RPC
         }
 
 
-        public object ProcessRemoteCall(string rpcJsonRequest)
+        public object ProcessRemoteCall(RPCServer server, string rpcJsonRequest)
         {
             try
             {
@@ -72,11 +72,11 @@ namespace Discreet.RPC
                 object result = ExecuteInternal(request.method, request.@params);
                 RPCResponse response = CreateResponse(request, result);
 
-                return CreateResponseJSON(response);
+                return CreateResponseJSON(server, response);
             }
             catch (Exception ex)
             {
-                Visor.Logger.Log($"Discreet.RPC: parsing RPC request failed: {ex.Message}");
+                Daemon.Logger.Log($"Discreet.RPC: parsing RPC request failed: {ex.Message}");
             }
 
             return null;
@@ -129,7 +129,8 @@ namespace Discreet.RPC
             if(request.id == String.Empty)
             {
                 response.id = null;
-            } else
+            }
+            else
             {
                 response.id = request.id;
             }
@@ -137,13 +138,20 @@ namespace Discreet.RPC
             response.result = result;
             return response;
         }
-        public string CreateResponseJSON(RPCResponse response)
+        public string CreateResponseJSON(RPCServer server, RPCResponse _response)
         {
             try
             {
-                string request = JsonSerializer.Serialize<RPCResponse>(response, defaultOptions);
-                return request;
-            } catch(Exception ex)
+                string response = JsonSerializer.Serialize<RPCResponse>(_response, defaultOptions);
+                
+                if (server.Indented)
+                {
+                    response = Discreet.Common.Printable.Prettify(response, server.UseTabs, server.IndentSize);
+                }
+
+                return response;
+            } 
+            catch(Exception ex)
             {
                 throw new JsonException($"Failed to serialize response: {ex}");
             }

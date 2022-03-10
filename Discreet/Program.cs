@@ -921,7 +921,7 @@ namespace Discreet
 			}
         }*/
 
-		public static Visor.Visor visor;
+		public static Daemon.Daemon visor;
 
 		/*[RPCEndpoint(endpoint_name: "getBalance")]
 		public static object GetBalance(StealthAddress address)
@@ -1000,13 +1000,13 @@ namespace Discreet
 		[RPCEndpoint(endpoint_name: "shutdown")]
 		public static object Shutdown()
         {
-			Visor.Logger.Log("Received shutdown call...");
+			Daemon.Logger.Log("Received shutdown call...");
 
 			//SaveWallet();
 
 			visor.Shutdown();
 
-			Visor.Logger.Log("Exiting program.");
+			Daemon.Logger.Log("Exiting program.");
 
 			return null;
         }
@@ -1021,23 +1021,6 @@ namespace Discreet
 
 		public static async Task Main(string[] args)
         {
-			Visor.Visor.DebugMode = true;
-
-			Console.Write("Bootstrap IP: ");
-			IPAddress bootstrapIP = IPAddress.Parse(Console.ReadLine());
-
-			Console.Write("Port: ");
-			int port = int.Parse(Console.ReadLine());
-
-			Visor.VisorConfig visorConfig = new Visor.VisorConfig();
-
-			visorConfig.Port = port;
-			visorConfig.BootstrapNode = bootstrapIP;
-			visorConfig.Endpoint = new IPEndPoint(visorConfig.Endpoint.Address, port);
-			//string passphrase;
-
-			Visor.VisorConfig.SetConfig(visorConfig);
-
 			/*Wallet w;
 
 			Console.Write("Label: ");
@@ -1122,7 +1105,24 @@ namespace Discreet
 				w.Decrypt(passphrase);
 			}*/
 
-			visor = new Visor.Visor();
+			Daemon.Daemon.DebugMode = true;
+
+			Console.Write("Bootstrap IP: ");
+			IPAddress bootstrapIP = IPAddress.Parse(Console.ReadLine());
+
+			Console.Write("Port: ");
+			int port = int.Parse(Console.ReadLine());
+
+			Daemon.DaemonConfig visorConfig = new Daemon.DaemonConfig();
+
+			visorConfig.Port = port;
+			visorConfig.BootstrapNode = bootstrapIP;
+			visorConfig.Endpoint = new IPEndPoint(visorConfig.Endpoint.Address, port);
+			//string passphrase;
+
+			Daemon.DaemonConfig.SetConfig(visorConfig);
+
+			visor = new Daemon.Daemon();
 
 			//Console.WriteLine("your address is: " + visor.wallet.Addresses[0].Address);
 
