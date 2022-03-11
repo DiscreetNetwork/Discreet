@@ -89,5 +89,14 @@ namespace Discreet.Network.Core
             b[offset + 16] = (byte)(p.Port >> 8);
             b[offset + 17] = (byte)(p.Port & 0xff);
         }
+
+        public static byte[] SerializeEndpoint(IPEndPoint p)
+        {
+            byte[] rv = new byte[18];
+
+            SerializeEndpoint(p, rv, 0);
+
+            return rv;
+        }
     }
 }

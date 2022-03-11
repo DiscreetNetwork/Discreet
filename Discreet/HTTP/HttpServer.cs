@@ -41,8 +41,8 @@ namespace Discreet.HTTP
 
                 StreamReader reader = new(ss);
 
-                RPCProcess processor = new();
-                object result = processor.ProcessRemoteCall(reader.ReadToEnd());
+                HttpProcess processor = new();
+                object result = processor.ProcessRemoteCall(this, reader.ReadToEnd());
 
 
                 using var sw = new StreamWriter(ctx.Response.OutputStream);
@@ -50,7 +50,5 @@ namespace Discreet.HTTP
                 await sw.FlushAsync();
             }
         }
-
-
     }
 }

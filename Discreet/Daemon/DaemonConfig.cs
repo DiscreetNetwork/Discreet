@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Discreet.Daemon
@@ -18,9 +18,137 @@ namespace Discreet.Daemon
         {
             lock (daemon_config_lock)
             {
-                if (_daemon_config == null) _daemon_config = new DaemonConfig();
+                if (_daemon_config == null)
+                {
+                    var daemonPath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
+
+                    daemonPath = Path.Combine($"{daemonPath}\\", ".discreet");
+
+                    var configPath = Path.Combine(daemonPath, "config.json");
+
+                    if (File.Exists(configPath))
+                    {
+                        try
+                        {
+                            string _configData = File.ReadAllText(configPath);
+
+                            var _options = new JsonSerializerOptions();
+
+                            _options.Converters.Add(new RPC.Converters.IAddressConverter());
+                            _options.Converters.Add(new RPC.Converters.IPEndPointConverter());
+
+                            DaemonConfig _config = JsonSerializer.Deserialize<DaemonConfig>(_configData, _options);
+
+                            if (_config != null)
+                            {
+                                _daemon_config = _config;
+                                _daemon_config.ConfigPath = configPath;
+                                _daemon_config.ConfigureDefaults();
+                            }
+                        }
+                        catch
+                        {
+                            _daemon_config = new DaemonConfig();
+                        }
+                    }
+
+                    _daemon_config = new DaemonConfig();
+                }
 
                 return _daemon_config;
+            }
+        }
+
+        public void ConfigureDefaults()
+        {
+            var daemonPath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
+
+            daemonPath = Path.Combine($"{daemonPath}\\", ".discreet");
+
+            if (DaemonPath == null)
+            {
+                DaemonPath = daemonPath;
+            }
+
+            if (!Directory.Exists(DaemonPath)) Directory.CreateDirectory(DaemonPath);
+
+            if (DBSize == null)
+            {
+                DBSize = 4294967296 / 4;
+            }
+
+            if (DBPath == null)
+            {
+                DBPath = Path.Combine(DaemonPath, "data");
+            }
+
+            if (LogPath == null)
+            {
+                LogPath = Path.Combine(DaemonPath, "logs");
+            }
+
+            if (WalletPath == null)
+            {
+                WalletPath = Path.Combine(DaemonPath, "wallets");
+            }
+
+            if (!Directory.Exists(DBPath)) Directory.CreateDirectory(DBPath);
+            if (!Directory.Exists(LogPath)) Directory.CreateDirectory(LogPath);
+            if (!Directory.Exists(WalletPath)) Directory.CreateDirectory(WalletPath);
+
+            if (Port == null)
+            {
+                Port = 6585;
+            }
+
+            if (Endpoint == null)
+            {
+                Endpoint = new IPEndPoint(IPAddress.Any, Port.Value);
+            }
+
+            if (RPCPort == null)
+            {
+                RPCPort = 8350;
+            }
+
+            if (RPCIndented == null)
+            {
+                RPCIndented = false;
+            }
+
+            if (RPCIndentSize == null)
+            {
+                RPCIndentSize = 0;
+            }
+
+            if (RPCUseTabs == null)
+            {
+                RPCUseTabs = false;
+            }
+
+            if (HTTPPort == null)
+            {
+                HTTPPort = 8351;
+            }
+
+            if (NetworkID == null)
+            {
+                NetworkID = 1;
+            }
+
+            if (NetworkVersion == null)
+            {
+                NetworkVersion = 1;
+            }
+
+            if (IsPublic == null)
+            {
+                IsPublic = false;
+            }
+
+            if (NetConfig == null)
+            {
+                NetConfig = new NetworkConfig();
             }
         }
 
@@ -33,7 +161,7 @@ namespace Discreet.Daemon
         }
 
         public string DaemonPath { get; set; }
-        public long DBSize { get; set; }
+        public long? DBSize { get; set; }
 
         public string DBPath { get; set; }
         public string LogPath { get; set; }
@@ -42,20 +170,23 @@ namespace Discreet.Daemon
         public string ConfigPath { get; set; }
 
 
-        public int Port { get; set; }
+        public int? Port { get; set; }
 
-        public int RPCPort { get; set; }
-        public bool RPCIndented { get; set; }
-        public int RPCIndentSize { get; set; }
-        public bool RPCUseTabs { get; set; }
+        public int? RPCPort { get; set; }
+        public bool? RPCIndented { get; set; }
+        public int? RPCIndentSize { get; set; }
+        public bool? RPCUseTabs { get; set; }
 
-        public int HTTPPort { get; set; }
+        public int? HTTPPort { get; set; }
         public IPEndPoint Endpoint { get; set; }
         public IPAddress BootstrapNode { get; set; }
 
-        public byte NetworkID { get; set; }
-        public uint NetworkVersion { get; set; }
-        public Cipher.Key ID { get; set; }
+        public byte? NetworkID { get; set; }
+        public uint? NetworkVersion { get; set; }
+
+        public bool? IsPublic { get; set; }
+
+        public NetworkConfig NetConfig { get; set; }
 
         public DaemonConfig()
         {
@@ -65,6 +196,9 @@ namespace Discreet.Daemon
 
             if (!Directory.Exists(DaemonPath)) Directory.CreateDirectory(DaemonPath);
 
+            ConfigPath = Path.Combine(DaemonPath, "config.json");
+
+            
             DBPath = Path.Combine(DaemonPath, "data");
             LogPath = Path.Combine(DaemonPath, "logs");
             WalletPath = Path.Combine(DaemonPath, "wallets");
@@ -73,17 +207,19 @@ namespace Discreet.Daemon
             if (!Directory.Exists(LogPath)) Directory.CreateDirectory(LogPath);
             if (!Directory.Exists(WalletPath)) Directory.CreateDirectory(WalletPath);
 
-            ConfigPath = Path.Combine(DaemonPath, "config.json");
 
-            DBSize = 4294967296/4; // 1gb
+
+            DBSize = 4294967296 / 4; // 1gb
 
             Port = 6585;
 
-            Endpoint = new IPEndPoint(IPAddress.Any, Port);
+            Endpoint = new IPEndPoint(IPAddress.Any, Port.Value);
 
 
             NetworkID = 1;
             NetworkVersion = 1;
+
+            IsPublic = false;
 
             RPCPort = 8350;
             RPCIndented = false;
@@ -92,7 +228,7 @@ namespace Discreet.Daemon
 
             HTTPPort = 8351;
 
-            ID = new Network.Peerbloom.NodeId().Value;
+            NetConfig = new NetworkConfig();
         }
 
         public static DaemonConfig GetDefault()

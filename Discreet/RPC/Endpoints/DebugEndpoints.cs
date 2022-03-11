@@ -18,7 +18,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Handler.GetHandler().visor;
+                var _visor = Handler.GetHandler().daemon;
 
                 if (_visor.IsMasternode)
                 {
@@ -55,7 +55,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Handler.GetHandler().visor;
+                var _visor = Handler.GetHandler().daemon;
 
                 if (_visor.IsMasternode)
                 {

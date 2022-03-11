@@ -25,7 +25,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _wallet = Network.Handler.GetHandler().visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                var _wallet = Network.Handler.GetHandler().daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (_wallet == null)
                 {
@@ -104,7 +104,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _wallet = Network.Handler.GetHandler().visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                var _wallet = Network.Handler.GetHandler().daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (_wallet == null)
                 {

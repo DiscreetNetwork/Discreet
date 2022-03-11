@@ -129,10 +129,10 @@ namespace Discreet.Network.Core
                     return new Packets.Peerbloom.Connect(data, offset);
                 case PacketType.CONNECTACK:
                     return new Packets.Peerbloom.ConnectAck(data, offset);
-                case PacketType.FINDNODE:
-                    return new Packets.Peerbloom.FindNode(data, offset);
-                case PacketType.FINDNODERESP:
-                    return new Packets.Peerbloom.FindNodeResp(data, offset);
+                case PacketType.REQUESTPEERS:
+                    return new Packets.Peerbloom.RequestPeers(data, offset);
+                case PacketType.REQUESTPEERSRESP:
+                    return new Packets.Peerbloom.RequestPeersResp(data, offset);
                 case PacketType.NETPING:
                     return new Packets.Peerbloom.NetPing(data, offset);
                 case PacketType.NETPONG:
@@ -180,10 +180,10 @@ namespace Discreet.Network.Core
                     return new Packets.Peerbloom.Connect(s);
                 case PacketType.CONNECTACK:
                     return new Packets.Peerbloom.ConnectAck(s);
-                case PacketType.FINDNODE:
-                    return new Packets.Peerbloom.FindNode(s);
-                case PacketType.FINDNODERESP:
-                    return new Packets.Peerbloom.FindNodeResp(s);
+                case PacketType.REQUESTPEERS:
+                    return new Packets.Peerbloom.RequestPeers(s);
+                case PacketType.REQUESTPEERSRESP:
+                    return new Packets.Peerbloom.RequestPeersResp(s);
                 case PacketType.NETPING:
                     return new Packets.Peerbloom.NetPing(s);
                 case PacketType.NETPONG:

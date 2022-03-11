@@ -13,11 +13,6 @@ namespace Discreet.Network.Peerbloom
     public class LocalNode
     {
         /// <summary>
-        /// Our local random generated 'NodeId'
-        /// </summary>
-        public NodeId Id { get; set; }
-
-        /// <summary>
         /// Our local endpoint used to listening for incomming data
         /// </summary>
         public IPEndPoint Endpoint { get; set; }
@@ -25,7 +20,7 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// A flag for determining if we are in public or private mode
         /// </summary>
-        public bool IsPublic { get; private set; } = true;
+        public bool IsPublic { get; private set; }
 
         /// <summary>
         /// Default constructor
@@ -33,16 +28,10 @@ namespace Discreet.Network.Peerbloom
         /// <param name="localEndpoint"></param>
         public LocalNode(IPEndPoint localEndpoint)
         {
-            Id = new NodeId();
             Endpoint = localEndpoint;
+            IsPublic = Daemon.DaemonConfig.GetConfig().IsPublic.Value;
         }
 
-        public LocalNode(IPEndPoint localEndpoint, NodeId ID)
-        {
-            Id = ID;
-            Endpoint = localEndpoint;
-        }
-
-        public void SetNetworkMode(bool isPublic) => IsPublic = isPublic;
+        public void SetPublic() => IsPublic = true;
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Coin;
@@ -134,6 +135,7 @@ namespace Discreet.DB
         public static ColumnFamilyHandle OutputIndices;        
         public static ColumnFamilyHandle BlockCache;
         public static ColumnFamilyHandle BlockHeaders;
+        public static ColumnFamilyHandle Peerlist;
 
         public static string SPENT_KEYS = "spent_keys";
         public static string TX_POOL_BLOB = "tx_pool_blob";
@@ -147,6 +149,7 @@ namespace Discreet.DB
         public static string META = "meta";
         public static string BLOCK_CACHE = "block_cache";
         public static string BLOCK_HEADERS = "block_headers";
+        public static string PEERLIST = "peerlist";
 
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
@@ -191,7 +194,8 @@ namespace Discreet.DB
                     new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions())
+                    new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(PEERLIST, new ColumnFamilyOptions())
                 };
 
                 db = RocksDb.Open(options, path, _colFamilies);
@@ -208,6 +212,7 @@ namespace Discreet.DB
                 OutputIndices = db.GetColumnFamily(OUTPUT_INDICES);
                 BlockCache = db.GetColumnFamily(BLOCK_CACHE);
                 BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
+                Peerlist = db.GetColumnFamily(PEERLIST);
 
                 if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
                 {
@@ -908,6 +913,32 @@ namespace Discreet.DB
             }
 
             return Serialization.GetInt64(result, 0);
+        }
+
+        public void AddPeer(IPEndPoint endpoint)
+        {
+            db.Put(Network.Core.Utils.SerializeEndpoint(endpoint), ZEROKEY, cf: Peerlist);
+        }
+
+        public List<IPEndPoint> GetPeers()
+        {
+            var peers = new List<IPEndPoint>();
+
+
+            var iterator = db.NewIterator(cf: Peerlist);
+
+            iterator.SeekToFirst();
+
+            while (iterator.Valid())
+            {
+                byte[] bytes = iterator.Value();
+
+                peers.Add(Network.Core.Utils.DeserializeEndpoint(bytes, 0));
+
+                iterator.Next();
+            }
+
+            return peers;
         }
     }
 }

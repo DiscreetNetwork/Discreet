@@ -23,7 +23,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _wallet = Network.Handler.GetHandler().visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                var _wallet = Network.Handler.GetHandler().daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (_wallet == null)
                 {
@@ -81,7 +81,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (_params == null) return new RPCError("create wallet parameters was null");
 
@@ -165,7 +165,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint("load_wallet", APISet.WALLET)]
         public static object LoadWallet(LoadWalletParams _params)
         {
-            var _visor = Network.Handler.GetHandler().visor;
+            var _visor = Network.Handler.GetHandler().daemon;
 
             if (_params == null) 
                 return new RPCError("load wallet parameters was null");
@@ -249,7 +249,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint("check_integrity", APISet.WALLET)]
         public static object CheckIntegrity(CheckIntegrityParams _params)
         {
-            var _visor = Network.Handler.GetHandler().visor;
+            var _visor = Network.Handler.GetHandler().daemon;
 
             if (_params == null)
                 return new RPCError("check integrity parameters was null");
@@ -303,7 +303,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint("load_wallets", APISet.WALLET)]
         public static object LoadWallets(List<LoadWalletParams> _params)
         {
-            var _visor = Network.Handler.GetHandler().visor;
+            var _visor = Network.Handler.GetHandler().daemon;
 
             WalletDB db = WalletDB.GetDB();
 
@@ -361,7 +361,7 @@ namespace Discreet.RPC.Endpoints
             {
                 if (label == null || label == "") return new RPCError("label was null");
 
-                var wallet = Network.Handler.GetHandler().visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                var wallet = Network.Handler.GetHandler().daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"could not find wallet with label {label}");
 
@@ -382,7 +382,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                foreach (Wallet wallet in Network.Handler.GetHandler().visor.wallets)
+                foreach (Wallet wallet in Network.Handler.GetHandler().daemon.wallets)
                 {
                     wallet.MustEncrypt();
                 }
@@ -411,7 +411,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint("unlock_wallet", APISet.WALLET)]
         public static object UnlockWallet(UnlockWalletParams _params)
         {
-            var _visor = Network.Handler.GetHandler().visor;
+            var _visor = Network.Handler.GetHandler().daemon;
 
             if (_params == null) return new RPCError("unlock wallet params was null");
 
@@ -453,7 +453,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
@@ -476,7 +476,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (address == null || address == "") return new RPCError("parameter was null");
 
@@ -523,7 +523,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (_params == null) return new RPCError("unlock wallet params was null");
 
@@ -657,7 +657,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
@@ -680,7 +680,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 return _visor.wallets.Select(x => new Readable.Wallet(x)).ToList();
             }
@@ -697,7 +697,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("label was null");
 
@@ -724,7 +724,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
@@ -747,7 +747,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
@@ -770,7 +770,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 

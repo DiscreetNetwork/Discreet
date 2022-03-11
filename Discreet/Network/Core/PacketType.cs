@@ -48,8 +48,8 @@ namespace Discreet.Network.Core
         /* USED BY PEERBLOOM */
         CONNECT = 20,
         CONNECTACK = 21,
-        FINDNODE = 22,
-        FINDNODERESP = 23,
+        REQUESTPEERS = 22,
+        REQUESTPEERSRESP = 23,
         NETPING = 24,
         NETPONG = 25,
         OLDMESSAGE = 26,

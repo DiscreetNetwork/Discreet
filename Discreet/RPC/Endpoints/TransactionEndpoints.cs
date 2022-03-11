@@ -124,7 +124,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().visor;
+                var _visor = Network.Handler.GetHandler().daemon;
 
                 if (_params == null)
                     return new RPCError("check integrity parameters was null");

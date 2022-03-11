@@ -1097,7 +1097,7 @@ namespace Discreet.Coin
                 0 => (uint)(4 + 32 + NumOutputs * 72),
                 1 => (uint)(4 + TXInput.Size() * PInputs.Length + 72 * POutputs.Length + RangeProof.Size() + 8 + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
                 2 => (uint)(4 + TXInput.Size() * PInputs.Length + 72 * POutputs.Length + RangeProofPlus.Size() + 8 + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
-                3 => (uint)(44 + TXOutput.Size() * TInputs.Length + 33 * TOutputs.Length + 96 * TSignatures.Length),
+                3 => (uint)(44 + Transparent.TXOutput.Size() * TInputs.Length + 33 * TOutputs.Length + 96 * TSignatures.Length),
                 4 => (uint)(48 + 65 * (TInputs == null ? 0 : TInputs.Length)
                                + 33 * (TOutputs == null ? 0 : TOutputs.Length)
                                + 96 * (TSignatures == null ? 0 : TSignatures.Length)

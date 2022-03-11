@@ -1,5 +1,4 @@
 ﻿using Discreet.Network.Peerbloom.Extensions;
-using Discreet.Network.Peerbloom.Protocol.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.Collections.Concurrent;
 
 namespace Discreet.Network.Peerbloom
 {
@@ -40,13 +40,7 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
-
         public LocalNode LocalNode;
-
-        /// <summary>
-        /// The manager class used to perform operations on buckets
-        /// </summary>
-        private BucketManager _bucketManager;
 
         /// <summary>
         /// A store to hold ids of received messages. 
@@ -54,12 +48,79 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         private MessageStore _messageStore;
 
-        /// <summary>
-        /// Holds references to all the 'RemoteNodes' that we have an open connection to
-        /// </summary>
-        private ConnectionPool _connectionPool;
+        public ConcurrentDictionary<IPEndPoint, Connection> ConnectedPeers = new();
 
-        private TcpReceiver _tcpReceiver;
+        public HashSet<IPEndPoint> ConnectingPeers = new();
+
+        public HashSet<IPEndPoint> UnconnectedPeers = new();
+
+        public int MinDesiredConnections;
+        public int MaxDesiredConnections;
+
+        public void AddConnection(Connection conn)
+        {
+            if (ConnectedPeers.Any(n => n.Key.Address.Equals(conn.Receiver))) return;
+
+            if (!ConnectedPeers.TryAdd(conn.Receiver, conn))
+            {
+                Daemon.Logger.Error($"Network.AddConnection failed for connection {conn.Receiver}");
+            }
+        }
+
+        public List<IPEndPoint> GetPeers(int maxPeers)
+        {
+            List<IPEndPoint> remoteNodes = new List<IPEndPoint>(ConnectedPeers.Keys);
+
+            Random random = new Random();
+
+            while (remoteNodes.Count > maxPeers)
+            {
+                remoteNodes.RemoveAt(random.Next(0, remoteNodes.Count));
+            }
+
+            return remoteNodes;
+        }
+
+        public Connection GetPeer(IPEndPoint endpoint)
+        {
+            foreach (var node in ConnectedPeers.Values)
+            {
+                if (node.Receiver.Address.MapToIPv4().Equals(endpoint.Address.MapToIPv4()))
+                {
+                    return node;
+                }
+            }
+
+            return null;
+        }
+
+        public void RemoveNodeFromPool(Connection node)
+        {
+            if (node == null) return;
+
+            foreach (var _node in ConnectedPeers.Values)
+            {
+                if (node == _node)
+                {
+                    ConnectedPeers.TryRemove(node.Receiver, out _);
+                }
+            }
+        }
+
+        public void RemoveNodeFromPool(IPEndPoint node)
+        {
+            if (node == null) return;
+
+            foreach (var _node in ConnectedPeers.Keys)
+            {
+                if (_node.Equals(node))
+                {
+                    ConnectedPeers.TryRemove(node, out _);
+                }
+            }
+        }
+
+        public Handler handler { get; private set; }
 
         /// <summary>
         /// A common tokenSource to control our loops. 
@@ -67,54 +128,40 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         private CancellationTokenSource _shutdownTokenSource;
 
+        public bool IsBootstrapping { get; private set; } = false;
+
         /// <summary>
         /// Default constructor for the network class
         /// </summary>
         public Network(IPEndPoint endpoint)
         {
-            LocalNode = new LocalNode(endpoint, new NodeId(Daemon.DaemonConfig.GetConfig().ID));
-            _bucketManager = new BucketManager(LocalNode);
+            LocalNode = new LocalNode(endpoint);
             _messageStore = new MessageStore();
-            _connectionPool = new ConnectionPool();
             _shutdownTokenSource = new CancellationTokenSource();
-            _tcpReceiver = new TcpReceiver(LocalNode, _connectionPool, _bucketManager, _shutdownTokenSource.Token);
-
-            // Remove this when done testing
-            //Program._messagePacketReceivedEvent += OnSendMessageReceived;
-        }
-
-        public Cipher.Key GetNodeID()
-        {
-            return LocalNode.Id.Value;
         }
 
         /// <summary>
         /// Starts the bucket refresh background service &
         /// starts the network receiver
         /// </summary>
-        public void Start()
+        public async Task Start()
         {
-            //_ = BucketRefreshBackgroundService();
-            _ = _tcpReceiver.Start();
+            _ = Task.Run(() => StartListener(_shutdownTokenSource.Token));
         }
 
-
-        /// <summary>
-        /// Responsible for periodically running bucket refreshes, to make sure our buckets are up to date
-        /// </summary>
-        /// <returns></returns>
-        public async Task BucketRefreshBackgroundService()
+        public async Task StartListener(CancellationToken token)
         {
-            while(!_shutdownTokenSource.IsCancellationRequested)
+            TcpListener listener = new TcpListener(LocalNode.Endpoint);
+            listener.Start();
+            while (!token.IsCancellationRequested)
             {
-                foreach (var bucket in _bucketManager.GetBuckets())
+                var client = await listener.AcceptTcpClientAsync();
+                Daemon.Logger.Info($"TcpReceiver found a connection to client {client.Client.RemoteEndPoint}");
+                if (!IsBootstrapping)
                 {
-                    if (DateTime.UtcNow < bucket.LastUpdated.AddMilliseconds(Constants.BUCKET_REFRESH_TIME_UNTILL_UPDATE)) continue;
-
-                    await _bucketManager.RefreshBucket(bucket);
+                    var conn = new Connection(client, this, LocalNode);
+                    _ = Task.Run(() => conn.Connect(true, _shutdownTokenSource.Token), token);
                 }
-
-                await Task.Delay(Constants.BUCKET_REFRESH_LOOP_DELAY_TIME_MILLISECONDS);
             }
         }
 
@@ -126,25 +173,40 @@ namespace Discreet.Network.Peerbloom
             _shutdownTokenSource.Cancel();
         }
 
-
         public async Task Bootstrap()
         {
-            // For actual live chatting
-            RemoteNode bootstrapNode = new RemoteNode(new IPEndPoint(Daemon.DaemonConfig.GetDefault().BootstrapNode, 5555));
-
-            // For testing locally
-            //RemoteNode bootstrapNode = new RemoteNode(new IPEndPoint(IPAddress.Loopback, 5555));
+            IsBootstrapping = true;
+            Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetDefault().BootstrapNode, 5555), this, LocalNode);
 
             // This check is in case THIS device, is the bootstrap node. In that case, it should not try to bootstrap itself, as it is the first node in the network
             // Eventually this check needs to be modified, when we include multiple bootstrap nodes
             // For now: make sure the int we check against, matches the port of the bootstrap node, in the line above
-            if (LocalNode.Endpoint.Port == 5555) return;
+            if (LocalNode.Endpoint.Port == 5555)
+            {
+                Daemon.DaemonConfig.GetConfig().IsPublic = true;
+                LocalNode.SetPublic();
+
+                Daemon.Logger.Info($"Initiated bootstrap node on port {LocalNode.Endpoint.Port}");
+
+                handler = Handler.Initialize(this);
+
+                if (LocalNode.IsPublic)
+                {
+                    Handler.GetHandler().SetServices(Core.ServicesFlag.Public);
+                }
+
+                handler.Start(_shutdownTokenSource.Token);
+
+                IsBootstrapping = false;
+
+                return;
+            }
 
             Daemon.Logger.Info("Bootstrapping the node...");
 
-            (bool acknowledged, bool isPublic) = await bootstrapNode.Connect(LocalNode);
+            await bootstrapNode.Connect();
 
-            if(!acknowledged)
+            if(!bootstrapNode.ConnectionAcknowledged)
             {
                 Daemon.Logger.Warn($"Retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
@@ -153,26 +215,12 @@ namespace Discreet.Network.Peerbloom
                 return;
             }
 
-            Daemon.Logger.Info(isPublic ? "Continuing in public mode" : "Continuing in private mode");
-            LocalNode.SetNetworkMode(isPublic); // This determines how 'this' node relays messages
-           
-            if (isPublic)
-            {
-                Handler.GetHandler().SetServices(Core.ServicesFlag.Public);
-            }
-
-            _connectionPool.AddOutboundConnection(bootstrapNode);
-            _ = _tcpReceiver.HandlePersistentConnection(bootstrapNode.GetSocket());
-
-            _bucketManager.AddRemoteNode(bootstrapNode);
-
-
-            var fetchedNodes = await bootstrapNode.FindNode(LocalNode.Id, LocalNode.Endpoint, LocalNode.Id); // Perform a self-lookup, by calling FindNode with our own NodeId
+            var fetchedNodes = await bootstrapNode.RequestPeers(LocalNode.Endpoint); // Perform a self-lookup
 
             // We failed at establishing a connection to the bootstrap node
             if(fetchedNodes == null)
             {
-                Daemon.Logger.Warn($"Failed to contact the bootstrap node with a `FindNode` command, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                Daemon.Logger.Warn($"Failed to contact the bootstrap node with a `RequestPeers` command, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                 //Console.Clear();
                 await Bootstrap();
@@ -192,66 +240,37 @@ namespace Discreet.Network.Peerbloom
                 }
             }
 
-
-            fetchedNodes.ForEach(n => _bucketManager.AddRemoteNode(n));
-            Bucket bootstrapBucket = _bucketManager.GetBucket(bootstrapNode.Id);
-
-            List<Bucket> otherBuckets = _bucketManager.GetBuckets().Where(x => x != bootstrapBucket).ToList();
-            otherBuckets.ForEach(async x => await _bucketManager.RefreshBucket(x));
-
             Daemon.Logger.Info("Connecting to nodes...");
-            foreach (var bucket in _bucketManager.GetBuckets())
+
+            HashSet<IPEndPoint> endpoints = new HashSet<IPEndPoint>(fetchedNodes);
+
+            if (Daemon.Daemon.DebugMode)
             {
-                foreach (var node in bucket.GetNodes())
-                {
-                    if (_connectionPool.GetOutboundConnections().Any(n => n.Id.Value.Equals(node.Id.Value))) continue;
-
-                    (acknowledged, _) = await node.Connect(LocalNode);
-                    if (!acknowledged) continue;
-
-                    _connectionPool.AddOutboundConnection(node);
-                    _ = _tcpReceiver.HandlePersistentConnection(node.GetSocket());
-
-                }
+                _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token));
             }
 
-            Daemon.Logger.Info("Bootstrap completed. Continuing in 2 seconds...");
-            await Task.Delay(2000);
-            //Console.Clear();
+            foreach (var node in endpoints)
+            {
+                if (GetNode(node) != null) continue;
+
+                _ = Task.Run(() => new Connection(node, this, LocalNode).Connect(true, _shutdownTokenSource.Token)).ConfigureAwait(false);
+            }
+
+            handler = Handler.Initialize(this);
+
+            if (LocalNode.IsPublic)
+            {
+                Handler.GetHandler().SetServices(Core.ServicesFlag.Public);
+            }
+
+            handler.Start(_shutdownTokenSource.Token);
+
+            IsBootstrapping = false;
+            Daemon.Logger.Info("Bootstrap completed.");
         }
 
-        // When sending the initial message
-        /* DEPRACATED */
-        public async Task SendMessage(string content)
+        public int Broadcast(Core.Packet packet)
         {
-            string messageId = Guid.NewGuid().ToString();
-            _messageStore.AddMessageIdentifier(messageId);
-
-            uint len = (uint)Encoding.UTF8.GetBytes(content).Length;
-
-            Core.Packet packet = new Core.Packet(Core.PacketType.OLDMESSAGE, new Core.Packets.Peerbloom.OldMessage { MessageIDLen = (uint)messageId.Length, MessageID = messageId, MessageLen = len, Message = content });
-            //WritePacketBase messagePacket = new WritePacketBase();
-            //messagePacket.WriteString("Message");                       // Command
-            //messagePacket.WriteString(messageId);                       // Message ID
-            //messagePacket.WriteString(content);                         // Message Content
-
-            if(LocalNode.IsPublic)
-            {
-                foreach (var inbound in _connectionPool.GetInboundConnections())
-                {
-                    await inbound.Send(packet);
-                }
-            }
-            
-            foreach (var outbound in _connectionPool.GetOutboundConnections())
-            {
-                await outbound.Send(packet);
-            }
-        }
-
-        public async Task<int> Broadcast(Core.Packet packet)
-        {
-
             try
             {
                 if (packet.Header.Length + 10 > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
@@ -265,25 +284,16 @@ namespace Discreet.Network.Peerbloom
 
             int i = 0;
 
-            if (LocalNode.IsPublic)
+            foreach (var conn in ConnectedPeers.Values)
             {
-                foreach(var inbound in _connectionPool.GetInboundConnections())
-                {
-                    _ = inbound.Send(packet);
-                    i++;
-                }
-            }
-
-            foreach (var outbound in _connectionPool.GetOutboundConnections())
-            {
-                _ = outbound.Send(packet);
+                conn.Send(packet);
                 i++;
             }
 
             return i;
         }
 
-        public async Task<bool> Send(IPEndPoint endpoint, Core.Packet packet)
+        public bool Send(IPEndPoint endpoint, Core.Packet packet)
         {
             try
             {
@@ -297,106 +307,28 @@ namespace Discreet.Network.Peerbloom
 
             Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
 
-            var node = _connectionPool.FindNodeInPool(endpoint);
+            bool success = ConnectedPeers.TryGetValue(endpoint, out var conn);
 
-            if (node == null) return false;
+            if (!success || conn == null) return false;
 
-            await node.Send(packet);
-
-            return true;
-        }
-
-        public async Task<bool> SendSync(IPEndPoint endpoint, Core.Packet packet)
-        {
-            try
-            {
-                if (packet.Header.Length + 10 > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
-            }
-            catch (Exception ex)
-            {
-                Daemon.Logger.Error(ex.Message);
-                return false;
-            }
-            Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
-
-            var node = _connectionPool.FindNodeInPool(endpoint);
-
-            if (node == null) return false;
-
-            await node.Send(packet);
+            conn.Send(packet);
 
             return true;
         }
 
-        public RemoteNode GetNode(IPEndPoint endpoint)
+        public bool SendSync(IPEndPoint endpoint, Core.Packet packet)
         {
-            return _connectionPool.FindNodeInPool(endpoint);
+            return Send(endpoint, packet);
         }
 
-        // When receiving the message (used for tests; remember to replace the handler call with method specified in Program.cs)
-        public void OnSendMessageReceived(string messageId, string content)
+        public Connection GetNode(IPEndPoint endpoint)
         {
-            if (_messageStore.Contains(messageId)) return;
-
-            _messageStore.AddMessageIdentifier(messageId);
-
-            // replace with method from Program.cs!
-            //Visor.Logger.Log($"Received message ({messageId}): {content}");
-            //Program._messageReceivedEvent?.Invoke(content);
-
-            uint len = (uint)Encoding.UTF8.GetBytes(content).Length;
-
-            Core.Packet packet = new Core.Packet(Core.PacketType.OLDMESSAGE, new Core.Packets.Peerbloom.OldMessage { MessageIDLen = (uint)messageId.Length, MessageID = messageId, MessageLen = len, Message = content });
-
-            //WritePacketBase messagePacket = new WritePacketBase();
-            //messagePacket.WriteString("Message");                       // Command
-            //messagePacket.WriteString(messageId);                       // Message ID
-            //messagePacket.WriteString(content);                         // Message Content
-
-            if (LocalNode.IsPublic)
-            {
-                foreach (var inbound in _connectionPool.GetInboundConnections())
-                {
-                    _ = inbound.Send(packet);
-                }
-            }
-
-            foreach (var outbound in _connectionPool.GetOutboundConnections())
-            {
-                _ = outbound.Send(packet);
-            }
+            return GetPeer(endpoint);
         }
 
-        public async Task Heartbeat()
+        public void AddPacketToQueue(Core.Packet p, Connection conn)
         {
-            while (!_shutdownTokenSource.Token.IsCancellationRequested)
-            {
-                await Task.Delay(90000);
-
-                if (LocalNode.IsPublic)
-                {
-                    foreach (var inbound in _connectionPool.GetInboundConnections())
-                    {
-                        _ = HeartbeatClient(inbound);
-                    }
-                }
-
-                foreach (var outbound in _connectionPool.GetOutboundConnections())
-                {
-                    _ = HeartbeatClient(outbound);
-                }
-            }
-        }
-
-        public async Task HeartbeatClient(RemoteNode node)
-        {
-            bool success = await node.Ping();
-
-            if (!success)
-            {
-                _connectionPool.RemoveNodeFromPool(node);
-                _bucketManager.RemoveRemoteNode(node);
-            }
+            handler.AddPacketToQueue(p, conn);
         }
     }
 }

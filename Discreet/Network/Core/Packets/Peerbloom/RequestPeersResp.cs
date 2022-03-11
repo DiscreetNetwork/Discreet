@@ -10,29 +10,27 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 {
     public struct FindNodeRespElem
     {
-        public Cipher.Key ID;
         public IPEndPoint Endpoint;
 
-        public FindNodeRespElem(Network.Peerbloom.RemoteNode node)
+        public FindNodeRespElem(IPEndPoint node)
         {
-            ID = node.Id.Value;
-            Endpoint = node.Endpoint;
+            Endpoint = node;
         }
     }
 
-    public class FindNodeResp: IPacketBody
+    public class RequestPeersResp: IPacketBody
     {
         public int Length { get; set; }
         public FindNodeRespElem[] Elems { get; set; }
 
-        public FindNodeResp() { }
+        public RequestPeersResp() { }
 
-        public FindNodeResp(Stream s)
+        public RequestPeersResp(Stream s)
         {
             Deserialize(s);
         }
 
-        public FindNodeResp(byte[] b, uint offset)
+        public RequestPeersResp(byte[] b, uint offset)
         {
             Deserialize(b, offset);
         }
@@ -46,9 +44,6 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
             for (int i = 0; i < Length; i++)
             {
-                Elems[i] = new FindNodeRespElem { ID = new Cipher.Key(new byte[32]) };
-                Array.Copy(b, offset, Elems[i].ID.bytes, 0, 32);
-                offset += 32;
                 Elems[i].Endpoint = Utils.DeserializeEndpoint(b, offset);
                 offset += 18;
             }
@@ -64,8 +59,6 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
             for (int i = 0; i < Length; i++)
             {
-                Elems[i] = new FindNodeRespElem { ID = new Cipher.Key(new byte[32]) };
-                s.Read(Elems[i].ID.bytes);
                 Elems[i].Endpoint = Utils.DeserializeEndpoint(s);
             }
         }
@@ -77,8 +70,6 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
             foreach (var elem in Elems)
             {
-                Array.Copy(elem.ID.bytes, 0, b, offset, 32);
-                offset += 32;
                 Utils.SerializeEndpoint(elem.Endpoint, b, offset);
                 offset += 18;
             }
@@ -92,14 +83,13 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
             foreach (var elem in Elems)
             {
-                s.Write(elem.ID.bytes);
                 Utils.SerializeEndpoint(elem.Endpoint, s);
             }
         }
 
         public int Size()
         {
-            return 4 + Elems.Length * 50;
+            return 4 + Elems.Length * 18;
         }
     }
 }

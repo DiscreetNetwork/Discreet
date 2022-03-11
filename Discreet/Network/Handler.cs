@@ -4,14 +4,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Discreet.Network.Core;
 using Discreet.Network.Core.Packets;
 
 namespace Discreet.Network
 {
-    public delegate void OnConnectEvent();
-
     public class Handler
     {
         public PeerState State { get; private set; }
@@ -21,40 +20,49 @@ namespace Discreet.Network
 
         private static object handler_lock = new object();
 
+        private Peerbloom.Network _network;
+
         public long LastSeenHeight { get; set; }
 
+        public ConcurrentQueue<(Core.Packet, Peerbloom.Connection)> InboundPacketQueue = new();
 
         /* back reference to the Visor */
-        public Daemon.Daemon visor;
+        public Daemon.Daemon daemon;
 
         public static Handler GetHandler()
         {
             lock (handler_lock)
             {
-                if (_handler == null) Initialize();
+                /* should not be called prior to the handler being set */
+                if (_handler == null) return null;
 
                 return _handler;
             }
         }
 
-        public static void Initialize()
+        public static Handler Initialize(Peerbloom.Network network)
         {
             lock (handler_lock)
             {
                 if (_handler == null)
                 {
-                    _handler = new Handler();
+                    Daemon.Logger.Debug($"Handler..ctor: calling Initialize for handler!");
+                    _handler = new Handler(network);
                 }
             }
+
+            return _handler;
         }
 
-        public Handler() 
+        public Handler(Peerbloom.Network network) 
         {
             State = PeerState.Startup;
 
             Services = ServicesFlag.Full;
 
             LastSeenHeight = -1;
+
+            _network = network;
         }
 
         public void SetState(PeerState state)
@@ -67,34 +75,59 @@ namespace Discreet.Network
             Services |= flag;
         }
 
-        /* handles incoming packets */
-        public async Task Handle(Packet p, Peerbloom.RemoteNode senderEndpoint)
+        public void Start(CancellationToken token)
         {
-            if (senderEndpoint == null)
+            _ = Task.Run(() => Handle(token));
+        }
+
+        public async Task Handle(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
             {
-                throw new Exception("null remote node!");
+                while (!InboundPacketQueue.IsEmpty)
+                {
+                    bool success = InboundPacketQueue.TryDequeue(out var packet);
+
+                    if (success)
+                    {
+                        await Handle(packet.Item1, packet.Item2);
+                    }
+                }
+
+                await Task.Delay(100);
+            }
+        }
+
+        public void AddPacketToQueue(Packet p, Peerbloom.Connection conn)
+        {
+            InboundPacketQueue.Enqueue((p, conn));
+        }
+
+        /* handles incoming packets */
+        public async Task Handle(Packet p, Peerbloom.Connection conn)
+        {
+            if (conn == null)
+            {
+                throw new Exception("null connection!");
             }
 
             if (State == PeerState.Startup && p.Header.Command != PacketType.VERSION)
             {
-                Daemon.Logger.Warn($"Ignoring message from {senderEndpoint.Endpoint} during startup");
+                Daemon.Logger.Warn($"Ignoring message from {conn.Receiver} during startup");
             }
 
-            Daemon.Logger.Info($"Discreet.Network.Handler.Handle: received packet {p.Header.Command} from {senderEndpoint.Endpoint}");
+            Daemon.Logger.Info($"Discreet.Network.Handler.Handle: received packet {p.Header.Command} from {conn.Receiver}");
 
             /* Packet header and structure is already verified prior to this function. */
-            //WIP
             switch (p.Header.Command)
             {
                 case PacketType.ALERT:
                     await HandleAlert((AlertPacket)p.Body);
                     break;
                 case PacketType.CONNECT:
+                    await HandleConnect(conn);
+                    break;
                 case PacketType.CONNECTACK:
-                case PacketType.FINDNODE:
-                case PacketType.FINDNODERESP:
-                case PacketType.NETPING:
-                case PacketType.NETPONG:
                     Daemon.Logger.Error($"Discreet.Network.Handler.Handle: invalid packet received with type {p.Header.Command}; should not be visible to handler");
                     break;
                 case PacketType.NONE:
@@ -104,28 +137,28 @@ namespace Discreet.Network
                     await HandleReject((RejectPacket)p.Body);
                     break;
                 case PacketType.GETVERSION:
-                    await HandleGetVersion(senderEndpoint.Endpoint);
+                    await HandleGetVersion(conn.Receiver);
                     break;
                 case PacketType.VERSION:
-                    await HandleVersion((VersionPacket)p.Body, senderEndpoint.Endpoint);
+                    await HandleVersion((VersionPacket)p.Body, conn.Receiver);
                     break;
                 case PacketType.GETBLOCKS:
-                    await HandleGetBlocks((GetBlocksPacket)p.Body, senderEndpoint.Endpoint);
+                    await HandleGetBlocks((GetBlocksPacket)p.Body, conn.Receiver);
                     break;
                 case PacketType.SENDMSG:
-                    await HandleMessage((SendMessagePacket)p.Body, senderEndpoint.Endpoint);
+                    await HandleMessage((SendMessagePacket)p.Body, conn.Receiver);
                     break;
                 case PacketType.SENDTX:
-                    await HandleSendTx((SendTransactionPacket)p.Body, senderEndpoint.Endpoint);
+                    await HandleSendTx((SendTransactionPacket)p.Body, conn.Receiver);
                     break;
                 case PacketType.SENDBLOCK:
-                    await HandleSendBlock((SendBlockPacket)p.Body, senderEndpoint.Endpoint);
+                    await HandleSendBlock((SendBlockPacket)p.Body, conn.Receiver);
                     break;
                 case PacketType.INVENTORY:
                     /* currently unused */
                     break;
                 case PacketType.GETTXS:
-                    await HandleGetTxs((GetTransactionsPacket)p.Body, senderEndpoint.Endpoint);
+                    await HandleGetTxs((GetTransactionsPacket)p.Body, conn.Receiver);
                     break;
                 case PacketType.TXS:
                     /* currently there is no handler for this packet */
@@ -136,22 +169,59 @@ namespace Discreet.Network
                 case PacketType.NOTFOUND:
                     await HandleNotFound((NotFoundPacket)p.Body);
                     break;
+                case PacketType.NETPING:
+                    await HandleNetPing((Core.Packets.Peerbloom.NetPing)p.Body);
+                    break;
+                case PacketType.NETPONG:
+                    await HandleNetPong((Core.Packets.Peerbloom.NetPong)p.Body);
+                    break;
+                case PacketType.REQUESTPEERS:
+                    await HandleRequestPeers((Core.Packets.Peerbloom.RequestPeers)p.Body, conn.Receiver);
+                    break;
+                case PacketType.REQUESTPEERSRESP:
+                    await HandleRequestPeersResp((Core.Packets.Peerbloom.RequestPeersResp)p.Body);
+                    break;
                 default:
-                    Daemon.Logger.Error($"Discreet.Network.Handler.Handle: received unsupported packet from {senderEndpoint.Endpoint} with type {p.Header.Command}");
+                    Daemon.Logger.Error($"Discreet.Network.Handler.Handle: received unsupported packet from {conn.Receiver} with type {p.Header.Command}");
                     break;
             }
-            /* REMOVE IN FUTURE; USED FOR TESTING */
-            //if (p.Header.Command == Core.PacketType.OLDMESSAGE)
-            //{
-            //    var body = (Core.Packets.Peerbloom.OldMessage)p.Body;
-            //
-            //    Peerbloom.Network.GetNetwork().OnSendMessageReceived(body.MessageID, body.Message);
-            //}
-            //else
-            //{
-            //    Visor.Logger.Log($"Unknown/unimplemented packet type received: {p.Header.Command}");
-            //    return;
-            //}
+        }
+
+        public async Task HandleConnect(Peerbloom.Connection conn)
+        {
+            _network.Send(conn.Receiver, new Packet(PacketType.CONNECTACK, new Core.Packets.Peerbloom.ConnectAck { Acknowledged = true, IsPublic = false }));
+        }
+
+        public async Task HandleNetPing(Core.Packets.Peerbloom.NetPing p)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task HandleNetPong(Core.Packets.Peerbloom.NetPong p)
+        {
+            throw new NotImplementedException();
+        }
+
+        public async Task HandleRequestPeers(Core.Packets.Peerbloom.RequestPeers p, IPEndPoint endpoint)
+        {
+            Daemon.Logger.Info($"Received `RequestPeers` from: {endpoint.Address}");
+
+            var nodes = _network.GetPeers(p.MaxPeers);
+            Core.Packets.Peerbloom.RequestPeersResp respBody = new Core.Packets.Peerbloom.RequestPeersResp { Length = nodes.Count, Elems = new Core.Packets.Peerbloom.FindNodeRespElem[nodes.Count] };
+
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                respBody.Elems[i] = new Core.Packets.Peerbloom.FindNodeRespElem(nodes[i]);
+            }
+
+            Packet resp = new Packet(PacketType.REQUESTPEERSRESP, respBody);
+
+            _network.Send(endpoint, resp);
+        }
+
+        public async Task HandleRequestPeersResp(Core.Packets.Peerbloom.RequestPeersResp p)
+        {
+            Daemon.Logger.Error($"Handler currently does not support RequestPeersResp ");
         }
 
         public async Task HandleAlert(AlertPacket p)
@@ -185,12 +255,11 @@ namespace Discreet.Network
         {
             return new VersionPacket
             {
-                Version = Daemon.DaemonConfig.GetConfig().NetworkVersion,
+                Version = Daemon.DaemonConfig.GetConfig().NetworkVersion.Value,
                 Services = Services,
                 Timestamp = DateTime.UtcNow.Ticks,
                 Height = DB.DisDB.GetDB().GetChainHeight(),
                 Address = Daemon.DaemonConfig.GetConfig().Endpoint,
-                ID = Peerbloom.Network.GetNetwork().GetNodeID(),
                 Syncing = State == PeerState.Syncing
             };
         }
@@ -199,7 +268,7 @@ namespace Discreet.Network
         {
             VersionPacket vp = MakeVersionPacket();
 
-            await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.VERSION, vp));
+            Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.VERSION, vp));
         }
 
         public async Task HandleVersion(VersionPacket p, IPEndPoint senderEndpoint)
@@ -218,9 +287,9 @@ namespace Discreet.Network
                 return;
             }
 
-            /*if (senderEndpoint != p.Address)
+            /*if (!senderEndpoint.Address.Equals(p.Address.Address))
             {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: endpoint and address mismatch (received from {senderEndpoint}; specified {p.Address})");
+                Daemon.Logger.Log($"Discreet.Network.Handler.HandleVersion: endpoint and address mismatch (received from {senderEndpoint.Address}; specified {p.Address.Address})");
                 mCache.BadVersions[senderEndpoint] = p;
                 return;
             }*/
@@ -230,13 +299,6 @@ namespace Discreet.Network
             if (node != null)
             {
                 Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: could not find peer {p.Address} in connection pool");
-                mCache.BadVersions[senderEndpoint] = p;
-                return;
-            }*/
-
-            /*if (node.Id.Value != p.ID)
-            {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: invalid ID for peer {p.Address}; expected {node.Id.Value.ToHexShort()}, but got {p.ID.ToHexShort()}");
                 mCache.BadVersions[senderEndpoint] = p;
                 return;
             }*/
@@ -293,7 +355,7 @@ namespace Discreet.Network
                     }
                 }
 
-                await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { BlocksLen = (uint)blocks.Count, Blocks = blocks.ToArray() }));
+                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { BlocksLen = (uint)blocks.Count, Blocks = blocks.ToArray() }));
             }
             catch (Exception e)
             {
@@ -310,7 +372,7 @@ namespace Discreet.Network
                     resp.Inventory[i] = new InventoryVector { Hash = p.Blocks[i], Type = ObjectType.Block };
                 }
 
-                await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.NOTFOUND, resp));
+                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.NOTFOUND, resp));
             }
         }
 
@@ -341,7 +403,7 @@ namespace Discreet.Network
                     }
                 }
 
-                await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.TXS, new TransactionsPacket { TxsLen = (uint)txs.Count, Txs = txs.ToArray() }));
+                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.TXS, new TransactionsPacket { TxsLen = (uint)txs.Count, Txs = txs.ToArray() }));
             }
             catch (Exception e)
             {
@@ -358,7 +420,7 @@ namespace Discreet.Network
                     resp.Inventory[i] = new InventoryVector { Hash = p.Transactions[i], Type = ObjectType.Transaction };
                 }
 
-                await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.NOTFOUND, resp));
+                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.NOTFOUND, resp));
             }
         }
 
@@ -388,7 +450,7 @@ namespace Discreet.Network
 
                 Daemon.Logger.Error($"Malformed transaction received from peer {senderEndpoint}: {p.Error}");
 
-                await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
+                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                 return;
             }
 
@@ -410,11 +472,11 @@ namespace Discreet.Network
 
                     Daemon.Logger.Error($"Malformed transaction received from peer {senderEndpoint}: {err.Message}");
 
-                    await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
+                    Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                     return;
                 }
 
-                await Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDTX, p));
+                Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDTX, p));
                 return;
             }
         }
@@ -435,7 +497,7 @@ namespace Discreet.Network
 
                 Daemon.Logger.Error($"Malformed block received from peer {senderEndpoint}: {p.Error}");
 
-                await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
+                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                 return;
             }
 
@@ -450,7 +512,7 @@ namespace Discreet.Network
                             DB.DisDB.GetDB().AddBlockToCache(p.Block);
                         }
 
-                        await Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
+                        Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
                         return;
                     }
                     catch (Exception e)
@@ -467,7 +529,7 @@ namespace Discreet.Network
 
                         Daemon.Logger.Error($"Malformed block received from peer {senderEndpoint}: {e.Message}");
 
-                        await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
+                        Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                         return;
                     }
                 }
@@ -478,7 +540,7 @@ namespace Discreet.Network
             {
                 MessageCache.GetMessageCache().BlockCache[p.Block.Header.Height] = p.Block;
 
-                await Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
+                Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
                 return;
             }
             else
@@ -505,12 +567,11 @@ namespace Discreet.Network
 
                         Daemon.Logger.Error($"Malformed block received from peer {senderEndpoint}: {err.Message}");
 
-                        await Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
+                        Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                         return;
                     }
 
-                    /* broadcast can occur in the background */
-                    _ = Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
+                    Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
 
                     DB.DisDB db = DB.DisDB.GetDB();
 
@@ -528,7 +589,7 @@ namespace Discreet.Network
 
                     try
                     {
-                        visor.ProcessBlock(p.Block);
+                        daemon.ProcessBlock(p.Block);
                     }
                     catch (Exception e)
                     {
@@ -558,7 +619,6 @@ namespace Discreet.Network
                         MessageCache.GetMessageCache().BlockCache.TryAdd(block.Header.Height, block);
                     }
                 }
-
 
                 LastSeenHeight = p.Blocks[0].Header.Height;
             }

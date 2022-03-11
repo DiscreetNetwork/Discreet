@@ -44,10 +44,22 @@ namespace Discreet.Network.Peerbloom.Extensions
         {
             var ns = client.GetStream();
 
+            var timeout = DateTime.Now.AddSeconds(5);
+            while (timeout.Ticks > DateTime.Now.Ticks && !ns.DataAvailable)
+            {
+
+            }
+
             try
             {
                 byte[] _headerBytes = new byte[10];
-                await ns.ReadAsync(_headerBytes, 0, 10);
+                var _numBytes = await ns.ReadAsync(_headerBytes, 0, 10);
+
+                while (_numBytes == 0)
+                {
+                    _numBytes = await ns.ReadAsync(_headerBytes, 0, 10);
+                }
+
                 PacketHeader Header = new PacketHeader(_headerBytes);
 
                 if (Header.NetworkID != Daemon.DaemonConfig.GetConfig().NetworkID)
@@ -62,7 +74,7 @@ namespace Discreet.Network.Peerbloom.Extensions
 
                 byte[] _bytes = new byte[Header.Length];
 
-                var timeout = DateTime.Now.AddSeconds(5);
+                
                 int _numRead;
                 int _offset = 0;
 

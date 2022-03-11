@@ -8,46 +8,55 @@ using System.Threading.Tasks;
 
 namespace Discreet.Network.Core.Packets.Peerbloom
 {
-    public class Connect : IPacketBody
+    public class RequestPeers : IPacketBody
     {
-        public IPEndPoint Endpoint { get; set; }
+        public IPEndPoint Endpoint;
 
-        public Connect() { }
+        public int MaxPeers;
 
-        public Connect(Stream s)
+        public RequestPeers() { }
+
+        public RequestPeers(Stream s)
         {
             Deserialize(s);
         }
 
-        public Connect(byte[] b, uint offset)
+        public RequestPeers(byte[] b, uint offset)
         {
             Deserialize(b, offset);
         }
 
         public void Deserialize(byte[] b, uint offset)
         {
+
             Endpoint = Utils.DeserializeEndpoint(b, offset);
+            offset += 18;
+            MaxPeers = Coin.Serialization.GetInt32(b, offset);
         }
 
         public void Deserialize(Stream s)
         {
             Endpoint = Utils.DeserializeEndpoint(s);
+            MaxPeers = Coin.Serialization.GetInt32(s);
         }
 
         public uint Serialize(byte[] b, uint offset)
         {
             Utils.SerializeEndpoint(Endpoint, b, offset);
-            return offset + 18;
+            offset += 18;
+            Coin.Serialization.CopyData(b, offset, MaxPeers);
+            return offset + 4;
         }
 
         public void Serialize(Stream s)
         {
             Utils.SerializeEndpoint(Endpoint, s);
+            Coin.Serialization.CopyData(s, MaxPeers);
         }
 
         public int Size()
         {
-            return 18;
+            return 22;
         }
     }
 }

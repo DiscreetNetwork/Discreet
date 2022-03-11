@@ -15,7 +15,6 @@ namespace Discreet.Network.Core.Packets
         public long Timestamp { get; set; }
         public long Height { get; set; }
         public IPEndPoint Address { get; set; }
-        public Cipher.Key ID { get; set; }
         public bool Syncing { get; set; }
 
         public VersionPacket()
@@ -50,11 +49,6 @@ namespace Discreet.Network.Core.Packets
             Address = Utils.DeserializeEndpoint(b, offset);
             offset += 18;
 
-            byte[] _id = new byte[32];
-            Array.Copy(b, offset, _id, 0, 32);
-            ID = new Cipher.Key(_id);
-            offset += 32;
-
             Syncing = b[offset] != 0;
         }
 
@@ -77,10 +71,6 @@ namespace Discreet.Network.Core.Packets
 
             Address = Utils.DeserializeEndpoint(s);
 
-            byte[] _id = new byte[32];
-            s.Read(_id);
-            ID = new Cipher.Key(_id);
-
             Syncing = s.ReadByte() != 0;
         }
 
@@ -101,9 +91,6 @@ namespace Discreet.Network.Core.Packets
             Utils.SerializeEndpoint(Address, b, offset);
             offset += 18;
 
-            Array.Copy(ID.bytes, 0, b, offset, 32);
-            offset += 32;
-
             b[offset] = Syncing ? (byte)1 : (byte)0;
             return offset + 1;
         }
@@ -115,13 +102,12 @@ namespace Discreet.Network.Core.Packets
             s.Write(Coin.Serialization.Int64(Timestamp));
             s.Write(Coin.Serialization.Int64(Height));
             Utils.SerializeEndpoint(Address, s);
-            s.Write(ID.bytes);
             s.WriteByte(Syncing ? (byte)1 : (byte)0);
         }
 
         public int Size()
         {
-            return 4 + 4 + 8 + 8 + 18 + 32 + 1;
+            return 4 + 4 + 8 + 8 + 18 + 1;
         }
     }
 }

@@ -42,12 +42,9 @@ namespace Discreet.Daemon
             wallets = new ConcurrentBag<Wallet>();
 
             txpool = TXPool.GetTXPool();
-            handler = Network.Handler.GetHandler();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
             db = DB.DisDB.GetDB();
-
-            handler.visor = this;
 
             config = new DaemonConfig();
 
@@ -74,8 +71,6 @@ namespace Discreet.Daemon
 
         public async Task Start()
         {
-            handler.SetState(Network.PeerState.Startup);
-
             if (IsMasternode && db.GetChainHeight() < 0)
             {
                 /* time to build the megablock */
@@ -121,44 +116,51 @@ namespace Discreet.Daemon
                 Mint(block);
 
                 Logger.Log("Successfully created the genesis block.");
-
-                handler.SetState(Network.PeerState.Normal);
             }
 
-            network.Start();
+            await network.Start();
             await network.Bootstrap();
+            handler = network.handler;
+            handler.daemon = this;
+
+            handler.SetState(Network.PeerState.Startup);
 
             Logger.Log($"Starting RPC server...");
-            _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort);
+            _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value);
             _ = _rpcServer.Start();
 
             if (!IsMasternode)
             {
                 /* in startup, after bootstrap, the visor must collect version info from all connected peers */
-                int nPeers = await network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.GETVERSION, new Network.Core.Packets.GetVersionPacket()));
+                int nPeers = network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.GETVERSION, new Network.Core.Packets.GetVersionPacket()));
 
                 if (nPeers == 0)
                 {
                     throw new Exception("FATAL: cannot find any online peers. Exiting.");
                 }
 
-                await Task.Delay(2500);
-
                 long timeout = DateTime.UtcNow.AddSeconds(5).Ticks;
+
+                await Task.Delay(500);
 
                 while (nPeers != messageCache.Versions.Count + messageCache.BadVersions.Count && timeout > DateTime.UtcNow.Ticks)
                 {
-                    await Task.Delay(2500);
+                    await Task.Delay(500);
 
                     Logger.Log("Discreet.Visor: waiting for peers to respond with versions...");
 
-                    await network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.GETVERSION, new Network.Core.Packets.GetVersionPacket()));
+                    network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.GETVERSION, new Network.Core.Packets.GetVersionPacket()));
 
                     Logger.Log($"Discreet.Visor: {messageCache.Versions.Count} peers found so far...");
                 }
 
                 if (messageCache.Versions.Count == 0)
                 {
+                    if (messageCache.BadVersions.Count > 0)
+                    {
+                        throw new Exception($"FATAL: could not connect to any valid peers. {messageCache.BadVersions.Count} invalid peers found.");
+                    }
+
                     throw new Exception("FATAL: no valid peers online. Exiting.");
                 }
 
@@ -188,18 +190,16 @@ namespace Discreet.Daemon
                     {
                         Logger.Log($"Attemtping to get block {_height + 1}...");
                         _height += 1;
-                        await network.SendSync(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(_height) } }));
+                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(_height) } }));
 
                         while (handler.LastSeenHeight < _height)
                         {
                             Logger.Log($"Waiting to receive block {_height}...");
                             await Task.Delay(1000);
-                            await network.SendSync(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(_height) } }));
+                            network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(_height) } }));
                         }
                     }
                 }
-
-                await Task.Delay(1000);
 
                 handler.SetState(Network.PeerState.Processing);
 
@@ -249,7 +249,7 @@ namespace Discreet.Daemon
                     if (err != null)
                     {
                         Logger.Log($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}");
-                        await network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
+                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
                     }
 
                     try
@@ -291,12 +291,6 @@ namespace Discreet.Daemon
 
             Logger.Log($"Starting handler...");
             handler.SetState(Network.PeerState.Normal);
-
-            if (!DebugMode)
-            {
-                Logger.Log($"Starting heartbeater...");
-                _ = network.Heartbeat();
-            }
 
             Logger.Log($"Visor startup complete.");
 
@@ -460,7 +454,7 @@ namespace Discreet.Daemon
 
         public async Task SendTransaction(FullTransaction tx)
         {
-            await network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDTX, new Network.Core.Packets.SendTransactionPacket { Tx = tx }));
+            network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDTX, new Network.Core.Packets.SendTransactionPacket { Tx = tx }));
         }
 
         public async Task Minter()
@@ -492,7 +486,7 @@ namespace Discreet.Daemon
                 //Block blk = Block.Build(txs, (StealthAddress)wallet.Addresses[0].GetAddress(), signingKey);
                 Block blk = Block.Build(txs, null, signingKey);
 
-                await network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
+                network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
 
                 try
                 {
