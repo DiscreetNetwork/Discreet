@@ -36,11 +36,16 @@ namespace Discreet.Network.Peerbloom
         {
             lock (network_lock)
             {
+                Daemon.Logger.Debug($"Network.Instantiate: network is being instantiated");
                 if (_network == null) _network = new Network(Daemon.DaemonConfig.GetDefault().Endpoint);
             }
         }
 
         public LocalNode LocalNode;
+
+        public IPAddress ReflectedAddress;
+
+        public void SetReflectedAddress(IPAddress addr) => ReflectedAddress = addr;
 
         /// <summary>
         /// A store to hold ids of received messages. 
@@ -48,28 +53,121 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         private MessageStore _messageStore;
 
-        public ConcurrentDictionary<IPEndPoint, Connection> ConnectedPeers = new();
+        /// <summary>
+        /// Peers that initiated the connection with this node. Contains zero peers for private nodes.
+        /// </summary>
+        public ConcurrentDictionary<IPEndPoint, Connection> InboundConnectedPeers = new();
 
-        public HashSet<IPEndPoint> ConnectingPeers = new();
+        /// <summary>
+        /// Peers that this node initiated a connection with.
+        /// </summary>
+        public ConcurrentDictionary<IPEndPoint, Connection> OutboundConnectedPeers = new();
 
+        /// <summary>
+        /// Peers currently in the process of being connected.
+        /// </summary>
+        public ConcurrentDictionary<IPEndPoint, Connection> ConnectingPeers = new();
+
+        /// <summary>
+        /// Peers that are known by this node and aren't currently connected to or by this peer.
+        /// </summary>
         public HashSet<IPEndPoint> UnconnectedPeers = new();
 
         public int MinDesiredConnections;
         public int MaxDesiredConnections;
 
-        public void AddConnection(Connection conn)
+        public void AddConnecting(Connection conn)
         {
-            if (ConnectedPeers.Any(n => n.Key.Address.Equals(conn.Receiver))) return;
+            if (ConnectingPeers.Any(n => n.Key.Equals(conn.Receiver))) return;
 
-            if (!ConnectedPeers.TryAdd(conn.Receiver, conn))
+            if (ConnectingPeers.Count == Constants.PEERBLOOM_MAX_CONNECTING)
             {
-                Daemon.Logger.Error($"Network.AddConnection failed for connection {conn.Receiver}");
+                Daemon.Logger.Warn($"Network.AddConnecting: Currently connecting to max pending peers; dropping new connection with peer {conn.Receiver}");
+                /* dispose of connection */
+                conn.Dispose();
+                return;
+            }
+
+            if (!ConnectingPeers.TryAdd(conn.Receiver, conn))
+            {
+                Daemon.Logger.Error($"Network.AddInboundConnection failed for connection {conn.Receiver}");
+            }
+        }
+
+        public void AddInboundConnection(Connection conn)
+        {
+            if (InboundConnectedPeers.Any(n => n.Key.Equals(conn.Receiver))) return;
+
+            if (!ConnectingPeers.ContainsKey(conn.Receiver))
+            {
+                Daemon.Logger.Error($"Network.AddInboundConnection: currently not connecting with peer {conn.Receiver}!");
+                return;
+            }
+
+            ConnectingPeers.Remove(conn.Receiver, out _);
+
+            if (InboundConnectedPeers.Count == Constants.PEERBLOOM_MAX_INBOUND_CONNECTIONS)
+            {
+                Daemon.Logger.Warn($"Network.AddInboundConnection: Currently connected to max inbound peers; dropping new connection with peer {conn.Receiver}");
+
+                /* we still want to add this peer to the list of known peers if it was properly authenticated */
+                if (conn.ConnectionAcknowledged)
+                {
+                    UnconnectedPeers.Add(conn.Receiver);
+                }
+
+                /* dispose of connection */
+                conn.Dispose();
+                return;
+            }
+
+            if (!InboundConnectedPeers.TryAdd(conn.Receiver, conn))
+            {
+                Daemon.Logger.Error($"Network.AddInboundConnection failed for connection {conn.Receiver}");
+            }
+        }
+
+        public void AddOutboundConnection(Connection conn)
+        {
+            if (OutboundConnectedPeers.Any(n => n.Key.Equals(conn.Receiver)))
+            {
+                Daemon.Logger.Warn($"Network.AddOutboundConnection: already connected to peer {conn.Receiver}, ignoring call");
+                return;
+            }
+
+            if (!ConnectingPeers.ContainsKey(conn.Receiver))
+            {
+                Daemon.Logger.Error($"Network.AddOutboundConnection: currently not connecting with peer {conn.Receiver}!");
+                return;
+            }
+
+            ConnectingPeers.Remove(conn.Receiver, out _);
+
+            if (OutboundConnectedPeers.Count == Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
+            {
+                Daemon.Logger.Warn($"Network.AddOutboundConnection: Currently connected to max outbound peers; dropping new connection with peer {conn.Receiver}");
+                
+
+                /* we still want to add this peer to the list of known peers if it was properly authenticated */
+                if (conn.ConnectionAcknowledged)
+                {
+                    UnconnectedPeers.Add(conn.Receiver);
+                }
+
+                /* dispose of connection */
+                conn.Dispose();
+                return;
+            }
+
+            if (!OutboundConnectedPeers.TryAdd(conn.Receiver, conn))
+            {
+                Daemon.Logger.Error($"Network.AddOutboundConnection failed for connection {conn.Receiver}");
             }
         }
 
         public List<IPEndPoint> GetPeers(int maxPeers)
         {
-            List<IPEndPoint> remoteNodes = new List<IPEndPoint>(ConnectedPeers.Keys);
+            List<IPEndPoint> remoteNodes = new List<IPEndPoint>(InboundConnectedPeers.Keys.Union(OutboundConnectedPeers.Keys));
 
             Random random = new Random();
 
@@ -83,7 +181,7 @@ namespace Discreet.Network.Peerbloom
 
         public Connection GetPeer(IPEndPoint endpoint)
         {
-            foreach (var node in ConnectedPeers.Values)
+            foreach (var node in InboundConnectedPeers.Values)
             {
                 if (node.Receiver.Address.MapToIPv4().Equals(endpoint.Address.MapToIPv4()))
                 {
@@ -94,29 +192,43 @@ namespace Discreet.Network.Peerbloom
             return null;
         }
 
+        /// <summary>
+        /// Removes and disposes of the specified connection from ConnectingPeers, InboundConnectedPeers, or OutboundConnectedPeers, if present.
+        /// </summary>
+        /// <param name="node"></param>
         public void RemoveNodeFromPool(Connection node)
         {
             if (node == null) return;
 
-            foreach (var _node in ConnectedPeers.Values)
+            bool res = false;
+
+            foreach (var _node in ConnectingPeers.Values)
             {
                 if (node == _node)
                 {
-                    ConnectedPeers.TryRemove(node.Receiver, out _);
+                    res = res || ConnectingPeers.TryRemove(node.Receiver, out _);
                 }
             }
-        }
 
-        public void RemoveNodeFromPool(IPEndPoint node)
-        {
-            if (node == null) return;
-
-            foreach (var _node in ConnectedPeers.Keys)
+            foreach (var _node in InboundConnectedPeers.Values)
             {
-                if (_node.Equals(node))
+                if (node == _node)
                 {
-                    ConnectedPeers.TryRemove(node, out _);
+                    res = res || InboundConnectedPeers.TryRemove(node.Receiver, out _);
                 }
+            }
+
+            foreach (var _node in OutboundConnectedPeers.Values)
+            {
+                if (node == _node)
+                {
+                    res = res || OutboundConnectedPeers.TryRemove(node.Receiver, out _);
+                }
+            }
+
+            if (res)
+            {
+                node.Dispose();
             }
         }
 
@@ -129,6 +241,8 @@ namespace Discreet.Network.Peerbloom
         private CancellationTokenSource _shutdownTokenSource;
 
         public bool IsBootstrapping { get; private set; } = false;
+
+        public bool IsBootstrap { get; private set; } = false;
 
         /// <summary>
         /// Default constructor for the network class
@@ -159,7 +273,7 @@ namespace Discreet.Network.Peerbloom
                 Daemon.Logger.Info($"TcpReceiver found a connection to client {client.Client.RemoteEndPoint}");
                 if (!IsBootstrapping)
                 {
-                    var conn = new Connection(client, this, LocalNode);
+                    var conn = new Connection(client, this, LocalNode, false);
                     _ = Task.Run(() => conn.Connect(true, _shutdownTokenSource.Token), token);
                 }
             }
@@ -176,7 +290,7 @@ namespace Discreet.Network.Peerbloom
         public async Task Bootstrap()
         {
             IsBootstrapping = true;
-            Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetDefault().BootstrapNode, 5555), this, LocalNode);
+            Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetDefault().BootstrapNode, 5555), this, LocalNode, true);
 
             // This check is in case THIS device, is the bootstrap node. In that case, it should not try to bootstrap itself, as it is the first node in the network
             // Eventually this check needs to be modified, when we include multiple bootstrap nodes
@@ -199,11 +313,14 @@ namespace Discreet.Network.Peerbloom
 
                 IsBootstrapping = false;
 
+                IsBootstrap = true;
+
                 return;
             }
 
             Daemon.Logger.Info("Bootstrapping the node...");
 
+            /* this must be awaited to ensure our reflected Address is set. This is used to prevent self-connections. */
             await bootstrapNode.Connect();
 
             if(!bootstrapNode.ConnectionAcknowledged)
@@ -240,7 +357,7 @@ namespace Discreet.Network.Peerbloom
                 }
             }
 
-            Daemon.Logger.Info("Connecting to nodes...");
+            Daemon.Logger.Info("Connecting to peers...");
 
             HashSet<IPEndPoint> endpoints = new HashSet<IPEndPoint>(fetchedNodes);
 
@@ -253,7 +370,16 @@ namespace Discreet.Network.Peerbloom
             {
                 if (GetNode(node) != null) continue;
 
-                _ = Task.Run(() => new Connection(node, this, LocalNode).Connect(true, _shutdownTokenSource.Token)).ConfigureAwait(false);
+                Daemon.Logger.Debug($"Connecting to peer {node}");
+
+                /* prevents self connections */
+                if (node.Address.MapToIPv4().Equals(ReflectedAddress.MapToIPv4()))
+                {
+                    Daemon.Logger.Debug($"Ignoring connection to peer {node}; this one is us");
+                    continue;
+                }
+
+                _ = Task.Run(() => new Connection(node, this, LocalNode, true).Connect(true, _shutdownTokenSource.Token)).ConfigureAwait(false);
             }
 
             handler = Handler.Initialize(this);
@@ -271,49 +397,69 @@ namespace Discreet.Network.Peerbloom
 
         public int Broadcast(Core.Packet packet)
         {
-            try
+            if (packet.Header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE > Constants.MAX_PEERBLOOM_PACKET_SIZE)
             {
-                if (packet.Header.Length + 10 > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
-            } catch (Exception ex)
-            {
-                Daemon.Logger.Error(ex.Message);
-                return -1;
+                Daemon.Logger.Error($"Network.Broadcast: Broadcasted packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+                return 0;
             }
 
-            Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Broadcasting {packet.Header.Command}");
+            Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Broadcast: Broadcasting {packet.Header.Command}");
 
             int i = 0;
 
-            foreach (var conn in ConnectedPeers.Values)
+            if (LocalNode.IsPublic)
             {
+                foreach (var conn in InboundConnectedPeers.Values)
+                {
+                    Daemon.Logger.Debug($"Network.Broadcast: broadcasting to peer {conn.Receiver}");
+                    conn.Send(packet);
+                    i++;
+                }
+            }
+
+            foreach (var conn in OutboundConnectedPeers.Values)
+            {
+                Daemon.Logger.Debug($"Network.Broadcast: broadcasting to peer {conn.Receiver}");
                 conn.Send(packet);
                 i++;
             }
+
+            Daemon.Logger.Debug($"Network.Broadcast: sent to {i} peers.");
 
             return i;
         }
 
         public bool Send(IPEndPoint endpoint, Core.Packet packet)
         {
-            try
+            if (packet.Header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE > Constants.MAX_PEERBLOOM_PACKET_SIZE)
             {
-                if (packet.Header.Length + 10 > Constants.MAX_PEERBLOOM_PACKET_SIZE) throw new Exception($"Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
-            }
-            catch (Exception ex)
-            {
-                Daemon.Logger.Error(ex.Message);
+                Daemon.Logger.Error($"Network.Send: Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
                 return false;
             }
 
-            Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Send: Sending {packet.Header.Command} to {endpoint}");
+            Daemon.Logger.Info($"Network.Send: Sending {packet.Header.Command} to {endpoint}");
 
-            bool success = ConnectedPeers.TryGetValue(endpoint, out var conn);
+            bool success = InboundConnectedPeers.TryGetValue(endpoint, out var conn);
 
-            if (!success || conn == null) return false;
+            if (!success || conn == null)
+            {
+                success = OutboundConnectedPeers.TryGetValue(endpoint, out conn);
+
+                if (!success || conn == null)
+                {
+                    Daemon.Logger.Error($"Network.Send: failed to find a connected peer with endpoint {endpoint}");
+                    return false;
+                }
+            }
 
             conn.Send(packet);
 
             return true;
+        }
+
+        public async Task<bool> SendAsync(Connection conn, Core.Packet packet)
+        {
+            return await conn.SendAsync(packet);
         }
 
         public bool SendSync(IPEndPoint endpoint, Core.Packet packet)

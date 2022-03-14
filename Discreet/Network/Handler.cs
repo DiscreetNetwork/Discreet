@@ -94,7 +94,7 @@ namespace Discreet.Network
                     }
                 }
 
-                await Task.Delay(100);
+                await Task.Delay(100, token);
             }
         }
 
@@ -189,7 +189,35 @@ namespace Discreet.Network
 
         public async Task HandleConnect(Peerbloom.Connection conn)
         {
-            _network.Send(conn.Receiver, new Packet(PacketType.CONNECTACK, new Core.Packets.Peerbloom.ConnectAck { Acknowledged = true, IsPublic = false }));
+            if (_network.IsBootstrapping)
+            {
+                Daemon.Logger.Warn($"Handler.HandleConnect: Ignoring connection request from peer {conn.Receiver} during bootstrapping");
+                _network.RemoveNodeFromPool(conn);
+                return;
+            }
+
+            if (_network.LocalNode.IsPublic)
+            {
+                if (!_network.ConnectingPeers.ContainsKey(conn.Receiver))
+                {
+                    Daemon.Logger.Error($"Handler.HandleConnect: cannot fulfill connection handshake for peer {conn.Receiver}; not currently connecting");
+                    return;
+                }
+
+                bool success = await _network.SendAsync(conn, new Packet(PacketType.CONNECTACK, new Core.Packets.Peerbloom.ConnectAck { Acknowledged = true, IsPublic = false, ReflectedEndpoint = conn.Receiver }));
+
+                if (!success)
+                {
+                    Daemon.Logger.Error($"Handler.HandleConnect: could not send connect ACK to peer {conn.Receiver}; ending connection");
+                    _network.RemoveNodeFromPool(conn);
+                    return;
+                }
+
+                Daemon.Logger.Info($"Handler.HandleConnect: successfully connected to peer {conn.Receiver}");
+                conn.SetConnectionAcknowledged();
+
+                _network.AddInboundConnection(conn);
+            }
         }
 
         public async Task HandleNetPing(Core.Packets.Peerbloom.NetPing p)

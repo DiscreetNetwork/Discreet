@@ -296,7 +296,7 @@ namespace Discreet.Daemon
 
             while (!_cancellationToken.IsCancellationRequested)
             {
-                
+                await Task.Delay(100, _cancellationToken);
             }
         }
 
@@ -337,6 +337,7 @@ namespace Discreet.Daemon
 
                     if (!success)
                     {
+                        await Task.Delay(100, _tokenSource.Token);
                         continue;
                     }
 
@@ -361,6 +362,8 @@ namespace Discreet.Daemon
 
                     wallet.ProcessBlock(db.GetBlock(blockHash));
                 }
+
+                await Task.Delay(100, _tokenSource.Token);
             }
 
             syncerQueues.TryRemove(wallet, out _);
@@ -405,6 +408,7 @@ namespace Discreet.Daemon
 
                 if (!success)
                 {
+                    await Task.Delay(100, _tokenSource.Token);
                     continue;
                 }
 
@@ -426,18 +430,21 @@ namespace Discreet.Daemon
 
             while (address.LastSeenHeight < address.wallet.LastSeenHeight && _tokenSource.IsCancellationRequested)
             {
-                while (!queue.IsEmpty && _tokenSource.IsCancellationRequested)
+                while (!queue.IsEmpty && _tokenSource.IsCancellationRequested && address.LastSeenHeight < address.wallet.LastSeenHeight)
                 {
                     SHA256 blockHash;
                     bool success = queue.TryDequeue(out blockHash);
 
                     if (!success)
                     {
+                        await Task.Delay(100, _tokenSource.Token);
                         continue;
                     }
 
                     address.ProcessBlock(db.GetBlock(blockHash));
                 }
+
+                await Task.Delay(100, _tokenSource.Token);
             }
 
             if (_tokenSource.IsCancellationRequested)
@@ -461,7 +468,7 @@ namespace Discreet.Daemon
         {
             while (!_cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(1000);
+                await Task.Delay(1000, _cancellationToken);
 
                 if (txpool.GetTransactionsForBlock().Count > 0)
                 {

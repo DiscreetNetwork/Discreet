@@ -9,47 +9,46 @@ using System.Collections.Concurrent;
 using Discreet.Network.Peerbloom.Extensions;
 using System.Threading;
 using System.Security.Cryptography;
+using System.IO;
 
 namespace Discreet.Network.Peerbloom
 {
-    public class Connection
+    public class Connection: IDisposable
     {
-        public IPEndPoint Receiver { get; set; }
-        public LocalNode Sender { get; set; }
-
-        public byte[] WriteBuffer;
-        public byte[] ReadBuffer;
-
-        public int ReadOffset;
-        public int WriteOffset;
+        public IPEndPoint Receiver { get; private set; }
+        public LocalNode Sender { get; private set; }
 
         public long LastValidReceive;
         public long LastValidSend;
 
         private TcpClient _tcpClient;
 
-        public TcpClient Client { get { return _tcpClient; } }
-
-        public ConcurrentQueue<Core.Packet> WriteQueue;
+        private ConcurrentQueue<Core.Packet> WriteQueue;
 
         private Network _network;
 
-        private const int connectTimeout = 10;
-
         /// <summary>
-        /// Have we initialized a connection that has been ack'd on both ends?
+        /// Have we initialized a connection that has been ack'd?
         /// </summary>
         public bool ConnectionAcknowledged { get; private set; }
 
+        /// <summary>
+        /// Used to acknowledge incoming connections.
+        /// </summary>
+        public void SetConnectionAcknowledged() => ConnectionAcknowledged = true;
+
         public bool IsPersistent { get; private set; }
 
-        public Connection(TcpClient tcpClient, Network network, LocalNode node)
+        public bool IsOutbound { get; private set; }
+
+        private bool disposed = false;
+
+        private Mutex _mutex = new Mutex();
+
+        public Connection(TcpClient tcpClient, Network network, LocalNode node, bool isOutbound = false)
         {
             LastValidReceive = DateTime.UtcNow.Ticks;
             LastValidSend = DateTime.UtcNow.Ticks;
-
-            WriteBuffer = new byte[65536];
-            ReadBuffer = new byte[65536];
 
             _tcpClient = tcpClient;
 
@@ -61,16 +60,15 @@ namespace Discreet.Network.Peerbloom
 
             Sender = node;
             Receiver = (IPEndPoint)tcpClient.Client.RemoteEndPoint;
+
+            IsOutbound = isOutbound;
         }
 
-        public Connection(IPEndPoint receiver, Network network, LocalNode node)
+        public Connection(IPEndPoint receiver, Network network, LocalNode node, bool isOutbound = true)
         {
             _tcpClient = new TcpClient();
             LastValidReceive = DateTime.UtcNow.Ticks;
             LastValidSend = DateTime.UtcNow.Ticks;
-
-            WriteBuffer = new byte[65536];
-            ReadBuffer = new byte[65536];
 
             _network = network;
 
@@ -80,6 +78,8 @@ namespace Discreet.Network.Peerbloom
 
             Sender = node;
             Receiver = receiver;
+
+            IsOutbound = isOutbound;
         }
 
         /// <summary>
@@ -89,112 +89,440 @@ namespace Discreet.Network.Peerbloom
         /// <returns></returns>
         public async Task Connect(bool persist = false, CancellationToken token = default)
         {
+            _network.AddConnecting(this);
+
+            /* there is a chance AddConnecting disposes this connection if maximum pending connections is reached. */
+            if (disposed) return;
+
             try
             {
-                if (!_tcpClient.Connected)
+                var _lockSucceeded = _mutex.WaitOne(Constants.CONNECTION_CONNECT_TIMEOUT);
+
+                if (!_lockSucceeded)
                 {
-                    var result = _tcpClient.BeginConnect(Receiver.Address, Receiver.Port, null, null);
+                    throw new Exception($"failed to retrieve access to the connection for peer {Receiver} (Mutex error)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"Connection.Connect: {ex.Message}");
+                _network.RemoveNodeFromPool(this); // this calls dispose on the connection
+                return;
+            }
+            
+            try
+            {
+                if (IsOutbound)
+                {
+                    int numConnectionAttempts = 0;
 
-                    var _timeout = DateTime.UtcNow.AddSeconds(connectTimeout).Ticks;
-
-                    while (!result.IsCompleted && _timeout > DateTime.UtcNow.Ticks)
+                    while (numConnectionAttempts < Constants.CONNECTION_MAX_CONNECT_ATTEMPTS && !ConnectionAcknowledged && !token.IsCancellationRequested)
                     {
-                        await Task.Delay(500);
+                        if (numConnectionAttempts > 0)
+                        {
+                            Daemon.Logger.Info($"Connection.Connect: retrying connection attempt and authentication for peer {Receiver}");
+                        }
+
+                        /* set timeout for this connect attempt */
+                        var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_CONNECT_TIMEOUT).Ticks;
+
+                        /* begin connection */
+                        if (!_tcpClient.Connected)
+                        {
+                            var result = _tcpClient.BeginConnect(Receiver.Address, Receiver.Port, null, null);
+
+                            while (!result.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                            {
+                                await Task.Delay(500, token);
+                            }
+
+                            if (!result.IsCompleted)
+                            {
+                                Daemon.Logger.Warn($"Connection.Connect: Could not connect to peer {Receiver} due to timeout");
+                                numConnectionAttempts++;
+                                continue;
+                            }
+                        }
+
+                        if (!ConnectionAcknowledged)
+                        {
+                            /* perform connect send */
+                            Core.Packets.Peerbloom.Connect connectBody = new Core.Packets.Peerbloom.Connect { Endpoint = new IPEndPoint(Sender.Endpoint.Address, Sender.Endpoint.Port) };
+                            Core.Packet connect = new Core.Packet(Core.PacketType.CONNECT, connectBody);
+
+                            byte[] _connectData = connect.Serialize();
+
+                            do
+                            {
+                                var connectHandle = _tcpClient.GetStream().BeginWrite(_connectData, 0, _connectData.Length, null, null);
+
+                                while (!connectHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                                {
+                                    await Task.Delay(50, token);
+                                }
+
+                                if (!connectHandle.IsCompleted)
+                                {
+                                    break;
+                                }
+
+                                _tcpClient.GetStream().EndWrite(connectHandle);
+                            }
+                            while (_timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+
+                            if (_timeout <= DateTime.UtcNow.Ticks)
+                            {
+                                Daemon.Logger.Warn($"Connection.Connect: failed to send connect packet to {Receiver} due to timeout");
+                                numConnectionAttempts++;
+                                continue;
+                            }
+
+                            /* perform connect ACK receive */
+                            byte[] _connectAckData = new byte[30];
+                            int numReadBytes = 0;
+
+                            do
+                            {
+                                var connectAckHandle = _tcpClient.GetStream().BeginRead(_connectAckData, 0, _connectAckData.Length, null, null);
+
+                                while (!connectAckHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                                {
+                                    await Task.Delay(50, token);
+                                }
+
+                                if (!connectAckHandle.IsCompleted)
+                                {
+                                    break;
+                                }
+
+                                numReadBytes += _tcpClient.GetStream().EndRead(connectAckHandle);
+                            }
+                            while (numReadBytes < _connectAckData.Length && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+
+                            if (_timeout <= DateTime.UtcNow.Ticks)
+                            {
+                                Daemon.Logger.Warn($"Connection.Connect: failed to read connect ACK packet from {Receiver} due to timeout");
+                                numConnectionAttempts++;
+                                continue;
+                            }
+
+                            if (numReadBytes < _connectAckData.Length)
+                            {
+                                Daemon.Logger.Warn($"Connection.Connect: failed to fully receive connect ACK packet from {Receiver}");
+                                numConnectionAttempts++;
+                                continue;
+                            }
+
+                            Core.Packet connectAck = new Core.Packet(_connectAckData);
+                            Core.Packets.Peerbloom.ConnectAck connectAckBody = (Core.Packets.Peerbloom.ConnectAck)connectAck.Body;
+
+                            IsPersistent = true;
+                            ConnectionAcknowledged = true;
+
+                            if (_network.OutboundConnectedPeers.Count == 0 || _network.ReflectedAddress == null)
+                            {
+                                _network.SetReflectedAddress(connectAckBody.ReflectedEndpoint.Address);
+                            }
+                        }
                     }
 
-                    var success = result.IsCompleted;
-
-                    if (!success)
+                    if (numConnectionAttempts >= Constants.CONNECTION_MAX_CONNECT_ATTEMPTS)
                     {
-                        Daemon.Logger.Warn($"Connection.Connect: Could not connect to peer {Receiver} due to timeout");
-
-                        _tcpClient.Dispose();
+                        Daemon.Logger.Error($"Connection.Connect: failed to complete connection with peer {Receiver}, exceeded maximum connection attempts");
                     }
 
-                    Core.Packets.Peerbloom.Connect connectBody = new Core.Packets.Peerbloom.Connect { Endpoint = new IPEndPoint(Sender.Endpoint.Address, Sender.Endpoint.Port) };
-                    Core.Packet connect = new Core.Packet(Core.PacketType.CONNECT, connectBody);
-
-                    await _tcpClient.GetStream().WriteAsync(connect.Serialize());
-
-                    Core.Packet connectAck = await _tcpClient.ReadPacketAsync();
-                    Core.Packets.Peerbloom.ConnectAck connectAckBody = (Core.Packets.Peerbloom.ConnectAck)connectAck.Body;
-
-                    IsPersistent = true;
-                    ConnectionAcknowledged = connectAckBody.Acknowledged;
-
-                    _network.AddConnection(this);
-
-                    if (persist)
+                    if (!ConnectionAcknowledged)
                     {
-                        await Persistent(token);
+                        Daemon.Logger.Error($"Connection.Connect: failed to authenticate connection with peer {Receiver}");
                     }
+
+                    _network.AddOutboundConnection(this);
                 }
                 else
                 {
-                    _network.AddConnection(this);
+                    _network.AddConnecting(this);
                     IsPersistent = true;
-                    ConnectionAcknowledged = true;
-                    await Persistent(token);
+                    ConnectionAcknowledged = false;
                 }
             }
             catch (SocketException e)
             {
-                Daemon.Logger.Error($"Connection.Connect: {e.Message}");
+                Daemon.Logger.Error($"Connection.Connect: a socket exception was encountered with peer {Receiver}: {e.Message}");
+            }
+            catch (InvalidOperationException)
+            {
+                Daemon.Logger.Error($"Connection.Connect: socket with peer {Receiver} was unexpectedly closed.");
+            }
+            catch (IOException e)
+            {
+                Daemon.Logger.Error($"Connection.Connect: an IO exception was encountered with peer {Receiver}: {e.Message}");
             }
             catch (Exception ex)
             {
-                if (ex is InvalidOperationException) Daemon.Logger.Debug($"Connect.Connect: socket was unexpectedly closed.");
-                Daemon.Logger.Error($"Connection.Connect: {ex.Message}");
+                Daemon.Logger.Error($"Connection.Connect: an exception was encountered with peer {Receiver}: {ex.Message}");
+            }
+            finally
+            {
+                if (_tcpClient != null)
+                {
+                    if (!_tcpClient.Connected || !ConnectionAcknowledged)
+                    {
+                        _tcpClient.Dispose();
+                    }
+                    else if (persist && !disposed)
+                    {
+                        _mutex.ReleaseMutex();
+                        await Persistent(token);
+                    }
+                }
+
+                if (!ConnectionAcknowledged || (_tcpClient == null || !_tcpClient.Connected))
+                {
+                    if (!disposed)
+                    {
+                        _mutex.ReleaseMutex();
+                    }
+                    _network.RemoveNodeFromPool(this);
+                }
             }
         }
 
-        public async Task<List<IPEndPoint>> RequestPeers(IPEndPoint localEndpoint)
+        public async Task<List<IPEndPoint>> RequestPeers(IPEndPoint localEndpoint, CancellationToken token = default)
         {
             if (!ConnectionAcknowledged)
             {
-                Daemon.Logger.Error($"RequestPeers: connection was never acknowledged with peer {Receiver}");
+                Daemon.Logger.Error($"Connection.RequestPeers: connection was never acknowledged with peer {Receiver}");
 
                 return null;
             }
 
             if (!_tcpClient.Connected)
             {
-                Daemon.Logger.Error($"RequestPeers: node is not currently connected with peer {Receiver}");
+                Daemon.Logger.Error($"Connection.RequestPeers: node is not currently connected with peer {Receiver}");
 
                 return null;
             }
 
             try
             {
-                Core.Packets.Peerbloom.RequestPeers findNodeBody = new Core.Packets.Peerbloom.RequestPeers { Endpoint = localEndpoint, MaxPeers = 10 };
-                Core.Packet findNode = new Core.Packet(Core.PacketType.REQUESTPEERS, findNodeBody);
+                var _lockSucceeded = _mutex.WaitOne(Constants.CONNECTION_WRITE_TIMEOUT);
 
-                await _tcpClient.GetStream().WriteAsync(findNode.Serialize());
-                Daemon.Logger.Info($"Sent `RequestPeers` to: {Receiver.Address}:{Receiver.Port}");
-
-                Core.Packet resp = await _tcpClient.ReadPacketAsync();
-                Core.Packets.Peerbloom.RequestPeersResp respBody = (Core.Packets.Peerbloom.RequestPeersResp)resp.Body;
-
-                if (respBody.Length > 10)
+                if (!_lockSucceeded)
                 {
-                    throw new Exception($"RequestPeers: Received too many nodes (got {respBody.Length}; maximum is set to 10)");
+                    throw new Exception($"failed to retrieve access to the connection for peer {Receiver} (Mutex error)");
                 }
-
-                List<IPEndPoint> remoteNodes = respBody.Elems.Select(x => x.Endpoint).ToList();
-
-                return remoteNodes;
-            }
-            catch (SocketException e)
-            {
-                Daemon.Logger.Error($"Failed to send `RequestPeers` to: {Receiver.Address}:{Receiver.Port} : {e.Message}");
-                return null;
             }
             catch (Exception ex)
             {
                 Daemon.Logger.Error($"Connection.RequestPeers: {ex.Message}");
-
+                _network.RemoveNodeFromPool(this); // this calls dispose on the connection
                 return null;
             }
+
+            try
+            {
+                /* create RequestPeers */
+                Core.Packets.Peerbloom.RequestPeers requestPeersBody = new Core.Packets.Peerbloom.RequestPeers { Endpoint = localEndpoint, MaxPeers = Constants.PEERBLOOM_MAX_PEERS_PER_REQUESTPEERS };
+                Core.Packet requestPeers = new Core.Packet(Core.PacketType.REQUESTPEERS, requestPeersBody);
+
+                /* send RequestPeers */
+                var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_WRITE_TIMEOUT).Ticks;
+
+                byte[] _requestPeersData = requestPeers.Serialize();
+
+                do
+                {
+                    var requestPeersHandle = _tcpClient.GetStream().BeginWrite(_requestPeersData, 0, _requestPeersData.Length, null, null);
+
+                    while (!requestPeersHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                    {
+                        await Task.Delay(50, token);
+                    }
+
+                    if (!requestPeersHandle.IsCompleted)
+                    {
+                        break;
+                    }
+
+                    _tcpClient.GetStream().EndWrite(requestPeersHandle);
+                }
+                while (_timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+
+                if (_timeout <= DateTime.UtcNow.Ticks)
+                {
+                    Daemon.Logger.Error($"Connection.RequestPeers: failed to send RequestPeers to {Receiver} due to timeout");
+                    _mutex.ReleaseMutex();
+                    return null;
+                }
+
+                /* receive RequestPeersResp */
+                _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_READ_TIMEOUT).Ticks;
+
+                /* we don't know the exact size of the packet being read, but 4kb should be plenty */
+                byte[] _requestPeersRespData = new byte[4096];
+                int numReadBytes = 0;
+
+                do
+                {
+                    var requestPeersRespHandle = _tcpClient.GetStream().BeginRead(_requestPeersRespData, 0, _requestPeersRespData.Length, null, null);
+
+                    while (!requestPeersRespHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                    {
+                        await Task.Delay(50, token);
+                    }
+
+                    if (!requestPeersRespHandle.IsCompleted)
+                    {
+                        break;
+                    }
+
+                    numReadBytes += _tcpClient.GetStream().EndRead(requestPeersRespHandle);
+                }
+                while (_timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+
+                if (_timeout <= DateTime.UtcNow.Ticks)
+                {
+                    Daemon.Logger.Error($"Connection.RequestPeers: failed to read RequestPeersResp to {Receiver} due to timeout");
+                    _mutex.ReleaseMutex();
+                    return null;
+                }
+
+                if (numReadBytes < _requestPeersData.Length)
+                {
+                    Daemon.Logger.Error($"Connection.RequestPeers: failed to fully send RequestPeersResp packet to {Receiver}");
+                    _mutex.ReleaseMutex();
+                    return null;
+                }
+
+                Core.Packet resp;
+
+                try
+                {
+                    resp = new Core.Packet(_requestPeersRespData);
+                }
+                catch (Exception)
+                {
+                    Daemon.Logger.Error($"Connection.RequestPeers: received a malformed RequestPeersResp packet from {Receiver}");
+                    _mutex.ReleaseMutex();
+                    return null;
+                }
+                
+                Core.Packets.Peerbloom.RequestPeersResp respBody = (Core.Packets.Peerbloom.RequestPeersResp)resp.Body;
+
+                if (respBody.Length > Constants.PEERBLOOM_MAX_PEERS_PER_REQUESTPEERS)
+                {
+                    Daemon.Logger.Error($"Connection.RequestPeers: Received too many peers (got {respBody.Length}; maximum is set to 10)");
+                    _mutex.ReleaseMutex();
+                    return null;
+                }
+
+                List<IPEndPoint> remoteNodes = respBody.Elems.Select(x => x.Endpoint).ToList();
+
+                _mutex.ReleaseMutex();
+                return remoteNodes;
+            }
+            catch (SocketException e)
+            {
+                Daemon.Logger.Error($"Connection.RequestPeers: a socket exception was encountered with peer {Receiver}: {e.Message}");
+            }
+            catch (InvalidOperationException)
+            {
+                Daemon.Logger.Error($"Connection.RequestPeers: socket with peer {Receiver} was unexpectedly closed.");
+                _network.RemoveNodeFromPool(this);
+            }
+            catch (IOException e)
+            {
+                Daemon.Logger.Error($"Connection.RequestPeers: an IO exception was encountered with peer {Receiver}: {e.Message}");
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"Connection.RequestPeers: an exception was encountered with peer {Receiver}: {ex.Message}");
+            }
+
+            if (!disposed)
+            {
+                _mutex.ReleaseMutex();
+            }
+            return null;
+        }
+
+        public async Task<bool> SendAsync(Core.Packet p, CancellationToken token = default)
+        {
+            Daemon.Logger.Debug($"Connection.SendAsync: beginning to send packet to peer {Receiver}");
+
+            try
+            {
+                var _lockSucceeded = _mutex.WaitOne(Constants.CONNECTION_WRITE_TIMEOUT);
+
+                if (!_lockSucceeded)
+                {
+                    throw new Exception($"failed to retrieve access to the connection for peer {Receiver} (Mutex error)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"Connection.SendAsync: {ex.Message}");
+                _network.RemoveNodeFromPool(this); // this calls dispose on the connection
+                return false;
+            }
+
+            try
+            {
+                var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_WRITE_TIMEOUT).Ticks;
+
+                byte[] _data = p.Serialize();
+
+                do
+                {
+                    var writeHandle = _tcpClient.GetStream().BeginWrite(_data, 0, _data.Length, null, null);
+
+                    while (!writeHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                    {
+                        await Task.Delay(50, token);
+                    }
+
+                    if (!writeHandle.IsCompleted)
+                    {
+                        break;
+                    }
+
+                    _tcpClient.GetStream().EndWrite(writeHandle);
+                }
+                while (_timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+
+                if (_timeout <= DateTime.UtcNow.Ticks)
+                {
+                    Daemon.Logger.Error($"Connection.SendAsync: failed to send data to {Receiver} due to timeout");
+                    _mutex.ReleaseMutex();
+                    return false;
+                }
+
+                _mutex.ReleaseMutex();
+                return true;
+            }
+            catch (SocketException e)
+            {
+                Daemon.Logger.Error($"Connection.SendAsync: a socket exception was encountered with peer {Receiver}: {e.Message}");
+            }
+            catch (InvalidOperationException)
+            {
+                Daemon.Logger.Error($"Connection.SendAsync: socket with peer {Receiver} was unexpectedly closed.");
+                _network.RemoveNodeFromPool(this);
+            }
+            catch (IOException e)
+            {
+                Daemon.Logger.Error($"Connection.SendAsync: an IO exception was encountered with peer {Receiver}: {e.Message}");
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"Connection.SendAsync: an exception was encountered with peer {Receiver}: {ex.Message}");
+            }
+
+            if (!disposed)
+            {
+                _mutex.ReleaseMutex();
+            }
+            return false;
         }
 
         public void Send(Core.Packet p)
@@ -202,103 +530,275 @@ namespace Discreet.Network.Peerbloom
             WriteQueue.Enqueue(p);
         }
 
-        public async Task SendAll()
+        public async Task<bool> SendAll(CancellationToken token = default)
         {
+            Daemon.Logger.Debug("Connection.SendAll: beginning to send packets in WriteQueue");
+
             while (!WriteQueue.IsEmpty)
             {
                 Core.Packet p;
                 bool success = WriteQueue.TryDequeue(out p);
 
-                if (!success) return;
+                if (!success)
+                {
+                    Daemon.Logger.Debug("Connection.SendAll: failed to dequeue packet");
+                    // TODO: find cases where this fails
+                    return true;
+                }
 
-                Daemon.Logger.Debug($"Connection.SendAll: sending packet {p.Header.Command} to {Receiver}");
+                if (p.Header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE > Constants.MAX_PEERBLOOM_PACKET_SIZE)
+                {
+                    Daemon.Logger.Error($"Connection.SendAll: packet size ({p.Header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE}) exceeds maximum allowed packet size ({Constants.MAX_PEERBLOOM_PACKET_SIZE}) ");
+                    continue;
+                }
+
+                bool result = await SendAsync(p, token);
+
+                if (!result)
+                {
+                    Daemon.Logger.Error($"Connection.SendAll: failed to send packet {p.Header.Command} to peer {Receiver}");
+
+                    if (!_network.OutboundConnectedPeers.ContainsKey(Receiver) && !_network.InboundConnectedPeers.ContainsKey(Receiver))
+                    {
+                        return false;
+                    }
+
+                    continue;
+                }
+            }
+
+            return true;
+        }
+
+        public async Task<Core.Packet> ReadAsync(CancellationToken token = default)
+        {
+            Daemon.Logger.Debug($"Connection.ReadAsync: beginning to receive packet from peer {Receiver}");
+
+            Core.Packet p = null;
+
+            try
+            {
+                var _lockSucceeded = _mutex.WaitOne(Constants.CONNECTION_READ_TIMEOUT);
+
+                if (!_lockSucceeded)
+                {
+                    throw new Exception($"failed to retrieve access to the connection for peer {Receiver} (Mutex error)");
+                }
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"Connection.ReadAsync: {ex.Message}");
+                _network.RemoveNodeFromPool(this); // this calls dispose on the connection
+                return null;
+            }
+
+            try
+            {
+                var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_READ_TIMEOUT).Ticks;
+
+                byte[] _header = new byte[Constants.PEERBLOOM_PACKET_HEADER_SIZE];
+                int numReadBytes = 0;
+
+                do
+                {
+                    var readHeaderHandle = _tcpClient.GetStream().BeginRead(_header, numReadBytes, _header.Length - numReadBytes, null, null);
+
+                    while (!readHeaderHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                    {
+                        await Task.Delay(50, token);
+                    }
+
+                    if (!readHeaderHandle.IsCompleted)
+                    {
+                        break;
+                    }
+
+                    numReadBytes += _tcpClient.GetStream().EndRead(readHeaderHandle);
+                }
+                while (numReadBytes < Constants.PEERBLOOM_PACKET_HEADER_SIZE && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+                
+                if (numReadBytes < Constants.PEERBLOOM_PACKET_HEADER_SIZE)
+                {
+                    throw new Exception($"received {numReadBytes} during read (less than header length)"); 
+                }
+
+                if (_timeout <= DateTime.UtcNow.Ticks)
+                {
+                    throw new Exception($"failed to receive header from {Receiver} due to timeout");
+                }
+
+                Core.PacketHeader header = new(_header);
+
+                if (header.NetworkID != Daemon.DaemonConfig.GetConfig().NetworkID)
+                {
+                    throw new Exception($"wrong network ID; expected {Daemon.DaemonConfig.GetConfig().NetworkID} but got {header.NetworkID}");
+                }
+
+                if ((header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE) > Constants.MAX_PEERBLOOM_PACKET_SIZE)
+                {
+                    throw new Exception($"received packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+                }
+
+                byte[] _data = new byte[header.Length];
+                numReadBytes -= Constants.PEERBLOOM_PACKET_HEADER_SIZE;
+
+                do
+                {
+                    var readHandle = _tcpClient.GetStream().BeginRead(_data, numReadBytes, _data.Length - numReadBytes, null, null);
+
+                    while (!readHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                    {
+                        await Task.Delay(50, token);
+                    }
+
+                    if (!readHandle.IsCompleted)
+                    {
+                        break;
+                    }
+
+                    numReadBytes += _tcpClient.GetStream().EndRead(readHandle);
+                }
+                while (numReadBytes < Constants.PEERBLOOM_PACKET_HEADER_SIZE && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+
+                if (numReadBytes < Constants.PEERBLOOM_PACKET_HEADER_SIZE)
+                {
+                    throw new Exception($"received {numReadBytes} during read (less than specified packet body length in header, which was {header.Length})");
+                }
+
+                if (_timeout <= DateTime.UtcNow.Ticks)
+                {
+                    throw new Exception($"failed to receive header from {Receiver} due to timeout");
+                }
 
                 try
                 {
-                    await _tcpClient.GetStream().WriteAsync(p.Serialize());
+                    p = new Core.Packet();
 
+                    p.Header = header;
+                    p.Body = Core.Packet.DecodePacketBody(header.Command, _data, 0);
                 }
-                catch (Exception e)
+                catch (Exception)
                 {
-                    Daemon.Logger.Error($"Connection.SendAll: {e}");
+                    p = null;
+                    throw new Exception($"malformed packet received from {Receiver}");
                 }
             }
+            catch (SocketException e)
+            {
+                Daemon.Logger.Error($"Connection.ReadAsync: a socket exception was encountered with peer {Receiver}: {e.Message}");
+            }
+            catch (InvalidOperationException)
+            {
+                Daemon.Logger.Error($"Connection.ReadAsync: socket with peer {Receiver} was unexpectedly closed.");
+                _network.RemoveNodeFromPool(this);
+            }
+            catch (IOException e)
+            {
+                Daemon.Logger.Error($"Connection.ReadAsync: an IO exception was encountered with peer {Receiver}: {e.Message}");
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"Connection.ReadAsync: {ex.Message}");
+            }
+
+            if (p != null)
+            {
+                if (!disposed)
+                {
+                    _mutex.ReleaseMutex();
+                }
+                return p;
+            }
+
+            try
+            {
+                await _tcpClient.GetStream().FlushAsync(token);
+            }
+            catch
+            {
+                Daemon.Logger.Error($"Connection.ReadAsync: failed to flush stream after error with peer {Receiver}; ending connection");
+                _network.RemoveNodeFromPool(this);
+            }
+
+            if (!disposed)
+            {
+                _mutex.ReleaseMutex();
+            }
+            return null;
         }
 
         public async Task Persistent(CancellationToken token)
         {
-            var ns = _tcpClient.GetStream();
-
             while (!token.IsCancellationRequested)
             {
                 try
                 {
-                    if (!WriteQueue.IsEmpty) await SendAll();
-
-                    if (ns.DataAvailable)
+                    if (!WriteQueue.IsEmpty)
                     {
-                        byte[] _headerBytes = new byte[10];
-                        var _numBytes = await ns.ReadAsync(_headerBytes, 0, 10);
+                        bool res = await SendAll(token);
 
-                        if (_numBytes < 10)
+                        if (!res)
                         {
-                            Daemon.Logger.Error($"Connection.Persistent: received {_numBytes} during read (less than header length)");
+                            Daemon.Logger.Error($"Connection.Persistent: An error was encountered during write to peer {Receiver}; ending connection");
+                            _tcpClient.Dispose();
+                            return;
+                        }
+                    }
 
-                            continue;
+                    if (_tcpClient.GetStream().DataAvailable)
+                    {
+                        var p = await ReadAsync(token);
+
+                        if (p == null)
+                        {
+                            if (!_network.OutboundConnectedPeers.ContainsKey(Receiver) && !_network.InboundConnectedPeers.ContainsKey(Receiver) && !_network.ConnectingPeers.ContainsKey(Receiver))
+                            {
+                                Daemon.Logger.Error($"Connection.Persistent: An error was encountered during read from peer {Receiver}; ending connection");
+                                _tcpClient.Dispose();
+                                return;
+                            }
                         }
 
-                        Core.PacketHeader Header = new(_headerBytes);
-
-                        if (Header.NetworkID != Daemon.DaemonConfig.GetConfig().NetworkID)
-                        {
-                            throw new Exception($"wrong network ID; expected {Daemon.DaemonConfig.GetConfig().NetworkID} but got {Header.NetworkID}");
-                        }
-
-                        if ((Header.Length + 10) > Constants.MAX_PEERBLOOM_PACKET_SIZE)
-                        {
-                            throw new Exception($"Received packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
-                        }
-
-                        byte[] _bytes = new byte[Header.Length];
-
-                        var timeout = DateTime.Now.AddSeconds(5);
-                        int _numRead;
-                        int _offset = 0;
-
-                        do
-                        {
-                            _numRead = await ns.ReadAsync(_bytes, _offset, _bytes.Length - _offset);
-                            _offset += _numRead;
-                        } while (_offset < Header.Length && DateTime.Now.Ticks < timeout.Ticks && _numRead > 0);
-
-                        if (_offset < Header.Length)
-                        {
-                            throw new Exception($"ReadPacketAsync: expected {Header.Length} bytes in payload, but got {_numRead}");
-                        }
-
-                        uint _checksum = Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(_bytes)), 0);
-                        if (_checksum != Header.Checksum)
-                        {
-                            throw new Exception($"ReadPacketAsync: checksum mismatch; got {Header.Checksum}, but calculated {_checksum}");
-                        }
-
-                        Core.Packet p = new Core.Packet();
-
-                        p.Header = Header;
-                        p.Body = Core.Packet.DecodePacketBody(Header.Command, _bytes, 0);
-
+                        Daemon.Logger.Debug("Connection.Persistent: queueing data");
                         _network.AddPacketToQueue(p, this);
                     }
 
-                    await Task.Delay(100);
+                    await Task.Delay(100, token);
                     
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"Connection.Persistent: {ex.Message}");
+                    Daemon.Logger.Error($"Connection.Persistent: {ex.Message}; ending connection");
+                    _tcpClient.Dispose();
                     break;
                 }
             }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposed)
+            {
+                if (disposing)
+                {
+                    _tcpClient.Dispose();
+                    _mutex.Dispose();
+                }
+
+                disposed = true;
+            }
+        }
+
+        ~Connection()
+        {
+            Dispose(false);
         }
     }
 }
