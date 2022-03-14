@@ -50,6 +50,42 @@ namespace Discreet.RPC.Endpoints
             public string Verify { get; set; }
         }
 
+        public class DbgCheckUtxoRV
+        {
+            public string UXKey { get; set; }
+            public string UKSecKey { get; set; }
+            public string LinkingTag { get; set; }
+            public string TransactionSrc { get; set; }
+            public string TransactionKey { get; set; }
+            public ulong DecodedAmount { get; set; }
+        }
+
+        [RPCEndpoint("dbg_check_utxos")]
+        public static object DbgCheckUtxos(string address)
+        {
+            try
+            {
+                var _visor = Handler.GetHandler().daemon;
+
+                var wal = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+
+                if (wal == null)
+                {
+                    return new RPCError($"could not find address {address}");
+                }
+
+                var addr = wal.Addresses.Where(x => x.Address == address).FirstOrDefault();
+
+                return addr.UTXOs.Select(x => new DbgCheckUtxoRV { DecodedAmount = x.DecodedAmount, UXKey = x.UXKey.ToHex(), LinkingTag = x.LinkingTag.ToHex(), TransactionKey = x.TransactionKey.ToHex(), TransactionSrc = x.TransactionSrc.ToHex(), UKSecKey = x.UXSecKey.ToHex() }).ToList();
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex}");
+
+                return new RPCError($"Could not fulfill faucet request");
+            }
+        }
+
         [RPCEndpoint("dbg_faucet_transparent")]
         public static object DbgFaucetTransparentPayout(string address, ulong amount)
         {
