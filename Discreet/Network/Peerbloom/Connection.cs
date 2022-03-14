@@ -43,7 +43,7 @@ namespace Discreet.Network.Peerbloom
 
         private bool disposed = false;
 
-        private Mutex _mutex = new Mutex();
+        private SemaphoreSlim _mutex = new SemaphoreSlim(1, 1);
 
         public Connection(TcpClient tcpClient, Network network, LocalNode node, bool isOutbound = false)
         {
@@ -96,7 +96,7 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                var _lockSucceeded = _mutex.WaitOne(Constants.CONNECTION_CONNECT_TIMEOUT);
+                var _lockSucceeded = await _mutex.WaitAsync(Constants.CONNECTION_CONNECT_TIMEOUT);
 
                 if (!_lockSucceeded)
                 {
@@ -268,19 +268,19 @@ namespace Discreet.Network.Peerbloom
                     if (!_tcpClient.Connected || !ConnectionAcknowledged)
                     {
                         _tcpClient.Dispose();
+                        _mutex.Release();
                     }
                     else if (persist && !disposed)
                     {
-                        _mutex.ReleaseMutex();
+                        _mutex.Release();
                         await Persistent(token);
                     }
                 }
-
-                if (!ConnectionAcknowledged || (_tcpClient == null || !_tcpClient.Connected))
+                else
                 {
                     if (!disposed)
                     {
-                        _mutex.ReleaseMutex();
+                        _mutex.Release();
                     }
                     _network.RemoveNodeFromPool(this);
                 }
@@ -305,7 +305,7 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                var _lockSucceeded = _mutex.WaitOne(Constants.CONNECTION_WRITE_TIMEOUT);
+                var _lockSucceeded = await _mutex.WaitAsync(Constants.CONNECTION_WRITE_TIMEOUT);
 
                 if (!_lockSucceeded)
                 {
@@ -351,7 +351,7 @@ namespace Discreet.Network.Peerbloom
                 if (_timeout <= DateTime.UtcNow.Ticks)
                 {
                     Daemon.Logger.Error($"Connection.RequestPeers: failed to send RequestPeers to {Receiver} due to timeout");
-                    _mutex.ReleaseMutex();
+                    _mutex.Release();
                     return null;
                 }
 
@@ -383,14 +383,14 @@ namespace Discreet.Network.Peerbloom
                 if (_timeout <= DateTime.UtcNow.Ticks)
                 {
                     Daemon.Logger.Error($"Connection.RequestPeers: failed to read RequestPeersResp to {Receiver} due to timeout");
-                    _mutex.ReleaseMutex();
+                    _mutex.Release();
                     return null;
                 }
 
                 if (numReadBytes < _requestPeersData.Length)
                 {
                     Daemon.Logger.Error($"Connection.RequestPeers: failed to fully send RequestPeersResp packet to {Receiver}");
-                    _mutex.ReleaseMutex();
+                    _mutex.Release();
                     return null;
                 }
 
@@ -403,7 +403,7 @@ namespace Discreet.Network.Peerbloom
                 catch (Exception)
                 {
                     Daemon.Logger.Error($"Connection.RequestPeers: received a malformed RequestPeersResp packet from {Receiver}");
-                    _mutex.ReleaseMutex();
+                    _mutex.Release();
                     return null;
                 }
                 
@@ -412,13 +412,13 @@ namespace Discreet.Network.Peerbloom
                 if (respBody.Length > Constants.PEERBLOOM_MAX_PEERS_PER_REQUESTPEERS)
                 {
                     Daemon.Logger.Error($"Connection.RequestPeers: Received too many peers (got {respBody.Length}; maximum is set to 10)");
-                    _mutex.ReleaseMutex();
+                    _mutex.Release();
                     return null;
                 }
 
                 List<IPEndPoint> remoteNodes = respBody.Elems.Select(x => x.Endpoint).ToList();
 
-                _mutex.ReleaseMutex();
+                _mutex.Release();
                 return remoteNodes;
             }
             catch (SocketException e)
@@ -441,7 +441,7 @@ namespace Discreet.Network.Peerbloom
 
             if (!disposed)
             {
-                _mutex.ReleaseMutex();
+                _mutex.Release();
             }
             return null;
         }
@@ -452,7 +452,7 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                var _lockSucceeded = _mutex.WaitOne(Constants.CONNECTION_WRITE_TIMEOUT);
+                var _lockSucceeded = await _mutex.WaitAsync(Constants.CONNECTION_WRITE_TIMEOUT);
 
                 if (!_lockSucceeded)
                 {
@@ -493,11 +493,11 @@ namespace Discreet.Network.Peerbloom
                 if (_timeout <= DateTime.UtcNow.Ticks)
                 {
                     Daemon.Logger.Error($"Connection.SendAsync: failed to send data to {Receiver} due to timeout");
-                    _mutex.ReleaseMutex();
+                    _mutex.Release();
                     return false;
                 }
 
-                _mutex.ReleaseMutex();
+                _mutex.Release();
                 return true;
             }
             catch (SocketException e)
@@ -520,7 +520,7 @@ namespace Discreet.Network.Peerbloom
 
             if (!disposed)
             {
-                _mutex.ReleaseMutex();
+                _mutex.Release();
             }
             return false;
         }
@@ -578,7 +578,7 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                var _lockSucceeded = _mutex.WaitOne(Constants.CONNECTION_READ_TIMEOUT);
+                var _lockSucceeded = await _mutex.WaitAsync(Constants.CONNECTION_READ_TIMEOUT);
 
                 if (!_lockSucceeded)
                 {
@@ -705,7 +705,7 @@ namespace Discreet.Network.Peerbloom
             {
                 if (!disposed)
                 {
-                    _mutex.ReleaseMutex();
+                    _mutex.Release();
                 }
                 return p;
             }
@@ -722,7 +722,7 @@ namespace Discreet.Network.Peerbloom
 
             if (!disposed)
             {
-                _mutex.ReleaseMutex();
+                _mutex.Release();
             }
             return null;
         }
