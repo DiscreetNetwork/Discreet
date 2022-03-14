@@ -576,7 +576,13 @@ namespace Discreet.Wallets
             {
                 for (int i = 0; i < tx.NumInputs; i++)
                 {
-                    tx.TSignatures[i] = new Signature(SecKey, PubKey, tx.SigningHash);
+                    byte[] data = new byte[64];
+                    Array.Copy(tx.SigningHash.Bytes, data, 32);
+                    Array.Copy(tx.TInputs[i].Hash().Bytes, 0, data, 32, 32);
+
+                    var hash = SHA256.HashData(data);
+
+                    tx.TSignatures[i] = new Signature(SecKey, PubKey, hash);
                 }
             }
 
@@ -895,9 +901,9 @@ namespace Discreet.Wallets
             int numPOutputs = (transaction.Version == 4) ? transaction.NumPOutputs : ((transaction.Version == 3) ? 0 : transaction.NumOutputs);
             int numTOutputs = (transaction.Version == 4) ? transaction.NumTOutputs : ((transaction.Version == 3) ? transaction.NumOutputs : 0);
 
-            for (int i = 0; i < transaction.NumPInputs; i++)
+            if (Type == (byte)AddressType.STEALTH)
             {
-                if (Type == (byte)AddressType.STEALTH)
+                for (int i = 0; i < transaction.NumPInputs; i++)
                 {
                     for (int k = 0; k < UTXOs.Count; k++)
                     {
@@ -910,7 +916,11 @@ namespace Discreet.Wallets
                         }
                     }
                 }
-                else if (Type == (byte)AddressType.TRANSPARENT)
+            }
+
+            if (Type == (byte)AddressType.TRANSPARENT)
+            {
+                for (int i = 0; i < transaction.NumTInputs; i++)
                 {
                     for (int k = 0; k < UTXOs.Count; k++)
                     {
@@ -923,6 +933,8 @@ namespace Discreet.Wallets
                     }
                 }
             }
+
+
             if (Type == (byte)AddressType.STEALTH)
             {
                 Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref transaction.TransactionKey, ref SecViewKey) : default;

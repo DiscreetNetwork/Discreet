@@ -274,7 +274,7 @@ namespace Discreet.Network.Peerbloom
                 if (!IsBootstrapping)
                 {
                     var conn = new Connection(client, this, LocalNode, false);
-                    _ = Task.Run(() => conn.Connect(true, _shutdownTokenSource.Token), token);
+                    _ = Task.Run(() => conn.Connect(true, _shutdownTokenSource.Token), token).ConfigureAwait(false);
                 }
             }
         }
@@ -363,7 +363,7 @@ namespace Discreet.Network.Peerbloom
 
             if (Daemon.Daemon.DebugMode)
             {
-                _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token));
+                _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token)).ConfigureAwait(false);
             }
 
             foreach (var node in endpoints)

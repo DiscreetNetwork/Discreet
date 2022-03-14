@@ -77,7 +77,7 @@ namespace Discreet.Network
 
         public void Start(CancellationToken token)
         {
-            _ = Task.Run(() => Handle(token));
+            _ = Task.Run(() => Handle(token)).ConfigureAwait(false);
         }
 
         public async Task Handle(CancellationToken token)

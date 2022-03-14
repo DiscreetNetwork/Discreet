@@ -137,23 +137,20 @@ namespace Discreet.Network.Peerbloom
 
                             byte[] _connectData = connect.Serialize();
 
-                            do
+                            var connectHandle = _tcpClient.GetStream().BeginWrite(_connectData, 0, _connectData.Length, null, null);
+
+                            while (!connectHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
                             {
-                                var connectHandle = _tcpClient.GetStream().BeginWrite(_connectData, 0, _connectData.Length, null, null);
-
-                                while (!connectHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
-                                {
-                                    await Task.Delay(50, token);
-                                }
-
-                                if (!connectHandle.IsCompleted)
-                                {
-                                    break;
-                                }
-
-                                _tcpClient.GetStream().EndWrite(connectHandle);
+                                await Task.Delay(50, token);
                             }
-                            while (_timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+
+                            if (!connectHandle.IsCompleted)
+                            {
+                                break;
+                            }
+
+                            _tcpClient.GetStream().EndWrite(connectHandle);
+
 
                             if (_timeout <= DateTime.UtcNow.Ticks)
                             {
@@ -351,23 +348,21 @@ namespace Discreet.Network.Peerbloom
 
                 byte[] _data = p.Serialize();
 
-                do
+                var writeHandle = _tcpClient.GetStream().BeginWrite(_data, 0, _data.Length, null, null);
+
+                while (!writeHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
                 {
-                    var writeHandle = _tcpClient.GetStream().BeginWrite(_data, 0, _data.Length, null, null);
-
-                    while (!writeHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
-                    {
-                        await Task.Delay(50, token);
-                    }
-
-                    if (!writeHandle.IsCompleted)
-                    {
-                        break;
-                    }
-
-                    _tcpClient.GetStream().EndWrite(writeHandle);
+                    await Task.Delay(50, token);
                 }
-                while (_timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+
+                if (!writeHandle.IsCompleted)
+                {
+                    Daemon.Logger.Error($"Connection.SendAsync: failed to send data to {Receiver}");
+                    _sendMutex.Release();
+                    return false;
+                }
+
+                _tcpClient.GetStream().EndWrite(writeHandle);
 
                 if (_timeout <= DateTime.UtcNow.Ticks)
                 {
@@ -467,7 +462,6 @@ namespace Discreet.Network.Peerbloom
             catch (Exception ex)
             {
                 Daemon.Logger.Error($"Connection.ReadAsync: {ex.Message}");
-                _network.RemoveNodeFromPool(this); // this calls dispose on the connection
                 return null;
             }
 
@@ -537,9 +531,9 @@ namespace Discreet.Network.Peerbloom
 
                     numReadBytes += _tcpClient.GetStream().EndRead(readHandle);
                 }
-                while (numReadBytes < Constants.PEERBLOOM_PACKET_HEADER_SIZE && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+                while (numReadBytes < header.Length && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
 
-                if (numReadBytes < Constants.PEERBLOOM_PACKET_HEADER_SIZE)
+                if (numReadBytes < header.Length)
                 {
                     throw new Exception($"received {numReadBytes} during read (less than specified packet body length in header, which was {header.Length})");
                 }
@@ -592,6 +586,11 @@ namespace Discreet.Network.Peerbloom
             try
             {
                 await _tcpClient.GetStream().FlushAsync(token);
+                if (!ConnectionAcknowledged)
+                {
+                    Daemon.Logger.Info($"Connection.ReadAsync: failed to read from unacknowledged peer {Receiver}; ending connection");
+                    _network.RemoveNodeFromPool(this);
+                }
             }
             catch
             {
@@ -607,6 +606,50 @@ namespace Discreet.Network.Peerbloom
         }
 
         public async Task Persistent(CancellationToken token)
+        {
+            _ = Task.Run(() => PersistentRead(token)).ConfigureAwait(false);
+            _ = Task.Run(() => PersistentWrite(token)).ConfigureAwait(false);
+        }
+
+        private async Task PersistentRead(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    if (_tcpClient.GetStream().DataAvailable)
+                    {
+                        var p = await ReadAsync(token);
+
+                        if (p == null)
+                        {
+                            if (!_network.OutboundConnectedPeers.ContainsKey(Receiver) && !_network.InboundConnectedPeers.ContainsKey(Receiver) && !_network.ConnectingPeers.ContainsKey(Receiver))
+                            {
+                                Daemon.Logger.Error($"Connection.Persistent: An error was encountered during read from peer {Receiver}; ending connection");
+                                _tcpClient.Dispose();
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            Daemon.Logger.Debug("Connection.Persistent: queueing data");
+                            _network.AddPacketToQueue(p, this);
+                        }
+                    }
+
+                    await Task.Delay(100, token);
+
+                }
+                catch (Exception ex)
+                {
+                    Daemon.Logger.Error($"Connection.Persistent: {ex.Message}; ending connection");
+                    _tcpClient.Dispose();
+                    break;
+                }
+            }
+        }
+
+        private async Task PersistentWrite(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
@@ -624,26 +667,8 @@ namespace Discreet.Network.Peerbloom
                         }
                     }
 
-                    if (_tcpClient.GetStream().DataAvailable)
-                    {
-                        var p = await ReadAsync(token);
-
-                        if (p == null)
-                        {
-                            if (!_network.OutboundConnectedPeers.ContainsKey(Receiver) && !_network.InboundConnectedPeers.ContainsKey(Receiver) && !_network.ConnectingPeers.ContainsKey(Receiver))
-                            {
-                                Daemon.Logger.Error($"Connection.Persistent: An error was encountered during read from peer {Receiver}; ending connection");
-                                _tcpClient.Dispose();
-                                return;
-                            }
-                        }
-
-                        Daemon.Logger.Debug("Connection.Persistent: queueing data");
-                        _network.AddPacketToQueue(p, this);
-                    }
-
                     await Task.Delay(100, token);
-                    
+
                 }
                 catch (Exception ex)
                 {
