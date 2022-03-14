@@ -43,7 +43,8 @@ namespace Discreet.Network.Peerbloom
 
         private bool disposed = false;
 
-        private SemaphoreSlim _mutex = new SemaphoreSlim(1, 1);
+        private SemaphoreSlim _readMutex = new SemaphoreSlim(1, 1);
+        private SemaphoreSlim _sendMutex = new SemaphoreSlim(1, 1);
 
         public Connection(TcpClient tcpClient, Network network, LocalNode node, bool isOutbound = false)
         {
@@ -93,22 +94,6 @@ namespace Discreet.Network.Peerbloom
 
             /* there is a chance AddConnecting disposes this connection if maximum pending connections is reached. */
             if (disposed) return;
-
-            try
-            {
-                var _lockSucceeded = await _mutex.WaitAsync(Constants.CONNECTION_CONNECT_TIMEOUT);
-
-                if (!_lockSucceeded)
-                {
-                    throw new Exception($"failed to retrieve access to the connection for peer {Receiver} (Mutex error)");
-                }
-            }
-            catch (Exception ex)
-            {
-                Daemon.Logger.Error($"Connection.Connect: {ex.Message}");
-                _network.RemoveNodeFromPool(this); // this calls dispose on the connection
-                return;
-            }
             
             try
             {
@@ -240,7 +225,6 @@ namespace Discreet.Network.Peerbloom
                 }
                 else
                 {
-                    _network.AddConnecting(this);
                     IsPersistent = true;
                     ConnectionAcknowledged = false;
                 }
@@ -265,23 +249,17 @@ namespace Discreet.Network.Peerbloom
             {
                 if (_tcpClient != null)
                 {
-                    if (!_tcpClient.Connected || !ConnectionAcknowledged)
+                    if (!_tcpClient.Connected && !ConnectionAcknowledged)
                     {
                         _tcpClient.Dispose();
-                        _mutex.Release();
                     }
                     else if (persist && !disposed)
                     {
-                        _mutex.Release();
                         await Persistent(token);
                     }
                 }
                 else
                 {
-                    if (!disposed)
-                    {
-                        _mutex.Release();
-                    }
                     _network.RemoveNodeFromPool(this);
                 }
             }
@@ -305,120 +283,25 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                var _lockSucceeded = await _mutex.WaitAsync(Constants.CONNECTION_WRITE_TIMEOUT);
-
-                if (!_lockSucceeded)
-                {
-                    throw new Exception($"failed to retrieve access to the connection for peer {Receiver} (Mutex error)");
-                }
-            }
-            catch (Exception ex)
-            {
-                Daemon.Logger.Error($"Connection.RequestPeers: {ex.Message}");
-                _network.RemoveNodeFromPool(this); // this calls dispose on the connection
-                return null;
-            }
-
-            try
-            {
                 /* create RequestPeers */
                 Core.Packets.Peerbloom.RequestPeers requestPeersBody = new Core.Packets.Peerbloom.RequestPeers { Endpoint = localEndpoint, MaxPeers = Constants.PEERBLOOM_MAX_PEERS_PER_REQUESTPEERS };
                 Core.Packet requestPeers = new Core.Packet(Core.PacketType.REQUESTPEERS, requestPeersBody);
 
                 /* send RequestPeers */
-                var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_WRITE_TIMEOUT).Ticks;
-
-                byte[] _requestPeersData = requestPeers.Serialize();
-
-                do
-                {
-                    var requestPeersHandle = _tcpClient.GetStream().BeginWrite(_requestPeersData, 0, _requestPeersData.Length, null, null);
-
-                    while (!requestPeersHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
-                    {
-                        await Task.Delay(50, token);
-                    }
-
-                    if (!requestPeersHandle.IsCompleted)
-                    {
-                        break;
-                    }
-
-                    _tcpClient.GetStream().EndWrite(requestPeersHandle);
-                }
-                while (_timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
-
-                if (_timeout <= DateTime.UtcNow.Ticks)
-                {
-                    Daemon.Logger.Error($"Connection.RequestPeers: failed to send RequestPeers to {Receiver} due to timeout");
-                    _mutex.Release();
-                    return null;
-                }
+                await SendAsync(requestPeers, token);
 
                 /* receive RequestPeersResp */
-                _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_READ_TIMEOUT).Ticks;
-
-                /* we don't know the exact size of the packet being read, but 4kb should be plenty */
-                byte[] _requestPeersRespData = new byte[4096];
-                int numReadBytes = 0;
-
-                do
-                {
-                    var requestPeersRespHandle = _tcpClient.GetStream().BeginRead(_requestPeersRespData, 0, _requestPeersRespData.Length, null, null);
-
-                    while (!requestPeersRespHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
-                    {
-                        await Task.Delay(50, token);
-                    }
-
-                    if (!requestPeersRespHandle.IsCompleted)
-                    {
-                        break;
-                    }
-
-                    numReadBytes += _tcpClient.GetStream().EndRead(requestPeersRespHandle);
-                }
-                while (_timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
-
-                if (_timeout <= DateTime.UtcNow.Ticks)
-                {
-                    Daemon.Logger.Error($"Connection.RequestPeers: failed to read RequestPeersResp to {Receiver} due to timeout");
-                    _mutex.Release();
-                    return null;
-                }
-
-                if (numReadBytes < _requestPeersData.Length)
-                {
-                    Daemon.Logger.Error($"Connection.RequestPeers: failed to fully send RequestPeersResp packet to {Receiver}");
-                    _mutex.Release();
-                    return null;
-                }
-
-                Core.Packet resp;
-
-                try
-                {
-                    resp = new Core.Packet(_requestPeersRespData);
-                }
-                catch (Exception)
-                {
-                    Daemon.Logger.Error($"Connection.RequestPeers: received a malformed RequestPeersResp packet from {Receiver}");
-                    _mutex.Release();
-                    return null;
-                }
-                
+                Core.Packet resp = await ReadAsync(token);
                 Core.Packets.Peerbloom.RequestPeersResp respBody = (Core.Packets.Peerbloom.RequestPeersResp)resp.Body;
 
                 if (respBody.Length > Constants.PEERBLOOM_MAX_PEERS_PER_REQUESTPEERS)
                 {
                     Daemon.Logger.Error($"Connection.RequestPeers: Received too many peers (got {respBody.Length}; maximum is set to 10)");
-                    _mutex.Release();
                     return null;
                 }
 
                 List<IPEndPoint> remoteNodes = respBody.Elems.Select(x => x.Endpoint).ToList();
 
-                _mutex.Release();
                 return remoteNodes;
             }
             catch (SocketException e)
@@ -439,10 +322,6 @@ namespace Discreet.Network.Peerbloom
                 Daemon.Logger.Error($"Connection.RequestPeers: an exception was encountered with peer {Receiver}: {ex.Message}");
             }
 
-            if (!disposed)
-            {
-                _mutex.Release();
-            }
             return null;
         }
 
@@ -452,7 +331,7 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                var _lockSucceeded = await _mutex.WaitAsync(Constants.CONNECTION_WRITE_TIMEOUT);
+                var _lockSucceeded = await _sendMutex.WaitAsync(1000);
 
                 if (!_lockSucceeded)
                 {
@@ -493,11 +372,11 @@ namespace Discreet.Network.Peerbloom
                 if (_timeout <= DateTime.UtcNow.Ticks)
                 {
                     Daemon.Logger.Error($"Connection.SendAsync: failed to send data to {Receiver} due to timeout");
-                    _mutex.Release();
+                    _sendMutex.Release();
                     return false;
                 }
 
-                _mutex.Release();
+                _sendMutex.Release();
                 return true;
             }
             catch (SocketException e)
@@ -520,7 +399,7 @@ namespace Discreet.Network.Peerbloom
 
             if (!disposed)
             {
-                _mutex.Release();
+                _sendMutex.Release();
             }
             return false;
         }
@@ -578,7 +457,7 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                var _lockSucceeded = await _mutex.WaitAsync(Constants.CONNECTION_READ_TIMEOUT);
+                var _lockSucceeded = await _readMutex.WaitAsync(1000);
 
                 if (!_lockSucceeded)
                 {
@@ -705,7 +584,7 @@ namespace Discreet.Network.Peerbloom
             {
                 if (!disposed)
                 {
-                    _mutex.Release();
+                    _readMutex.Release();
                 }
                 return p;
             }
@@ -722,7 +601,7 @@ namespace Discreet.Network.Peerbloom
 
             if (!disposed)
             {
-                _mutex.Release();
+                _readMutex.Release();
             }
             return null;
         }
@@ -789,7 +668,8 @@ namespace Discreet.Network.Peerbloom
                 if (disposing)
                 {
                     _tcpClient.Dispose();
-                    _mutex.Dispose();
+                    _readMutex.Dispose();
+                    _sendMutex.Dispose();
                 }
 
                 disposed = true;
