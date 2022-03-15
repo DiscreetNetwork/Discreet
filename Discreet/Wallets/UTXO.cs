@@ -282,9 +282,9 @@ namespace Discreet.Wallets
 
                     KeyOps.DKSAPRecover(ref UXSecKey, ref TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, DecodeIndex);
 
-                    if (LinkingTag == Key.Z)
+                    if (LinkingTag == Key.Z || LinkingTag == default)
                     {
-                        LinkingTag = KeyOps.GenerateLinkingTag(ref UXSecKey);
+                        KeyOps.GenerateLinkingTag(ref LinkingTag, ref UXSecKey);
                     }
                 }
             }

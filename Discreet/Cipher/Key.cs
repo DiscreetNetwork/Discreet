@@ -246,6 +246,11 @@ namespace Discreet.Cipher
             return Compare(this, (Key)b) == 0;
         }
 
+        public static bool Equals(Key a, Key b)
+        {
+            return Compare(a, b) == 0;
+        }
+
         /// <summary>
         /// Performs exclusive or on two keys
         /// </summary>

@@ -206,7 +206,7 @@ namespace Discreet.Network.Peerbloom
             {
                 if (node == _node)
                 {
-                    res = res || ConnectingPeers.TryRemove(node.Receiver, out _);
+                    res = ConnectingPeers.TryRemove(node.Receiver, out _) || res;
                 }
             }
 
@@ -214,7 +214,7 @@ namespace Discreet.Network.Peerbloom
             {
                 if (node == _node)
                 {
-                    res = res || InboundConnectedPeers.TryRemove(node.Receiver, out _);
+                    res = InboundConnectedPeers.TryRemove(node.Receiver, out _) || res;
                 }
             }
 
@@ -222,7 +222,7 @@ namespace Discreet.Network.Peerbloom
             {
                 if (node == _node)
                 {
-                    res = res || OutboundConnectedPeers.TryRemove(node.Receiver, out _);
+                    res = OutboundConnectedPeers.TryRemove(node.Receiver, out _) || res;
                 }
             }
 

@@ -86,6 +86,44 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
+        [RPCEndpoint("dbg_check_db_utxos")]
+        public static object DbgCheckDbUtxos(string address, int start, int end)
+        {
+            List<string> utxos = new();
+
+            try
+            {
+                var _visor = Handler.GetHandler().daemon;
+
+                var wal = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+
+                if (wal == null)
+                {
+                    return new RPCError($"could not find address {address}");
+                }
+
+                var addr = wal.Addresses.Where(x => x.Address == address).FirstOrDefault();
+
+                for (int i = start; i <= end; i++)
+                {
+                    var x = WalletDB.GetDB().GetWalletOutput(i);
+
+                    if (x.Type == UTXOType.PRIVATE)
+                    {
+                        utxos.Add(x.LinkingTag.ToHex());
+                    }
+                }
+
+                return utxos;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex}");
+
+                return new RPCError(-1, $"Could not fulfill faucet request", utxos);
+            }
+        }
+
         [RPCEndpoint("dbg_faucet_transparent")]
         public static object DbgFaucetTransparentPayout(string address, ulong amount)
         {

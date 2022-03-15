@@ -879,7 +879,7 @@ namespace Discreet.Wallets
 
                 for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
                 {
-                    changed = changed || ProcessTransaction(block.Transactions[i]);
+                    changed = ProcessTransaction(block.Transactions[i]) || changed;
                 }
 
                 LastSeenHeight = block.Header.Height;
@@ -951,7 +951,7 @@ namespace Discreet.Wallets
 
                     if (KeyOps.CheckForBalance(ref cscalar, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
                     {
-                        Daemon.Logger.Log("You received some Discreet!");
+                        Daemon.Logger.Log($"You received some Discreet!");
                         ProcessOutput(transaction, i, false);
                         changed = true;
                     }

@@ -183,6 +183,11 @@ namespace Discreet.Cipher
             return Compare(this, (SHA256)b) == 0;
         }
 
+        public static bool Equals(SHA256 a, SHA256 b)
+        {
+            return a.Equals(b);
+        }
+
         public Key ToKey()
         {
             return new Key(bytes);
