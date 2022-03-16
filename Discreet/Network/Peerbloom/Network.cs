@@ -234,6 +234,8 @@ namespace Discreet.Network.Peerbloom
 
         public Handler handler { get; private set; }
 
+        private Heartbeater heartbeater;
+
         /// <summary>
         /// A common tokenSource to control our loops. 
         /// Can be used to gracefully shut down the application
@@ -252,6 +254,13 @@ namespace Discreet.Network.Peerbloom
             LocalNode = new LocalNode(endpoint);
             _messageStore = new MessageStore();
             _shutdownTokenSource = new CancellationTokenSource();
+            heartbeater = new Heartbeater(this);
+        }
+
+        public void StartHeartbeater()
+        {
+            heartbeater = new Heartbeater(this);
+            _ = Task.Run(() => heartbeater.Heartbeat(_shutdownTokenSource.Token)).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -451,6 +460,21 @@ namespace Discreet.Network.Peerbloom
                     return false;
                 }
             }
+
+            conn.Send(packet);
+
+            return true;
+        }
+
+        public bool Send(Connection conn, Core.Packet packet)
+        {
+            if (packet.Header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE > Constants.MAX_PEERBLOOM_PACKET_SIZE)
+            {
+                Daemon.Logger.Error($"Network.Send: Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+                return false;
+            }
+
+            Daemon.Logger.Info($"Network.Send: Sending {packet.Header.Command} to {conn.Receiver}");
 
             conn.Send(packet);
 

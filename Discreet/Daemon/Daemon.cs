@@ -292,6 +292,9 @@ namespace Discreet.Daemon
             Logger.Log($"Starting handler...");
             handler.SetState(Network.PeerState.Normal);
 
+            Logger.Log($"Starting heartbeater...");
+            network.StartHeartbeater();
+
             Logger.Log($"Visor startup complete.");
 
             while (!_cancellationToken.IsCancellationRequested)

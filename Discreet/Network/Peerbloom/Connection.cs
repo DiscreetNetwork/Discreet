@@ -18,8 +18,12 @@ namespace Discreet.Network.Peerbloom
         public IPEndPoint Receiver { get; private set; }
         public LocalNode Sender { get; private set; }
 
-        public long LastValidReceive;
-        public long LastValidSend;
+        public long LastValidReceive = 0;
+        public long LastValidSend = 0;
+
+        public long PingLatency = 0;
+        public long PingStart = 0;
+        public bool WasPinged = false;
 
         private TcpClient _tcpClient;
 
@@ -200,6 +204,8 @@ namespace Discreet.Network.Peerbloom
 
                             IsPersistent = true;
                             ConnectionAcknowledged = true;
+                            LastValidReceive = DateTime.UtcNow.Ticks;
+                            LastValidSend = DateTime.UtcNow.Ticks;
 
                             if (_network.OutboundConnectedPeers.Count == 0 || _network.ReflectedAddress == null)
                             {
@@ -372,6 +378,7 @@ namespace Discreet.Network.Peerbloom
                 }
 
                 _sendMutex.Release();
+                LastValidSend = DateTime.UtcNow.Ticks;
                 return true;
             }
             catch (SocketException e)
@@ -580,6 +587,7 @@ namespace Discreet.Network.Peerbloom
                 {
                     _readMutex.Release();
                 }
+                LastValidReceive = DateTime.UtcNow.Ticks;
                 return p;
             }
 

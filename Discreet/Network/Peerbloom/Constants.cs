@@ -68,5 +68,15 @@ namespace Discreet.Network.Peerbloom
         /// The maximum number of peers to be received during a RequestPeers call.
         /// </summary>
         public const int PEERBLOOM_MAX_PEERS_PER_REQUESTPEERS = 10;
+
+        /// <summary>
+        /// How often to run the peer exchanger, in seconds.
+        /// </summary>
+        public const int PEER_EXCHANGER_TIMER = 120;
+
+        /// <summary>
+        /// How often to run the heartbeater, in seconds.
+        /// </summary>
+        public const int PEERBLOOM_HEARTBEATER = 300;
     }
 }

@@ -16,6 +16,8 @@ namespace Discreet.Network
         public PeerState State { get; private set; }
         public ServicesFlag Services { get; private set; }
 
+        public ulong PingID { get; set; }
+
         private static Handler _handler;
 
         private static object handler_lock = new object();
@@ -170,10 +172,10 @@ namespace Discreet.Network
                     await HandleNotFound((NotFoundPacket)p.Body);
                     break;
                 case PacketType.NETPING:
-                    await HandleNetPing((Core.Packets.Peerbloom.NetPing)p.Body);
+                    await HandleNetPing((Core.Packets.Peerbloom.NetPing)p.Body, conn);
                     break;
                 case PacketType.NETPONG:
-                    await HandleNetPong((Core.Packets.Peerbloom.NetPong)p.Body);
+                    await HandleNetPong((Core.Packets.Peerbloom.NetPong)p.Body, conn);
                     break;
                 case PacketType.REQUESTPEERS:
                     await HandleRequestPeers((Core.Packets.Peerbloom.RequestPeers)p.Body, conn.Receiver);
@@ -220,14 +222,41 @@ namespace Discreet.Network
             }
         }
 
-        public async Task HandleNetPing(Core.Packets.Peerbloom.NetPing p)
+        public async Task HandleNetPing(Core.Packets.Peerbloom.NetPing p, Peerbloom.Connection conn)
         {
-            throw new NotImplementedException();
+            _network.Send(conn, new Packet(PacketType.NETPONG, new Core.Packets.Peerbloom.NetPong { Data = p.Data }));
         }
 
-        public async Task HandleNetPong(Core.Packets.Peerbloom.NetPong p)
+        public async Task HandleNetPong(Core.Packets.Peerbloom.NetPong p, Peerbloom.Connection conn)
         {
-            throw new NotImplementedException();
+            if (!conn.WasPinged)
+            {
+                Daemon.Logger.Warn($"HandleNetPong: received unsolicited pong from peer {conn.Receiver}");
+                return;
+            }
+
+            if (p.Data == null || p.Data.Length != 8)
+            {
+                Daemon.Logger.Error($"HandleNetPong: peer {conn.Receiver} responded with missing or malformed pong");
+                return;
+            }
+
+            if (p.Data == null || p.Data.Length != 8 || Coin.Serialization.GetUInt64(p.Data, 0) != PingID)
+            {
+                Daemon.Logger.Warn($"HandleNetPong: ping ID mismatch for peer {conn.Receiver}: expected {PingID}, but got {Coin.Serialization.GetUInt64(p.Data, 0)}");
+                return;
+            }
+
+            conn.PingLatency = DateTime.UtcNow.Ticks - conn.PingStart;
+
+            var start = new DateTime(conn.PingStart).ToLocalTime().ToString("hh:mm:ss.fff tt");
+            var end = DateTime.Now.ToString("hh:mm:ss.fff tt");
+            var latency = conn.PingLatency / 10000;
+            Daemon.Logger.Info($"Peer {conn.Receiver} pinged at {start} responded at {end} with latency {latency} ms");
+
+            // reset ping status
+            conn.WasPinged = false;
+            conn.PingStart = 0;
         }
 
         public async Task HandleRequestPeers(Core.Packets.Peerbloom.RequestPeers p, IPEndPoint endpoint)

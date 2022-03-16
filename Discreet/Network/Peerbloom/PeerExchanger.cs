@@ -9,7 +9,5 @@ namespace Discreet.Network.Peerbloom
     public class PeerExchanger
     {
         private Network _network;
-
-
     }
 }
