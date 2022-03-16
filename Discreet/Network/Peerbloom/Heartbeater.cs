@@ -42,17 +42,23 @@ namespace Discreet.Network.Peerbloom
                 {
                     foreach (var conn in _network.InboundConnectedPeers.Values)
                     {
-                        conn.WasPinged = true;
-                        conn.PingStart = DateTime.UtcNow.Ticks;
-                        _network.Send(conn, p);
+                        if (new DateTime(conn.LastValidReceive).AddSeconds(Constants.PEERBLOOM_HEARTBEATER_TIMEOUT).Ticks < DateTime.UtcNow.Ticks)
+                        {
+                            conn.WasPinged = true;
+                            conn.PingStart = DateTime.UtcNow.Ticks;
+                            _network.Send(conn, p);
+                        }
                     }
                 }
 
                 foreach (var conn in _network.OutboundConnectedPeers.Values)
                 {
-                    conn.WasPinged = true;
-                    conn.PingStart = DateTime.UtcNow.Ticks;
-                    _network.Send(conn, p);
+                    if (new DateTime(conn.LastValidReceive).AddSeconds(Constants.PEERBLOOM_HEARTBEATER_TIMEOUT).Ticks < DateTime.UtcNow.Ticks)
+                    {
+                        conn.WasPinged = true;
+                        conn.PingStart = DateTime.UtcNow.Ticks;
+                        _network.Send(conn, p);
+                    }
                 }
             }
         }

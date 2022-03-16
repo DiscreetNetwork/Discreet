@@ -183,7 +183,7 @@ namespace Discreet.Network.Peerbloom
         {
             foreach (var node in InboundConnectedPeers.Values)
             {
-                if (node.Receiver.Address.MapToIPv4().Equals(endpoint.Address.MapToIPv4()))
+                if (node.Receiver.Equals(endpoint))
                 {
                     return node;
                 }
@@ -235,6 +235,7 @@ namespace Discreet.Network.Peerbloom
         public Handler handler { get; private set; }
 
         private Heartbeater heartbeater;
+        private PeerExchanger peerExchanger;
 
         /// <summary>
         /// A common tokenSource to control our loops. 
@@ -254,13 +255,18 @@ namespace Discreet.Network.Peerbloom
             LocalNode = new LocalNode(endpoint);
             _messageStore = new MessageStore();
             _shutdownTokenSource = new CancellationTokenSource();
-            heartbeater = new Heartbeater(this);
         }
 
         public void StartHeartbeater()
         {
             heartbeater = new Heartbeater(this);
             _ = Task.Run(() => heartbeater.Heartbeat(_shutdownTokenSource.Token)).ConfigureAwait(false);
+        }
+
+        public void StartPeerExchanger()
+        {
+            peerExchanger = new PeerExchanger(this);
+            _ = Task.Run(() => peerExchanger.Exchange(_shutdownTokenSource.Token)).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -382,7 +388,7 @@ namespace Discreet.Network.Peerbloom
                 Daemon.Logger.Debug($"Connecting to peer {node}");
 
                 /* prevents self connections */
-                if (node.Address.MapToIPv4().Equals(ReflectedAddress.MapToIPv4()))
+                if (node.Address.Equals(ReflectedAddress))
                 {
                     Daemon.Logger.Debug($"Ignoring connection to peer {node}; this one is us");
                     continue;

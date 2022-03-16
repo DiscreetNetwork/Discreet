@@ -72,7 +72,7 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// How often to run the peer exchanger, in seconds.
         /// </summary>
-        public const int PEER_EXCHANGER_TIMER = 120;
+        public const int PEER_EXCHANGER_TIMER = 90;
 
 
         /// <summary>
@@ -88,6 +88,11 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// How often to run the heartbeater, in seconds.
         /// </summary>
-        public const int PEERBLOOM_HEARTBEATER = 300;
+        public const int PEERBLOOM_HEARTBEATER = 150;
+
+        /// <summary>
+        /// When to ping a peer by the heartbeater, in seconds.
+        /// </summary>
+        public const int PEERBLOOM_HEARTBEATER_TIMEOUT = 60 * 20;
     }
 }

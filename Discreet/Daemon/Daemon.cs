@@ -292,6 +292,9 @@ namespace Discreet.Daemon
             Logger.Log($"Starting handler...");
             handler.SetState(Network.PeerState.Normal);
 
+            Logger.Log($"Starting peer exchanger...");
+            network.StartPeerExchanger();
+
             Logger.Log($"Starting heartbeater...");
             network.StartHeartbeater();
 
