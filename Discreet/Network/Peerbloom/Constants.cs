@@ -74,6 +74,17 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         public const int PEER_EXCHANGER_TIMER = 120;
 
+
+        /// <summary>
+        /// How many outbound peers at a time to send a RequestPeers to.
+        /// </summary>
+        public const int PEER_EXCHANGER_OUTBOUND = 2;
+
+        /// <summary>
+        /// How many inbound peers at a time to send a RequestPeers to.
+        /// </summary>
+        public const int PEER_EXCHANGER_INBOUND = 2;
+
         /// <summary>
         /// How often to run the heartbeater, in seconds.
         /// </summary>

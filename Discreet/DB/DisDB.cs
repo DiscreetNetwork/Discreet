@@ -920,15 +920,14 @@ namespace Discreet.DB
             return Serialization.GetInt64(result, 0);
         }
 
-        public void AddPeer(IPEndPoint endpoint)
+        public void AddPeer(Network.Peerbloom.Peerlist.Peer peer)
         {
-            db.Put(Network.Core.Utils.SerializeEndpoint(endpoint), ZEROKEY, cf: Peerlist);
+            db.Put(peer.Serialize(), ZEROKEY, cf: Peerlist);
         }
 
-        public List<IPEndPoint> GetPeers()
+        public HashSet<Network.Peerbloom.Peerlist.Peer> GetPeers()
         {
-            var peers = new List<IPEndPoint>();
-
+            var peers = new HashSet<Network.Peerbloom.Peerlist.Peer>();
 
             var iterator = db.NewIterator(cf: Peerlist);
 
@@ -936,9 +935,9 @@ namespace Discreet.DB
 
             while (iterator.Valid())
             {
-                byte[] bytes = iterator.Value();
+                byte[] bytes = iterator.Key();
 
-                peers.Add(Network.Core.Utils.DeserializeEndpoint(bytes, 0));
+                peers.Add(new Network.Peerbloom.Peerlist.Peer(bytes));
 
                 iterator.Next();
             }

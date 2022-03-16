@@ -24,6 +24,8 @@ namespace Discreet.Network
 
         private Peerbloom.Network _network;
 
+        private CancellationToken _token;
+
         public long LastSeenHeight { get; set; }
 
         public ConcurrentQueue<(Core.Packet, Peerbloom.Connection)> InboundPacketQueue = new();
@@ -79,6 +81,7 @@ namespace Discreet.Network
 
         public void Start(CancellationToken token)
         {
+            _token = token;
             _ = Task.Run(() => Handle(token)).ConfigureAwait(false);
         }
 
@@ -278,7 +281,27 @@ namespace Discreet.Network
 
         public async Task HandleRequestPeersResp(Core.Packets.Peerbloom.RequestPeersResp p)
         {
-            Daemon.Logger.Error($"Handler currently does not support RequestPeersResp ");
+            foreach (var endpoint in p.Elems.Select(x => x.Endpoint))
+            {
+                if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Peerbloom.Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        if (endpoint.Address.Equals(_network.ReflectedAddress)) return;
+
+                        Peerbloom.Connection conn = new Peerbloom.Connection(endpoint, _network, _network.LocalNode, true);
+
+                        await conn.Connect(true, _token);
+                    }).ConfigureAwait(false);
+
+                    /* to avoid certain spamming */
+                    await Task.Delay(10);
+                }
+                else
+                {
+                    _network.UnconnectedPeers.Add(endpoint);
+                }
+            }
         }
 
         public async Task HandleAlert(AlertPacket p)
