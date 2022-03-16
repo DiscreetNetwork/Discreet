@@ -123,7 +123,8 @@ namespace Discreet.Daemon
 
         public static void Debug(string msg)
         {
-            Log(msg, "DEBUG");
+            if (Daemon.DebugMode)
+                Log(msg, "DEBUG");
         }
     }
 }

@@ -277,6 +277,21 @@ namespace Discreet.Network
             var mCache = MessageCache.GetMessageCache();
 
             mCache.Rejections.Add(p);
+
+            string valueString = null;
+
+            if (p.Data != null && p.Data.Length > 0)
+            {
+                valueString = Common.Printable.Hexify(p.Data);
+
+                if (valueString.Length > 8)
+                {
+                    valueString = valueString.Substring(0, 8);
+                    valueString += "...";
+                }
+            }
+
+            Daemon.Logger.Error($"Packet {p.RejectedType} {(valueString == null ? "" : $"(data { valueString})")} was rejected with code {p.Code} {(p.Reason == null || p.Reason.Length == 0 ? "" : ": " + p.Reason)}");
         }
 
         public VersionPacket MakeVersionPacket()
@@ -482,7 +497,16 @@ namespace Discreet.Network
                 return;
             }
 
-            if (!DB.DisDB.GetDB().TXPoolContains(p.Tx.Hash()))
+            var txhash = p.Tx.Hash();
+
+            /* sometimes a SendTx can occur as propagation for a recently added block */
+            if (DB.DisDB.GetDB().ContainsTransaction(txhash))
+            {
+                Daemon.Logger.Debug($"HandleSendTx: Transaction received was in a previous block");
+                return;
+            }
+
+            if (!Daemon.TXPool.GetTXPool().Contains(p.Tx.Hash()) && !DB.DisDB.GetDB().TXPoolContains(p.Tx.Hash()))
             {
                 var err = Daemon.TXPool.GetTXPool().ProcessIncoming(p.Tx);
 

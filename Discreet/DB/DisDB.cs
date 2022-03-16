@@ -903,6 +903,11 @@ namespace Discreet.DB
             return Serialization.GetUInt64(result, 0);
         }
 
+        public bool ContainsTransaction(Cipher.SHA256 txhash)
+        {
+            return db.Get(txhash.Bytes, cf: TxIndices) != null;
+        }
+
         public long GetBlockHeight(Cipher.SHA256 blockHash)
         {
             var result = db.Get(blockHash.Bytes, cf: BlockHeights);
