@@ -18,6 +18,8 @@ namespace Discreet.Network.Peerbloom
         public IPEndPoint Receiver { get; private set; }
         public LocalNode Sender { get; private set; }
 
+        public long TimeStarted { get; private set; }
+
         public long LastValidReceive = 0;
         public long LastValidSend = 0;
 
@@ -50,6 +52,22 @@ namespace Discreet.Network.Peerbloom
         private SemaphoreSlim _readMutex = new SemaphoreSlim(1, 1);
         private SemaphoreSlim _sendMutex = new SemaphoreSlim(1, 1);
 
+        public int Port 
+        { 
+            get 
+            { 
+                if (_tcpClient != null)
+                {
+                    if (_tcpClient.Client.LocalEndPoint.AddressFamily.Equals(AddressFamily.InterNetwork) || _tcpClient.Client.LocalEndPoint.AddressFamily.Equals(AddressFamily.InterNetworkV6))
+                    {
+                        return ((IPEndPoint)_tcpClient.Client.LocalEndPoint).Port;
+                    }
+                }
+
+                return -1;
+            }
+        }
+
         public Connection(TcpClient tcpClient, Network network, LocalNode node, bool isOutbound = false)
         {
             LastValidReceive = DateTime.UtcNow.Ticks;
@@ -65,6 +83,8 @@ namespace Discreet.Network.Peerbloom
 
             Sender = node;
             Receiver = (IPEndPoint)tcpClient.Client.RemoteEndPoint;
+
+            TimeStarted = DateTime.UtcNow.Ticks;
 
             IsOutbound = isOutbound;
         }
@@ -83,6 +103,8 @@ namespace Discreet.Network.Peerbloom
 
             Sender = node;
             Receiver = receiver;
+
+            TimeStarted = DateTime.UtcNow.Ticks;
 
             IsOutbound = isOutbound;
         }

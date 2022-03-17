@@ -564,7 +564,7 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
-        [RPCEndpoint("get_last_blocks")]
+        [RPCEndpoint("get_last_blocks", APISet.READ)]
         public static object GetLastBlocks(long num)
         {
             if (num <= 0) return new RPCError($"parameter {num} is zero or negative");

@@ -37,6 +37,8 @@ namespace Discreet.Daemon
 
         private Key signingKey;
 
+        public long Uptime { get; private set; }
+
         public Daemon()
         {
             wallets = new ConcurrentBag<Wallet>();
@@ -71,6 +73,8 @@ namespace Discreet.Daemon
 
         public async Task Start()
         {
+            Uptime = DateTime.Now.Ticks;
+
             if (IsMasternode && db.GetChainHeight() < 0)
             {
                 /* time to build the megablock */
