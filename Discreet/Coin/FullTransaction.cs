@@ -38,6 +38,9 @@ namespace Discreet.Coin
         public Triptych[] PSignatures;
         public Key[] PseudoOutputs;
 
+        /* not stored on disk, but recalculated after serialize and deserialize */
+        public SHA256 TxID { get; set; }
+
         public FullTransaction() { Version = byte.MaxValue; }
 
         public FullTransaction(byte[] bytes)
@@ -69,7 +72,7 @@ namespace Discreet.Coin
         {
             if (Version != 1 && Version != 2 && Version != 0) throw new Exception("Discreet.Coin.FullTransaction.ToPrivate: version must match!");
 
-            return new Transaction
+            var tx =  new Transaction
             {
                 Version = Version,
                 NumInputs = NumInputs,
@@ -84,6 +87,10 @@ namespace Discreet.Coin
                 RangeProofPlus = RangeProofPlus,
                 PseudoOutputs = PseudoOutputs,
             };
+
+            tx.TxID = tx.Hash();
+
+            return tx;
         }
 
         public Transaction ToCoinbase() { if (Version != 0) throw new Exception("Discreet.Coin.FullTransaction.ToCoinbase: version must match!"); return ToPrivate(); }
@@ -92,7 +99,7 @@ namespace Discreet.Coin
         {
             if (Version != 3) throw new Exception("Discreet.Coin.FullTransaction.ToTransparent: version must match!");
 
-            return new Transparent.Transaction
+            var tx =  new Transparent.Transaction
             {
                 Version = Version,
                 NumInputs = NumInputs,
@@ -104,13 +111,17 @@ namespace Discreet.Coin
                 Outputs = TOutputs,
                 Signatures = TSignatures,
             };
+
+            tx.TxID = tx.Hash();
+
+            return tx;
         }
 
         public MixedTransaction ToMixed()
         {
             if (Version != 4) throw new Exception("Discreet.Coin.FullTransaction.ToMixed: version must match!");
 
-            return new MixedTransaction
+            var tx = new MixedTransaction
             {
                 Version = Version,
                 NumInputs = NumInputs,
@@ -132,6 +143,10 @@ namespace Discreet.Coin
                 TSignatures = TSignatures,
                 SigningHash = SigningHash,
             };
+
+            tx.TxID = tx.Hash();
+
+            return tx;
         }
 
         public void FromPrivate(Transaction tx)
@@ -152,6 +167,8 @@ namespace Discreet.Coin
             RangeProof = tx.RangeProof;
             RangeProofPlus = tx.RangeProofPlus;
             PseudoOutputs = tx.PseudoOutputs;
+
+            TxID = tx.Hash();
         }
 
         public void FromCoinbase(Transaction tx) { FromPrivate(tx); }
@@ -172,6 +189,8 @@ namespace Discreet.Coin
             TInputs = tx.Inputs;
             TOutputs = tx.Outputs;
             TSignatures = tx.Signatures;
+
+            TxID = tx.Hash();
         }
 
         public void FromMixed(MixedTransaction tx)
@@ -195,13 +214,15 @@ namespace Discreet.Coin
             TOutputs = tx.TOutputs;
             TSignatures = tx.TSignatures;
             SigningHash = tx.SigningHash;
+
+            TxID = tx.Hash();
         }
 
         public void Deserialize(byte[] bytes) { Deserialize(bytes, 0); }
 
         public uint Deserialize(byte[] bytes, uint offset)
         {
-            return bytes[offset] switch
+            var rv = bytes[offset] switch
             {
                 0 => FromCoinbase(bytes, offset),
                 1 or 2 => FromPrivate(bytes, offset),
@@ -209,6 +230,10 @@ namespace Discreet.Coin
                 4 => FromMixed(bytes, offset),
                 _ => throw new Exception("Unknown transaction type: " + bytes[0]),
             };
+
+            TxID = Hash();
+
+            return rv;
         }
 
         public void Deserialize(Stream s)
@@ -231,6 +256,8 @@ namespace Discreet.Coin
                 default:
                     throw new Exception("Unknown transaction type: " + Version);
             }
+
+            TxID = Hash();
         }
 
         public SHA256 Hash()

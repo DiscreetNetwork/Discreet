@@ -33,6 +33,8 @@ namespace Discreet.Readable
 
         public List<string> PseudoOutputs { get; set; }
 
+        public string TxID { get; set; }
+
         public string JSON()
         {
             return JsonSerializer.Serialize(this, ReadableOptions.Options);
@@ -64,6 +66,8 @@ namespace Discreet.Readable
             PseudoOutputs = transaction.PseudoOutputs;
 
             TransactionKey = transaction.TransactionKey;
+
+            TxID = transaction.TxID;
         }
 
         public Transaction(Coin.Transaction obj)
@@ -144,6 +148,8 @@ namespace Discreet.Readable
             {
                 TransactionKey = obj.TransactionKey.ToHex();
             }
+
+            if (obj.TxID.Bytes != null) { TxID = obj.TxID.ToHex(); } else TxID = obj.Hash().ToHex();
         }
 
         public T ToObject<T>()
@@ -212,6 +218,8 @@ namespace Discreet.Readable
             }
 
             if (TransactionKey != null && TransactionKey != "") obj.TransactionKey = new Cipher.Key(Printable.Byteify(TransactionKey));
+
+            if (TxID != null && TxID != "") obj.TxID = Cipher.SHA256.FromHex(TxID); else obj.TxID = obj.Hash();
 
             return obj;
         }

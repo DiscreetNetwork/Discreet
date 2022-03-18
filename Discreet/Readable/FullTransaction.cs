@@ -37,6 +37,8 @@ namespace Discreet.Readable
         public List<Triptych> PSignatures { get; set; }
         public List<string> PseudoOutputs { get; set; }
 
+        public string TxID { get; set; }
+
         public string JSON()
         {
             return Version switch
@@ -82,6 +84,8 @@ namespace Discreet.Readable
             transaction.PSignatures = PSignatures;
             transaction.PseudoOutputs = PseudoOutputs;
 
+            transaction.TxID = TxID;
+
             return transaction;
         }
 
@@ -101,6 +105,8 @@ namespace Discreet.Readable
             transaction.Inputs = TInputs;
             transaction.Outputs = TOutputs;
             transaction.Signatures = TSignatures;
+
+            transaction.TxID = TxID;
 
             return transaction;
         }
@@ -123,6 +129,8 @@ namespace Discreet.Readable
             transaction.RangeProof = RangeProof;
             transaction.Signatures = PSignatures;
             transaction.PseudoOutputs = PseudoOutputs;
+
+            transaction.TxID = TxID;
 
             return transaction;
         }
@@ -155,6 +163,8 @@ namespace Discreet.Readable
             RangeProof = transaction.RangeProof;
             RangeProofPlus = transaction.RangeProofPlus;
             PseudoOutputs = transaction.PseudoOutputs;
+
+            TxID = transaction.TxID;
         }
 
         public FullTransaction(Coin.FullTransaction obj)
@@ -180,6 +190,8 @@ namespace Discreet.Readable
             RangeProof = tx.RangeProof;
             RangeProofPlus = tx.RangeProofPlus;
             PseudoOutputs = tx.PseudoOutputs;
+
+            TxID = tx.TxID;
         }
 
         public FullTransaction(MixedTransaction tx)
@@ -203,6 +215,8 @@ namespace Discreet.Readable
             TOutputs = tx.TOutputs;
             TSignatures = tx.TSignatures;
             SigningHash = tx.SigningHash;
+
+            TxID = tx.TxID;
         }
 
         public FullTransaction(Transparent.Transaction tx)
@@ -221,6 +235,8 @@ namespace Discreet.Readable
             TInputs = tx.Inputs;
             TOutputs = tx.Outputs;
             TSignatures = tx.Signatures;
+
+            TxID = tx.TxID;
         }
 
         public FullTransaction(string json)
@@ -325,6 +341,8 @@ namespace Discreet.Readable
                     PseudoOutputs.Add(obj.PseudoOutputs[i].ToHex());
                 }
             }
+
+            if (obj.TxID.Bytes != null) { TxID = obj.TxID.ToHex(); } else TxID = obj.Hash().ToHex();
         }
 
         public T ToObject<T>()
@@ -423,6 +441,8 @@ namespace Discreet.Readable
                     obj.PseudoOutputs[i] = new Cipher.Key(Printable.Byteify(PseudoOutputs[i]));
                 }
             }
+
+            if (TxID != null && TxID != "") obj.TxID = Cipher.SHA256.FromHex(TxID); else obj.TxID = obj.Hash();
 
             return obj;
         }

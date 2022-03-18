@@ -36,6 +36,8 @@ namespace Discreet.Readable
         public List<Triptych> PSignatures { get; set; }
         public List<string> PseudoOutputs { get; set; }
 
+        public string TxID { get; set; }
+
         public string JSON()
         {
             return JsonSerializer.Serialize(this, ReadableOptions.Options);
@@ -73,6 +75,8 @@ namespace Discreet.Readable
             RangeProofPlus = transaction.RangeProofPlus;
             PSignatures = transaction.PSignatures;
             PseudoOutputs = transaction.PseudoOutputs;
+
+            TxID = transaction.TxID;
         }
 
         public MixedTransaction(Coin.MixedTransaction obj)
@@ -180,6 +184,8 @@ namespace Discreet.Readable
                     PseudoOutputs.Add(obj.PseudoOutputs[i].ToHex());
                 }
             }
+
+            if (obj.TxID.Bytes != null) { TxID = obj.TxID.ToHex(); } else TxID = obj.Hash().ToHex();
         }
 
         public T ToObject<T>()
@@ -277,6 +283,8 @@ namespace Discreet.Readable
                     obj.PseudoOutputs[i] = new Cipher.Key(Printable.Byteify(PseudoOutputs[i]));
                 }
             }
+
+            if (TxID != null && TxID != "") obj.TxID = Cipher.SHA256.FromHex(TxID); else obj.TxID = obj.Hash();
 
             return obj;
         }

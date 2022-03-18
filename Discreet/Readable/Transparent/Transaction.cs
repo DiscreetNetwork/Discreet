@@ -24,6 +24,8 @@ namespace Discreet.Readable.Transparent
         public List<TXOutput> Outputs { get; set; }
         public List<string> Signatures { get; set; }
 
+        public string TxID { get; set; }
+
         public string JSON()
         {
             return JsonSerializer.Serialize(this, ReadableOptions.Options);
@@ -46,6 +48,7 @@ namespace Discreet.Readable.Transparent
             Outputs = transaction.Outputs;
             Signatures = transaction.Signatures;
             Fee = transaction.Fee;
+            TxID = transaction.TxID;
         }
 
         public Transaction(Coin.Transparent.Transaction obj)
@@ -108,6 +111,8 @@ namespace Discreet.Readable.Transparent
                 }
             }
 
+            if (obj.TxID.Bytes != null) { TxID = obj.TxID.ToHex(); } else TxID = obj.Hash().ToHex();
+
             Fee = obj.Fee;
         }
 
@@ -162,6 +167,8 @@ namespace Discreet.Readable.Transparent
             }
 
             obj.Fee = Fee;
+
+            if (TxID != null && TxID != "") obj.TxID = Cipher.SHA256.FromHex(TxID); else obj.TxID = obj.Hash();
 
             return obj;
         }

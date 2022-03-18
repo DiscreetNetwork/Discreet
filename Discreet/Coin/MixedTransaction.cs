@@ -42,6 +42,8 @@ namespace Discreet.Coin
         public Triptych[] PSignatures;
         public Key[] PseudoOutputs;
 
+        public SHA256 TxID { get; set; }
+
         public MixedTransaction() { }
 
         public FullTransaction ToFull()
@@ -73,6 +75,7 @@ namespace Discreet.Coin
             RangeProofPlus = tx.RangeProofPlus;
             PSignatures = tx.Signatures;
             PseudoOutputs = tx.PseudoOutputs;
+            TxID = tx.TxID;
         }
 
         public MixedTransaction(Transparent.Transaction tx)
@@ -94,6 +97,7 @@ namespace Discreet.Coin
             TInputs = tx.Inputs;
             TOutputs = tx.Outputs;
             TSignatures = tx.Signatures;
+            TxID = tx.TxID;
         }
 
         public MixedTransaction(byte[] bytes)
@@ -362,6 +366,8 @@ namespace Discreet.Coin
                 offset += 32;
             }
 
+            TxID = Hash();
+
             return offset;
         }
 
@@ -508,6 +514,8 @@ namespace Discreet.Coin
             {
                 PseudoOutputs[i] = new Key(s);
             }
+
+            TxID = Hash();
         }
 
         public uint Size()
@@ -555,6 +563,8 @@ namespace Discreet.Coin
 
             tx.TransactionKey = TransactionKey;
 
+            tx.TxID = tx.Hash();
+
             return tx;
         }
 
@@ -573,6 +583,8 @@ namespace Discreet.Coin
             tx.Fee = Fee;
 
             tx.InnerHash = SigningHash;
+
+            tx.TxID = tx.Hash();
 
             return tx;
         }

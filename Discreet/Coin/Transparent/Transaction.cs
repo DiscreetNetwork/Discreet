@@ -37,6 +37,8 @@ namespace Discreet.Coin.Transparent
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
         public Signature[] Signatures;
 
+        public SHA256 TxID { get; set; }
+
         public SHA256 Hash()
         {
             return SHA256.HashData(Serialize());
@@ -183,6 +185,8 @@ namespace Discreet.Coin.Transparent
                 offset += 96;
             }
 
+            TxID = Hash();
+
             return offset;
         }
 
@@ -244,6 +248,8 @@ namespace Discreet.Coin.Transparent
             {
                 Signatures[i] = new Signature(s);
             }
+
+            TxID = Hash();
         }
 
         public uint Size()
