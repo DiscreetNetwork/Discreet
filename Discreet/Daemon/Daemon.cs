@@ -135,39 +135,6 @@ namespace Discreet.Daemon
 
             if (!IsMasternode)
             {
-                /* in startup, after bootstrap, the visor must collect version info from all connected peers */
-                int nPeers = network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.GETVERSION, new Network.Core.Packets.GetVersionPacket()));
-
-                if (nPeers == 0)
-                {
-                    throw new Exception("FATAL: cannot find any online peers. Exiting.");
-                }
-
-                long timeout = DateTime.UtcNow.AddSeconds(5).Ticks;
-
-                await Task.Delay(500);
-
-                while (nPeers != messageCache.Versions.Count + messageCache.BadVersions.Count && timeout > DateTime.UtcNow.Ticks)
-                {
-                    await Task.Delay(500);
-
-                    Logger.Log("Discreet.Visor: waiting for peers to respond with versions...");
-
-                    network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.GETVERSION, new Network.Core.Packets.GetVersionPacket()));
-
-                    Logger.Log($"Discreet.Visor: {messageCache.Versions.Count} peers found so far...");
-                }
-
-                if (messageCache.Versions.Count == 0)
-                {
-                    if (messageCache.BadVersions.Count > 0)
-                    {
-                        throw new Exception($"FATAL: could not connect to any valid peers. {messageCache.BadVersions.Count} invalid peers found.");
-                    }
-
-                    throw new Exception("FATAL: no valid peers online. Exiting.");
-                }
-
                 /* get height of chain */
                 long bestHeight = db.GetChainHeight();
                 IPEndPoint bestPeer = null;

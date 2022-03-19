@@ -51,7 +51,7 @@ namespace Discreet.Network.Peerbloom
         /// A store to hold ids of received messages. 
         /// Used determine if we have already seen / received a specific message from the network
         /// </summary>
-        private MessageStore _messageStore;
+        public MessageCache Cache;
 
         /// <summary>
         /// Peers that initiated the connection with this node. Contains zero peers for private nodes.
@@ -75,6 +75,9 @@ namespace Discreet.Network.Peerbloom
 
         public int MinDesiredConnections;
         public int MaxDesiredConnections;
+
+        /* randomly generated once per session */
+        public ulong NodeID { get; private set; }
 
         public void AddConnecting(Connection conn)
         {
@@ -253,8 +256,9 @@ namespace Discreet.Network.Peerbloom
         public Network(IPEndPoint endpoint)
         {
             LocalNode = new LocalNode(endpoint);
-            _messageStore = new MessageStore();
+            Cache = MessageCache.GetMessageCache();
             _shutdownTokenSource = new CancellationTokenSource();
+            NodeID = (ulong)new Random().NextInt64();
         }
 
         public void StartHeartbeater()
@@ -307,6 +311,15 @@ namespace Discreet.Network.Peerbloom
             IsBootstrapping = true;
             Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetDefault().BootstrapNode, 5555), this, LocalNode, true);
 
+            handler = Handler.Initialize(this);
+
+            if (LocalNode.IsPublic)
+            {
+                Handler.GetHandler().SetServices(Core.ServicesFlag.Public);
+            }
+
+            handler.Start(_shutdownTokenSource.Token);
+
             // This check is in case THIS device, is the bootstrap node. In that case, it should not try to bootstrap itself, as it is the first node in the network
             // Eventually this check needs to be modified, when we include multiple bootstrap nodes
             // For now: make sure the int we check against, matches the port of the bootstrap node, in the line above
@@ -316,13 +329,6 @@ namespace Discreet.Network.Peerbloom
                 LocalNode.SetPublic();
 
                 Daemon.Logger.Info($"Initiated bootstrap node on port {LocalNode.Endpoint.Port}");
-
-                handler = Handler.Initialize(this);
-
-                if (LocalNode.IsPublic)
-                {
-                    Handler.GetHandler().SetServices(Core.ServicesFlag.Public);
-                }
 
                 handler.Start(_shutdownTokenSource.Token);
 
@@ -396,15 +402,6 @@ namespace Discreet.Network.Peerbloom
 
                 _ = Task.Run(() => new Connection(node, this, LocalNode, true).Connect(true, _shutdownTokenSource.Token)).ConfigureAwait(false);
             }
-
-            handler = Handler.Initialize(this);
-
-            if (LocalNode.IsPublic)
-            {
-                Handler.GetHandler().SetServices(Core.ServicesFlag.Public);
-            }
-
-            handler.Start(_shutdownTokenSource.Token);
 
             IsBootstrapping = false;
             Daemon.Logger.Info("Bootstrap completed.");

@@ -11,8 +11,8 @@ namespace Discreet.Network.Core
         NONE = 0,
 
         /* VERSION */
-        GETVERSION = 1,
-        VERSION = 2,
+        VERSION = 1,
+        VERACK = 2,
 
         /* USED FOR SYNCING AND INFORMATION */
         INVENTORY = 3,
@@ -46,8 +46,6 @@ namespace Discreet.Network.Core
         SENDMSG = 19,
 
         /* USED BY PEERBLOOM */
-        CONNECT = 20,
-        CONNECTACK = 21,
         REQUESTPEERS = 22,
         REQUESTPEERSRESP = 23,
         NETPING = 24,

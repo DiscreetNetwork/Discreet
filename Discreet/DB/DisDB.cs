@@ -136,6 +136,8 @@ namespace Discreet.DB
         public static ColumnFamilyHandle BlockCache;
         public static ColumnFamilyHandle BlockHeaders;
         public static ColumnFamilyHandle Peerlist;
+        public static ColumnFamilyHandle PeerTried;
+        public static ColumnFamilyHandle PeerNew;
 
         public static string SPENT_KEYS = "spent_keys";
         public static string TX_POOL_BLOB = "tx_pool_blob";
@@ -150,6 +152,8 @@ namespace Discreet.DB
         public static string BLOCK_CACHE = "block_cache";
         public static string BLOCK_HEADERS = "block_headers";
         public static string PEERLIST = "peerlist";
+        public static string PEERTRIED = "peertried";
+        public static string PEERNEW = "peernew";
 
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
@@ -179,7 +183,7 @@ namespace Discreet.DB
                     Directory.CreateDirectory(path);
                 }
 
-                var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies();
+                var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies().SetKeepLogFileNum(5);
 
                 var _colFamilies = new ColumnFamilies
                 {
@@ -195,7 +199,9 @@ namespace Discreet.DB
                     new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(PEERLIST, new ColumnFamilyOptions())
+                    new ColumnFamilies.Descriptor(PEERLIST, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(PEERTRIED, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(PEERNEW, new ColumnFamilyOptions())
                 };
 
                 db = RocksDb.Open(options, path, _colFamilies);
@@ -213,6 +219,8 @@ namespace Discreet.DB
                 BlockCache = db.GetColumnFamily(BLOCK_CACHE);
                 BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
                 Peerlist = db.GetColumnFamily(PEERLIST);
+                PeerTried = db.GetColumnFamily(PEERTRIED);
+                PeerNew = db.GetColumnFamily(PEERNEW);
 
                 if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
                 {
@@ -289,6 +297,9 @@ namespace Discreet.DB
             db.DropColumnFamily(OUTPUT_INDICES);
             db.DropColumnFamily(BLOCK_CACHE);
             db.DropColumnFamily(BLOCK_HEADERS);
+            db.DropColumnFamily(PEERLIST);
+            db.DropColumnFamily(PEERTRIED);
+            db.DropColumnFamily(PEERNEW);
 
             disdb = null;
             db.Dispose();
@@ -920,9 +931,24 @@ namespace Discreet.DB
             return Serialization.GetInt64(result, 0);
         }
 
-        public void AddPeer(Network.Peerbloom.Peerlist.Peer peer)
+        public void AddTried(Cipher.SHA256 hash, Network.Peerbloom.Peerlist.Peer peer)
         {
-            db.Put(peer.Serialize(), ZEROKEY, cf: Peerlist);
+            db.Put(hash.Bytes, peer.Serialize(), cf: PeerTried);
+        }
+
+        public void AddNew(Cipher.SHA256 hash, Network.Peerbloom.Peerlist.Peer peer)
+        {
+            db.Put(hash.Bytes, peer.Serialize(), cf: PeerNew);
+        }
+
+        public void EvictTried(Network.Peerbloom.Peerlist.Peer peer)
+        {
+            db.Remove(peer.Serialize(), cf: PeerTried);
+        }
+
+        public void EvictNew(Network.Peerbloom.Peerlist.Peer peer)
+        {
+            db.Remove(peer.Serialize(), cf: PeerNew);
         }
 
         public HashSet<Network.Peerbloom.Peerlist.Peer> GetPeers()

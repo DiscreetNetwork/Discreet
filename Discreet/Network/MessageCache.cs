@@ -27,8 +27,8 @@ namespace Discreet.Network
         public ConcurrentBag<string> Messages;
         public ConcurrentBag<RejectPacket> Rejections;
         public ConcurrentBag<AlertPacket> Alerts;
-        public ConcurrentDictionary<IPEndPoint, VersionPacket> Versions;
-        public ConcurrentDictionary<IPEndPoint, VersionPacket> BadVersions;
+        public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> Versions;
+        public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> BadVersions;
         public ConcurrentDictionary<long, Coin.Block> BlockCache;
 
         public MessageCache()
@@ -36,8 +36,8 @@ namespace Discreet.Network
             Messages = new ConcurrentBag<string>();
             Rejections = new ConcurrentBag<RejectPacket>();
             Alerts = new ConcurrentBag<AlertPacket>();
-            Versions = new ConcurrentDictionary<IPEndPoint, VersionPacket>();
-            BadVersions = new ConcurrentDictionary<IPEndPoint, VersionPacket>();
+            Versions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
+            BadVersions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BlockCache = new ConcurrentDictionary<long, Coin.Block>();
         }
     }

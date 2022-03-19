@@ -50,7 +50,6 @@ namespace Discreet.Network
             {
                 if (_handler == null)
                 {
-                    Daemon.Logger.Debug($"Handler..ctor: calling Initialize for handler!");
                     _handler = new Handler(network);
                 }
             }
@@ -129,23 +128,17 @@ namespace Discreet.Network
                 case PacketType.ALERT:
                     await HandleAlert((AlertPacket)p.Body);
                     break;
-                case PacketType.CONNECT:
-                    await HandleConnect(conn);
-                    break;
-                case PacketType.CONNECTACK:
-                    Daemon.Logger.Error($"Discreet.Network.Handler.Handle: invalid packet received with type {p.Header.Command}; should not be visible to handler");
-                    break;
                 case PacketType.NONE:
                     Daemon.Logger.Error($"Discreet.Network.Handler.Handle: invalid packet with type NONE found");
                     break;
                 case PacketType.REJECT:
                     await HandleReject((RejectPacket)p.Body);
                     break;
-                case PacketType.GETVERSION:
-                    await HandleGetVersion(conn.Receiver);
-                    break;
                 case PacketType.VERSION:
-                    await HandleVersion((VersionPacket)p.Body, conn.Receiver);
+                    await HandleVersion((Core.Packets.Peerbloom.VersionPacket)p.Body, conn);
+                    break;
+                case PacketType.VERACK:
+                    await HandleVerAck((Core.Packets.Peerbloom.VerAck)p.Body, conn);
                     break;
                 case PacketType.GETBLOCKS:
                     await HandleGetBlocks((GetBlocksPacket)p.Body, conn.Receiver);
@@ -189,39 +182,6 @@ namespace Discreet.Network
                 default:
                     Daemon.Logger.Error($"Discreet.Network.Handler.Handle: received unsupported packet from {conn.Receiver} with type {p.Header.Command}");
                     break;
-            }
-        }
-
-        public async Task HandleConnect(Peerbloom.Connection conn)
-        {
-            if (_network.IsBootstrapping)
-            {
-                Daemon.Logger.Warn($"Handler.HandleConnect: Ignoring connection request from peer {conn.Receiver} during bootstrapping");
-                _network.RemoveNodeFromPool(conn);
-                return;
-            }
-
-            if (_network.LocalNode.IsPublic)
-            {
-                if (!_network.ConnectingPeers.ContainsKey(conn.Receiver))
-                {
-                    Daemon.Logger.Error($"Handler.HandleConnect: cannot fulfill connection handshake for peer {conn.Receiver}; not currently connecting");
-                    return;
-                }
-
-                bool success = await _network.SendAsync(conn, new Packet(PacketType.CONNECTACK, new Core.Packets.Peerbloom.ConnectAck { Acknowledged = true, IsPublic = false, ReflectedEndpoint = conn.Receiver }));
-
-                if (!success)
-                {
-                    Daemon.Logger.Error($"Handler.HandleConnect: could not send connect ACK to peer {conn.Receiver}; ending connection");
-                    _network.RemoveNodeFromPool(conn);
-                    return;
-                }
-
-                Daemon.Logger.Info($"Handler.HandleConnect: successfully connected to peer {conn.Receiver}");
-                conn.SetConnectionAcknowledged();
-
-                _network.AddInboundConnection(conn);
             }
         }
 
@@ -346,88 +306,71 @@ namespace Discreet.Network
             Daemon.Logger.Error($"Packet {p.RejectedType} {(valueString == null ? "" : $"(data { valueString})")} was rejected with code {p.Code} {(p.Reason == null || p.Reason.Length == 0 ? "" : ": " + p.Reason)}");
         }
 
-        public VersionPacket MakeVersionPacket()
+        public Core.Packets.Peerbloom.VersionPacket MakeVersionPacket()
         {
-            return new VersionPacket
+            return new Core.Packets.Peerbloom.VersionPacket
             {
                 Version = Daemon.DaemonConfig.GetConfig().NetworkVersion.Value,
                 Services = Services,
                 Timestamp = DateTime.UtcNow.Ticks,
                 Height = DB.DisDB.GetDB().GetChainHeight(),
                 Address = Daemon.DaemonConfig.GetConfig().Endpoint,
+                Nonce = _network.NodeID,
                 Syncing = State == PeerState.Syncing
             };
         }
 
-        public async Task HandleGetVersion(IPEndPoint senderEndpoint)
+        public async Task HandleVersion(Core.Packets.Peerbloom.VersionPacket p, Peerbloom.Connection conn)
         {
-            VersionPacket vp = MakeVersionPacket();
-
-            Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.VERSION, vp));
-        }
-
-        public async Task HandleVersion(VersionPacket p, IPEndPoint senderEndpoint)
-        {
-            if (State != PeerState.Startup)
-            {
-                Daemon.Logger.Warn($"Discreet.Network.Handler.HandleVersion: received a version packet from peer {senderEndpoint} after startup; ignoring");
-                return;
-            }
-
             var mCache = MessageCache.GetMessageCache();
 
-            if (mCache.Versions.ContainsKey(senderEndpoint))
+            if (mCache.Versions.ContainsKey(conn.Receiver))
             {
-                Daemon.Logger.Warn($"Discreet.Network.Handler.HandleVersion: already received version from {senderEndpoint}");
-                return;
+                Daemon.Logger.Warn($"Discreet.Network.Handler.HandleVersion: already received version from {conn.Receiver}");
+            }
+            else
+            {
+                if (p.Version != Daemon.DaemonConfig.GetConfig().NetworkVersion)
+                {
+                    Daemon.Logger.Error($"Discreet.Network.Handler.HandleVersion: Bad network version for peer {conn.Receiver}; expected {Daemon.DaemonConfig.GetConfig().NetworkVersion}, but got {p.Version}");
+                    mCache.BadVersions[conn.Receiver] = p;
+                    return;
+                }
+
+                if (p.Timestamp > DateTime.UtcNow.Add(TimeSpan.FromHours(2)).Ticks || p.Timestamp < DateTime.UtcNow.Subtract(TimeSpan.FromHours(2)).Ticks)
+                {
+                    Daemon.Logger.Error($"Discreet.Network.Handler.HandleVersion: version packet timestamp for peer {conn.Receiver} is either too old or too far in the future!");
+                    mCache.BadVersions[conn.Receiver] = p;
+                    return;
+                }
+
+                if (mCache.BadVersions.ContainsKey(conn.Receiver))
+                {
+                    mCache.BadVersions.Remove(conn.Receiver, out _);
+                }
+
+                if (!mCache.Versions.TryAdd(conn.Receiver, p))
+                {
+                    Daemon.Logger.Error($"Discreet.Network.Handler.HandleVersion: failed to add version for {conn.Receiver}");
+                }
             }
 
-            /*if (!senderEndpoint.Address.Equals(p.Address.Address))
-            {
-                Daemon.Logger.Log($"Discreet.Network.Handler.HandleVersion: endpoint and address mismatch (received from {senderEndpoint.Address}; specified {p.Address.Address})");
-                mCache.BadVersions[senderEndpoint] = p;
-                return;
-            }*/
+            /* we reply with our own version */
+            _network.Send(conn, new Packet(PacketType.VERSION, MakeVersionPacket()));
+        }
 
-            /*var node = Peerbloom.Network.GetNetwork().GetNode(senderEndpoint);
+        public async Task HandleVerAck(Core.Packets.Peerbloom.VerAck p, Peerbloom.Connection conn)
+        {
+            if (p.Counter > 0) return;
 
-            if (node != null)
-            {
-                Visor.Logger.Log($"Discreet.Network.Handler.HandleVersion: could not find peer {p.Address} in connection pool");
-                mCache.BadVersions[senderEndpoint] = p;
-                return;
-            }*/
+            if (p.Counter < 0) return; // something has gone wrong if this is true.
 
-            if (p.Version != Daemon.DaemonConfig.GetConfig().NetworkVersion)
-            {
-                Daemon.Logger.Error($"Discreet.Network.Handler.HandleVersion: Bad network version for peer {p.Address}; expected {Daemon.DaemonConfig.GetConfig().NetworkVersion}, but got {p.Version}");
-                mCache.BadVersions[senderEndpoint] = p;
-                return;
-            }
+            p.ReflectedEndpoint = conn.Receiver;
+            p.Counter++;
 
-            if (mCache.Versions.ContainsKey(senderEndpoint) || mCache.BadVersions.ContainsKey(senderEndpoint))
-            {
-                Daemon.Logger.Warn($"Discreet.Network.Handler.HandleVersion: version packet already recieved for peer {p.Address}");
-                mCache.BadVersions[senderEndpoint] = p;
-                return;
-            }
+            conn.SetConnectionAcknowledged();
 
-            if (p.Timestamp > DateTime.UtcNow.Add(TimeSpan.FromHours(2)).Ticks || p.Timestamp < DateTime.UtcNow.Subtract(TimeSpan.FromHours(2)).Ticks)
-            {
-                Daemon.Logger.Error($"Discreet.Network.Handler.HandleVersion: version packet timestamp for peer {p.Address} is either too old or too far in the future!");
-                mCache.BadVersions[senderEndpoint] = p;
-                return;
-            }
-
-            if (mCache.BadVersions.ContainsKey(senderEndpoint))
-            {
-                mCache.BadVersions.Remove(senderEndpoint, out _);
-            }
-
-            if (!mCache.Versions.TryAdd(senderEndpoint, p))
-            {
-                Daemon.Logger.Error($"Discreet.Network.Handler.HandleVersion: failed to add version for {senderEndpoint}");
-            }
+            _network.Send(conn, new Packet(PacketType.VERACK, p));
         }
 
         public async Task HandleGetBlocks(GetBlocksPacket p, IPEndPoint senderEndpoint)

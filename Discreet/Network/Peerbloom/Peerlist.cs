@@ -44,13 +44,15 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
-        private HashSet<Peer> _peers;
+        private List<Bucket> Tried;
+        private List<Bucket> New;
 
-        public HashSet<Peer> Peers { get { return _peers; } }
+        private List<Peer> Anchors;
 
         public Peerlist()
         {
-            _peers = DB.DisDB.GetDB().GetPeers();
+            //Tried = DB.DisDB.GetDB().GetTried();
+            //New = DB.DisDB.GetDB().GetNew();
         }
 
         public void AddPeer(IPEndPoint endpoint = null, long lastSeen = 0)
@@ -63,8 +65,8 @@ namespace Discreet.Network.Peerbloom
 
             var peer = new Peer(endpoint, lastSeen);
 
-            _peers.Add(peer);
-            DB.DisDB.GetDB().AddPeer(peer);
+            //_peers.Add(peer);
+            //DB.DisDB.GetDB().AddPeer(peer);
         }
     }
 }

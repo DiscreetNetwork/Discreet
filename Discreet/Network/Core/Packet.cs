@@ -99,10 +99,10 @@ namespace Discreet.Network.Core
         {
             switch (t)
             {
-                case PacketType.GETVERSION:
-                    return new Packets.GetVersionPacket();
                 case PacketType.VERSION:
-                    return new Packets.VersionPacket(data, offset);
+                    return new Packets.Peerbloom.VerAck(data, offset);
+                case PacketType.VERACK:
+                    return new Packets.Peerbloom.VerAck(data, offset);
                 case PacketType.INVENTORY:
                     return new Packets.InventoryPacket(data, offset);
                 case PacketType.GETBLOCKS:
@@ -125,10 +125,6 @@ namespace Discreet.Network.Core
                     return new Packets.SendBlockPacket(data, offset);
                 case PacketType.SENDMSG:
                     return new Packets.SendMessagePacket(data, offset);
-                case PacketType.CONNECT:
-                    return new Packets.Peerbloom.Connect(data, offset);
-                case PacketType.CONNECTACK:
-                    return new Packets.Peerbloom.ConnectAck(data, offset);
                 case PacketType.REQUESTPEERS:
                     return new Packets.Peerbloom.RequestPeers(data, offset);
                 case PacketType.REQUESTPEERSRESP:
@@ -150,10 +146,10 @@ namespace Discreet.Network.Core
         {
             switch (t)
             {
-                case PacketType.GETVERSION:
-                    return new Packets.GetVersionPacket();
                 case PacketType.VERSION:
-                    return new Packets.VersionPacket(s);
+                    return new Packets.Peerbloom.VersionPacket(s);
+                case PacketType.VERACK:
+                    return new Packets.Peerbloom.VerAck(s);
                 case PacketType.INVENTORY:
                     return new Packets.InventoryPacket(s);
                 case PacketType.GETBLOCKS:
@@ -176,10 +172,6 @@ namespace Discreet.Network.Core
                     return new Packets.SendBlockPacket(s);
                 case PacketType.SENDMSG:
                     return new Packets.SendMessagePacket(s);
-                case PacketType.CONNECT:
-                    return new Packets.Peerbloom.Connect(s);
-                case PacketType.CONNECTACK:
-                    return new Packets.Peerbloom.ConnectAck(s);
                 case PacketType.REQUESTPEERS:
                     return new Packets.Peerbloom.RequestPeers(s);
                 case PacketType.REQUESTPEERSRESP:

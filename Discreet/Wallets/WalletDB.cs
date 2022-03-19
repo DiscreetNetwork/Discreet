@@ -81,7 +81,7 @@ namespace Discreet.Wallets
                 Directory.CreateDirectory(path);
             }
 
-            var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies();
+            var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies().SetKeepLogFileNum(5);
 
             var _colFamilies = new ColumnFamilies
                 {

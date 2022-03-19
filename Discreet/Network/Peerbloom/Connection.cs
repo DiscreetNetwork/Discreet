@@ -110,7 +110,7 @@ namespace Discreet.Network.Peerbloom
         }
 
         /// <summary>
-        /// Try to open a connection to the node, and return whether the acknowledge were successfull
+        /// Try to open a connection to the node, and return whether the acknowledge were successful
         /// </summary>
         /// <param name="localNode"></param>
         /// <returns></returns>
@@ -137,6 +137,11 @@ namespace Discreet.Network.Peerbloom
                         /* set timeout for this connect attempt */
                         var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_CONNECT_TIMEOUT).Ticks;
 
+                        if (!_tcpClient.Connected)
+                        {
+
+                        }
+
                         /* begin connection */
                         if (!_tcpClient.Connected)
                         {
@@ -158,71 +163,121 @@ namespace Discreet.Network.Peerbloom
                         if (!ConnectionAcknowledged)
                         {
                             /* perform connect send */
-                            Core.Packets.Peerbloom.Connect connectBody = new Core.Packets.Peerbloom.Connect { Endpoint = new IPEndPoint(Sender.Endpoint.Address, Sender.Endpoint.Port) };
-                            Core.Packet connect = new Core.Packet(Core.PacketType.CONNECT, connectBody);
+                            Core.Packets.Peerbloom.VersionPacket verBody = new Core.Packets.Peerbloom.VersionPacket 
+                            {
+                                Version = Daemon.DaemonConfig.GetConfig().NetworkVersion.Value,
+                                Services = _network.handler.Services,
+                                Timestamp = DateTime.UtcNow.Ticks,
+                                Height = DB.DisDB.GetDB().GetChainHeight(),
+                                Address = Receiver,
+                                Nonce = _network.NodeID,
+                                Syncing = _network.handler.State == PeerState.Syncing
+                            };
 
-                            byte[] _connectData = connect.Serialize();
+                            Core.Packet ver = new Core.Packet(Core.PacketType.VERSION, verBody);
 
-                            var connectHandle = _tcpClient.GetStream().BeginWrite(_connectData, 0, _connectData.Length, null, null);
+                            byte[] _verData = ver.Serialize();
 
-                            while (!connectHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                            var verHandle = _tcpClient.GetStream().BeginWrite(_verData, 0, _verData.Length, null, null);
+
+                            while (!verHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
                             {
                                 await Task.Delay(50, token);
                             }
 
-                            if (!connectHandle.IsCompleted)
+                            if (!verHandle.IsCompleted)
                             {
                                 break;
                             }
 
-                            _tcpClient.GetStream().EndWrite(connectHandle);
-
+                            _tcpClient.GetStream().EndWrite(verHandle);
 
                             if (_timeout <= DateTime.UtcNow.Ticks)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: failed to send connect packet to {Receiver} due to timeout");
+                                Daemon.Logger.Warn($"Connection.Connect: failed to send Version packet to {Receiver} due to timeout");
                                 numConnectionAttempts++;
                                 continue;
                             }
 
-                            /* perform connect ACK receive */
-                            byte[] _connectAckData = new byte[30];
+                            /* receive remote version */
+                            byte[] _remoteVersion = new byte[61];
                             int numReadBytes = 0;
 
                             do
                             {
-                                var connectAckHandle = _tcpClient.GetStream().BeginRead(_connectAckData, 0, _connectAckData.Length, null, null);
+                                var remoteVersionHandle = _tcpClient.GetStream().BeginRead(_remoteVersion, 0, _remoteVersion.Length, null, null);
 
-                                while (!connectAckHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                                while (!remoteVersionHandle.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
                                 {
                                     await Task.Delay(50, token);
                                 }
 
-                                if (!connectAckHandle.IsCompleted)
+                                if (!remoteVersionHandle.IsCompleted)
                                 {
                                     break;
                                 }
 
-                                numReadBytes += _tcpClient.GetStream().EndRead(connectAckHandle);
+                                numReadBytes += _tcpClient.GetStream().EndRead(remoteVersionHandle);
                             }
-                            while (numReadBytes < _connectAckData.Length && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
+                            while (numReadBytes < _remoteVersion.Length && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested);
 
                             if (_timeout <= DateTime.UtcNow.Ticks)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: failed to read connect ACK packet from {Receiver} due to timeout");
+                                Daemon.Logger.Warn($"Connection.Connect: failed to read version packet from {Receiver} due to timeout");
                                 numConnectionAttempts++;
                                 continue;
                             }
 
-                            if (numReadBytes < _connectAckData.Length)
+                            if (numReadBytes < _remoteVersion.Length)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: failed to fully receive connect ACK packet from {Receiver}");
+                                Daemon.Logger.Warn($"Connection.Connect: failed to fully receive version packet from {Receiver}");
                                 numConnectionAttempts++;
                                 continue;
                             }
 
-                            Core.Packet connectAck = new Core.Packet(_connectAckData);
-                            Core.Packets.Peerbloom.ConnectAck connectAckBody = (Core.Packets.Peerbloom.ConnectAck)connectAck.Body;
+                            Core.Packet remoteVersion = new Core.Packet(_remoteVersion);
+                            Core.Packets.Peerbloom.VersionPacket remoteVersionBody = (Core.Packets.Peerbloom.VersionPacket)remoteVersion.Body;
+
+                            if (remoteVersionBody.Version != Daemon.DaemonConfig.GetConfig().NetworkVersion)
+                            {
+                                Daemon.Logger.Warn($"Connection.Connect: Bad network version for peer {Receiver}; expected {Daemon.DaemonConfig.GetConfig().NetworkVersion}, but got {remoteVersionBody.Version}");
+                                numConnectionAttempts++;
+                                continue;
+                            }
+
+                            if (remoteVersionBody.Timestamp > DateTime.UtcNow.Add(TimeSpan.FromHours(2)).Ticks || remoteVersionBody.Timestamp < DateTime.UtcNow.Subtract(TimeSpan.FromHours(2)).Ticks)
+                            {
+                                Daemon.Logger.Warn($"Connection.Connect: version packet timestamp for peer {Receiver} is either too old or too far in the future!");
+                                numConnectionAttempts++;
+                                continue;
+                            }
+
+                            if (_network.Cache.BadVersions.ContainsKey(Receiver))
+                            {
+                                _network.Cache.BadVersions.Remove(Receiver, out _);
+                            }
+
+                            if (!_network.Cache.Versions.TryAdd(Receiver, remoteVersionBody))
+                            {
+                                Daemon.Logger.Error($"Connection.Connect: failed to add version for peer {Receiver}");
+                                return;
+                            }
+
+                            /* time to send VerAck. At this point we can trust the connection is reliable. */
+                            await SendAsync(new Core.Packet(Core.PacketType.VERACK, new Core.Packets.Peerbloom.VerAck { Counter = 0, ReflectedEndpoint = Receiver }), token);
+
+                            var verAck = await ReadAsync(token);
+
+                            var verAckBody = (Core.Packets.Peerbloom.VerAck)verAck.Body;
+
+                            if (verAckBody.Counter <= 0)
+                            {
+                                /* was not acknowledged, end this connection */
+                                Daemon.Logger.Error($"Connection.Connect: could not complete connection, as this node version is out of date or invalid, and was not ACK'd. ending connection");
+                                _network.RemoveNodeFromPool(this);
+                                Dispose();
+                                return;
+                            }
 
                             IsPersistent = true;
                             ConnectionAcknowledged = true;
@@ -231,7 +286,7 @@ namespace Discreet.Network.Peerbloom
 
                             if (_network.OutboundConnectedPeers.Count == 0 || _network.ReflectedAddress == null)
                             {
-                                _network.SetReflectedAddress(connectAckBody.ReflectedEndpoint.Address);
+                                _network.SetReflectedAddress(verAckBody.ReflectedEndpoint.Address);
                             }
                         }
                     }

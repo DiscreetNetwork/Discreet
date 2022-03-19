@@ -6,7 +6,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Discreet.Network.Core.Packets
+namespace Discreet.Network.Core.Packets.Peerbloom
 {
     public class VersionPacket: IPacketBody
     {
@@ -15,6 +15,7 @@ namespace Discreet.Network.Core.Packets
         public long Timestamp { get; set; }
         public long Height { get; set; }
         public IPEndPoint Address { get; set; }
+        public ulong Nonce { get; set; }
         public bool Syncing { get; set; }
 
         public VersionPacket()
@@ -49,6 +50,9 @@ namespace Discreet.Network.Core.Packets
             Address = Utils.DeserializeEndpoint(b, offset);
             offset += 18;
 
+            Nonce = Coin.Serialization.GetUInt64(b, offset);
+            offset += 8;
+
             Syncing = b[offset] != 0;
         }
 
@@ -68,6 +72,9 @@ namespace Discreet.Network.Core.Packets
 
             s.Read(longbuf);
             Height = Coin.Serialization.GetInt64(longbuf, 0);
+
+            s.Read(longbuf);
+            Nonce = Coin.Serialization.GetUInt64(longbuf, 0);
 
             Address = Utils.DeserializeEndpoint(s);
 
@@ -91,6 +98,9 @@ namespace Discreet.Network.Core.Packets
             Utils.SerializeEndpoint(Address, b, offset);
             offset += 18;
 
+            Coin.Serialization.CopyData(b, offset, Nonce);
+            offset += 8;
+
             b[offset] = Syncing ? (byte)1 : (byte)0;
             return offset + 1;
         }
@@ -102,12 +112,13 @@ namespace Discreet.Network.Core.Packets
             s.Write(Coin.Serialization.Int64(Timestamp));
             s.Write(Coin.Serialization.Int64(Height));
             Utils.SerializeEndpoint(Address, s);
+            s.Write(Coin.Serialization.UInt64(Nonce));
             s.WriteByte(Syncing ? (byte)1 : (byte)0);
         }
 
         public int Size()
         {
-            return 4 + 4 + 8 + 8 + 18 + 1;
+            return 51;
         }
     }
 }

@@ -13,12 +13,18 @@ namespace Discreet.RPC.Endpoints
     /// </summary>
     public static class StatusEndpoints
     {
+        public class VersionRV
+        {
+            public string Build { get; set; }
+            public int Version { get; set; }
+        }
+
         [RPCEndpoint("get_version", APISet.STATUS)]
         public static object GetVersion()
         {
             try
             {
-                return Network.Handler.GetHandler().MakeVersionPacket();
+                return new VersionRV { Build = "testnet-win64", Version = 0 };
             }
             catch (Exception ex)
             {
@@ -38,7 +44,7 @@ namespace Discreet.RPC.Endpoints
         public class GetHealthRV
         {
             public Blockchain Blockchain { get; set; }
-            public Network.Core.Packets.VersionPacket Version { get; set; }
+            public Network.Core.Packets.Peerbloom.VersionPacket Version { get; set; }
             public TimeSpan Uptime { get; set; }
             public uint InboundConnections { get; set; }
             public uint OutboundConnections { get; set; }
