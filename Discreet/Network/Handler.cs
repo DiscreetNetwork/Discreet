@@ -315,7 +315,6 @@ namespace Discreet.Network
                 Timestamp = DateTime.UtcNow.Ticks,
                 Height = DB.DisDB.GetDB().GetChainHeight(),
                 Address = Daemon.DaemonConfig.GetConfig().Endpoint,
-                Nonce = _network.NodeID,
                 Syncing = State == PeerState.Syncing
             };
         }

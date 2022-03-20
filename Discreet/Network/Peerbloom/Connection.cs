@@ -170,7 +170,6 @@ namespace Discreet.Network.Peerbloom
                                 Timestamp = DateTime.UtcNow.Ticks,
                                 Height = DB.DisDB.GetDB().GetChainHeight(),
                                 Address = Receiver,
-                                Nonce = _network.NodeID,
                                 Syncing = _network.handler.State == PeerState.Syncing
                             };
 

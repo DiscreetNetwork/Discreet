@@ -73,11 +73,13 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         public HashSet<IPEndPoint> UnconnectedPeers = new();
 
+        /// <summary>
+        /// Used to test connections.
+        /// </summary>
+        public ConcurrentDictionary<IPEndPoint, Connection> Feelers = new();
+
         public int MinDesiredConnections;
         public int MaxDesiredConnections;
-
-        /* randomly generated once per session */
-        public ulong NodeID { get; private set; }
 
         public void AddConnecting(Connection conn)
         {
@@ -93,7 +95,24 @@ namespace Discreet.Network.Peerbloom
 
             if (!ConnectingPeers.TryAdd(conn.Receiver, conn))
             {
-                Daemon.Logger.Error($"Network.AddInboundConnection failed for connection {conn.Receiver}");
+                Daemon.Logger.Error($"Network.AddConnecting: failed for connection {conn.Receiver}");
+            }
+        }
+
+        public void AddFeeler(Connection conn)
+        {
+            if (Feelers.Any(n => n.Key.Equals(conn.Receiver))) return;
+
+            if (Feelers.Count == Constants.PEERBLOOM_MAX_FEELERS)
+            {
+                Daemon.Logger.Warn($"Network.AddFeeler: Currently testing maximum number of feelers; dropping connection to feeler {conn.Receiver}");
+                conn.Dispose();
+                return;
+            }
+
+            if (!Feelers.TryAdd(conn.Receiver, conn))
+            {
+                Daemon.Logger.Error($"Network.AddFeeler: failed for connection {conn.Receiver}");
             }
         }
 
@@ -258,7 +277,6 @@ namespace Discreet.Network.Peerbloom
             LocalNode = new LocalNode(endpoint);
             Cache = MessageCache.GetMessageCache();
             _shutdownTokenSource = new CancellationTokenSource();
-            NodeID = (ulong)new Random().NextInt64();
         }
 
         public void StartHeartbeater()
