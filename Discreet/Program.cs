@@ -1107,22 +1107,24 @@ namespace Discreet
 
 			Daemon.Daemon.DebugMode = true;
 
+			var config = Daemon.DaemonConfig.GetConfig();
+
 			Console.Write("Bootstrap IP: ");
 			IPAddress bootstrapIP = IPAddress.Parse(Console.ReadLine());
 
 			Console.Write("Port: ");
 			int port = int.Parse(Console.ReadLine());
 
-			Daemon.DaemonConfig visorConfig = new Daemon.DaemonConfig();
-
-			visorConfig.Port = port;
-			visorConfig.BootstrapNode = bootstrapIP;
-			visorConfig.Endpoint = new IPEndPoint(visorConfig.Endpoint.Address, port);
+			config.Port = port;
+			config.BootstrapNode = bootstrapIP;
+			config.Endpoint = new IPEndPoint(config.Endpoint.Address, port);
 			//string passphrase;
 
-			Daemon.DaemonConfig.SetConfig(visorConfig);
+			Daemon.DaemonConfig.SetConfig(config);
 
-			visor = new Daemon.Daemon();
+			config.Save();
+
+			var daemon = new Daemon.Daemon();
 
 			//Console.WriteLine("your address is: " + visor.wallet.Addresses[0].Address);
 
@@ -1130,14 +1132,14 @@ namespace Discreet
 
 			if (Console.ReadLine() == "discreet")
             {
-				visor.IsMasternode = true;
+				daemon.IsMasternode = true;
             }
 
 			//visor.wallet.ToFile(Path.Combine(visorConfig.WalletPath, $"{w.Label}.dis"));
 
 			//w.Decrypt(passphrase);
 
-			await visor.Start();
+			await daemon.Start();
 		}
 	}
 }

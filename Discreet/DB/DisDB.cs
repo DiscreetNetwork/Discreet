@@ -135,9 +135,6 @@ namespace Discreet.DB
         public static ColumnFamilyHandle OutputIndices;        
         public static ColumnFamilyHandle BlockCache;
         public static ColumnFamilyHandle BlockHeaders;
-        public static ColumnFamilyHandle PeerAnchors;
-        public static ColumnFamilyHandle PeerTried;
-        public static ColumnFamilyHandle PeerNew;
 
         public static string SPENT_KEYS = "spent_keys";
         public static string TX_POOL_BLOB = "tx_pool_blob";
@@ -151,9 +148,6 @@ namespace Discreet.DB
         public static string META = "meta";
         public static string BLOCK_CACHE = "block_cache";
         public static string BLOCK_HEADERS = "block_headers";
-        public static string PEERANCHORS = "peeranchors";
-        public static string PEERTRIED = "peertried";
-        public static string PEERNEW = "peernew";
 
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
@@ -199,9 +193,6 @@ namespace Discreet.DB
                     new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions()),
                     new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(PEERANCHORS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(PEERTRIED, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(PEERNEW, new ColumnFamilyOptions())
                 };
 
                 db = RocksDb.Open(options, path, _colFamilies);
@@ -218,9 +209,6 @@ namespace Discreet.DB
                 OutputIndices = db.GetColumnFamily(OUTPUT_INDICES);
                 BlockCache = db.GetColumnFamily(BLOCK_CACHE);
                 BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
-                PeerAnchors = db.GetColumnFamily(PEERANCHORS);
-                PeerTried = db.GetColumnFamily(PEERTRIED);
-                PeerNew = db.GetColumnFamily(PEERNEW);
 
                 if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
                 {
@@ -297,9 +285,6 @@ namespace Discreet.DB
             db.DropColumnFamily(OUTPUT_INDICES);
             db.DropColumnFamily(BLOCK_CACHE);
             db.DropColumnFamily(BLOCK_HEADERS);
-            db.DropColumnFamily(PEERANCHORS);
-            db.DropColumnFamily(PEERTRIED);
-            db.DropColumnFamily(PEERNEW);
 
             disdb = null;
             db.Dispose();
@@ -929,98 +914,6 @@ namespace Discreet.DB
             }
 
             return Serialization.GetInt64(result, 0);
-        }
-
-        public void AddTried(Network.Peerbloom.Peerlist.Peer peer)
-        {
-            db.Put(peer.Serialize(), ZEROKEY, cf: PeerTried);
-        }
-
-        public void AddNew(Network.Peerbloom.Peerlist.Peer peer)
-        {
-            db.Put(peer.Serialize(), ZEROKEY, cf: PeerNew);
-        }
-
-        public void EvictTried(Network.Peerbloom.Peerlist.Peer peer)
-        {
-            db.Remove(peer.Serialize(), cf: PeerTried);
-        }
-
-        public void EvictNew(Network.Peerbloom.Peerlist.Peer peer)
-        {
-            db.Remove(peer.Serialize(), cf: PeerNew);
-        }
-
-        public void AddAnchor(Network.Peerbloom.Peerlist.Peer peer)
-        {
-            db.Put(peer.Serialize(), ZEROKEY, cf: PeerAnchors);
-        }
-
-        public byte[] GetPeerlistSalt()
-        {
-            var res = db.Get(Encoding.ASCII.GetBytes("peerlist_salt"), cf: Meta);
-
-            if (res == null)
-            {
-                res = new byte[32];
-                new Random().NextBytes(res);
-
-                db.Put(Encoding.ASCII.GetBytes("peerlist_salt"), res, cf: Meta);
-            }
-
-            return res;
-        }
-
-        public void GetTried(Network.Peerbloom.Peerlist peerlist)
-        {
-            var iterator = db.NewIterator(cf: PeerTried);
-
-            iterator.SeekToFirst();
-
-            while (iterator.Valid())
-            {
-                byte[] bytes = iterator.Key();
-
-                peerlist.AddTried(new Network.Peerbloom.Peerlist.Peer(bytes), false);
-
-                iterator.Next();
-            }
-        }
-
-        public void GetNew(Network.Peerbloom.Peerlist peerlist)
-        {
-            var iterator = db.NewIterator(cf: PeerNew);
-
-            iterator.SeekToFirst();
-
-            while (iterator.Valid())
-            {
-                byte[] bytes = iterator.Key();
-
-                peerlist.AddNew(new Network.Peerbloom.Peerlist.Peer(bytes));
-
-                iterator.Next();
-            }
-        }
-
-        public List<Network.Peerbloom.Peerlist.Peer> GetAnchors()
-        {
-            List<Network.Peerbloom.Peerlist.Peer> anchors = new List<Network.Peerbloom.Peerlist.Peer>();
-
-            var iterator = db.NewIterator(cf: PeerAnchors);
-
-            iterator.SeekToFirst();
-
-            while (iterator.Valid())
-            {
-                byte[] bytes = iterator.Key();
-
-                anchors.Add(new Network.Peerbloom.Peerlist.Peer(bytes));
-
-                iterator.Next();
-            }
-
-            return anchors;
         }
     }
 }

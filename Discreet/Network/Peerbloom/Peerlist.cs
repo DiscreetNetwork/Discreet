@@ -1,166 +1,18 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Discreet.Network.Peerbloom
 {
     public class Peerlist
     {
-        public class Peer
-        {
-            public IPEndPoint Endpoint { get; set; }
-            public IPEndPoint Source { get; set; }
-            public long LastSeen { get; set; }
-            public long FirstSeen { get; set; }
-
-            public bool InTried { get; set; }
-
-            public int NumFailedConnectionAttempts { get; set; }
-
-            public long LastSuccess { get; set; }
-            public long LastAttempt { get; set; }
-
-            // how many times this occurs in the NEW set
-            public int RefCount { get; set; }
-
-            public byte[] Serialize()
-            {
-                byte[] data = new byte[77];
-
-                Core.Utils.SerializeEndpoint(Endpoint, data, 0);
-                Core.Utils.SerializeEndpoint(Source, data, 18);
-                Coin.Serialization.CopyData(data, 36, LastSeen);
-                Coin.Serialization.CopyData(data, 44, FirstSeen);
-                Coin.Serialization.CopyData(data, 52, InTried);
-                Coin.Serialization.CopyData(data, 53, NumFailedConnectionAttempts);
-                Coin.Serialization.CopyData(data, 57, LastSuccess);
-                Coin.Serialization.CopyData(data, 65, LastAttempt);
-                Coin.Serialization.CopyData(data, 73, RefCount);
-                return data;
-            }
-
-            public Peer() { }
-
-            public Peer(byte[] data)
-            {
-                Deserialize(data);
-            }
-
-            public void Deserialize(byte[] data)
-            {
-                Endpoint = Core.Utils.DeserializeEndpoint(data, 0);
-                Source = Core.Utils.DeserializeEndpoint(data, 18);
-                LastSeen = Coin.Serialization.GetInt64(data, 36);
-                FirstSeen = Coin.Serialization.GetInt64(data, 44);
-                InTried = Coin.Serialization.GetBool(data, 52);
-                NumFailedConnectionAttempts = Coin.Serialization.GetInt32(data, 53);
-                LastSuccess = Coin.Serialization.GetInt64(data, 57);
-                LastAttempt = Coin.Serialization.GetInt64(data, 65);
-                RefCount = Coin.Serialization.GetInt32(data, 73);
-            }
-
-            public Peer(IPEndPoint endpoint, IPEndPoint source, long lastSeen, long firstSeen)
-            {
-                Endpoint = endpoint;
-                Source = source;
-                LastSeen = lastSeen;
-                FirstSeen = firstSeen;
-                InTried = false;
-                LastSuccess = 0;
-                NumFailedConnectionAttempts = 0;
-                LastAttempt = 0;
-                RefCount = 0;
-            }
-
-            public Peer(IPEndPoint endpoint, IPEndPoint source, long lastSeen)
-            {
-                Endpoint = endpoint;
-                Source = source;
-                LastSeen = lastSeen;
-                FirstSeen = DateTime.UtcNow.Ticks;
-                InTried = false;
-                LastSuccess = 0;
-                NumFailedConnectionAttempts = 0;
-                LastAttempt = 0;
-                RefCount = 0;
-            }
-
-            public Peer(IPEndPoint endpoint, IPEndPoint source)
-            {
-                Endpoint = endpoint;
-                Source = source;
-                LastSeen = DateTime.UtcNow.Ticks - (24L * 3600L * 10_000_000L);
-                FirstSeen = DateTime.UtcNow.Ticks;
-                InTried = false;
-                LastSuccess = 0;
-                NumFailedConnectionAttempts = 0;
-                LastAttempt = 0;
-                RefCount = 0;
-            }
-
-            public bool IsTerrible()
-            {
-                // likely a private peer; should evict if failed to connect.
-                if (LastAttempt > 0 && NumFailedConnectionAttempts > 0 && Endpoint.Port > 49151)
-                {
-                    return true;
-                }
-
-                // don't remove things attempted in the last minute
-                if (LastAttempt > 0 && LastAttempt >= DateTime.UtcNow.Ticks - 60L * 10_000_000L)
-                {
-                    return false;
-                }
-
-                // has timestamp from too far in the future
-                if (LastSeen > DateTime.UtcNow.Ticks + 600L * 10_000_000L)
-                {
-                    return true;
-                }
-
-                // not seen in recent history, or never seen
-                if (LastSeen == 0 || DateTime.UtcNow.Ticks - LastSeen > Constants.PEERLIST_HORIZON_DAYS * 24L * 3600L * 10_000_000L)
-                {
-                    return true;
-                }
-
-                // no successes after maximum retries
-                if (LastSuccess == 0 && NumFailedConnectionAttempts >= Constants.PEERLIST_MAX_RETRIES)
-                {
-                    return true;
-                }
-
-                // too many falures over the last week
-                if (DateTime.UtcNow.Ticks - LastSuccess > Constants.PEERLIST_MIN_FAIL_DAYS * 24L * 3600L * 10_000_000L && NumFailedConnectionAttempts >= Constants.PEERLIST_MAX_FAILURES)
-                {
-                    return true;
-                }
-
-                return false;
-            }
-
-            public double GetChance()
-            {
-                double chance = 1.0;
-
-                long lastTry = Math.Min(DateTime.UtcNow.Ticks - LastAttempt, 0);
-
-                if (lastTry < Constants.PEERLIST_RECENT_TRY * 10_000_000L)
-                {
-                    chance *= 0.01;
-                }
-
-                chance *= Math.Pow(0.66, Math.Min(NumFailedConnectionAttempts, 8));
-
-                return chance;
-            }
-        }
-
         private int[,] Tried;
         private int[,] New;
 
@@ -183,15 +35,139 @@ namespace Discreet.Network.Peerbloom
 
         public Peerlist()
         {
+            var path = Path.Combine(Daemon.DaemonConfig.GetConfig().DaemonPath, "peerlist.bin");
+            if (File.Exists(path))
+            {
+                try
+                {
+                    Deserialize(File.ReadAllBytes(path));
+                    return;
+                }
+                catch
+                {
+                    Daemon.Logger.Error($"Peerlist: could not initialize from {path}; possibly corrupt");
+                }
+            }
+
+            _counter = 1;
+            _newCounter = 0;
+            _triedCounter = 0;
+
             Tried = new int[Constants.PEERLIST_MAX_TRIED_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
             New = new int[Constants.PEERLIST_MAX_NEW_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
 
-            DB.DisDB.GetDB().GetTried(this);
-            DB.DisDB.GetDB().GetNew(this);
+            addrs = new();
+            Anchors = new();
+            TriedCollisions = new();
 
-            Anchors = DB.DisDB.GetDB().GetAnchors();
+            salt = new byte[32];
+            new Random().NextBytes(salt);
 
-            salt = DB.DisDB.GetDB().GetPeerlistSalt();
+            File.WriteAllBytes(path, Serialize());
+        }
+
+        public byte[] Serialize()
+        {
+            using MemoryStream _ms = new MemoryStream();
+
+            Coin.Serialization.CopyData(_ms, salt);
+            Coin.Serialization.CopyData(_ms, _counter);
+            Coin.Serialization.CopyData(_ms, _triedCounter);
+            Coin.Serialization.CopyData(_ms, _newCounter);
+
+            for (int i = 0; i < Tried.GetLength(0); i++)
+            {
+                for (int j = 0; j < Tried.GetLength(1); j++)
+                {
+                    Coin.Serialization.CopyData(_ms, Tried[i, j]);
+                }
+            }
+
+            for (int i = 0; i < New.GetLength(0); i++)
+            {
+                for (int j = 0; j < New.GetLength(1); j++)
+                {
+                    Coin.Serialization.CopyData(_ms, New[i, j]);
+                }
+            }
+
+            Coin.Serialization.CopyData(_ms, addrs.Count);
+
+            foreach (var kvpair in addrs)
+            {
+                Coin.Serialization.CopyData(_ms, kvpair.Key);
+                Coin.Serialization.CopyData(_ms, kvpair.Value.Serialize());
+            }
+
+            Coin.Serialization.CopyData(_ms, Anchors.Count);
+
+            for (int i = 0; i < Anchors.Count; i++)
+            {
+                Coin.Serialization.CopyData(_ms, Anchors[i].Serialize());
+            }
+
+            Coin.Serialization.CopyData(_ms, TriedCollisions.Count);
+
+            for (int i = 0; i < TriedCollisions.Count; i++)
+            {
+                Coin.Serialization.CopyData(_ms, TriedCollisions[i].Serialize());
+            }
+
+            return _ms.ToArray();
+        }
+
+        public void Deserialize(byte[] data)
+        {
+            using var _ms = new MemoryStream(data);
+
+            salt = Coin.Serialization.GetBytes(_ms);
+            _counter = Coin.Serialization.GetInt32(_ms);
+            _triedCounter = Coin.Serialization.GetInt32(_ms);
+            _newCounter = Coin.Serialization.GetInt32(_ms);
+
+            Tried = new int[Constants.PEERLIST_MAX_TRIED_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
+            New = new int[Constants.PEERLIST_MAX_NEW_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
+
+            for (int i = 0; i < Tried.GetLength(0); i++)
+            {
+                for (int j = 0; j < Tried.GetLength(1); j++)
+                {
+                    Tried[i, j] = Coin.Serialization.GetInt32(_ms);
+                }
+            }
+
+            for (int i = 0; i < New.GetLength(0); i++)
+            {
+                for (int j = 0; j < New.GetLength(1); j++)
+                {
+                    New[i, j] = Coin.Serialization.GetInt32(_ms);
+                }
+            }
+
+            addrs = new();
+            var addrsCount = Coin.Serialization.GetInt32(_ms);
+
+            for (int i = 0; i < addrsCount; i++)
+            {
+                var nID = Coin.Serialization.GetInt32(_ms);
+                addrs[nID] = new Peer(Coin.Serialization.GetBytes(_ms));
+            }
+
+            Anchors = new();
+            var anchorCount = Coin.Serialization.GetInt32(_ms);
+
+            for (int i = 0; i < anchorCount; i++)
+            {
+                Anchors.Add(new Peer(Coin.Serialization.GetBytes(_ms)));
+            }
+
+            TriedCollisions = new();
+            var collisionCount = Coin.Serialization.GetInt32(_ms);
+
+            for (int i = 0; i < collisionCount; i++)
+            {
+                TriedCollisions.Add(new Peer(Coin.Serialization.GetBytes(_ms)));
+            }
         }
 
         public byte[] GetGroup(IPEndPoint endpoint)
@@ -337,6 +313,13 @@ namespace Discreet.Network.Peerbloom
             return addrs[nID];
         }
 
+        public Peer Create(IPEndPoint endpoint, IPEndPoint source, out int nID, long firstSeen = 0, long lastSeen = 0)
+        {
+            nID = _counter++;
+            addrs[nID] = new Peer(endpoint, source, lastSeen, firstSeen);
+            return addrs[nID];
+        }
+
         public bool AddNew(IPEndPoint endpoint, IPEndPoint source, long penalty)
         {
             if (endpoint.Equals(source))
@@ -379,7 +362,7 @@ namespace Discreet.Network.Peerbloom
                 if (!_insert)
                 {
                     var existingPeer = addrs[New[bucket,pos]];
-                    if (existingPeer.IsTerrible() && existingPeer.InTried)
+                    if (existingPeer.IsTerrible() || (existingPeer.RefCount > 1 && pinfo.RefCount == 0))
                     {
                         _insert = true;
                     }
@@ -468,6 +451,8 @@ namespace Discreet.Network.Peerbloom
             {
                 if (TriedCollisions.Count < Constants.PEERLIST_MAX_TRIED_COLLISION_SIZE)
                 {
+                    addrs[nID].LastAttempt = 0;
+                    addrs[nID].NumFailedConnectionAttempts = 0;
                     TriedCollisions.Add(addrs[nID]);
                 }
 
@@ -514,6 +499,8 @@ namespace Discreet.Network.Peerbloom
         public (Peer, long) Select(bool newOnly)
         {
             if (newOnly && NumNew == 0) return (null, 0);
+
+            if (NumTried == 0 && NumNew == 0) return (null, 0);
 
             Random r = new Random();
 
@@ -580,6 +567,34 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
+        public List<IPEndPoint> GetAddr(int maxAddresses, int maxPercent)
+        {
+            int numNodes = addrs.Count;
+
+            if (maxPercent > 0)
+            {
+                numNodes = maxPercent * numNodes / 100;
+            }
+
+            if (maxAddresses > 0)
+            {
+                numNodes = Math.Min(numNodes, maxAddresses);
+            }
+
+            Random r = new Random();
+            List<IPEndPoint> peers = new List<IPEndPoint>();
+            for (int i = 0; i < numNodes; i++)
+            {
+                var peer = addrs[r.Next(0, addrs.Count)];
+
+                if (peer.IsTerrible() || peers.Contains(peer.Endpoint)) continue;
+
+                peers.Add(peer.Endpoint);
+            }
+
+            return peers;
+        }
+
         public void AddPeer(IPEndPoint endpoint = null, long lastSeen = 0)
         {
             // WIP
@@ -592,6 +607,82 @@ namespace Discreet.Network.Peerbloom
 
             //_peers.Add(peer);
             //DB.DisDB.GetDB().AddPeer(peer);
+        }
+
+        /// <summary>
+        /// Used to manage collisions, periodically backup the tables, and resolve collisions.
+        /// </summary>
+        /// <returns></returns>
+        public void Start(Feeler feeler, CancellationToken token)
+        {
+            _ = Task.Run(() => Backuper(token)).ConfigureAwait(false);
+            _ = Task.Run(() => Collisioner(feeler, token)).ConfigureAwait(false);
+        }
+
+        private async Task Backuper(CancellationToken token)
+        {
+            while (token.IsCancellationRequested)
+            {
+                var timer = DateTime.UtcNow.AddSeconds(Constants.PEERLIST_BACKUP_INTERVAL).Ticks;
+
+                while (timer > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                {
+                    // we can await much longer for this
+                    await Task.Delay(10000);
+                }
+
+                if (token.IsCancellationRequested) return;
+
+                await File.WriteAllBytesAsync(Path.Combine(Daemon.DaemonConfig.GetConfig().DaemonPath, "peerlist.bin"), Serialize(), token);
+            }
+        }
+
+        private async Task Collisioner(Feeler feeler, CancellationToken token)
+        {
+            while (token.IsCancellationRequested)
+            {
+                var timer = DateTime.UtcNow.AddSeconds(Constants.PEERLIST_RESOLVE_COLLISION_INTERVAL).Ticks;
+
+                while (timer > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                {
+                    await Task.Delay(5000);
+                }
+
+                if (token.IsCancellationRequested) return;
+
+                // first check if any collisions have been resolved yet
+                List<Peer> toRemove = new();
+
+                foreach (var p in TriedCollisions)
+                {
+                    int bucket = GetTriedBucket(p.Endpoint);
+                    int pos = GetBucketPosition(false, bucket, p.Endpoint);
+
+                    int nID = Tried[bucket, pos];
+                    if (nID == 0) continue;
+
+                    var oldPeer = addrs[nID];
+                    if (oldPeer.LastAttempt > 0 && oldPeer.NumFailedConnectionAttempts > 0)
+                    {
+                        Good(p.Endpoint, false);
+                    }
+                    else
+                    {
+                        toRemove.Add(p);
+                    }
+                }
+
+                foreach (var peer in toRemove)
+                {
+                    TriedCollisions.Remove(peer);
+                }
+
+                // now pass unchecked collisions into Feeler if not already there
+                foreach (var peer in TriedCollisions)
+                {
+                    feeler.Enqueue(Feeler.FeelerPriorityLevel.COLLISION, peer);
+                }
+            }
         }
     }
 }

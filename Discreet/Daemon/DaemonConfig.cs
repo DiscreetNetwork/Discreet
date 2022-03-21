@@ -22,9 +22,14 @@ namespace Discreet.Daemon
                 {
                     var daemonPath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
 
-                    daemonPath = Path.Combine($"{daemonPath}\\", ".discreet");
+                    daemonPath = Path.Combine($"{daemonPath}", "discreet");
 
                     var configPath = Path.Combine(daemonPath, "config.json");
+
+                    var _options = new JsonSerializerOptions();
+
+                    _options.Converters.Add(new RPC.Converters.IPAddressConverter());
+                    _options.Converters.Add(new RPC.Converters.IPEndPointConverter());
 
                     if (File.Exists(configPath))
                     {
@@ -32,10 +37,7 @@ namespace Discreet.Daemon
                         {
                             string _configData = File.ReadAllText(configPath);
 
-                            var _options = new JsonSerializerOptions();
-
-                            _options.Converters.Add(new RPC.Converters.IAddressConverter());
-                            _options.Converters.Add(new RPC.Converters.IPEndPointConverter());
+                            
 
                             DaemonConfig _config = JsonSerializer.Deserialize<DaemonConfig>(_configData, _options);
 
@@ -49,21 +51,47 @@ namespace Discreet.Daemon
                         catch
                         {
                             _daemon_config = new DaemonConfig();
+
+                            _daemon_config.Save();
                         }
                     }
+                    else
+                    {
+                        _daemon_config = new DaemonConfig();
 
-                    _daemon_config = new DaemonConfig();
+                        _daemon_config.Save();
+                    }
+
                 }
 
                 return _daemon_config;
             }
         }
 
+        public void Save()
+        {
+            var _options = new JsonSerializerOptions();
+
+            _options.Converters.Add(new RPC.Converters.IPAddressConverter());
+            _options.Converters.Add(new RPC.Converters.IPEndPointConverter());
+
+            if (!Directory.Exists(DaemonPath)) Directory.CreateDirectory(DaemonPath);
+
+            // sanity check
+            if (!Directory.Exists(DBPath)) Directory.CreateDirectory(DBPath);
+            if (!Directory.Exists(LogPath)) Directory.CreateDirectory(LogPath);
+            if (!Directory.Exists(WalletPath)) Directory.CreateDirectory(WalletPath);
+
+            Console.WriteLine($"{BootstrapNode}");
+
+            File.WriteAllText(ConfigPath, Common.Printable.Prettify(JsonSerializer.Serialize<DaemonConfig>(this, _options)));
+        }
+
         public void ConfigureDefaults()
         {
             var daemonPath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
 
-            daemonPath = Path.Combine($"{daemonPath}\\", ".discreet");
+            daemonPath = Path.Combine($"{daemonPath}", "discreet");
 
             if (DaemonPath == null)
             {
@@ -98,7 +126,7 @@ namespace Discreet.Daemon
 
             if (Port == null)
             {
-                Port = 6585;
+                Port = 9875;
             }
 
             if (Endpoint == null)
@@ -192,7 +220,7 @@ namespace Discreet.Daemon
         {
             DaemonPath = (Environment.OSVersion.Platform == PlatformID.Unix || Environment.OSVersion.Platform == PlatformID.MacOSX) ? Environment.GetEnvironmentVariable("HOME") : Environment.ExpandEnvironmentVariables("%HOMEDRIVE%%HOMEPATH%");
 
-            DaemonPath = Path.Combine($"{DaemonPath}\\", ".discreet");
+            DaemonPath = Path.Combine($"{DaemonPath}", "discreet");
 
             if (!Directory.Exists(DaemonPath)) Directory.CreateDirectory(DaemonPath);
 
@@ -211,7 +239,7 @@ namespace Discreet.Daemon
 
             DBSize = 4294967296 / 4; // 1gb
 
-            Port = 6585;
+            Port = 9875;
 
             Endpoint = new IPEndPoint(IPAddress.Any, Port.Value);
 

@@ -258,6 +258,8 @@ namespace Discreet.Network.Peerbloom
 
         private Heartbeater heartbeater;
         private PeerExchanger peerExchanger;
+        private Feeler feeler;
+        public Peerlist peerlist;
 
         /// <summary>
         /// A common tokenSource to control our loops. 
@@ -277,6 +279,8 @@ namespace Discreet.Network.Peerbloom
             LocalNode = new LocalNode(endpoint);
             Cache = MessageCache.GetMessageCache();
             _shutdownTokenSource = new CancellationTokenSource();
+            peerlist = new Peerlist();
+            feeler = new Feeler(this, peerlist);
         }
 
         public void StartHeartbeater()
@@ -298,6 +302,8 @@ namespace Discreet.Network.Peerbloom
         public async Task Start()
         {
             _ = Task.Run(() => StartListener(_shutdownTokenSource.Token));
+            peerlist.Start(feeler, _shutdownTokenSource.Token);
+            _ = Task.Run(() => feeler.Start(_shutdownTokenSource.Token));
         }
 
         public async Task StartListener(CancellationToken token)
@@ -348,12 +354,42 @@ namespace Discreet.Network.Peerbloom
 
                 Daemon.Logger.Info($"Initiated bootstrap node on port {LocalNode.Endpoint.Port}");
 
-                handler.Start(_shutdownTokenSource.Token);
-
                 IsBootstrapping = false;
 
                 IsBootstrap = true;
 
+                _ = Task.Run(() => RunNetwork()).ConfigureAwait(false);
+
+                return;
+            }
+
+            if (peerlist.NumNew + peerlist.NumTried > 0)
+            {
+                Daemon.Logger.Info("Attempting to connect to known peers...");
+
+                List<Peer> checkedPeers = new List<Peer>();
+                Peer peer;
+                do
+                {
+                    (peer, _) = peerlist.Select(false);
+
+                    if (checkedPeers.Contains(peer)) continue;
+
+                    Connection conn = new Connection(peer.Endpoint, this, LocalNode, true);
+
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false);
+                    peerlist.Attempt(peer.Endpoint, !success);
+
+                    checkedPeers.Add(peer);
+                }
+                while (peer != null && OutboundConnectedPeers.Count < 2 && checkedPeers.Count < peerlist.NumTried + peerlist.NumNew);
+            }
+
+            if (OutboundConnectedPeers.Count > 0)
+            {
+                Daemon.Logger.Info($"Successfully connected to {OutboundConnectedPeers.Count} peers");
+                _ = Task.Run(() => RunNetwork()).ConfigureAwait(false);
+                IsBootstrapping = false;
                 return;
             }
 
@@ -402,6 +438,8 @@ namespace Discreet.Network.Peerbloom
 
             if (Daemon.Daemon.DebugMode)
             {
+                peerlist.Create(bootstrapNode.Receiver, bootstrapNode.Receiver, out _);
+                peerlist.Good(bootstrapNode.Receiver, false);
                 _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token)).ConfigureAwait(false);
             }
 
@@ -418,11 +456,13 @@ namespace Discreet.Network.Peerbloom
                     continue;
                 }
 
-                _ = Task.Run(() => new Connection(node, this, LocalNode, true).Connect(true, _shutdownTokenSource.Token)).ConfigureAwait(false);
+                peerlist.AddNew(node, bootstrapNode.Receiver, 0);
             }
 
             IsBootstrapping = false;
             Daemon.Logger.Info("Bootstrap completed.");
+            _ = Task.Run(() => RunNetwork()).ConfigureAwait(false);
+
         }
 
         public int Broadcast(Core.Packet packet)
@@ -520,6 +560,46 @@ namespace Discreet.Network.Peerbloom
         public void AddPacketToQueue(Core.Packet p, Connection conn)
         {
             handler.AddPacketToQueue(p, conn);
+        }
+        
+        public async Task RunNetwork()
+        {
+            while (_shutdownTokenSource.IsCancellationRequested)
+            {
+                await Task.Delay(60 * 1000);
+
+                if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
+                {
+                    (Peer p, _) = peerlist.Select(false);
+                    if (!_network.OutboundConnectedPeers.ContainsKey(p.Endpoint) && !_network.ConnectingPeers.ContainsKey(p.Endpoint))
+                    {
+                        _ = Task.Run(async () =>
+                        {
+                            if (p.Endpoint.Address.Equals(_network.ReflectedAddress)) return;
+
+                            Connection conn = new Connection(p.Endpoint, this, LocalNode, true);
+
+                            bool success = await conn.Connect(true, _shutdownTokenSource.Token, false);
+
+                            peerlist.Attempt(p.Endpoint, !success);
+                        });
+                    }
+                }
+
+                foreach (var conn in OutboundConnectedPeers.Values)
+                {
+                    peerlist.FindPeer(conn.Receiver, out _).LastSeen = DateTime.UtcNow.Ticks;
+                }
+
+                foreach (var conn in InboundConnectedPeers.Values)
+                {
+                    if (conn.ConnectionAcknowledged)
+                    {
+                        var peer = peerlist.FindPeer(conn.Receiver, out _);
+                        if (peer != null) peer.LastSeen = DateTime.UtcNow.Ticks;
+                    }
+                }
+            }
         }
     }
 }

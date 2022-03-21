@@ -114,12 +114,28 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         /// <param name="localNode"></param>
         /// <returns></returns>
-        public async Task Connect(bool persist = false, CancellationToken token = default)
+        public async Task<bool> Connect(bool persist = false, CancellationToken token = default, bool feeler = false)
         {
-            _network.AddConnecting(this);
+            if (feeler)
+            {
+                _network.AddFeeler(this);
+            }
+            else
+            {
+                _network.AddConnecting(this);
+            }
 
             /* there is a chance AddConnecting disposes this connection if maximum pending connections is reached. */
-            if (disposed) return;
+            if (disposed)
+            {
+                _network.RemoveNodeFromPool(this);
+                if (feeler)
+                {
+                    _network.Feelers.TryRemove(Receiver, out _);
+                }
+
+                return false;
+            }
             
             try
             {
@@ -136,11 +152,6 @@ namespace Discreet.Network.Peerbloom
 
                         /* set timeout for this connect attempt */
                         var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_CONNECT_TIMEOUT).Ticks;
-
-                        if (!_tcpClient.Connected)
-                        {
-
-                        }
 
                         /* begin connection */
                         if (!_tcpClient.Connected)
@@ -259,7 +270,18 @@ namespace Discreet.Network.Peerbloom
                             if (!_network.Cache.Versions.TryAdd(Receiver, remoteVersionBody))
                             {
                                 Daemon.Logger.Error($"Connection.Connect: failed to add version for peer {Receiver}");
-                                return;
+
+                                if (feeler)
+                                {
+                                    _network.Feelers.Remove(Receiver, out _);
+                                    Dispose();
+                                }
+                                else
+                                {
+                                    Dispose();
+                                }
+
+                                return false;
                             }
 
                             /* time to send VerAck. At this point we can trust the connection is reliable. */
@@ -275,7 +297,7 @@ namespace Discreet.Network.Peerbloom
                                 Daemon.Logger.Error($"Connection.Connect: could not complete connection, as this node version is out of date or invalid, and was not ACK'd. ending connection");
                                 _network.RemoveNodeFromPool(this);
                                 Dispose();
-                                return;
+                                return false;
                             }
 
                             IsPersistent = true;
@@ -293,14 +315,29 @@ namespace Discreet.Network.Peerbloom
                     if (numConnectionAttempts >= Constants.CONNECTION_MAX_CONNECT_ATTEMPTS)
                     {
                         Daemon.Logger.Error($"Connection.Connect: failed to complete connection with peer {Receiver}, exceeded maximum connection attempts");
+                        Dispose();
+                        if (feeler)
+                        {
+                            _network.Feelers.TryRemove(Receiver, out _);
+                        }
+                        return false;
                     }
 
                     if (!ConnectionAcknowledged)
                     {
                         Daemon.Logger.Error($"Connection.Connect: failed to authenticate connection with peer {Receiver}");
+                        Dispose();
+                        if (feeler)
+                        {
+                            _network.Feelers.TryRemove(Receiver, out _);
+                        }
+                        return false;
                     }
 
-                    _network.AddOutboundConnection(this);
+                    if (!feeler)
+                    {
+                        _network.AddOutboundConnection(this);
+                    }
                 }
                 else
                 {
@@ -324,24 +361,46 @@ namespace Discreet.Network.Peerbloom
             {
                 Daemon.Logger.Error($"Connection.Connect: an exception was encountered with peer {Receiver}: {ex.Message}");
             }
-            finally
+
+            if (_tcpClient != null)
             {
-                if (_tcpClient != null)
+                if (!_tcpClient.Connected && !ConnectionAcknowledged)
                 {
-                    if (!_tcpClient.Connected && !ConnectionAcknowledged)
+                    Dispose();
+                    if (feeler)
                     {
-                        _tcpClient.Dispose();
+                        _network.Feelers.TryRemove(Receiver, out _);
                     }
-                    else if (persist && !disposed)
-                    {
-                        await Persistent(token);
-                    }
+                    return false;
                 }
-                else
+                else if (persist && !disposed)
                 {
-                    _network.RemoveNodeFromPool(this);
+                    if (feeler)
+                    {
+                        _network.Feelers.TryRemove(Receiver, out _);
+                        return true;
+                    }
+                    await Persistent(token);
+
+                    return true;
                 }
             }
+            else
+            {
+                Dispose();
+                if (feeler)
+                {
+                    _network.Feelers.TryRemove(Receiver, out _);
+                }
+                return false;
+            }
+
+            if (feeler)
+            {
+                Dispose();
+                _network.Feelers.TryRemove(Receiver, out _);
+            }
+            return true;
         }
 
         public async Task<List<IPEndPoint>> RequestPeers(IPEndPoint localEndpoint, CancellationToken token = default)
@@ -710,7 +769,7 @@ namespace Discreet.Network.Peerbloom
                             if (!_network.OutboundConnectedPeers.ContainsKey(Receiver) && !_network.InboundConnectedPeers.ContainsKey(Receiver) && !_network.ConnectingPeers.ContainsKey(Receiver))
                             {
                                 Daemon.Logger.Error($"Connection.Persistent: An error was encountered during read from peer {Receiver}; ending connection");
-                                _tcpClient.Dispose();
+                                Dispose();
                                 return;
                             }
                         }
@@ -727,7 +786,7 @@ namespace Discreet.Network.Peerbloom
                 catch (Exception ex)
                 {
                     Daemon.Logger.Error($"Connection.Persistent: {ex.Message}; ending connection");
-                    _tcpClient.Dispose();
+                    Dispose();
                     break;
                 }
             }
@@ -779,6 +838,7 @@ namespace Discreet.Network.Peerbloom
                     _tcpClient.Dispose();
                     _readMutex.Dispose();
                     _sendMutex.Dispose();
+                    _network.RemoveNodeFromPool(this);
                 }
 
                 disposed = true;

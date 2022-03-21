@@ -177,7 +177,7 @@ namespace Discreet.Network
                     await HandleRequestPeers((Core.Packets.Peerbloom.RequestPeers)p.Body, conn.Receiver);
                     break;
                 case PacketType.REQUESTPEERSRESP:
-                    await HandleRequestPeersResp((Core.Packets.Peerbloom.RequestPeersResp)p.Body);
+                    await HandleRequestPeersResp((Core.Packets.Peerbloom.RequestPeersResp)p.Body, conn);
                     break;
                 default:
                     Daemon.Logger.Error($"Discreet.Network.Handler.Handle: received unsupported packet from {conn.Receiver} with type {p.Header.Command}");
@@ -239,28 +239,11 @@ namespace Discreet.Network
             _network.Send(endpoint, resp);
         }
 
-        public async Task HandleRequestPeersResp(Core.Packets.Peerbloom.RequestPeersResp p)
+        public async Task HandleRequestPeersResp(Core.Packets.Peerbloom.RequestPeersResp p, Peerbloom.Connection conn)
         {
             foreach (var endpoint in p.Elems.Select(x => x.Endpoint))
             {
-                if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Peerbloom.Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
-                {
-                    _ = Task.Run(async () =>
-                    {
-                        if (endpoint.Address.Equals(_network.ReflectedAddress)) return;
-
-                        Peerbloom.Connection conn = new Peerbloom.Connection(endpoint, _network, _network.LocalNode, true);
-
-                        await conn.Connect(true, _token);
-                    }).ConfigureAwait(false);
-
-                    /* to avoid certain spamming */
-                    await Task.Delay(10);
-                }
-                else
-                {
-                    _network.UnconnectedPeers.Add(endpoint);
-                }
+                _network.peerlist.AddNew(endpoint, conn.Receiver, 60L * 60L * 10_000_000L);
             }
         }
 
@@ -368,6 +351,18 @@ namespace Discreet.Network
             p.Counter++;
 
             conn.SetConnectionAcknowledged();
+            if (conn.Receiver.Port < 49152)
+            {
+                int nID;
+                var peer = _network.peerlist.FindPeer(conn.Receiver, out nID);
+
+                if (peer == null)
+                {
+                    peer = _network.peerlist.Create(conn.Receiver, conn.Receiver, out nID, conn.TimeStarted, conn.LastValidReceive);
+                }
+
+                _network.peerlist.Good(peer.Endpoint, true);
+            }
 
             _network.Send(conn, new Packet(PacketType.VERACK, p));
         }

@@ -162,5 +162,15 @@ namespace Discreet.Network.Peerbloom
         /// How many seconds to consider a connection attempt recent.
         /// </summary>
         public const int PEERLIST_RECENT_TRY = 600;
+
+        /// <summary>
+        /// How often, in seconds, to test a collision in tried.
+        /// </summary>
+        public const int PEERLIST_RESOLVE_COLLISION_INTERVAL = 300;
+
+        /// <summary>
+        /// How often, in seconds, to back up the peerlist.
+        /// </summary>
+        public const int PEERLIST_BACKUP_INTERVAL = 600;
     }
 }
