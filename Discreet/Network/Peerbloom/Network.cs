@@ -56,7 +56,7 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// Peers that initiated the connection with this node. Contains zero peers for private nodes.
         /// </summary>
-        public ConcurrentDictionary<IPEndPoint, Connection> InboundConnectedPeers = new();
+        public ConcurrentDictionary<IPEndPoint, Connection> InboundConnectedPeers { get; set; } = new();
 
         /// <summary>
         /// Peers that this node initiated a connection with.
@@ -189,16 +189,7 @@ namespace Discreet.Network.Peerbloom
 
         public List<IPEndPoint> GetPeers(int maxPeers)
         {
-            List<IPEndPoint> remoteNodes = new List<IPEndPoint>(InboundConnectedPeers.Keys.Union(OutboundConnectedPeers.Keys));
-
-            Random random = new Random();
-
-            while (remoteNodes.Count > maxPeers)
-            {
-                remoteNodes.RemoveAt(random.Next(0, remoteNodes.Count));
-            }
-
-            return remoteNodes;
+            return peerlist.GetAddr(maxPeers, 0);
         }
 
         public Connection GetPeer(IPEndPoint endpoint)

@@ -100,7 +100,7 @@ namespace Discreet.Network.Core
             switch (t)
             {
                 case PacketType.VERSION:
-                    return new Packets.Peerbloom.VerAck(data, offset);
+                    return new Packets.Peerbloom.VersionPacket(data, offset);
                 case PacketType.VERACK:
                     return new Packets.Peerbloom.VerAck(data, offset);
                 case PacketType.INVENTORY:

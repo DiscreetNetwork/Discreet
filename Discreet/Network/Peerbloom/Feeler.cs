@@ -60,7 +60,7 @@ namespace Discreet.Network.Peerbloom
                     return;
                 }
 
-                int bucket = _peerlist.GetNewBucket(p.Endpoint, p.Source);
+                uint bucket = _peerlist.GetNewBucket(p.Endpoint, p.Source);
                 // for now, we evict the peer from new instead of lazily allowing for it to become bad
                 _peerlist.ClearNew(bucket, _peerlist.GetBucketPosition(true, bucket, p.Endpoint));
             }

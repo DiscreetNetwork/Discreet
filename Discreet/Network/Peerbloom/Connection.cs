@@ -209,8 +209,10 @@ namespace Discreet.Network.Peerbloom
                                 continue;
                             }
 
+                            Daemon.Logger.Debug($"Connection.Connect: sent version to {Receiver}");
+
                             /* receive remote version */
-                            byte[] _remoteVersion = new byte[61];
+                            byte[] _remoteVersion = new byte[43 + 10];
                             int numReadBytes = 0;
 
                             do
@@ -284,10 +286,17 @@ namespace Discreet.Network.Peerbloom
                                 return false;
                             }
 
+                            Daemon.Logger.Debug($"Connection.Connect: received version from {Receiver}");
+
+
                             /* time to send VerAck. At this point we can trust the connection is reliable. */
                             await SendAsync(new Core.Packet(Core.PacketType.VERACK, new Core.Packets.Peerbloom.VerAck { Counter = 0, ReflectedEndpoint = Receiver }), token);
 
+                            Daemon.Logger.Debug($"Connection.Connect: sent verack to {Receiver}");
+
                             var verAck = await ReadAsync(token);
+
+                            Daemon.Logger.Debug($"Connection.Connect: received verack from {Receiver}");
 
                             var verAckBody = (Core.Packets.Peerbloom.VerAck)verAck.Body;
 
@@ -835,6 +844,7 @@ namespace Discreet.Network.Peerbloom
             {
                 if (disposing)
                 {
+                    Daemon.Logger.Debug($"Connection.Dispose: disposing of connection to peer {Receiver}");
                     _tcpClient.Dispose();
                     _readMutex.Dispose();
                     _sendMutex.Dispose();

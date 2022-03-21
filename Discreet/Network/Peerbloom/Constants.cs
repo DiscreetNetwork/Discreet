@@ -171,6 +171,6 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// How often, in seconds, to back up the peerlist.
         /// </summary>
-        public const int PEERLIST_BACKUP_INTERVAL = 600;
+        public const int PEERLIST_BACKUP_INTERVAL = 15;
     }
 }

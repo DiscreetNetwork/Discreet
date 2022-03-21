@@ -82,8 +82,6 @@ namespace Discreet.Daemon
             if (!Directory.Exists(LogPath)) Directory.CreateDirectory(LogPath);
             if (!Directory.Exists(WalletPath)) Directory.CreateDirectory(WalletPath);
 
-            Console.WriteLine($"{BootstrapNode}");
-
             File.WriteAllText(ConfigPath, Common.Printable.Prettify(JsonSerializer.Serialize<DaemonConfig>(this, _options)));
         }
 

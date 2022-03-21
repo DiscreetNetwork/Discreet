@@ -110,78 +110,85 @@ namespace Discreet.Network
         /* handles incoming packets */
         public async Task Handle(Packet p, Peerbloom.Connection conn)
         {
-            if (conn == null)
+            try
             {
-                throw new Exception("null connection!");
+                if (conn == null)
+                {
+                    throw new Exception("null connection!");
+                }
+
+                if (State == PeerState.Startup && p.Header.Command != PacketType.VERSION)
+                {
+                    Daemon.Logger.Warn($"Ignoring message from {conn.Receiver} during startup");
+                }
+
+                Daemon.Logger.Info($"Discreet.Network.Handler.Handle: received packet {p.Header.Command} from {conn.Receiver}");
+
+                /* Packet header and structure is already verified prior to this function. */
+                switch (p.Header.Command)
+                {
+                    case PacketType.ALERT:
+                        await HandleAlert((AlertPacket)p.Body);
+                        break;
+                    case PacketType.NONE:
+                        Daemon.Logger.Error($"Discreet.Network.Handler.Handle: invalid packet with type NONE found");
+                        break;
+                    case PacketType.REJECT:
+                        await HandleReject((RejectPacket)p.Body);
+                        break;
+                    case PacketType.VERSION:
+                        await HandleVersion((Core.Packets.Peerbloom.VersionPacket)p.Body, conn);
+                        break;
+                    case PacketType.VERACK:
+                        await HandleVerAck((Core.Packets.Peerbloom.VerAck)p.Body, conn);
+                        break;
+                    case PacketType.GETBLOCKS:
+                        await HandleGetBlocks((GetBlocksPacket)p.Body, conn.Receiver);
+                        break;
+                    case PacketType.SENDMSG:
+                        await HandleMessage((SendMessagePacket)p.Body, conn.Receiver);
+                        break;
+                    case PacketType.SENDTX:
+                        await HandleSendTx((SendTransactionPacket)p.Body, conn.Receiver);
+                        break;
+                    case PacketType.SENDBLOCK:
+                        await HandleSendBlock((SendBlockPacket)p.Body, conn.Receiver);
+                        break;
+                    case PacketType.INVENTORY:
+                        /* currently unused */
+                        break;
+                    case PacketType.GETTXS:
+                        await HandleGetTxs((GetTransactionsPacket)p.Body, conn.Receiver);
+                        break;
+                    case PacketType.TXS:
+                        /* currently there is no handler for this packet */
+                        break;
+                    case PacketType.BLOCKS:
+                        await HandleBlocks((BlocksPacket)p.Body);
+                        break;
+                    case PacketType.NOTFOUND:
+                        await HandleNotFound((NotFoundPacket)p.Body);
+                        break;
+                    case PacketType.NETPING:
+                        await HandleNetPing((Core.Packets.Peerbloom.NetPing)p.Body, conn);
+                        break;
+                    case PacketType.NETPONG:
+                        await HandleNetPong((Core.Packets.Peerbloom.NetPong)p.Body, conn);
+                        break;
+                    case PacketType.REQUESTPEERS:
+                        await HandleRequestPeers((Core.Packets.Peerbloom.RequestPeers)p.Body, conn.Receiver);
+                        break;
+                    case PacketType.REQUESTPEERSRESP:
+                        await HandleRequestPeersResp((Core.Packets.Peerbloom.RequestPeersResp)p.Body, conn);
+                        break;
+                    default:
+                        Daemon.Logger.Error($"Discreet.Network.Handler.Handle: received unsupported packet from {conn.Receiver} with type {p.Header.Command}");
+                        break;
+                }
             }
-
-            if (State == PeerState.Startup && p.Header.Command != PacketType.VERSION)
+            catch (Exception ex)
             {
-                Daemon.Logger.Warn($"Ignoring message from {conn.Receiver} during startup");
-            }
-
-            Daemon.Logger.Info($"Discreet.Network.Handler.Handle: received packet {p.Header.Command} from {conn.Receiver}");
-
-            /* Packet header and structure is already verified prior to this function. */
-            switch (p.Header.Command)
-            {
-                case PacketType.ALERT:
-                    await HandleAlert((AlertPacket)p.Body);
-                    break;
-                case PacketType.NONE:
-                    Daemon.Logger.Error($"Discreet.Network.Handler.Handle: invalid packet with type NONE found");
-                    break;
-                case PacketType.REJECT:
-                    await HandleReject((RejectPacket)p.Body);
-                    break;
-                case PacketType.VERSION:
-                    await HandleVersion((Core.Packets.Peerbloom.VersionPacket)p.Body, conn);
-                    break;
-                case PacketType.VERACK:
-                    await HandleVerAck((Core.Packets.Peerbloom.VerAck)p.Body, conn);
-                    break;
-                case PacketType.GETBLOCKS:
-                    await HandleGetBlocks((GetBlocksPacket)p.Body, conn.Receiver);
-                    break;
-                case PacketType.SENDMSG:
-                    await HandleMessage((SendMessagePacket)p.Body, conn.Receiver);
-                    break;
-                case PacketType.SENDTX:
-                    await HandleSendTx((SendTransactionPacket)p.Body, conn.Receiver);
-                    break;
-                case PacketType.SENDBLOCK:
-                    await HandleSendBlock((SendBlockPacket)p.Body, conn.Receiver);
-                    break;
-                case PacketType.INVENTORY:
-                    /* currently unused */
-                    break;
-                case PacketType.GETTXS:
-                    await HandleGetTxs((GetTransactionsPacket)p.Body, conn.Receiver);
-                    break;
-                case PacketType.TXS:
-                    /* currently there is no handler for this packet */
-                    break;
-                case PacketType.BLOCKS:
-                    await HandleBlocks((BlocksPacket)p.Body);
-                    break;
-                case PacketType.NOTFOUND:
-                    await HandleNotFound((NotFoundPacket)p.Body);
-                    break;
-                case PacketType.NETPING:
-                    await HandleNetPing((Core.Packets.Peerbloom.NetPing)p.Body, conn);
-                    break;
-                case PacketType.NETPONG:
-                    await HandleNetPong((Core.Packets.Peerbloom.NetPong)p.Body, conn);
-                    break;
-                case PacketType.REQUESTPEERS:
-                    await HandleRequestPeers((Core.Packets.Peerbloom.RequestPeers)p.Body, conn.Receiver);
-                    break;
-                case PacketType.REQUESTPEERSRESP:
-                    await HandleRequestPeersResp((Core.Packets.Peerbloom.RequestPeersResp)p.Body, conn);
-                    break;
-                default:
-                    Daemon.Logger.Error($"Discreet.Network.Handler.Handle: received unsupported packet from {conn.Receiver} with type {p.Header.Command}");
-                    break;
+                Daemon.Logger.Error($"Handler.Handle: handling packet {p.Header.Command} got an exception: {ex.Message}");
             }
         }
 
@@ -224,7 +231,7 @@ namespace Discreet.Network
 
         public async Task HandleRequestPeers(Core.Packets.Peerbloom.RequestPeers p, IPEndPoint endpoint)
         {
-            Daemon.Logger.Info($"Received `RequestPeers` from: {endpoint.Address}");
+            Daemon.Logger.Info($"Received `RequestPeers` from: {endpoint}");
 
             var nodes = _network.GetPeers(p.MaxPeers);
             Core.Packets.Peerbloom.RequestPeersResp respBody = new Core.Packets.Peerbloom.RequestPeersResp { Length = nodes.Count, Elems = new Core.Packets.Peerbloom.FindNodeRespElem[nodes.Count] };
@@ -353,7 +360,7 @@ namespace Discreet.Network
             conn.SetConnectionAcknowledged();
             if (conn.Receiver.Port < 49152)
             {
-                int nID;
+                uint nID;
                 var peer = _network.peerlist.FindPeer(conn.Receiver, out nID);
 
                 if (peer == null)
@@ -365,6 +372,7 @@ namespace Discreet.Network
             }
 
             _network.Send(conn, new Packet(PacketType.VERACK, p));
+            _network.AddInboundConnection(conn);
         }
 
         public async Task HandleGetBlocks(GetBlocksPacket p, IPEndPoint senderEndpoint)

@@ -13,12 +13,12 @@ namespace Discreet.Network.Peerbloom
 {
     public class Peerlist
     {
-        private int[,] Tried;
-        private int[,] New;
+        private uint[,] Tried;
+        private uint[,] New;
 
         private List<Peer> Anchors;
 
-        private ConcurrentDictionary<int, Peer> addrs = new();
+        private ConcurrentDictionary<uint, Peer> addrs = new();
 
         private byte[] salt;
 
@@ -53,8 +53,8 @@ namespace Discreet.Network.Peerbloom
             _newCounter = 0;
             _triedCounter = 0;
 
-            Tried = new int[Constants.PEERLIST_MAX_TRIED_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
-            New = new int[Constants.PEERLIST_MAX_NEW_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
+            Tried = new uint[Constants.PEERLIST_MAX_TRIED_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
+            New = new uint[Constants.PEERLIST_MAX_NEW_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
 
             addrs = new();
             Anchors = new();
@@ -125,14 +125,14 @@ namespace Discreet.Network.Peerbloom
             _triedCounter = Coin.Serialization.GetInt32(_ms);
             _newCounter = Coin.Serialization.GetInt32(_ms);
 
-            Tried = new int[Constants.PEERLIST_MAX_TRIED_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
-            New = new int[Constants.PEERLIST_MAX_NEW_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
+            Tried = new uint[Constants.PEERLIST_MAX_TRIED_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
+            New = new uint[Constants.PEERLIST_MAX_NEW_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
 
             for (int i = 0; i < Tried.GetLength(0); i++)
             {
                 for (int j = 0; j < Tried.GetLength(1); j++)
                 {
-                    Tried[i, j] = Coin.Serialization.GetInt32(_ms);
+                    Tried[i, j] = Coin.Serialization.GetUInt32(_ms);
                 }
             }
 
@@ -140,7 +140,7 @@ namespace Discreet.Network.Peerbloom
             {
                 for (int j = 0; j < New.GetLength(1); j++)
                 {
-                    New[i, j] = Coin.Serialization.GetInt32(_ms);
+                    New[i, j] = Coin.Serialization.GetUInt32(_ms);
                 }
             }
 
@@ -149,7 +149,7 @@ namespace Discreet.Network.Peerbloom
 
             for (int i = 0; i < addrsCount; i++)
             {
-                var nID = Coin.Serialization.GetInt32(_ms);
+                var nID = Coin.Serialization.GetUInt32(_ms);
                 addrs[nID] = new Peer(Coin.Serialization.GetBytes(_ms));
             }
 
@@ -201,7 +201,7 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
-        public int GetTriedBucket(IPEndPoint endpoint)
+        public uint GetTriedBucket(IPEndPoint endpoint)
         {
             byte[] data1 = new byte[salt.Length + 18];
             Array.Copy(salt, 0, data1, 0, salt.Length);
@@ -214,10 +214,10 @@ namespace Discreet.Network.Peerbloom
             Array.Copy(group, 0, data2, salt.Length, group.Length);
             Coin.Serialization.CopyData(data2, (uint)(salt.Length + group.Length), i);
 
-            return Coin.Serialization.GetInt32(SHA256.HashData(SHA256.HashData(data2)), 0) % Constants.PEERLIST_MAX_TRIED_BUCKETS;
+            return Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(data2)), 0) % Constants.PEERLIST_MAX_TRIED_BUCKETS;
         }
 
-        public int GetNewBucket(IPEndPoint endpoint, IPEndPoint src)
+        public uint GetNewBucket(IPEndPoint endpoint, IPEndPoint src)
         {
             var srcGroup = GetGroup(src);
             var group = GetGroup(endpoint);
@@ -234,10 +234,10 @@ namespace Discreet.Network.Peerbloom
             Array.Copy(srcGroup, 0, data2, salt.Length, srcGroup.Length);
             Coin.Serialization.CopyData(data2, (uint)(salt.Length + srcGroup.Length), i);
 
-            return Coin.Serialization.GetInt32(SHA256.HashData(SHA256.HashData(data2)), 0) % Constants.PEERLIST_MAX_NEW_BUCKETS;
+            return Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(data2)), 0) % Constants.PEERLIST_MAX_NEW_BUCKETS;
         }
 
-        public int GetBucketPosition(bool _new, int bucket, IPEndPoint endpoint)
+        public uint GetBucketPosition(bool _new, uint bucket, IPEndPoint endpoint)
         {
             byte[] data = new byte[salt.Length + 1 + 4 + 18];
             Array.Copy(salt, 0, data, 0, salt.Length);
@@ -245,7 +245,7 @@ namespace Discreet.Network.Peerbloom
             Coin.Serialization.CopyData(data, (uint)(salt.Length + 1), bucket);
             Core.Utils.SerializeEndpoint(endpoint, data, (uint)(salt.Length + 1 + 4));
 
-            return Coin.Serialization.GetInt32(SHA256.HashData(SHA256.HashData(data)), 0) % Constants.PEERLIST_BUCKET_SIZE;
+            return Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(data)), 0) % Constants.PEERLIST_BUCKET_SIZE;
         }
 
         public void RemoveInNew(int nID)
@@ -263,37 +263,42 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
-        public void AddTried(Peer peer, int nID)
+        public void AddTried(Peer peer, uint nID)
         {
-            int startBucket = GetNewBucket(peer.Endpoint, peer.Source);
-            for (int i = 0; i < New.GetLength(0); i++)
+            if (addrs[nID] != null)
             {
-                int nbucket = (startBucket + i) % New.GetLength(0);
-                int npos = GetBucketPosition(true, nbucket, peer.Endpoint);
-
-                if (New[nbucket, npos] == nID)
+                uint startBucket = GetNewBucket(peer.Endpoint, peer.Source);
+                bool _modified = false;
+                for (uint i = 0; i < New.GetLength(0); i++)
                 {
-                    New[nbucket, npos] = 0;
-                    peer.RefCount--;
-                    if (peer.RefCount == 0) break;
-                }
-            }
-            _newCounter--;
+                    uint nbucket = (startBucket + i) % (uint)New.GetLength(0);
+                    uint npos = GetBucketPosition(true, nbucket, peer.Endpoint);
 
-            int bucket = GetTriedBucket(peer.Endpoint);
-            int pos = GetBucketPosition(false, bucket, peer.Endpoint);
+                    if (New[nbucket, npos] == nID)
+                    {
+                        New[nbucket, npos] = 0;
+                        peer.RefCount--;
+                        _modified = true;
+                        if (peer.RefCount == 0) break;
+                    }
+                }
+                if (_modified) _newCounter--;
+            }
+
+            uint bucket = GetTriedBucket(peer.Endpoint);
+            uint pos = GetBucketPosition(false, bucket, peer.Endpoint);
 
             if (Tried[bucket, pos] != 0)
             {
-                int nIDEvict = Tried[bucket, pos];
+                uint nIDEvict = Tried[bucket, pos];
                 var pOld = addrs[nIDEvict];
 
                 pOld.InTried = false;
                 Tried[bucket, pos] = 0;
                 _triedCounter--;
 
-                int ubucket = GetNewBucket(pOld.Endpoint, pOld.Source);
-                int upos = GetBucketPosition(true, ubucket, peer.Endpoint);
+                uint ubucket = GetNewBucket(pOld.Endpoint, pOld.Source);
+                uint upos = GetBucketPosition(true, ubucket, peer.Endpoint);
                 ClearNew(ubucket, upos);
 
                 pOld.RefCount = 1;
@@ -306,16 +311,16 @@ namespace Discreet.Network.Peerbloom
             peer.InTried = true;
         }
 
-        public Peer Create(IPEndPoint endpoint, IPEndPoint source, out int nID)
+        public Peer Create(IPEndPoint endpoint, IPEndPoint source, out uint nID)
         {
-            nID = _counter++;
+            nID = (uint)_counter++;
             addrs[nID] = new Peer(endpoint, source);
             return addrs[nID];
         }
 
-        public Peer Create(IPEndPoint endpoint, IPEndPoint source, out int nID, long firstSeen = 0, long lastSeen = 0)
+        public Peer Create(IPEndPoint endpoint, IPEndPoint source, out uint nID, long firstSeen = 0, long lastSeen = 0)
         {
-            nID = _counter++;
+            nID = (uint)_counter++;
             addrs[nID] = new Peer(endpoint, source, lastSeen, firstSeen);
             return addrs[nID];
         }
@@ -327,7 +332,7 @@ namespace Discreet.Network.Peerbloom
                 penalty = 0;
             }
 
-            int nID;
+            uint nID;
             var pinfo = FindPeer(endpoint, out nID);
 
             if (pinfo != null)
@@ -352,8 +357,8 @@ namespace Discreet.Network.Peerbloom
                 _newCounter++;
             }
 
-            int bucket = GetNewBucket(endpoint, source);
-            int pos = GetBucketPosition(true, bucket, endpoint);
+            uint bucket = GetNewBucket(endpoint, source);
+            uint pos = GetBucketPosition(true, bucket, endpoint);
 
             bool _insert = New[bucket,pos] == 0;
 
@@ -386,7 +391,7 @@ namespace Discreet.Network.Peerbloom
             return _insert;
         }
 
-        public void Delete(int nID)
+        public void Delete(uint nID)
         {
             var pinfo = addrs[nID];
             if (pinfo == null) return;
@@ -398,11 +403,11 @@ namespace Discreet.Network.Peerbloom
             _newCounter--;
         }
 
-        public void ClearNew(int bucket, int pos)
+        public void ClearNew(uint bucket, uint pos)
         {
             if (New[bucket,pos] != 0)
             {
-                int nIDClear = New[bucket,pos];
+                uint nIDClear = New[bucket,pos];
                 var pinfoClear = addrs[nIDClear];
                 pinfoClear.RefCount = Math.Min(pinfoClear.RefCount - 1, 0);
                 New[bucket, pos] = 0;
@@ -413,7 +418,7 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
-        public Peer FindPeer(IPEndPoint p, out int nID)
+        public Peer FindPeer(IPEndPoint p, out uint nID)
         {
             foreach (var _peer in addrs)
             {
@@ -424,13 +429,13 @@ namespace Discreet.Network.Peerbloom
                 }
             }
 
-            nID = -1;
+            nID = 0;
             return null;
         }
 
         public bool Good(IPEndPoint endpoint, bool testBeforeEvict)
         {
-            int nID;
+            uint nID;
 
             Peer p = FindPeer(endpoint, out nID);
 
@@ -444,8 +449,8 @@ namespace Discreet.Network.Peerbloom
 
             if (p.RefCount > 0) return false;
 
-            int bucket = GetTriedBucket(p.Endpoint);
-            int pos = GetBucketPosition(false, bucket, p.Endpoint);
+            uint bucket = GetTriedBucket(p.Endpoint);
+            uint pos = GetBucketPosition(false, bucket, p.Endpoint);
 
             if (testBeforeEvict && Tried[bucket, pos] != 0)
             {
@@ -510,10 +515,10 @@ namespace Discreet.Network.Peerbloom
 
                 while (true)
                 {
-                    int bucket = r.Next(0, Constants.PEERLIST_MAX_TRIED_BUCKETS);
-                    int pos = r.Next(0, Constants.PEERLIST_BUCKET_SIZE);
+                    uint bucket = (uint)r.Next(0, Constants.PEERLIST_MAX_TRIED_BUCKETS);
+                    uint pos = (uint)r.Next(0, Constants.PEERLIST_BUCKET_SIZE);
 
-                    int i;
+                    uint i;
 
                     for (i = 0; i < Constants.PEERLIST_BUCKET_SIZE; i++)
                     {
@@ -522,7 +527,7 @@ namespace Discreet.Network.Peerbloom
 
                     if (i == Constants.PEERLIST_BUCKET_SIZE) continue;
 
-                    int nID = Tried[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE];
+                    uint nID = Tried[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE];
                     var found = addrs[nID];
 
                     if (found == null) return (null, 0);
@@ -541,8 +546,8 @@ namespace Discreet.Network.Peerbloom
 
                 while (true)
                 {
-                    int bucket = r.Next(0, Constants.PEERLIST_MAX_NEW_BUCKETS);
-                    int pos = r.Next(0, Constants.PEERLIST_BUCKET_SIZE);
+                    uint bucket = (uint)r.Next(0, Constants.PEERLIST_MAX_NEW_BUCKETS);
+                    uint pos = (uint)r.Next(0, Constants.PEERLIST_BUCKET_SIZE);
 
                     int i;
                     for (i = 0; i < Constants.PEERLIST_BUCKET_SIZE; i++)
@@ -552,7 +557,7 @@ namespace Discreet.Network.Peerbloom
 
                     if (i == Constants.PEERLIST_BUCKET_SIZE) continue;
 
-                    int nID = New[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE];
+                    uint nID = New[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE];
                     var found = addrs[nID];
 
                     if (found == null) return (null, 0);
@@ -585,7 +590,7 @@ namespace Discreet.Network.Peerbloom
             List<IPEndPoint> peers = new List<IPEndPoint>();
             for (int i = 0; i < numNodes; i++)
             {
-                var peer = addrs[r.Next(0, addrs.Count)];
+                var peer = addrs[(uint)r.Next(0, addrs.Count)];
 
                 if (peer.IsTerrible() || peers.Contains(peer.Endpoint)) continue;
 
@@ -621,15 +626,17 @@ namespace Discreet.Network.Peerbloom
 
         private async Task Backuper(CancellationToken token)
         {
-            while (token.IsCancellationRequested)
+            while (!token.IsCancellationRequested)
             {
                 var timer = DateTime.UtcNow.AddSeconds(Constants.PEERLIST_BACKUP_INTERVAL).Ticks;
 
                 while (timer > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
                 {
                     // we can await much longer for this
-                    await Task.Delay(10000);
+                    await Task.Delay(5000);
                 }
+
+                Daemon.Logger.Debug($"Peerlist.Backuper: backing up peerlist");
 
                 if (token.IsCancellationRequested) return;
 
@@ -639,7 +646,7 @@ namespace Discreet.Network.Peerbloom
 
         private async Task Collisioner(Feeler feeler, CancellationToken token)
         {
-            while (token.IsCancellationRequested)
+            while (!token.IsCancellationRequested)
             {
                 var timer = DateTime.UtcNow.AddSeconds(Constants.PEERLIST_RESOLVE_COLLISION_INTERVAL).Ticks;
 
@@ -655,10 +662,10 @@ namespace Discreet.Network.Peerbloom
 
                 foreach (var p in TriedCollisions)
                 {
-                    int bucket = GetTriedBucket(p.Endpoint);
-                    int pos = GetBucketPosition(false, bucket, p.Endpoint);
+                    uint bucket = GetTriedBucket(p.Endpoint);
+                    uint pos = GetBucketPosition(false, bucket, p.Endpoint);
 
-                    int nID = Tried[bucket, pos];
+                    uint nID = Tried[bucket, pos];
                     if (nID == 0) continue;
 
                     var oldPeer = addrs[nID];
