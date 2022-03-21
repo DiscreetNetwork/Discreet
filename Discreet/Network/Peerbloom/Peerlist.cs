@@ -33,6 +33,8 @@ namespace Discreet.Network.Peerbloom
 
         private List<Peer> TriedCollisions = new();
 
+        private SemaphoreSlim doubleMutexGambit = new SemaphoreSlim(1, 1);
+
         public Peerlist()
         {
             var path = Path.Combine(Daemon.DaemonConfig.GetConfig().DaemonPath, "peerlist.bin");

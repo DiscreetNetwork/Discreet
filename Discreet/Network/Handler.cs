@@ -250,7 +250,10 @@ namespace Discreet.Network
         {
             foreach (var endpoint in p.Elems.Select(x => x.Endpoint))
             {
-                _network.peerlist.AddNew(endpoint, conn.Receiver, 60L * 60L * 10_000_000L);
+                if (conn.Receiver.Port < 49152 && !_network.ReflectedAddress.Equals(endpoint.Address))
+                {
+                    _network.peerlist.AddNew(endpoint, conn.Receiver, 60L * 60L * 10_000_000L);
+                }
             }
         }
 

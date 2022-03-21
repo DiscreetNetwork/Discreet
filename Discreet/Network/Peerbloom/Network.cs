@@ -555,9 +555,11 @@ namespace Discreet.Network.Peerbloom
         
         public async Task RunNetwork()
         {
-            while (_shutdownTokenSource.IsCancellationRequested)
+            while (!_shutdownTokenSource.IsCancellationRequested)
             {
-                await Task.Delay(60 * 1000);
+                await Task.Delay(60 * 1000, _shutdownTokenSource.Token);
+
+                if (_shutdownTokenSource.IsCancellationRequested) return;
 
                 if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
                 {
