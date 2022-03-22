@@ -20,14 +20,9 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.U1)]
         private byte bufpos;
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "ripemd160_init", CallingConvention = CallingConvention.StdCall)]
-        private static extern void ripemd160_init(RIPEMD160Ctx state);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "ripemd160_update", CallingConvention = CallingConvention.StdCall)]
-        private static extern void ripemd160_update(RIPEMD160Ctx state, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] _in, ulong inlen);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "ripemd160_update", CallingConvention = CallingConvention.StdCall)]
-        private static extern void ripemd160_final(RIPEMD160Ctx state, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 64)] byte[] _out);
+        private static void ripemd160_init(RIPEMD160Ctx state) => Native.Native.Instance.ripemd160_init(state);
+        private static void ripemd160_update(RIPEMD160Ctx state, byte[] _in, ulong inlen) => Native.Native.Instance.ripemd160_update(state, _in, inlen);
+        private static void ripemd160_final(RIPEMD160Ctx state, byte[] _out) => Native.Native.Instance.ripemd160_final(state, _out);
 
         public void Init()
         {
@@ -62,8 +57,7 @@ namespace Discreet.Cipher
 
         public byte[] GetBytes() { return (byte[])bytes.Clone(); }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "ripemd160", CallingConvention = CallingConvention.StdCall)]
-        private static extern void ripemd160([In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] datain, ulong inlen, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 20)] byte[] dataout);
+        private static void ripemd160(byte[] datain, ulong inlen, byte[] dataout) => Native.Native.Instance.ripemd160(datain, inlen, dataout);
 
         public static RIPEMD160 HashData(byte[] data)
         {

@@ -7,35 +7,14 @@ namespace Discreet.Cipher
 {
     public static class HashOps
     {
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "HashData", CallingConvention = CallingConvention.StdCall)]
-        public static extern void HashData(ref Key hash, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] data, [MarshalAs(UnmanagedType.U4)] uint l);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "HashToScalar", CallingConvention = CallingConvention.StdCall)]
-        public static extern void HashToScalar(ref Key hash, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] data, [MarshalAs(UnmanagedType.U4)] uint l);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "HashKey", CallingConvention = CallingConvention.StdCall)]
-        public static extern void HashKey(ref Key hash, ref Key data);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "HashKeyToScalar", CallingConvention = CallingConvention.StdCall)]
-        public static extern void HashKeyToScalar(ref Key hash, ref Key data);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "HashKey1", CallingConvention = CallingConvention.StdCall)]
-            [return: MarshalAs(UnmanagedType.Struct)]
-        public static extern Key HashKey(ref Key data);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "HashKeyToScalar1", CallingConvention = CallingConvention.StdCall)]
-            [return: MarshalAs(UnmanagedType.Struct)]
-        public static extern Key HashToScalar(ref Key data);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "HashData128", CallingConvention = CallingConvention.StdCall)]
-            [return: MarshalAs(UnmanagedType.Struct)]
-        public static extern Key HashData128([In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] data);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "HashToScalar128", CallingConvention = CallingConvention.StdCall)]
-            [return: MarshalAs(UnmanagedType.Struct)]
-        public static extern Key HashToScalar128([In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] data);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "HashToP3", CallingConvention = CallingConvention.StdCall)]
-        public static extern void HashToP3(ref GEP3 hash8_p3, ref Key k);
+        public static void HashData(ref Key hash, byte[] data, uint l) => Native.Native.Instance.HashData(ref hash, data, l);
+        public static void HashToScalar(ref Key hash, byte[] data, uint l) => Native.Native.Instance.HashToScalar(ref hash, data, l);
+        public static void HashKey(ref Key hash, ref Key data) => Native.Native.Instance.HashKey(ref hash, ref data);
+        public static void HashKeyToScalar(ref Key hash, ref Key data) => Native.Native.Instance.HashKeyToScalar(ref hash, ref data);
+        public static Key HashKey(ref Key data) => Native.Native.Instance.HashKey1(ref data);
+        public static Key HashToScalar(ref Key data) => Native.Native.Instance.HashKeyToScalar1(ref data);
+        public static Key HashData128(byte[] data) => Native.Native.Instance.HashData128(data);
+        public static Key HashToScalar128(byte[] data) => Native.Native.Instance.HashToScalar128(data);
+        public static void HashToP3(ref GEP3 hash8_p3, ref Key k) => Native.Native.Instance.HashToP3(ref hash8_p3, ref k);
     }
 }

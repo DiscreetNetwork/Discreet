@@ -66,18 +66,8 @@ namespace Discreet.Cipher
             z = new(new byte[32]);
         }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "triptych_PROVE", CallingConvention = CallingConvention.StdCall)]
-        private static extern Triptych triptych_prove(
-                [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] M,
-                [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] P,
-                [MarshalAs(UnmanagedType.Struct)] Key C_offset,
-                [MarshalAs(UnmanagedType.U4)] uint l,
-                [MarshalAs(UnmanagedType.Struct)] Key r,
-                [MarshalAs(UnmanagedType.Struct)] Key s,
-                [MarshalAs(UnmanagedType.Struct)] Key message);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "GetLastException", CallingConvention = CallingConvention.StdCall)]
-        private static extern void get_last_exception([In, Out] [MarshalAs(UnmanagedType.LPArray, SizeConst = 4096)] byte[] data);
+        private static Triptych triptych_prove(Key[] M, Key[] P, Key C_offset, uint l, Key r, Key s, Key message) => Native.Native.Instance.triptych_PROVE(M, P, C_offset, l, r, s, message);
+        private static void get_last_exception(byte[] data) => Native.Native.Instance.GetLastException(data);
 
         public static Triptych Prove(Key[] M, Key[] P, Key C_offset, uint l, Key r, Key s, Key message)
         {
@@ -102,14 +92,7 @@ namespace Discreet.Cipher
             return proof;
         }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "triptych_VERIFY", CallingConvention = CallingConvention.StdCall)]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool triptych_VERIFY(
-                [In, Out] Triptych bp,
-                [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] M,
-                [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] P,
-                [MarshalAs(UnmanagedType.Struct)] Key C_offset,
-                [MarshalAs(UnmanagedType.Struct)] Key message);
+        public static bool triptych_VERIFY(Triptych bp, Key[] M, Key[] P, Key C_offset, Key message) => Native.Native.Instance.triptych_VERIFY(bp, M, P, C_offset, message);
 
         public static bool Verify(Triptych bp, Key[] M, Key[] P, Key C_offset, Key message)
         {

@@ -80,12 +80,8 @@ namespace Discreet.Cipher
             t = new(new byte[32]);
         }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "bulletproof_prove", CallingConvention = CallingConvention.StdCall)]
-        [return: MarshalAs(UnmanagedType.Struct)]
-        private static extern Bulletproof bulletproof_PROVE([MarshalAs(UnmanagedType.LPArray, SizeConst = 16, ArraySubType = UnmanagedType.U8)] ulong[] v, [MarshalAs(UnmanagedType.LPArray, SizeConst = 16, ArraySubType = UnmanagedType.Struct)] Key[] gamma, [MarshalAs(UnmanagedType.U8)] ulong size);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "GetLastException", CallingConvention = CallingConvention.StdCall)]
-        private static extern void get_last_exception([In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 4096)] byte[] data);
+        private static Bulletproof bulletproof_PROVE(ulong[] v, Key[] gamma, ulong size) => Native.Native.Instance.bulletproof_prove(v, gamma, size);
+        private static void get_last_exception(byte[] data) => Native.Native.Instance.GetLastException(data);
 
         public static Bulletproof Prove(ulong[] v, Key[] gamma)
         {
@@ -133,9 +129,7 @@ namespace Discreet.Cipher
             return Prove(vArg, gammaArg);
         }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "bulletproof_verify", CallingConvention = CallingConvention.StdCall)]
-            [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool bulletproof_VERIFY(Bulletproof bp);
+        private static bool bulletproof_VERIFY(Bulletproof bp) => Native.Native.Instance.bulletproof_verify(bp);
 
         public static bool Verify(Bulletproof bp)
         {

@@ -15,17 +15,9 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8, ArraySubType = UnmanagedType.U8)]
         private uint[] s;
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512_init", CallingConvention = CallingConvention.StdCall)]
-        [return: MarshalAs(UnmanagedType.I4)]
-        private static extern int sha512_init(SHA512Ctx state);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512_update", CallingConvention = CallingConvention.StdCall)]
-        [return: MarshalAs(UnmanagedType.I4)]
-        private static extern int sha512_update(SHA512Ctx state, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] _in, ulong inlen);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512_update", CallingConvention = CallingConvention.StdCall)]
-        [return: MarshalAs(UnmanagedType.I4)]
-        private static extern int sha512_final(SHA512Ctx state, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 64)] byte[] _out);
+        private static int sha512_init(SHA512Ctx state) => Native.Native.Instance.sha512_init(state);
+        private static int sha512_update(SHA512Ctx state, byte[] _in, ulong inlen) => Native.Native.Instance.sha512_update(state, _in, inlen);
+        private static int sha512_final(SHA512Ctx state, byte[] _out) => Native.Native.Instance.sha512_final(state, _out);
 
         public int Init()
         {
@@ -59,9 +51,7 @@ namespace Discreet.Cipher
 
         public byte[] GetBytes() { return (byte[])bytes.Clone(); }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "sha512", CallingConvention = CallingConvention.StdCall)]
-        [return: MarshalAs(UnmanagedType.I4)]
-        private static extern int sha512([In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 64)] byte[] dataout, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] datain, ulong len);
+        private static int sha512(byte[] dataout, byte[] datain, ulong len) => Native.Native.Instance.sha512(dataout, datain, len);
 
         public static SHA512 HashData(byte[] data)
         {

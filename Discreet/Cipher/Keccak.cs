@@ -15,14 +15,9 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.U4)]
         private uint rest;
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "keccak_init", CallingConvention = CallingConvention.StdCall)]
-        private static extern int keccak_init(KeccakCtx state);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "keccak_update", CallingConvention = CallingConvention.StdCall)]
-        private static extern int keccak_update(KeccakCtx state, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] _in, ulong inlen);
-
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "keccak_final", CallingConvention = CallingConvention.StdCall)]
-        private static extern int keccak_final(KeccakCtx state, [In, Out][MarshalAs(UnmanagedType.LPArray, SizeConst = 32)] byte[] _out);
+        private static int keccak_init(KeccakCtx state) => Native.Native.Instance.keccak_init(state);
+        private static int keccak_update(KeccakCtx state, byte[] _in, ulong inlen) => Native.Native.Instance.keccak_update(state, _in, inlen);
+        private static int keccak_final(KeccakCtx state, byte[] _out) => Native.Native.Instance.keccak_final(state, _out);
 
         public int Init()
         {
@@ -56,8 +51,7 @@ namespace Discreet.Cipher
 
         public byte[] GetBytes() { return (byte[])bytes.Clone(); }
 
-        [DllImport(@"DiscreetCore.dll", EntryPoint = "keccak", CallingConvention = CallingConvention.StdCall)]
-        private static extern void keccak([In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] datain, uint inlen, [In, Out][MarshalAs(UnmanagedType.LPArray)] byte[] dataout, uint dlen);
+        private static void keccak(byte[] datain, uint inlen, byte[] dataout, uint dlen) => Native.Native.Instance.keccak(datain, inlen, dataout, dlen);
 
         public static Keccak HashData(byte[] data)
         {
