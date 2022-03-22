@@ -590,13 +590,24 @@ namespace Discreet.Network.Peerbloom
 
             Random r = new Random();
             List<IPEndPoint> peers = new List<IPEndPoint>();
+            List<uint> nIDs = addrs.Keys.ToList();
             for (int i = 0; i < numNodes; i++)
             {
-                var peer = addrs[(uint)r.Next(0, addrs.Count)];
+                addrs.TryGetValue(nIDs[r.Next(0, nIDs.Count)], out var peer);
 
-                if (peer.IsTerrible() || peers.Contains(peer.Endpoint)) continue;
+                if (peer != null)
+                {
+                    if (peer.IsTerrible())
+                    {
+                        if (nIDs.Count < maxAddresses) i++;
+                        continue;
+                    }
 
-                peers.Add(peer.Endpoint);
+                    if (!peers.Contains(peer.Endpoint))
+                    {
+                        peers.Add(peer.Endpoint);
+                    }
+                }
             }
 
             return peers;
