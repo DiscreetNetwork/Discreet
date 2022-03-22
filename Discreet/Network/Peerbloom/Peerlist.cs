@@ -622,15 +622,15 @@ namespace Discreet.Network.Peerbloom
         /// <returns></returns>
         public void Start(Feeler feeler, CancellationToken token)
         {
-            _ = Task.Run(() => Backuper(token)).ConfigureAwait(false);
+            _ = Task.Run(() => Saver(token)).ConfigureAwait(false);
             _ = Task.Run(() => Collisioner(feeler, token)).ConfigureAwait(false);
         }
 
-        private async Task Backuper(CancellationToken token)
+        private async Task Saver(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
-                var timer = DateTime.UtcNow.AddSeconds(Constants.PEERLIST_BACKUP_INTERVAL).Ticks;
+                var timer = DateTime.UtcNow.AddSeconds(Constants.PEERLIST_SAVE_INTERVAL).Ticks;
 
                 while (timer > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
                 {
@@ -638,11 +638,11 @@ namespace Discreet.Network.Peerbloom
                     await Task.Delay(5000);
                 }
 
-                Daemon.Logger.Debug($"Peerlist.Backuper: backing up peerlist");
-
                 if (token.IsCancellationRequested) return;
 
                 await File.WriteAllBytesAsync(Path.Combine(Daemon.DaemonConfig.GetConfig().DaemonPath, "peerlist.bin"), Serialize(), token);
+
+                Daemon.Logger.Debug($"Peerlist.Saver: saved peerlist to disk");
             }
         }
 

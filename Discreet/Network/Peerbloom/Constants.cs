@@ -169,8 +169,8 @@ namespace Discreet.Network.Peerbloom
         public const int PEERLIST_RESOLVE_COLLISION_INTERVAL = 300;
 
         /// <summary>
-        /// How often, in seconds, to back up the peerlist.
+        /// How often, in seconds, to save the peerlist to disk.
         /// </summary>
-        public const int PEERLIST_BACKUP_INTERVAL = 15;
+        public const int PEERLIST_SAVE_INTERVAL = 600;
     }
 }
