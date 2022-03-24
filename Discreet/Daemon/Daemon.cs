@@ -73,6 +73,13 @@ namespace Discreet.Daemon
 
         public async Task Start()
         {
+
+
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) => Logger.CrashLog(sender, e);
+            Logger.Debug("Attached global exception handler.");
+
+
+
             Uptime = DateTime.Now.Ticks;
 
             if (IsMasternode && db.GetChainHeight() < 0)

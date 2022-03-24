@@ -994,7 +994,7 @@ namespace Discreet.Wallets
                     Balance += utxo.DecodedAmount;
                 }
                 
-                Daemon.Logger.Info($"DBG: Wallet output index is {index}");
+                Daemon.Logger.Debug($"Wallet output index is {index}");
             }
         }
 

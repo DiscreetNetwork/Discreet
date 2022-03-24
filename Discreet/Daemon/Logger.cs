@@ -71,6 +71,15 @@ namespace Discreet.Daemon
             openLog = File.CreateText(openLogPath);
         }
 
+
+        public static void CrashLog(object sender, UnhandledExceptionEventArgs args)
+        {
+           Exception e = (Exception)args.ExceptionObject;
+
+           Fatal($"CRASH: Unhandled exception in program: {args.ToString()}. Consider creating an issue on Github.");
+           Environment.Exit(-1); // -1 = fatal crash
+        }
+
         public static void Log(string msg)
         {
             lock (writer_lock)
