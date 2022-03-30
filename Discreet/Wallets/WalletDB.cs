@@ -193,6 +193,28 @@ namespace Discreet.Wallets
             return wallet;
         }
 
+        public List<Wallet> GetWallets()
+        {
+            List<Wallet> wallets = new();
+
+            var iterator = db.NewIterator(cf: Wallets);
+
+            iterator.SeekToFirst();
+
+            while (iterator.Valid())
+            {
+                Wallet wallet = new Wallet();
+                wallet.Deserialize(new MemoryStream(iterator.Value()));
+                wallet.LastSeenHeight = GetWalletHeight(wallet.Label);
+
+                wallets.Add(wallet);
+
+                iterator.Next();
+            }
+
+            return wallets;
+        }
+
         public void AddWalletAddress(WalletAddress address)
         {
             lock (indexer_wallet_addresses)

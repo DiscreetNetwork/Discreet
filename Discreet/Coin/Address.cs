@@ -97,7 +97,7 @@ namespace Discreet.Coin
 
         public TAddress(string addr)
         {
-            byte[] bytes = Cipher.Base58.Decode(addr);
+            byte[] bytes = Cipher.Base58.DecodeWhole(addr);
 
             if (bytes.Length != Size())
             {
@@ -141,7 +141,7 @@ namespace Discreet.Coin
 
         public override string ToString()
         {
-            return Discreet.Cipher.Base58.Encode(Bytes());
+            return Discreet.Cipher.Base58.EncodeWhole(Bytes());
         }
 
         public byte[] Checksum()

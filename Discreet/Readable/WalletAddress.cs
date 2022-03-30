@@ -13,6 +13,7 @@ namespace Discreet.Readable
 {
     public class WalletAddress: IReadable
     {
+        public string Name { get; set; }
         public byte Type { get; set; }
 
         public bool Deterministic { get; set; }
@@ -60,6 +61,7 @@ namespace Discreet.Readable
             Synced = addr.Synced;
             Syncer = addr.Syncer;
             UTXOs = addr.UTXOs;
+            Name = addr.Name;
         }
 
         public WalletAddress(Wallets.WalletAddress obj)
@@ -93,6 +95,7 @@ namespace Discreet.Readable
 
         public void FromObject(Wallets.WalletAddress obj, bool encrypted)
         {
+            Name = obj.Name;
             Type = obj.Type;
             Deterministic = obj.Deterministic;
             if (obj.EncryptedSecSpendKey != null) EncryptedSecSpendKey = Printable.Hexify(obj.EncryptedSecSpendKey);
@@ -144,6 +147,7 @@ namespace Discreet.Readable
         {
             Wallets.WalletAddress obj = new();
 
+            obj.Name = Name;
             obj.Type = Type;
             obj.Deterministic = Deterministic;
 

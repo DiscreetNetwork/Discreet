@@ -166,15 +166,24 @@ namespace Discreet.Daemon
 
                     while (_height != bestHeight)
                     {
-                        Logger.Log($"Attemtping to get block {_height + 1}...");
-                        _height += 1;
-                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(_height) } }));
+                        var _newHeight = (_height + 15) <= bestHeight ? _height + 15 : bestHeight;
 
-                        while (handler.LastSeenHeight < _height)
+                        List<SHA256> blocksToGet = new();
+
+                        while (_height < _newHeight)
                         {
-                            Logger.Log($"Waiting to receive block {_height}...");
-                            await Task.Delay(1000);
-                            network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(_height) } }));
+                            blocksToGet.Add(new SHA256(++_height));
+                        }
+                        Logger.Info($"Fetching blocks {_height} to {_newHeight}");
+                        
+                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, 
+                            new Network.Core.Packets.GetBlocksPacket { Count = (uint)blocksToGet.Count, Blocks = blocksToGet.ToArray() }));
+
+                        while (handler.LastSeenHeight < _newHeight)
+                        {
+                            //Logger.Log($"Waiting to receive block {_height}...");
+                            await Task.Delay(50);
+                            //network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(_height) } }));
                         }
                     }
                 }

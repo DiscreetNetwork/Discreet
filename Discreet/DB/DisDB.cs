@@ -507,9 +507,9 @@ namespace Discreet.DB
             }
         }
 
-        public List<FullTransaction> GetTXPool()
+        public List<Daemon.TXPool.MemTx> GetTXPool()
         {
-            List<FullTransaction> pool = new List<FullTransaction>();
+            List<Daemon.TXPool.MemTx> pool = new();
 
             var iterator = db.NewIterator(cf: TxPoolBlob);
 
@@ -518,7 +518,7 @@ namespace Discreet.DB
             while (iterator.Valid())
             {
                 var _tx = iterator.Value();
-                var tx = new FullTransaction();
+                var tx = new Daemon.TXPool.MemTx();
                 tx.Deserialize(_tx);
                 pool.Add(tx);
 
@@ -568,31 +568,31 @@ namespace Discreet.DB
             BlockCache = db.CreateColumnFamily(new ColumnFamilyOptions(), BLOCK_CACHE);
         }
 
-        public void AddTXToPool(FullTransaction tx)
+        public void AddTXToPool(Daemon.TXPool.MemTx tx)
         {
-            Cipher.SHA256 txhash = tx.Hash();
+            Cipher.SHA256 txhash = tx.Tx.Hash();
 
             if (db.Get(txhash.Bytes, cf: TxIndices) != null)
             {
                 throw new Exception($"Discreet.DisDB.AddTXToPool: Transaction {txhash.ToHexShort()} already present in TXPool");
             }
 
-            if (tx.PInputs != null)
+            if (tx.Tx.PInputs != null)
             {
-                for (int i = 0; i < tx.NumPInputs; i++)
+                for (int i = 0; i < tx.Tx.NumPInputs; i++)
                 {
-                    if (!CheckSpentKey(tx.PInputs[i].KeyImage))
+                    if (!CheckSpentKey(tx.Tx.PInputs[i].KeyImage))
                     {
-                        throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                        throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.Tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
                     }
 
-                    if (!CheckSpentKeyBlock(tx.PInputs[i].KeyImage))
+                    if (!CheckSpentKeyBlock(tx.Tx.PInputs[i].KeyImage))
                     {
-                        throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
+                        throw new Exception($"Discreet.DisDB.AddTXToPool: Key image {tx.Tx.PInputs[i].KeyImage.ToHexShort()} has already been spent! (double spend)");
                     }
                 }
 
-                foreach (var j in tx.PInputs)
+                foreach (var j in tx.Tx.PInputs)
                 {
                     db.Put(j.KeyImage.bytes, ZEROKEY, cf: TxPoolSpentKeys);
                 }

@@ -357,18 +357,46 @@ namespace Discreet.Network.Peerbloom
             catch (SocketException e)
             {
                 Daemon.Logger.Error($"Connection.Connect: a socket exception was encountered with peer {Receiver}: {e.Message}");
+                Dispose();
+                if (feeler)
+                {
+                    _network.Feelers.TryRemove(Receiver, out _);
+                }
+
+                return false;
             }
             catch (InvalidOperationException)
             {
                 Daemon.Logger.Error($"Connection.Connect: socket with peer {Receiver} was unexpectedly closed.");
+                Dispose();
+                if (feeler)
+                {
+                    _network.Feelers.TryRemove(Receiver, out _);
+                }
+
+                return false;
             }
             catch (IOException e)
             {
                 Daemon.Logger.Error($"Connection.Connect: an IO exception was encountered with peer {Receiver}: {e.Message}");
+                Dispose();
+                if (feeler)
+                {
+                    _network.Feelers.TryRemove(Receiver, out _);
+                }
+
+                return false;
             }
             catch (Exception ex)
             {
                 Daemon.Logger.Error($"Connection.Connect: an exception was encountered with peer {Receiver}: {ex.Message}");
+                Dispose();
+                if (feeler)
+                {
+                    _network.Feelers.TryRemove(Receiver, out _);
+                }
+
+                return false;
             }
 
             if (_tcpClient != null)
@@ -409,6 +437,7 @@ namespace Discreet.Network.Peerbloom
                 Dispose();
                 _network.Feelers.TryRemove(Receiver, out _);
             }
+
             return true;
         }
 
@@ -439,6 +468,12 @@ namespace Discreet.Network.Peerbloom
 
                 /* receive RequestPeersResp */
                 Core.Packet resp = await ReadAsync(token);
+
+                if (resp == null)
+                {
+                    throw new Exception("response was null");
+                }
+
                 Core.Packets.Peerbloom.RequestPeersResp respBody = (Core.Packets.Peerbloom.RequestPeersResp)resp.Body;
 
                 if (respBody.Length > Constants.PEERBLOOM_MAX_PEERS_PER_REQUESTPEERS)

@@ -40,6 +40,23 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
+        [RPCEndpoint("get_wallets_from_db", APISet.WALLET)]
+        public static object GetWalletsFromDb()
+        {
+            try
+            {
+                var db = WalletDB.GetDB();
+
+                return db.GetWallets().Select(x => new Readable.Wallet(x)).ToList();
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to GetWalletsFromDb failed: {ex.Message}");
+
+                return new RPCError($"Could not get wallets from WalletDB");
+            }
+        }
+
         public class CreateWalletParams
         {
             [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
@@ -66,6 +83,12 @@ namespace Discreet.RPC.Endpoints
 
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
             public uint? NumTransparentAddresses { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public List<string> StealthAddressNames { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public List<string> TransparentAddressNames { get; set; }
 
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
             public bool? Save { get; set; }
@@ -109,9 +132,18 @@ namespace Discreet.RPC.Endpoints
 
                 if (_encrypted && (_params.Passphrase == null || _params.Passphrase == "")) return new RPCError("passphrase was null or empty and encrypted was true");
 
+                if (_params.NumStealthAddresses.HasValue && _params.StealthAddressNames != null && _params.NumStealthAddresses.Value != _params.StealthAddressNames.Count)
+                {
+                    return new RPCError($"number of stealth addresses does not match the number of provided stealth address names: {_params.NumStealthAddresses.Value} != {_params.StealthAddressNames.Count}");
+                }
 
-                uint numStealthAddresses = _params.NumStealthAddresses.HasValue ? _params.NumStealthAddresses.Value : 1;
-                uint numTransparentAddresses = _params.NumTransparentAddresses.HasValue ? _params.NumTransparentAddresses.Value : 0;
+                if (_params.NumTransparentAddresses.HasValue && _params.TransparentAddressNames != null && _params.NumTransparentAddresses.Value != _params.TransparentAddressNames.Count)
+                {
+                    return new RPCError($"number of transparent addresses does not match the number of provided transparent address names: {_params.NumTransparentAddresses.Value} != {_params.TransparentAddressNames.Count}");
+                }
+
+                uint numStealthAddresses = _params.NumStealthAddresses.HasValue ? _params.NumStealthAddresses.Value : (_params.StealthAddressNames != null ? (uint)_params.StealthAddressNames.Count : 1);
+                uint numTransparentAddresses = _params.NumTransparentAddresses.HasValue ? _params.NumTransparentAddresses.Value : (_params.TransparentAddressNames != null ? (uint)_params.TransparentAddressNames.Count : 0);
 
                 bool _save = _params.Save.HasValue ? _params.Save.Value : false;
                 bool _scan = _params.ScanForBalance.HasValue ? _params.ScanForBalance.Value : false;
@@ -122,11 +154,11 @@ namespace Discreet.RPC.Endpoints
 
                 if (mnemonic == null)
                 {
-                    wallet = new Wallet(_params.Label, _params.Passphrase, _params.Bip39.HasValue ? _params.Bip39.Value : 24, _encrypted, true, numStealthAddresses, numTransparentAddresses);
+                    wallet = new Wallet(_params.Label, _params.Passphrase, _params.Bip39.HasValue ? _params.Bip39.Value : 24, _encrypted, true, numStealthAddresses, numTransparentAddresses, _params.StealthAddressNames, _params.TransparentAddressNames);
                 }
                 else
                 {
-                    wallet = new Wallet(_params.Label, _params.Passphrase, mnemonic.GetMnemonic(), _encrypted, true, (uint)mnemonic.Words.Length, numStealthAddresses, numTransparentAddresses);
+                    wallet = new Wallet(_params.Label, _params.Passphrase, mnemonic.GetMnemonic(), _encrypted, true, (uint)mnemonic.Words.Length, numStealthAddresses, numTransparentAddresses, _params.StealthAddressNames, _params.TransparentAddressNames);
                 }
 
                 if (_save)
@@ -142,7 +174,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to CreateWallet failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to CreateWallet failed: {ex}");
 
                 return new RPCError($"Could not create wallet");
             }
@@ -506,6 +538,9 @@ namespace Discreet.RPC.Endpoints
             public bool? Deterministic { get; set; }
 
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+            public string Name { get; set; }
+
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
             public string Secret { get; set; }
 
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
@@ -561,7 +596,7 @@ namespace Discreet.RPC.Endpoints
 
                 if (deterministic)
                 {
-                    addr = wallet.AddWallet(true, addrType == AddressType.TRANSPARENT);
+                    addr = wallet.AddWallet(true, addrType == AddressType.TRANSPARENT, _params.Name);
                 }
                 else
                 {
@@ -575,7 +610,7 @@ namespace Discreet.RPC.Endpoints
 
                     if (random)
                     {
-                        addr = wallet.AddWallet(false, addrType == AddressType.TRANSPARENT);
+                        addr = wallet.AddWallet(false, addrType == AddressType.TRANSPARENT, _params.Name);
                     }
                     else
                     {
@@ -759,10 +794,41 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWalletVersion failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to ChangeWalletLabel failed: {ex.Message}");
 
-                return new RPCError($"Could not get wallet version");
+                return new RPCError($"Could not change wallet label");
             }
+        }
+
+        [RPCEndpoint("change_address_name", APISet.WALLET)]
+        public static object ChangeAddressName(string address, string name)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().daemon;
+
+                var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"could not find address {address}");
+
+                WalletAddress addr = wallet.Addresses.Where(x => x.Address == address).FirstOrDefault();
+
+                addr.Name = name ?? "";
+
+                return "OK";
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to ChangeAddressName failed: {ex.Message}");
+
+                return new RPCError($"Could not change address name");
+            }
+        }
+
+        public class GetWalletHeightRV
+        {
+            public long Height { get; set; }
+            public bool Synced { get; set; }
         }
 
         [RPCEndpoint("get_wallet_height", APISet.WALLET)]
@@ -778,7 +844,37 @@ namespace Discreet.RPC.Endpoints
 
                 if (wallet == null) return new RPCError($"no wallet found with label {label}");
 
-                return wallet.LastSeenHeight;
+                return new GetWalletHeightRV { Height = wallet.LastSeenHeight, Synced = wallet.Synced };
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to GetWalletHeight failed: {ex.Message}");
+
+                return new RPCError($"Could not get wallet height");
+            }
+        }
+
+        public class GetAddressHeightRV
+        {
+            public long Height { get; set; }
+            public bool Synced { get; set; }
+            public bool Syncer { get; set; }
+        }
+
+        [RPCEndpoint("get_address_height", APISet.WALLET)]
+        public static object GetAddressHeight(string address)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().daemon;
+
+                var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"could not find address {address}");
+
+                var addr = wallet.Addresses.Where(x => x.Address == address).FirstOrDefault();
+
+                return new GetAddressHeightRV { Height = addr.LastSeenHeight, Synced = addr.Synced, Syncer = addr.Syncer };
             }
             catch (Exception ex)
             {
@@ -817,6 +913,5 @@ namespace Discreet.RPC.Endpoints
                 return new RPCError($"Could not get mnemonic");
             }
         }
-        // WIP
     }
 }

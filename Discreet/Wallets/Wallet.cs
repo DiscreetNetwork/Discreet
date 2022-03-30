@@ -60,7 +60,7 @@ namespace Discreet.Wallets
         public Wallet() { }
 
         /* WIP */
-        public Wallet(string label, string passphrase, uint bip39 = 24, bool encrypted = true, bool deterministic = true, uint numStealthAddresses = 1, uint numTransparentAddresses = 0)
+        public Wallet(string label, string passphrase, uint bip39 = 24, bool encrypted = true, bool deterministic = true, uint numStealthAddresses = 1, uint numTransparentAddresses = 0, List<string> stealthAddressNames = null, List<string> transparentAddressNames = null)
         {
             Timestamp = (ulong)DateTime.Now.Ticks;
             Encrypted = encrypted;
@@ -69,6 +69,16 @@ namespace Discreet.Wallets
             if (bip39 != 12 && bip39 != 24)
             {
                 throw new Exception($"Discreet.Wallet.Wallet: Cannot make wallet with seed phrase length {bip39} (only 12 and 24)");
+            }
+
+            if (stealthAddressNames != null && stealthAddressNames.Count != numStealthAddresses)
+            {
+                throw new Exception($"Discreet.Wallet.Wallet: Cannot make wallet with mismatching stealth labels: {numStealthAddresses} != {stealthAddressNames.Count}");
+            }
+
+            if (transparentAddressNames != null && transparentAddressNames.Count != numTransparentAddresses)
+            {
+                throw new Exception($"Discreet.Wallet.Wallet: Cannot make wallet with mismatching transparent labels: {numTransparentAddresses} != {transparentAddressNames.Count}");
             }
 
             EntropyLen = (bip39 == 12) ? (uint)16 : (uint)32;
@@ -115,6 +125,11 @@ namespace Discreet.Wallets
                     Addresses[i] = new WalletAddress(this, (byte)WalletType.PRIVATE, true);
                 }
 
+                if (stealthAddressNames != null)
+                {
+                    Addresses[i].Name = stealthAddressNames[i];
+                }
+
                 Addresses[i].Encrypt(Entropy);
             }
 
@@ -131,6 +146,11 @@ namespace Discreet.Wallets
                     Addresses[i] = new WalletAddress(this, (byte)WalletType.TRANSPARENT, true);
                 }
 
+                if (transparentAddressNames != null)
+                {
+                    Addresses[i].Name = transparentAddressNames[i - (int)numStealthAddresses];
+                }
+
                 Addresses[i].Encrypt(Entropy);
             }
 
@@ -139,11 +159,21 @@ namespace Discreet.Wallets
             Decrypt(passphrase);
         }
 
-        public Wallet(string label, string passphrase, string mnemonic, bool encrypted = true, bool deterministic = true, uint bip39 = 24, uint numStealthAddresses = 1, uint numTransparentAddresses = 0)
+        public Wallet(string label, string passphrase, string mnemonic, bool encrypted = true, bool deterministic = true, uint bip39 = 24, uint numStealthAddresses = 1, uint numTransparentAddresses = 0, List<string> stealthAddressNames = null, List<string> transparentAddressNames = null)
         {
             Timestamp = (ulong)DateTime.Now.Ticks;
             Encrypted = encrypted;
             Label = label;
+
+            if (stealthAddressNames != null && stealthAddressNames.Count != numStealthAddresses)
+            {
+                throw new Exception($"Discreet.Wallet.Wallet: Cannot make wallet with mismatching stealth labels: {numStealthAddresses} != {stealthAddressNames.Count}");
+            }
+
+            if (transparentAddressNames != null && transparentAddressNames.Count != numTransparentAddresses)
+            {
+                throw new Exception($"Discreet.Wallet.Wallet: Cannot make wallet with mismatching transparent labels: {numTransparentAddresses} != {transparentAddressNames.Count}");
+            }
 
             Cipher.Mnemonics.Mnemonic Mnemonic = new Cipher.Mnemonics.Mnemonic(mnemonic);
             Entropy = Mnemonic.GetEntropy();
@@ -188,6 +218,11 @@ namespace Discreet.Wallets
                     Addresses[i] = new WalletAddress(this, (byte)WalletType.PRIVATE, true);
                 }
 
+                if (stealthAddressNames != null)
+                {
+                    Addresses[i].Name = stealthAddressNames[i];
+                }
+
                 Addresses[i].Encrypt(Entropy);
             }
 
@@ -204,6 +239,11 @@ namespace Discreet.Wallets
                     Addresses[i] = new WalletAddress(this, (byte)WalletType.TRANSPARENT, true);
                 }
 
+                if (transparentAddressNames != null)
+                {
+                    Addresses[i].Name = transparentAddressNames[i - (int)numStealthAddresses];
+                }
+
                 Addresses[i].Encrypt(Entropy);
             }
 
@@ -216,7 +256,7 @@ namespace Discreet.Wallets
          * <summary>tries to add a new wallet of the specified type. </summary>
          * 
          */
-        public WalletAddress AddWallet(bool deterministic, bool transparent)
+        public WalletAddress AddWallet(bool deterministic, bool transparent, string name = null)
         {
             lock (locker)
             {
@@ -243,6 +283,7 @@ namespace Discreet.Wallets
                 if (!deterministic)
                 {
                     WalletAddress newAddr = new WalletAddress(this, (byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), true);
+                    newAddr.Name = name ?? "";
                     AddWallet(newAddr);
                     return newAddr;
                 }
@@ -250,6 +291,7 @@ namespace Discreet.Wallets
                 if (index == 0)
                 {
                     WalletAddress newAddr = new WalletAddress(this, (byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), Entropy, hash, index);
+                    newAddr.Name = name ?? "";
                     AddWallet(newAddr);
 
                     return newAddr;
@@ -270,6 +312,7 @@ namespace Discreet.Wallets
                     }
 
                     WalletAddress newAddr = new WalletAddress(this, (byte)(transparent ? WalletType.TRANSPARENT : WalletType.PRIVATE), Entropy, hash, index);
+                    newAddr.Name = name ?? "";
                     AddWallet(newAddr);
 
                     Array.Clear(hash, 0, hash.Length);

@@ -95,6 +95,7 @@ namespace Discreet.RPC
              * I have tested and it seems that both closed and open delegates always have a Target as the first parameter.
              * Thus we skip this, as can be seen where ConvertType gets _paramInfo[i + 1].ParameterType.
              */
+            //Daemon.Logger.Debug($"Calling endpoint \"{endpoint}\"");
             var _paramInfo = _endpoint.Method.GetParameters();
 
             object[] _data = new object[args.Length];
@@ -111,8 +112,14 @@ namespace Discreet.RPC
                         0 or 1 or 2 => JsonSerializer.Deserialize((JsonElement)args[i], typeof(Readable.Transaction)),
                     };
                 }*/
-
-                _data[i] = JsonSerializer.Deserialize((JsonElement)args[i], _paramInfo[i + 1].ParameterType, defaultOptions);
+                if (args[i] == null)
+                {
+                    _data[i] = null;
+                }
+                else
+                {
+                    _data[i] = JsonSerializer.Deserialize((JsonElement)args[i], _paramInfo[i + 1].ParameterType, defaultOptions);
+                }
             }
 
             object result = _endpoint.DynamicInvoke(_data);

@@ -36,7 +36,30 @@ namespace Discreet.Daemon
             }
         }
 
-        private ConcurrentDictionary<Cipher.SHA256, FullTransaction> pool;
+        public class MemTx
+        {
+            public FullTransaction Tx;
+            public long Received;
+
+            public byte[] Serialize()
+            {
+                byte[] data = new byte[Tx.Size() + 8];
+                Coin.Serialization.CopyData(data, 0, Received);
+                Tx.Serialize(data, 8);
+
+                return data;
+            }
+
+            public void Deserialize(byte[] data)
+            {
+                Received = Coin.Serialization.GetInt64(data, 0);
+
+                Tx = new FullTransaction();
+                Tx.Deserialize(data, 8);
+            }
+        }
+
+        private ConcurrentDictionary<Cipher.SHA256, MemTx> pool;
 
         public TXPool()
         {
@@ -48,7 +71,7 @@ namespace Discreet.Daemon
 
             foreach (var tx in _pool)
             {
-                pool[tx.Hash()] = tx;
+                pool[tx.Tx.Hash()] = tx;
             }
         }
 
@@ -62,13 +85,16 @@ namespace Discreet.Daemon
                 return err;
             }
 
+            /* since it is verified, create a new memtx */
+            var memtx = new MemTx { Tx = tx, Received = DateTime.UtcNow.Ticks };
+
             /* try adding to database */
             DB.DisDB db = DB.DisDB.GetDB();
             try
             {
                 lock (DB.DisDB.DBLock)
                 {
-                    db.AddTXToPool(tx);
+                    db.AddTXToPool(memtx);
                 }
             }
             catch (Exception e)
@@ -77,7 +103,7 @@ namespace Discreet.Daemon
             }
 
             /* no errors, so add TX to pool */
-            pool[tx.Hash()] = tx;
+            pool[tx.Hash()] = memtx;
 
             return null;
         }
@@ -97,18 +123,44 @@ namespace Discreet.Daemon
             return ProcessIncoming(tx.ToFull());
         }
 
+        public List<FullTransaction> SelectAndRemove(int maxBytes)
+        {
+            var searchTxs = pool.Values.OrderBy(x => x.Received).ToList();
+            var txs = new List<FullTransaction>();
+            // TODO: change once block headers are fixed size
+            uint _sizeTotal = 137 + 96;
+
+            while (_sizeTotal < maxBytes)
+            {
+                var tx = searchTxs.FirstOrDefault();
+
+                if (tx != null && tx.Tx.Size() + _sizeTotal < maxBytes)
+                {
+                    txs.Add(tx.Tx);
+                    searchTxs.Remove(tx);
+
+                    _sizeTotal += tx.Tx.Size();
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return txs;
+        }
+
         /**
          * Grabs transactions from the pool and packs them into a block.
-         * Currently just returns the entire TXpool.
          */
         public List<FullTransaction> GetTransactionsForBlock()
         {
-            return pool.Values.ToList();
+            return SelectAndRemove(1048576);
         }
 
         public List<FullTransaction> GetTransactions()
         {
-            return pool.Values.ToList();
+            return pool.Values.Select(x => x.Tx).ToList();
         }
 
         public void UpdatePool(IEnumerable<Cipher.SHA256> txs)

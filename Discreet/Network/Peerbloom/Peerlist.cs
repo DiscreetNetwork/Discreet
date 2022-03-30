@@ -413,11 +413,25 @@ namespace Discreet.Network.Peerbloom
                 var pinfoClear = addrs[nIDClear];
                 pinfoClear.RefCount = Math.Min(pinfoClear.RefCount - 1, 0);
                 New[bucket, pos] = 0;
-                if (pinfoClear.RefCount == 0)
+                if (pinfoClear.RefCount <= 0)
                 {
                     Delete(nIDClear);
                 }
             }
+        }
+
+        public void ClearTried(Peer p)
+        {
+            FindPeer(p.Endpoint, out var nID);
+            if (!addrs.TryRemove(nID, out _)) return;
+
+            var bucket = GetTriedBucket(p.Endpoint);
+            var pos = GetBucketPosition(false, bucket, p.Endpoint);
+
+            Tried[bucket, pos] = 0;
+
+            p.InTried = false;
+            _triedCounter--;
         }
 
         public Peer FindPeer(IPEndPoint p, out uint nID)

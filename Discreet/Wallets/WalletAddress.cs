@@ -24,6 +24,8 @@ namespace Discreet.Wallets
      */
     public class WalletAddress
     {
+        public string Name;
+
         public bool Encrypted;
 
         public byte Type;
@@ -63,6 +65,8 @@ namespace Discreet.Wallets
 
         /* UTXO data for the wallet. Stored in a local JSON database. */
         public List<UTXO> UTXOs;
+
+        public List<FullTransaction> TxHistory;
 
         public int DBIndex;
 
@@ -1227,6 +1231,7 @@ namespace Discreet.Wallets
         {
             MemoryStream _ms = new MemoryStream();
 
+            Serialization.CopyData(_ms, Name);
             _ms.WriteByte(Type);
             Serialization.CopyData(_ms, Deterministic);
 
@@ -1262,6 +1267,7 @@ namespace Discreet.Wallets
 
         public void Deserialize(Stream s)
         {
+            Name = Serialization.GetString(s);
             Type = (byte)s.ReadByte();
             Encrypted = true;
             Deterministic = Serialization.GetBool(s);

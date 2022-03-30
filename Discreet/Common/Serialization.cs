@@ -310,6 +310,8 @@ namespace Discreet.Coin
 
         public static void CopyData(Stream s, string str)
         {
+            if (str == null) str = "";
+
             byte[] bytes = Encoding.UTF8.GetBytes(str);
 
             s.Write(Int32(bytes.Length));

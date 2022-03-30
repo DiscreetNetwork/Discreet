@@ -50,13 +50,19 @@ namespace Discreet.Network.Peerbloom
         {
             Connection conn = new Connection(p.Endpoint, _network, _network.LocalNode);
 
-            bool success = await conn.Connect(false, token);
+            bool success = await conn.Connect(false, token, true);
 
             if (!success)
             {
                 if (p.InTried)
                 {
                     _peerlist.Attempt(p.Endpoint, true);
+
+                    if (p.IsTerrible())
+                    {
+                        _peerlist.ClearTried(p);
+                    }
+
                     return;
                 }
 
@@ -114,6 +120,8 @@ namespace Discreet.Network.Peerbloom
                     if (peer == null) break;
 
                     _ = Task.Run(() => Feel(peer, token)).ConfigureAwait(false);
+
+                    await Task.Delay(500);
                 }
             }
         }
