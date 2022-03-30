@@ -36,7 +36,7 @@ namespace Discreet.Network.Core.Packets
             for (int i = 0; i < BlocksLen; i++)
             {
                 Blocks[i] = new Coin.Block();
-                offset += Blocks[i].Deserialize(b, offset);
+                offset = Blocks[i].Deserialize(b, offset);
             }
         }
 

@@ -167,6 +167,7 @@ namespace Discreet.Daemon
                     while (_height != bestHeight)
                     {
                         var _newHeight = (_height + 15) <= bestHeight ? _height + 15 : bestHeight;
+                        Logger.Info($"Fetching blocks {_height} to {_newHeight}");
 
                         List<SHA256> blocksToGet = new();
 
@@ -174,7 +175,6 @@ namespace Discreet.Daemon
                         {
                             blocksToGet.Add(new SHA256(++_height));
                         }
-                        Logger.Info($"Fetching blocks {_height} to {_newHeight}");
                         
                         network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, 
                             new Network.Core.Packets.GetBlocksPacket { Count = (uint)blocksToGet.Count, Blocks = blocksToGet.ToArray() }));
