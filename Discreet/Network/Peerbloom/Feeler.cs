@@ -113,15 +113,22 @@ namespace Discreet.Network.Peerbloom
 
                 Daemon.Logger.Debug($"Feeler: beginning feelers...");
 
-                while (_network.Feelers.Count < Constants.PEERBLOOM_MAX_FEELERS)
+                int newFeelers = Constants.PEERBLOOM_MAX_PEERS - _network.Feelers.Count;
+                List<Peer> selected = new List<Peer>();
+                int tried = 0; // used to prevent infinite loops, happens in the case of too few peers in tried or new
+
+                while (selected.Count < newFeelers && tried < Constants.PEERBLOOM_MAX_FEELERS + 2)
                 {
                     var peer = Select();
-
                     if (peer == null) break;
+                    tried++;
 
+                    if (selected.Contains(peer)) continue;
+
+                    selected.Add(peer);
                     _ = Task.Run(() => Feel(peer, token)).ConfigureAwait(false);
 
-                    await Task.Delay(500);
+                    await Task.Delay(100);
                 }
             }
         }

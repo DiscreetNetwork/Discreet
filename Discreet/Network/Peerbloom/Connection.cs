@@ -884,6 +884,8 @@ namespace Discreet.Network.Peerbloom
                     _readMutex.Dispose();
                     _sendMutex.Dispose();
                     _network.RemoveNodeFromPool(this);
+                    _network.Cache.BadVersions.TryRemove(Receiver, out _);
+                    _network.Cache.Versions.TryRemove(Receiver, out _);
                 }
 
                 disposed = true;

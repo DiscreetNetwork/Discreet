@@ -22,9 +22,11 @@ namespace Discreet.RPC.Endpoints
 
                 if (_visor.IsMasternode)
                 {
-                    var addr = _visor.wallets.First().Addresses[0];
+                    var wallet = _visor.wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
 
-                    var tx = addr.CreateTransaction(new StealthAddress(address), amount).ToFull();
+                    if (wallet == null) return new RPCError("fatal error occurred. Masternode does not have a faucet.");
+
+                    var tx = wallet.Addresses[0].CreateTransaction(new StealthAddress(address), amount).ToFull();
 
                     _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDTX, new Network.Core.Packets.SendTransactionPacket { Tx = tx }));
 
@@ -133,9 +135,11 @@ namespace Discreet.RPC.Endpoints
 
                 if (_visor.IsMasternode)
                 {
-                    var addr = _visor.wallets.First().Addresses[0];
+                    var wallet = _visor.wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
 
-                    var tx = addr.CreateTransaction(new IAddress[] { new TAddress(address) }, new ulong[] { amount }).ToFull();
+                    if (wallet == null) return new RPCError("fatal error occurred. Masternode does not have a faucet.");
+
+                    var tx = wallet.Addresses[0].CreateTransaction(new IAddress[] { new TAddress(address) }, new ulong[] { amount }).ToFull();
 
                     var verify = tx.Verify();
                     string _verify = "";
