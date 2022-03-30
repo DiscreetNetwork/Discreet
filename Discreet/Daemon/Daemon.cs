@@ -167,7 +167,7 @@ namespace Discreet.Daemon
                     while (_height != bestHeight)
                     {
                         var _newHeight = (_height + 15) <= bestHeight ? _height + 15 : bestHeight;
-                        Logger.Info($"Fetching blocks {_height} to {_newHeight}");
+                        Logger.Info($"Fetching blocks {_height + 1} to {_newHeight}");
 
                         List<SHA256> blocksToGet = new();
 
