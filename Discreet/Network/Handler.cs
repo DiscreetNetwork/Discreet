@@ -672,7 +672,7 @@ namespace Discreet.Network
                     }
                 }
 
-                LastSeenHeight = p.Blocks[0].Header.Height;
+                LastSeenHeight = p.Blocks.Select(x => x.Header.Height).Max();
             }
         }
 

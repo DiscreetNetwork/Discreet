@@ -164,7 +164,7 @@ namespace Discreet.Daemon
                     long _height = db.GetChainHeight();
                     beginningHeight = _height;
 
-                    while (_height != bestHeight)
+                    while (_height < bestHeight)
                     {
                         var _newHeight = (_height + 15) <= bestHeight ? _height + 15 : bestHeight;
                         Logger.Info($"Fetching blocks {_height + 1} to {_newHeight}");
