@@ -15,6 +15,18 @@ namespace Discreet.Cipher
 	/// </summary>
 	public static class Base58
 	{
+		public static int IndexOf(this int[] array, int value)
+        {
+			if (array == null) return -1;
+
+			for (int i = 0; i < array.Length; i++)
+            {
+				if (array[i] == value) return i;
+            }
+
+			return -1;
+        }
+
 		/// <summary>
 		/// The Base58 alphabet.
 		/// </summary>
@@ -30,20 +42,29 @@ namespace Discreet.Cipher
 		/// </summary>
 		/// <param name="bytes"></param>
 		/// <returns></returns>
-		public static byte[] TruncateFrom8(byte[] bytes)
+		public static byte[] TruncateFrom8(byte[] bytes, int padding = -1)
         {
 			int i;
-			for (i = 7; i >= 0; i--)
+			if (padding < 0)
             {
-				if (bytes[i] > 0)
-                {
-					break;
-                }
-            }
+				for (i = 7; i >= 0; i--)
+				{
+					if (bytes[i] > 0)
+					{
+						break;
+					}
+				}
 
-			byte[] rv = new byte[i + 1];
-			Array.Copy(bytes, 0, rv, 0, rv.Length);
-			return rv;
+				byte[] rv = new byte[i + 1];
+				Array.Copy(bytes, 0, rv, 0, rv.Length);
+				return rv;
+			}
+			else
+            {
+				byte[] rv = new byte[padding];
+				Array.Copy(bytes, 0, rv, 0, rv.Length);
+				return rv;
+            }
 		}
 
 		/// <summary>
@@ -104,7 +125,7 @@ namespace Discreet.Cipher
 		/// </summary>
 		/// <param name="encoded">The base-58 block of characters to decode.</param>
 		/// <returns>The chunk or remainder as a byte array.</returns>
-		public static byte[] DecodeChunk(string encoded)
+		public static byte[] DecodeChunk(string encoded, int padding)
 		{
 			ulong bigResult = 0;
 			ulong currentMultiplier = 1;
@@ -119,7 +140,7 @@ namespace Discreet.Cipher
 				currentMultiplier *= bigBase;
             }
 
-			byte[] rv = TruncateFrom8(BitConverter.GetBytes(bigResult));
+			byte[] rv = TruncateFrom8(BitConverter.GetBytes(bigResult), padding);
 			if (BitConverter.IsLittleEndian)
 			{
 				Array.Reverse(rv);
@@ -225,12 +246,12 @@ namespace Discreet.Cipher
 
 			for (int i = 0; i < rounds; i++)
 			{
-				res.AddRange(DecodeChunk(data.Substring(i * 11, 11)));
+				res.AddRange(DecodeChunk(data.Substring(i * 11, 11), 8));
 			}
 
 			if (data.Length % 11 > 0)
 			{
-				res.AddRange(DecodeChunk(data.Substring(rounds * 11)));
+				res.AddRange(DecodeChunk(data.Substring(rounds * 11), blockSizes.IndexOf(data.Length)));
 			}
 
 			return res.ToArray();
