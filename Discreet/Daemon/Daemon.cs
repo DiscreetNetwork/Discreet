@@ -157,7 +157,7 @@ namespace Discreet.Daemon
 
                 handler.SetState(Network.PeerState.Syncing);
 
-                long beginningHeight = 0;
+                long beginningHeight = -1;
 
                 if (bestPeer != null)
                 {
