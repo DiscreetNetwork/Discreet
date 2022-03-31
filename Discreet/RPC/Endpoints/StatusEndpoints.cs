@@ -186,6 +186,23 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
+        [RPCEndpoint("get_num_connections", APISet.STATUS)]
+        public static object GetNumConnections()
+        {
+            try
+            {
+                var _network = Network.Peerbloom.Network.GetNetwork();
+
+                return _network.InboundConnectedPeers.Count + _network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to GetNumConnections failed: {ex.Message}");
+
+                return new RPCError($"Could not get num connections");
+            }
+        }
+
         [RPCEndpoint("get_outbound", APISet.STATUS)]
         public static object GetOutbound()
         {

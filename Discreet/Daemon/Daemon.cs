@@ -48,9 +48,14 @@ namespace Discreet.Daemon
             messageCache = Network.MessageCache.GetMessageCache();
             db = DB.DisDB.GetDB();
 
-            config = new DaemonConfig();
+            config = DaemonConfig.GetConfig();
 
-            signingKey = new Key(Common.Printable.Byteify("90933561d294e3125c98a90263e1331fc337be71ee3ac9b0d7269728849ac00a"));
+            signingKey = Key.FromHex(config.SigningKey);
+
+            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("74df105d0d37ef0c31ef2656297e514c52ec49ce387b587f97a13e2c3a57065e")))
+            {
+                IsMasternode = true;
+            }
 
             syncerQueues = new ConcurrentDictionary<object, ConcurrentQueue<SHA256>>();
 

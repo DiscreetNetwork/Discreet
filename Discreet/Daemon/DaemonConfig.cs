@@ -172,6 +172,11 @@ namespace Discreet.Daemon
                 IsPublic = false;
             }
 
+            if (SigningKey == null || SigningKey.Length != 64)
+            {
+                SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
+            }
+
             if (NetConfig == null)
             {
                 NetConfig = new NetworkConfig();
@@ -211,6 +216,8 @@ namespace Discreet.Daemon
         public uint? NetworkVersion { get; set; }
 
         public bool? IsPublic { get; set; }
+
+        public string SigningKey { get; set; }
 
         public NetworkConfig NetConfig { get; set; }
 
@@ -253,6 +260,8 @@ namespace Discreet.Daemon
             RPCUseTabs = false;
 
             HTTPPort = 8351;
+
+            SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
 
             NetConfig = new NetworkConfig();
         }
