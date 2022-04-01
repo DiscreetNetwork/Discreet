@@ -526,7 +526,7 @@ namespace Discreet.Coin
                              + (NumPOutputs > 0 ? 32 : 0)
                              + (PInputs == null ? 0 : PInputs.Length) * TXInput.Size()
                              + (POutputs == null ? 0 : POutputs.Length) * 72
-                             + ((RangeProofPlus == null && NumPOutputs > 0) ? 0 : RangeProofPlus.Size())
+                             + ((RangeProofPlus == null && NumPOutputs == 0) ? 0 : RangeProofPlus.Size())
                              + Triptych.Size() * (PSignatures == null ? 0 : PSignatures.Length)
                              + 32 * PseudoOutputs.Length);
         }

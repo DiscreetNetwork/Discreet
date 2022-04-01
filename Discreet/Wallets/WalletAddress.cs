@@ -766,9 +766,12 @@ namespace Discreet.Wallets
             }
             
             /* create range proof */
-            Cipher.BulletproofPlus bp = Cipher.BulletproofPlus.Prove(amounts.ToArray(), gammas.ToArray());
-            utx.RangeProof = new Coin.BulletproofPlus(bp);
-
+            if (pOutputs.Count > 0)
+            {
+                Cipher.BulletproofPlus bp = Cipher.BulletproofPlus.Prove(amounts.ToArray(), gammas.ToArray());
+                utx.RangeProof = new Coin.BulletproofPlus(bp);
+            }
+            
             utx.TOutputs = tOutputs.ToArray();
             utx.POutputs = pOutputs.ToArray();
             utx.sumGammas = sum;
