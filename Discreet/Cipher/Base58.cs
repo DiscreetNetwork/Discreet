@@ -132,6 +132,8 @@ namespace Discreet.Cipher
 				rv += "1";
             }
 
+			if (i == raw.Length) return rv;
+
 			// this also prepends a zero to ensure the BigInteger is positive
 			byte[] _rem = new byte[raw.Length - i + 1];
 			Array.Copy(raw, i, _rem, i + 1, _rem.Length);
@@ -167,6 +169,9 @@ namespace Discreet.Cipher
             {
 				j++;
             }
+
+			if (j == encoded.Length) return new byte[j];
+
 			encoded = encoded.Substring(j);
 
 			BigInteger bigResult = 0;
