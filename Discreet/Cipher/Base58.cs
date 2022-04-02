@@ -38,53 +38,6 @@ namespace Discreet.Cipher
 		static readonly int[] blockSizes = new int[] { 0, 2, 3, 5, 6, 7, 9, 10, 11 };
 
 		/// <summary>
-		/// Truncates a little-endian byte array of integer data into the smallest array size it can fit into.
-		/// </summary>
-		/// <param name="bytes"></param>
-		/// <returns></returns>
-		public static byte[] TruncateFrom8(byte[] bytes, int padding = -1)
-        {
-			int i;
-			if (padding < 0)
-            {
-				for (i = 7; i >= 0; i--)
-				{
-					if (bytes[i] > 0)
-					{
-						break;
-					}
-				}
-
-				byte[] rv = new byte[i + 1];
-				Array.Copy(bytes, 0, rv, 0, rv.Length);
-				return rv;
-			}
-			else
-            {
-				byte[] rv = new byte[padding];
-				Array.Copy(bytes, 0, rv, 0, rv.Length);
-				return rv;
-            }
-		}
-
-		/// <summary>
-		/// Prepends a byte array with zeros until it is 8 bytes long.
-		/// </summary>
-		/// <param name="bytes"></param>
-		/// <returns></returns>
-		public static byte[] PadTo8(byte[] bytes)
-        {
-			if (bytes.Length == 8)
-            {
-				return bytes;
-            }
-
-			byte[] rv = new byte[8];
-			Array.Copy(bytes, 0, rv, (8 - bytes.Length), bytes.Length);
-			return rv;
-        }
-
-		/// <summary>
 		/// Encodes an 8-byte chunk or remainder into a base-58 block of characters.
 		/// </summary>
 		/// <param name="raw">The raw chunk or remainder of byte data.</param>
@@ -92,7 +45,12 @@ namespace Discreet.Cipher
 		/// <returns>A string containing the base-58 block of characters.</returns>
 		public static string EncodeChunk(byte[] raw, int padding)
         {
-			raw = PadTo8(raw);
+			if (raw.Length < 8)
+            {
+				byte[] rawtmp = new byte[8];
+				Array.Copy(raw, 0, rawtmp, (8 - raw.Length), raw.Length);
+				raw = rawtmp;
+            }
 
 			if (BitConverter.IsLittleEndian)
 			{
@@ -100,12 +58,11 @@ namespace Discreet.Cipher
 			}
 
 			ulong remainder = BitConverter.ToUInt64(raw);
-			ulong bigZero = 0;
 			ulong bigBase = 58;
 
 			string rv = "";
 
-			while (remainder.CompareTo(bigZero) > 0)
+			while (remainder > 0)
             {
 				ulong current = remainder % bigBase;
 				remainder /= bigBase;
@@ -140,13 +97,23 @@ namespace Discreet.Cipher
 				currentMultiplier *= bigBase;
             }
 
-			byte[] rv = TruncateFrom8(BitConverter.GetBytes(bigResult), padding);
+			byte[] brBytes = BitConverter.GetBytes(bigResult);
 			if (BitConverter.IsLittleEndian)
 			{
-				Array.Reverse(rv);
+				Array.Reverse(brBytes);
 			}
-			
-			return rv;
+
+			/* perform truncating here */
+			if (padding < 8)
+            {
+				byte[] rv = new byte[padding];
+				Array.Copy(brBytes, (8 - padding), rv, 0, padding);
+				return rv;
+            }
+			else
+            {
+				return brBytes;
+            }
 		}
 
 		/// <summary>
@@ -156,6 +123,19 @@ namespace Discreet.Cipher
 		/// <returns>A Base58 string containing the encoded data.</returns>
 		public static string EncodeWhole(byte[] raw)
         {
+			// first convert leading zeros to rv string
+			string rv = "";
+
+			int i = 0;
+			while (raw[i] == 0 && i < raw.Length)
+            {
+				rv += "1";
+            }
+
+			// this also prepends a zero to ensure the BigInteger is positive
+			byte[] _rem = new byte[raw.Length - i + 1];
+			Array.Copy(raw, i, _rem, i + 1, _rem.Length);
+
 			if (BitConverter.IsLittleEndian)
 			{
 				Array.Reverse(raw);
@@ -164,8 +144,6 @@ namespace Discreet.Cipher
 			BigInteger remainder = new BigInteger(raw);
 			BigInteger bigZero = 0;
 			BigInteger bigBase = 58;
-
-			string rv = "";
 
 			while (remainder.CompareTo(bigZero) > 0)
 			{
@@ -184,6 +162,13 @@ namespace Discreet.Cipher
 		/// <returns>A byte array containing the decoded data.</returns>
 		public static byte[] DecodeWhole(string encoded)
 		{
+			int j = 0;
+			while (encoded[j] == '1' && j < encoded.Length)
+            {
+				j++;
+            }
+			encoded = encoded.Substring(j);
+
 			BigInteger bigResult = 0;
 			BigInteger currentMultiplier = 1;
 			BigInteger bigBase = 58;
@@ -197,12 +182,23 @@ namespace Discreet.Cipher
 				currentMultiplier *= bigBase;
 			}
 
-			byte[] rv = bigResult.ToByteArray();
+			byte[] brBytes = bigResult.ToByteArray();
 
 			if (BitConverter.IsLittleEndian)
             {
-				Array.Reverse(rv);
+				Array.Reverse(brBytes);
             }
+
+			// discard leading zero; appended when msbyte > 0x7F for the biginteger (due to positivity)
+			if (brBytes[0] == 0)
+            {
+				byte[] brtmp = new byte[brBytes.Length - 1];
+				Array.Copy(brBytes, 1, brtmp, 0, brtmp.Length);
+				brBytes = brtmp;
+            }
+
+			byte[] rv = new byte[brBytes.Length + j];
+			Array.Copy(brBytes, 0, rv, j, brBytes.Length);
 
 			return rv;
 		}
@@ -251,7 +247,7 @@ namespace Discreet.Cipher
 
 			if (data.Length % 11 > 0)
 			{
-				res.AddRange(DecodeChunk(data.Substring(rounds * 11), blockSizes.IndexOf(data.Length)));
+				res.AddRange(DecodeChunk(data.Substring(rounds * 11), blockSizes.IndexOf(data.Substring(rounds * 11).Length)));
 			}
 
 			return res.ToArray();
