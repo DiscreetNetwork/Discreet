@@ -60,6 +60,7 @@ namespace Discreet.Wallets
 
         private DB.U32 indexer_owned_outputs = new DB.U32(0);
         private DB.U32 indexer_wallet_addresses = new DB.U32(0);
+        private DB.U32 indexer_tx_history = new DB.U32(0);
 
         public string Folder
         {
@@ -112,6 +113,7 @@ namespace Discreet.Wallets
                 db.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
                 db.Put(Encoding.ASCII.GetBytes("indexer_owned_outputs"), Serialization.UInt64(indexer_owned_outputs.Value), cf: Meta);
                 db.Put(Encoding.ASCII.GetBytes("indexer_wallet_addresses"), Serialization.UInt32(indexer_wallet_addresses.Value), cf: Meta);
+                db.Put(Encoding.ASCII.GetBytes("indexer_tx_history"), Serialization.UInt32(indexer_tx_history.Value), cf: Meta);
             }
             else
             {
@@ -132,6 +134,15 @@ namespace Discreet.Wallets
                 }
 
                 indexer_wallet_addresses.Value = Serialization.GetUInt32(result, 0);
+
+                result = db.Get(Encoding.ASCII.GetBytes("indexer_tx_history"), cf: Meta);
+
+                if (result == null)
+                {
+                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_tx_history");
+                }
+
+                indexer_tx_history.Value = Serialization.GetUInt32(result, 0);
             }
 
             folder = path;
@@ -340,6 +351,31 @@ namespace Discreet.Wallets
             utxo.Deserialize(result);
 
             return utxo;
+        }
+
+        public void AddTxToHistory(WalletTx tx)
+        {
+            lock (indexer_tx_history)
+            {
+                indexer_tx_history.Value++;
+                tx.Index = (int)indexer_tx_history.Value;
+            }
+
+            db.Put(Serialization.Int32(tx.Index), tx.EncryptedString, cf: TxHistory);
+        }
+
+        public WalletTx GetTxFromHistory(WalletAddress address, int index)
+        {
+            var result = db.Get(Coin.Serialization.Int32(index), cf: TxHistory);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.DisDB.GetTxFromHistory: database get exception: could not get tx from history at index {index}");
+            }
+
+            WalletTx tx = new WalletTx(address, result);
+
+            return tx;
         }
 
         public byte[] KVGet(byte[] key)

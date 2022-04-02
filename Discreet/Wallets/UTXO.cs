@@ -70,12 +70,29 @@ namespace Discreet.Wallets
             IsCoinbase = bytes[1] == 1;
 
             DecodeIndex = Coin.Serialization.GetInt32(bytes, 34);
-            DecodedAmount = 0;
+            DecodedAmount = (Type == UTXOType.PRIVATE) ? 0 : Amount;
             Encrypted = (Type == UTXOType.PRIVATE) ? true : false;
             Amount = Coin.Serialization.GetUInt64(bytes, 70);
             Index = Coin.Serialization.GetUInt32(bytes, 78);
 
             LinkingTag = new Key(bytes[146..178]);
+        }
+
+        public void Deserialize(System.IO.Stream s)
+        {
+            Type = (UTXOType)s.ReadByte();
+            IsCoinbase = s.ReadByte() == 1;
+            TransactionSrc = new SHA256(s);
+            DecodeIndex = Coin.Serialization.GetInt32(s);
+            TransactionKey = new Key(s);
+            Amount = Coin.Serialization.GetUInt64(s);
+            Index = Coin.Serialization.GetUInt32(s);
+            UXKey = new Key(s);
+            Commitment = new Key(s);
+            LinkingTag = new Key(s);
+
+            DecodedAmount = (Type == UTXOType.PRIVATE) ? 0 : Amount;
+            Encrypted = (Type == UTXOType.PRIVATE) ? true : false;
         }
 
         /* default constructor always sets UTXOType to STEALTH */

@@ -26,7 +26,7 @@ namespace Discreet.RPC.Endpoints
 
                     if (wallet == null) return new RPCError("fatal error occurred. Masternode does not have a faucet.");
 
-                    var tx = wallet.Addresses[0].CreateTransaction(new StealthAddress(address), amount).ToFull();
+                    var tx = wallet.Addresses[0].CreateTransaction(new StealthAddress(address), amount).Item2.ToFull();
 
                     _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDTX, new Network.Core.Packets.SendTransactionPacket { Tx = tx }));
 

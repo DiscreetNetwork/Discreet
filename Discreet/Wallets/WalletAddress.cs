@@ -66,7 +66,7 @@ namespace Discreet.Wallets
         /* UTXO data for the wallet. Stored in a local JSON database. */
         public List<UTXO> UTXOs;
 
-        public List<FullTransaction> TxHistory;
+        public List<WalletTx> TxHistory = new List<WalletTx>();
 
         public int DBIndex;
 
@@ -76,6 +76,28 @@ namespace Discreet.Wallets
         public IAddress GetAddress()
         {
             return (Type == 0) ? new StealthAddress(PubViewKey, PubSpendKey) : new TAddress(PubKey);
+        }
+
+        public byte[] GetEncryptionKey()
+        {
+            if (Encrypted) throw new Exception("Wallet address is encrypted; cannot generate encryption key");
+
+            if (Type == 0)
+            {
+                byte[] _key = new byte[SecSpendKey.bytes.Length + SecViewKey.bytes.Length];
+                Array.Copy(SecSpendKey.bytes, 0, _key, 0, SecSpendKey.bytes.Length);
+                Array.Copy(SecViewKey.bytes, 0, _key, SecSpendKey.bytes.Length, SecViewKey.bytes.Length);
+
+                byte[] _rv = SHA256.HashData(SHA256.HashData(_key).Bytes).Bytes;
+
+                Array.Clear(_key);
+
+                return _rv;
+            }
+            else
+            {
+                return SHA256.HashData(SHA256.HashData(SecKey.bytes).Bytes).Bytes;
+            }
         }
 
         public WalletAddress(Wallet wallet, byte type, bool random)
@@ -290,6 +312,11 @@ namespace Discreet.Wallets
                 throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
             }
 
+            foreach (var wtx in TxHistory)
+            {
+                wtx.Encrypt(true);
+            }
+
             Encrypted = true;
         }
 
@@ -432,6 +459,11 @@ namespace Discreet.Wallets
                 throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
             }
 
+            foreach (var wtx in TxHistory)
+            {
+                wtx.Decrypt();
+            }
+
             Encrypted = false;
         }
 
@@ -511,21 +543,47 @@ namespace Discreet.Wallets
 
         public MixedTransaction CreateTransaction(IAddress[] to, ulong[] amount)
         {
+            MixedTransaction tx;
+            UTXO[] utxos;
             switch (GetTransactionType(to))
             {
                 case 1:
                 case 2:
-                    return new MixedTransaction(CreateTransaction(GetStealthAddresses(to), amount));
+                    (utxos, var _txP) = CreateTransaction(GetStealthAddresses(to), amount);
+                    tx = new MixedTransaction(_txP);
+                    break;
                 case 3:
-                    return new MixedTransaction(CreateTransaction(GetTAddresses(to), amount));
+                    (utxos, var _txT) = CreateTransaction(GetTAddresses(to), amount);
+                    tx = new MixedTransaction(_txT);
+                    break;
                 case 4:
                     break;
                 default:
                     throw new Exception("Discreet.Wallets.WalletAddress.CreateTransaction: unsupported transaction type");
             }
 
-            UnsignedTX utx = CreateUnsignedTransaction(to, amount);
-            return SignTransaction(utx);
+            (utxos, UnsignedTX utx) = CreateUnsignedTransaction(to, amount);
+            tx = SignTransaction(utx);
+
+            // perform sanity check
+            var err = tx.Verify();
+
+            if (err != null)
+            {
+                throw err;
+            }
+
+            // simply create the wallet tx; on success, it gets added automatically to the db.
+            _ = new WalletTx(
+                this, 
+                tx.Hash(), 
+                utxos.Select(x => x.Type == UTXOType.PRIVATE ? x.DecodedAmount : x.Amount).ToArray(),
+                Enumerable.Repeat(Address, utxos.Length).ToArray(),
+                amount, 
+                to.Select(x => x.ToString()).ToArray(), 
+                true);
+
+            return tx;
         }
 
         public MixedTransaction SignTransaction(UnsignedTX utx)
@@ -593,7 +651,7 @@ namespace Discreet.Wallets
             return tx;
         }
 
-        public UnsignedTX CreateUnsignedTransaction(IAddress[] to, ulong[] amount)
+        public (UTXO[], UnsignedTX) CreateUnsignedTransaction(IAddress[] to, ulong[] amount)
         {
             DB.DisDB db = DB.DisDB.GetDB();
 
@@ -609,18 +667,17 @@ namespace Discreet.Wallets
             }
             List<UTXO> inputs = new List<UTXO>();
             ulong neededAmount = 0;
-            int j = 0;
 
             if (Type == (byte)WalletType.PRIVATE)
             {
                 while (neededAmount < totalAmount)
                 {
-                    neededAmount += UTXOs[j].DecodedAmount;
-                    inputs.Add(UTXOs[j]);
-                    j++;
+                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).First();
+                    neededAmount += utxo.DecodedAmount;
+                    inputs.Add(utxo);
                 }
 
-                utx.NumInputs = (byte)j;
+                utx.NumInputs = (byte)inputs.Count;
                 utx.NumOutputs = (byte)((neededAmount == totalAmount) ? to.Length : to.Length + 1);
                 utx.NumSigs = utx.NumInputs;
                 utx.NumPInputs = utx.NumInputs;
@@ -674,12 +731,12 @@ namespace Discreet.Wallets
             {
                 while (neededAmount < totalAmount)
                 {
-                    neededAmount += UTXOs[j].Amount;
-                    inputs.Add(UTXOs[j]);
-                    j++;
+                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).First();
+                    neededAmount += utxo.DecodedAmount;
+                    inputs.Add(utxo);
                 }
 
-                utx.NumInputs = (byte)j;
+                utx.NumInputs = (byte)inputs.Count;
                 utx.NumOutputs = (byte)((neededAmount == totalAmount) ? to.Length : to.Length + 1);
                 utx.NumSigs = utx.NumInputs;
                 utx.NumTInputs = utx.NumInputs;
@@ -776,10 +833,10 @@ namespace Discreet.Wallets
             utx.POutputs = pOutputs.ToArray();
             utx.sumGammas = sum;
 
-            return utx;
+            return (inputs.ToArray(), utx);
         }
 
-        public Coin.Transparent.Transaction CreateTransaction(TAddress[] to, ulong[] amount)
+        public (UTXO[], Coin.Transparent.Transaction) CreateTransaction(TAddress[] to, ulong[] amount)
         {
             if (Type != (byte)WalletType.TRANSPARENT) throw new Exception("Discreet.Wallets.WalletAddress.CreateTransaction: private wallet cannot create fully transparent transaction!");
 
@@ -796,16 +853,15 @@ namespace Discreet.Wallets
 
             List<UTXO> inputs = new List<UTXO>();
             ulong neededAmount = 0;
-            int j = 0;
             while (neededAmount < totalAmount)
             {
-                neededAmount += UTXOs[j].Amount;
-                inputs.Add(UTXOs[j]);
-                j++;
+                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).First();
+                neededAmount += utxo.DecodedAmount;
+                inputs.Add(utxo);
             }
 
             tx.Version = (byte)Config.TransactionVersions.TRANSPARENT;
-            tx.NumInputs = (byte)j;
+            tx.NumInputs = (byte)inputs.Count;
             tx.NumOutputs = (byte)((neededAmount == totalAmount) ? to.Length : to.Length + 1);
             tx.NumSigs = tx.NumInputs;
 
@@ -844,7 +900,7 @@ namespace Discreet.Wallets
                 tx.Signatures[i] = new Signature(SecKey, PubKey, hash);
             }
 
-            return tx;
+            return (inputs.ToArray(), tx);
         }
 
         public void ProcessBlock(Block block)
@@ -880,13 +936,25 @@ namespace Discreet.Wallets
                             utxo.OwnedIndex = index;
                             UTXOs.Add(utxo);
                             changed = true;
+
+                            WalletTx wtx = new WalletTx(
+                                this,
+                                Coinbase.Hash(),
+                                Array.Empty<ulong>(),
+                                Array.Empty<string>(),
+                                new ulong[] { utxo.DecodedAmount },
+                                new string[] { Address },
+                                false,
+                                new DateTime((long)block.Header.Timestamp).ToLocalTime().Ticks);
+
+                            AddTransactionToHistory(wtx);
                         }
                     }
                 }
 
                 for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
                 {
-                    changed = ProcessTransaction(block.Transactions[i]) || changed;
+                    changed = ProcessTransaction(block.Transactions[i], (long)block.Header.Timestamp) || changed;
                 }
 
                 LastSeenHeight = block.Header.Height;
@@ -901,9 +969,11 @@ namespace Discreet.Wallets
             }
         }
 
-        private bool ProcessTransaction(FullTransaction transaction)
+        private bool ProcessTransaction(FullTransaction transaction, long timestamp)
         {
             bool changed = false;
+            List<UTXO> spents = null;
+            List<(UTXO, int)> unspents = null;
 
             int numPOutputs = (transaction.Version == 4) ? transaction.NumPOutputs : ((transaction.Version == 3) ? 0 : transaction.NumOutputs);
             int numTOutputs = (transaction.Version == 4) ? transaction.NumTOutputs : ((transaction.Version == 3) ? transaction.NumOutputs : 0);
@@ -920,6 +990,13 @@ namespace Discreet.Wallets
                             Balance -= UTXOs[k].DecodedAmount;
                             UTXOs.RemoveAt(k);
                             changed = true;
+                            
+                            if (spents == null)
+                            {
+                                spents = new();
+                            }
+
+                            spents.Add(UTXOs[k]);
                         }
                     }
                 }
@@ -941,7 +1018,6 @@ namespace Discreet.Wallets
                 }
             }
 
-
             if (Type == (byte)AddressType.STEALTH)
             {
                 Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref transaction.TransactionKey, ref SecViewKey) : default;
@@ -959,8 +1035,15 @@ namespace Discreet.Wallets
                     if (KeyOps.CheckForBalance(ref cscalar, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
                     {
                         Daemon.Logger.Log($"You received some Discreet!");
-                        ProcessOutput(transaction, i, false);
+                        var utxo = ProcessOutput(transaction, i, false);
                         changed = true;
+
+                        if (unspents == null)
+                        {
+                            unspents = new();
+                        }
+
+                        unspents.Add((utxo, i));
                     }
                 }
             }
@@ -974,22 +1057,118 @@ namespace Discreet.Wallets
                     if (Address == address)
                     {
                         Daemon.Logger.Log("You received some Discreet!");
-                        ProcessOutput(transaction, i, true);
+                        var utxo = ProcessOutput(transaction, i, true);
                         changed = true;
                     }
+                }
+            }
+
+            if (changed)
+            {
+                /* process tx for history */
+                if (!TxHistoryContains(transaction.Hash()))
+                {
+                    if (spents == null)
+                    {
+                        spents = new();
+                    }
+
+                    if (unspents == null)
+                    {
+                        unspents = new();
+                    }
+
+                    AddTransactionToHistory(transaction, spents, unspents, new DateTime(timestamp).ToLocalTime().Ticks);
                 }
             }
 
             return changed;
         }
 
-        private void ProcessOutput(FullTransaction transaction, int i, bool transparent)
+        public bool TxHistoryContains(Cipher.SHA256 txhash)
+        {
+            return TxHistory.Any(x => x.TxID == txhash);
+        }
+
+        public void AddTransactionToHistory(WalletTx tx)
+        {
+            lock (WalletDB.DBLock)
+            {
+                WalletDB.GetDB().AddTxToHistory(tx);
+            }
+        }
+
+        public void AddTransactionToHistory(FullTransaction tx, List<UTXO> spents, List<(UTXO, int)> unspents, long timestamp)
+        {
+            List<ulong> inputAmounts = new List<ulong>();
+            List<ulong> outputAmounts = new List<ulong>();
+            List<string> inputAddresses = new List<string>();
+            List<string> outputAddresses = new List<string>();
+
+            for (int i = 0; i < tx.TInputs.Length; i++)
+            {
+                inputAmounts.Add(tx.TInputs[i].Amount);
+                inputAddresses.Add(tx.TInputs[i].Address.ToString());
+            }
+
+            for (int i = 0; i < tx.PInputs.Length; i++)
+            {
+                if (Type == (byte)AddressType.STEALTH)
+                {
+                    foreach (var utxo in spents)
+                    {
+                        if (tx.PInputs[i].KeyImage == utxo.LinkingTag)
+                        {
+                            inputAmounts.Add(utxo.DecodedAmount);
+                            inputAddresses.Add(Address);
+                        }
+                    }
+                }
+                else
+                {
+                    inputAmounts.Add(0);
+                    inputAddresses.Add("Unknown");
+                }
+            }
+
+            for (int i = 0; i < tx.TOutputs.Length; i++)
+            {
+                outputAmounts.Add(tx.TOutputs[i].Amount);
+                outputAddresses.Add(tx.TOutputs[i].Address.ToString());
+            }
+
+            for (int i = 0; i < tx.POutputs.Length; i++)
+            {
+                if (Type == (byte)AddressType.STEALTH)
+                {
+                    foreach (var utxo in unspents)
+                    {
+                        if (i == utxo.Item2)
+                        {
+                            outputAmounts.Add(utxo.Item1.DecodedAmount);
+                            outputAddresses.Add(Address);
+                        }
+                    }
+                }
+                else
+                {
+                    outputAmounts.Add(0);
+                    outputAddresses.Add("Unknown");
+                }
+            }
+
+            WalletTx wtx = new WalletTx(this, tx.Hash(), inputAmounts.ToArray(), inputAddresses.ToArray(), outputAmounts.ToArray(), outputAddresses.ToArray(), false, timestamp);
+            AddTransactionToHistory(wtx);
+        }
+
+        private UTXO ProcessOutput(FullTransaction transaction, int i, bool transparent)
         {
             WalletDB db = WalletDB.GetDB();
+            UTXO utxo = null;
 
             lock (WalletDB.DBLock)
             {
-                (int index, UTXO utxo) = db.AddWalletOutput(this, transaction, i, transparent);
+                (int index, utxo) = db.AddWalletOutput(this, transaction, i, transparent);
                 utxo.OwnedIndex = index;
                 UTXOs.Add(utxo);
                 if (transparent)
@@ -1003,19 +1182,21 @@ namespace Discreet.Wallets
                 
                 Daemon.Logger.Debug($"Wallet output index is {index}");
             }
+
+            return utxo;
         }
 
-        public Transaction CreateTransaction(StealthAddress to, ulong amount)
+        public (UTXO[], Transaction) CreateTransaction(StealthAddress to, ulong amount)
         {
             return CreateTransaction(new StealthAddress[] { to }, new ulong[] { amount });
         }
 
-        public Transaction CreateTransaction(StealthAddress[] to, ulong[] amount)
+        public (UTXO[], Transaction) CreateTransaction(StealthAddress[] to, ulong[] amount)
         {
             return CreateTransaction(to, amount, (byte)Config.TransactionVersions.BP_PLUS);
         }
 
-        public Transaction CreateTransaction(StealthAddress[] to, ulong[] amount, byte version)
+        public (UTXO[], Transaction) CreateTransaction(StealthAddress[] to, ulong[] amount, byte version)
         {
             if (Type != (byte)WalletType.PRIVATE) throw new Exception("Discreet.Wallets.WalletAddress.CreateTransaction: transparent wallet cannot create fully private transaction!");
 
@@ -1058,11 +1239,12 @@ namespace Discreet.Wallets
 
             List<UTXO> inputs = new List<UTXO>();
             ulong neededAmount = 0;
-            i = 0;
             while (neededAmount < totalAmount)
             {
-                neededAmount += UTXOs[i].DecodedAmount;
-                inputs.Add(UTXOs[i]);
+                // search for the highest value utxo first
+                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).First();
+                neededAmount += utxo.DecodedAmount;
+                inputs.Add(utxo);
                 i++;
             }
 
@@ -1227,7 +1409,7 @@ namespace Discreet.Wallets
                 tx.Signatures[i] = new Coin.Triptych(ringsig);
             }
 
-            return tx;
+            return (inputs.ToArray(), tx);
         }
 
         public byte[] Serialize()
@@ -1263,6 +1445,12 @@ namespace Discreet.Wallets
             foreach (var utxo in UTXOs)
             {
                 Serialization.CopyData(_ms, utxo.OwnedIndex);
+            }
+
+            Serialization.CopyData(_ms, TxHistory.Count);
+            foreach (var tx in TxHistory)
+            {
+                Serialization.CopyData(_ms, tx.Index);
             }
 
             return _ms.ToArray();
@@ -1310,6 +1498,15 @@ namespace Discreet.Wallets
 
                 utxo.OwnedIndex = idx;
                 UTXOs.Add(utxo);
+            }
+
+            var txhistoryCount = Serialization.GetInt32(s);
+            for (int i = 0; i < txhistoryCount; i++)
+            {
+                int idx = Serialization.GetInt32(s);
+                var wtx = db.GetTxFromHistory(this, idx);
+
+                TxHistory.Add(wtx);
             }
         }
     }

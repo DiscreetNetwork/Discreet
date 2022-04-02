@@ -11,6 +11,21 @@ using Discreet.Network.Core.Packets;
 
 namespace Discreet.Network
 {
+    public class TransactionReceivedEventArgs : EventArgs
+    {
+        public Coin.FullTransaction Tx;
+        public bool Success;
+    }
+
+    public class BlockSuccessEventArgs: EventArgs
+    {
+        public Coin.Block Block;
+    }
+
+    public delegate void TransactionReceivedEventHandler(TransactionReceivedEventArgs e);
+
+    public delegate void BlockSuccessEventHandler(BlockSuccessEventArgs e);
+
     public class Handler
     {
         public PeerState State { get; private set; }
@@ -32,6 +47,9 @@ namespace Discreet.Network
 
         /* back reference to the Visor */
         public Daemon.Daemon daemon;
+
+        public event TransactionReceivedEventHandler OnTransactionReceived;
+        public event BlockSuccessEventHandler OnBlockSuccess;
 
         public static Handler GetHandler()
         {
@@ -527,8 +545,14 @@ namespace Discreet.Network
                     Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                     return;
                 }
+                else
+                {
+                    Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDTX, p));
+                }
 
-                Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDTX, p));
+                // the event is raised only if (1) tx hasn't been seen before and (2) tx isn't malformed.
+                OnTransactionReceived?.Invoke(new TransactionReceivedEventArgs { Tx = p.Tx, Success = err == null });
+
                 return;
             }
         }
@@ -647,6 +671,8 @@ namespace Discreet.Network
                     {
                         Daemon.Logger.Error(e.Message);
                     }
+
+                    OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = p.Block });
                 }
             }
         }

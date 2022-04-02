@@ -878,6 +878,7 @@ namespace Discreet.Coin
             DB.DisDB db = DB.DisDB.GetDB();
 
             /* validate inputs */
+            var uncheckedTags = new List<Cipher.Key>(PInputs.Select(x => x.KeyImage));
             for (int i = 0; i < lenPInputs; i++)
             {
                 if (PInputs[i].Offsets.Length != 64)
@@ -924,6 +925,12 @@ namespace Discreet.Coin
                     {
                         return new VerifyException("MixedTransaction", $"Key image for input at index {i} ({PInputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                     }
+                }
+
+                uncheckedTags.Remove(PInputs[i].KeyImage);
+                if (uncheckedTags.Any(x => x == PInputs[i].KeyImage))
+                {
+                    return new VerifyException("MixedTransaction", $"Key image for {i} ({PInputs[i].KeyImage.ToHexShort()}) already spent in this transaction! (double spend)");
                 }
             }
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Runtime.InteropServices;
 using System.IO;
@@ -700,6 +701,7 @@ namespace Discreet.Coin
                 }
 
                 /* validate inputs */
+                List<Cipher.Key> uncheckedTags = new List<Cipher.Key>(Inputs.Select(x => x.KeyImage));
                 for (int i = 0; i < NumInputs; i++)
                 {
                     if (Inputs[i].Offsets.Length != 64)
@@ -746,6 +748,12 @@ namespace Discreet.Coin
                         {
                             return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                         }
+                    }
+
+                    uncheckedTags.Remove(Inputs[i].KeyImage);
+                    if (uncheckedTags.Any(x => x == Inputs[i].KeyImage))
+                    {
+                        return new VerifyException("Transaction", $"Key image for {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent in this transaction! (double spend)");
                     }
                 }
             }

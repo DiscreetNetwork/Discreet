@@ -522,26 +522,6 @@ namespace Discreet.Wallets
             return Readable.Wallet.FromReadable(json);
         }
 
-        public Transaction CreateTransaction(int walletIndex, StealthAddress to, ulong amount)
-        {
-            return CreateTransaction(walletIndex, new StealthAddress[] { to }, new ulong[] { amount });
-        }
-
-        public Transaction CreateTransaction(int walletIndex, StealthAddress[] to, ulong[] amount)
-        {
-            return CreateTransaction(walletIndex, to, amount, (byte)Config.TransactionVersions.BP_PLUS);
-        }
-
-        public Transaction CreateTransaction(int walletIndex, StealthAddress[] to, ulong[] amount, byte version)
-        {
-            if (Addresses.Length > walletIndex)
-            {
-                return Addresses[walletIndex].CreateTransaction(to, amount, (byte)Config.TransactionVersions.BP_PLUS);
-            }
-
-            throw new Exception("Discreet.Wallets.Wallet.CreateTransaction: walletIndex is outside of range!");
-        }
-
         public void ProcessBlock(Block block)
         {
             try

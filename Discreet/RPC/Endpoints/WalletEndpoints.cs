@@ -913,5 +913,90 @@ namespace Discreet.RPC.Endpoints
                 return new RPCError($"Could not get mnemonic");
             }
         }
+
+        public class TransactionHistoryOutput
+        {
+            public ulong Amount { get; set; }
+            public string Address { get; set; }
+        }
+
+        public class TransactionHistoryRV
+        {
+            public string TxID { get; set; }
+            public long Timestamp { get; set; }
+
+            public ulong SentAmount { get; set; } // only nonzero if this address net sent coins
+            public ulong ReceivedAmount { get; set; } // only nonzero if this address net received coins
+
+            public List<TransactionHistoryOutput> Inputs { get; set; }
+            public List<TransactionHistoryOutput> Outputs { get; set; }
+        }
+
+        [RPCEndpoint("get_transaction_history", APISet.WALLET)]
+        public static object GetTransactionHistory(string address)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().daemon;
+
+                var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"could not find address {address}");
+
+                var addr = wallet.Addresses.Where(x => x.Address == address).FirstOrDefault();
+
+                if (addr.Encrypted) return new RPCError($"address {address} is encrypted");
+
+                List<TransactionHistoryRV> history = new();
+                foreach (var wtx in addr.TxHistory)
+                {
+                    var htx = new TransactionHistoryRV
+                    {
+                        TxID = wtx.TxID.ToHex(),
+                        Timestamp = wtx.Timestamp,
+                        Inputs = wtx.Inputs.Select(x => new TransactionHistoryOutput { Address = x.Address, Amount = x.Amount }).ToList(),
+                        Outputs = wtx.Outputs.Select(x => new TransactionHistoryOutput { Address = x.Address, Amount = x.Amount }).ToList(),
+                        ReceivedAmount = 0,
+                        SentAmount = 0,
+                    };
+
+                    long total = 0;
+                    foreach (var input in wtx.Inputs)
+                    {
+                        if (input.Address == address)
+                        {
+                            total -= (long)input.Amount;
+                        }
+                    }
+
+                    foreach (var output in wtx.Outputs)
+                    {
+                        if (output.Address == address)
+                        {
+                            total += (long)output.Amount;
+                        }
+                    }
+
+                    if (total > 0)
+                    {
+                        htx.ReceivedAmount = (ulong)total;
+                    }
+                    else
+                    {
+                        htx.SentAmount = (ulong)total;
+                    }
+
+                    history.Add(htx);
+                }
+
+                return history;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to GetTransactionHistory failed: {ex.Message}");
+
+                return new RPCError($"Could not get transaction history");
+            }
+        }
     }
 }
