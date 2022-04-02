@@ -136,7 +136,7 @@ namespace Discreet.Cipher
 
 			// this also prepends a zero to ensure the BigInteger is positive
 			byte[] _rem = new byte[raw.Length - i + 1];
-			Array.Copy(raw, i, _rem, i + 1, _rem.Length);
+			Array.Copy(raw, i, _rem, i + 1, _rem.Length - 1);
 
 			if (BitConverter.IsLittleEndian)
 			{
