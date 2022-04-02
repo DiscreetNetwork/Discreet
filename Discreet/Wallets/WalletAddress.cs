@@ -306,6 +306,13 @@ namespace Discreet.Wallets
                 EncryptedSecKey = cipherObjSec.PrependIV(encryptedSecKeyBytes);
 
                 Array.Clear(SecKey.bytes, 0, 32);
+
+                for (int i = 0; i < UTXOs.Count; i++)
+                {
+                    UTXOs[i].Encrypt();
+                }
+
+                Balance = 0;
             }
             else
             {
