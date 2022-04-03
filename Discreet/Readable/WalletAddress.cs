@@ -35,6 +35,8 @@ namespace Discreet.Readable
 
         public List<int> UTXOs { get; set; }
 
+        public List<int> TxHistory { get; set; }
+
         public string JSON()
         {
             return JsonSerializer.Serialize(this, ReadableOptions.Options);
@@ -61,6 +63,7 @@ namespace Discreet.Readable
             Synced = addr.Synced;
             Syncer = addr.Syncer;
             UTXOs = addr.UTXOs;
+            TxHistory = addr.TxHistory;
             Name = addr.Name;
         }
 
@@ -129,6 +132,16 @@ namespace Discreet.Readable
                     UTXOs.Add(obj.UTXOs[i].OwnedIndex);
                 }
             }
+
+            if (obj.TxHistory != null)
+            {
+                TxHistory = new List<int>(obj.TxHistory.Count);
+
+                for (int i = 0; i < obj.TxHistory.Count; i++)
+                {
+                    TxHistory.Add(obj.TxHistory[i].Index);
+                }
+            }
         }
 
         public T ToObject<T>()
@@ -176,6 +189,16 @@ namespace Discreet.Readable
                 for (int i = 0; i < UTXOs.Count; i++)
                 {
                     obj.UTXOs.Add(db.GetWalletOutput(UTXOs[i]));
+                }
+            }
+
+            if (TxHistory != null)
+            {
+                WalletDB db = WalletDB.GetDB();
+
+                for (int i = 0; i < TxHistory.Count; i++)
+                {
+                    obj.TxHistory.Add(db.GetTxFromHistory(obj, UTXOs[i]));
                 }
             }
 

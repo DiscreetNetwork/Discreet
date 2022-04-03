@@ -166,6 +166,18 @@ namespace Discreet.DB
 
         private L64 height = new L64(-1);
 
+        public bool MetaExists()
+        {
+            try
+            {
+                return db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public DisDB(string path)
         {
             try
@@ -210,7 +222,7 @@ namespace Discreet.DB
                 BlockCache = db.GetColumnFamily(BLOCK_CACHE);
                 BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
 
-                if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
+                if (!MetaExists())
                 {
                     /* completely empty and has just been created */
                     db.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);

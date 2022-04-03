@@ -916,7 +916,7 @@ namespace Discreet.Wallets
 
             lock (locker)
             {
-                if (Encrypted) throw new Exception("Do not call if wallet address is encrypted!");
+                if (Encrypted) throw new Exception("wallet address is encrypted!");
 
                 bool changed = false;
 
@@ -995,7 +995,6 @@ namespace Discreet.Wallets
                         {
                             UTXOs[k].Decrypt(this);
                             Balance -= UTXOs[k].DecodedAmount;
-                            UTXOs.RemoveAt(k);
                             changed = true;
                             
                             if (spents == null)
@@ -1004,6 +1003,7 @@ namespace Discreet.Wallets
                             }
 
                             spents.Add(UTXOs[k]);
+                            UTXOs.RemoveAt(k);
                         }
                     }
                 }
@@ -1103,6 +1103,8 @@ namespace Discreet.Wallets
             {
                 WalletDB.GetDB().AddTxToHistory(tx);
             }
+
+            TxHistory.Add(tx);
         }
 
         public void AddTransactionToHistory(FullTransaction tx, List<UTXO> spents, List<(UTXO, int)> unspents, long timestamp)
@@ -1112,13 +1114,18 @@ namespace Discreet.Wallets
             List<string> inputAddresses = new List<string>();
             List<string> outputAddresses = new List<string>();
 
-            for (int i = 0; i < tx.TInputs.Length; i++)
+            var numTInputs = tx.TInputs == null ? 0 : tx.TInputs.Length;
+            var numPInputs = tx.PInputs == null ? 0 : tx.PInputs.Length;
+            var numTOutputs = tx.TOutputs == null ? 0 : tx.TOutputs.Length;
+            var numPOutputs = tx.POutputs == null ? 0 : tx.POutputs.Length;
+
+            for (int i = 0; i < numTInputs; i++)
             {
                 inputAmounts.Add(tx.TInputs[i].Amount);
                 inputAddresses.Add(tx.TInputs[i].Address.ToString());
             }
 
-            for (int i = 0; i < tx.PInputs.Length; i++)
+            for (int i = 0; i < numPInputs; i++)
             {
                 if (Type == (byte)AddressType.STEALTH)
                 {
@@ -1138,13 +1145,13 @@ namespace Discreet.Wallets
                 }
             }
 
-            for (int i = 0; i < tx.TOutputs.Length; i++)
+            for (int i = 0; i < numTOutputs; i++)
             {
                 outputAmounts.Add(tx.TOutputs[i].Amount);
                 outputAddresses.Add(tx.TOutputs[i].Address.ToString());
             }
 
-            for (int i = 0; i < tx.POutputs.Length; i++)
+            for (int i = 0; i < numPOutputs; i++)
             {
                 if (Type == (byte)AddressType.STEALTH)
                 {

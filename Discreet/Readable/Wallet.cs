@@ -17,6 +17,7 @@ namespace Discreet.Readable
         public bool Encrypted { get; set; }
         public ulong Timestamp { get; set; }
         public string Version { get; set; }
+        public bool Locked { get; set; }
         public string Entropy { get; set; }
         public uint EntropyLen { get; set; }
         public ulong EntropyChecksum { get; set; }
@@ -45,6 +46,7 @@ namespace Discreet.Readable
             Encrypted = wallet.Encrypted;
             Timestamp = wallet.Timestamp;
             Version = wallet.Version;
+            Locked = wallet.Locked;
             Entropy = wallet.Entropy;
             EntropyLen = wallet.EntropyLen;
             EntropyChecksum = wallet.EntropyChecksum;
@@ -90,6 +92,7 @@ namespace Discreet.Readable
             Encrypted = obj.Encrypted;
             Timestamp = obj.Timestamp;
             Version = obj.Version;
+            Locked = obj.IsEncrypted;
 
             if (Encrypted)
             {

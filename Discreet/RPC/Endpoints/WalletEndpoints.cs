@@ -983,7 +983,7 @@ namespace Discreet.RPC.Endpoints
                     }
                     else
                     {
-                        htx.SentAmount = (ulong)total;
+                        htx.SentAmount = (ulong)(-total);
                     }
 
                     history.Add(htx);

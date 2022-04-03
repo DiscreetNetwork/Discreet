@@ -73,6 +73,18 @@ namespace Discreet.Wallets
 
         private RocksDb db;
 
+        public bool MetaExists()
+        {
+            try
+            {
+                return db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) != null;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public WalletDB(string path)
         {
             if(File.Exists(path)) throw new Exception("Discreet.DisDB: expects a valid directory path, not a file");
@@ -107,7 +119,7 @@ namespace Discreet.Wallets
             TxHistory = db.GetColumnFamily(TX_HISTORY);
             Meta = db.GetColumnFamily(META);
 
-            if (db.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) == null)
+            if (!MetaExists())
             {
                 /* completely empty and has just been created */
                 db.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
