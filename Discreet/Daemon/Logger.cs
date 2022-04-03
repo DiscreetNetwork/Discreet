@@ -35,7 +35,7 @@ namespace Discreet.Daemon
             {
                 if (logger == null)
                 {
-                    logger = new Logger(DaemonConfig.GetDefault().LogPath);
+                    logger = new Logger(DaemonConfig.GetConfig().LogPath);
                 }
             }
         }

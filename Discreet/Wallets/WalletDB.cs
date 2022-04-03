@@ -31,7 +31,7 @@ namespace Discreet.Wallets
             {
                 if (disdb == null)
                 {
-                    disdb = new WalletDB(Daemon.DaemonConfig.GetDefault().WalletPath);
+                    disdb = new WalletDB(Daemon.DaemonConfig.GetConfig().WalletPath);
                 }
             }
         }

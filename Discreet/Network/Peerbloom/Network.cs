@@ -37,7 +37,7 @@ namespace Discreet.Network.Peerbloom
             lock (network_lock)
             {
                 Daemon.Logger.Debug($"Network.Instantiate: network is being instantiated");
-                if (_network == null) _network = new Network(Daemon.DaemonConfig.GetDefault().Endpoint);
+                if (_network == null) _network = new Network(Daemon.DaemonConfig.GetConfig().Endpoint);
             }
         }
 
@@ -324,7 +324,7 @@ namespace Discreet.Network.Peerbloom
         public async Task Bootstrap()
         {
             IsBootstrapping = true;
-            Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetDefault().BootstrapNode, 5555), this, LocalNode, true);
+            Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetConfig().BootstrapNode, 5555), this, LocalNode, true);
 
             handler = Handler.Initialize(this);
 

@@ -1120,6 +1120,18 @@ namespace Discreet
 			//config.Endpoint = new IPEndPoint(config.Endpoint.Address, port);
 			//string passphrase;
 
+			if (config.BootstrapNode == null)
+            {
+				bool success = false;
+				do
+				{
+					Console.Write("Boostrap IP: ");
+					success = IPAddress.TryParse(Console.ReadLine(), out IPAddress bootstrapIP);
+					config.BootstrapNode = bootstrapIP;
+				} 
+				while (!success);
+            }
+
 			Daemon.DaemonConfig.SetConfig(config);
 
 			config.Save();

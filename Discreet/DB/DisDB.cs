@@ -114,7 +114,7 @@ namespace Discreet.DB
             {
                 if (disdb == null)
                 {
-                    disdb = new DisDB(Daemon.DaemonConfig.GetDefault().DBPath);
+                    disdb = new DisDB(Daemon.DaemonConfig.GetConfig().DBPath);
                 }
             }
         }
