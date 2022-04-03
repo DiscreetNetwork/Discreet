@@ -76,7 +76,7 @@ namespace Discreet.Daemon
         {
            Exception e = (Exception)args.ExceptionObject;
 
-           Fatal($"CRASH: Unhandled exception in program: {args.ToString()}. Consider creating an issue on Github.");
+           Fatal($"CRASH: Unhandled exception in program: {e}. Consider creating an issue on Github.");
            Environment.Exit(-1); // -1 = fatal crash
         }
 
