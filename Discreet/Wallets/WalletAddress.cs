@@ -469,12 +469,12 @@ namespace Discreet.Wallets
                 throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
             }
 
+            Encrypted = false;
+
             foreach (var wtx in TxHistory)
             {
                 wtx.Decrypt();
             }
-
-            Encrypted = false;
         }
 
         public void EncryptDropKeys()
