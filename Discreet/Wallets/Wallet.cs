@@ -398,41 +398,44 @@ namespace Discreet.Wallets
 
             try
             {
-                if (Encrypted)
+                lock (locker)
                 {
-                    byte[] entropyEncryptionKey = new byte[32];
-                    byte[] passhash = Cipher.SHA512.HashData(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
-                    Cipher.KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
-
-                    byte[] entropyChecksumFull = Cipher.SHA256.HashData(Cipher.SHA256.HashData(entropyEncryptionKey).Bytes).Bytes;
-
-                    byte[] entropyChecksumBytes = new byte[8];
-                    Array.Copy(entropyChecksumFull, entropyChecksumBytes, 8);
-
-                    if (BitConverter.IsLittleEndian)
+                    if (Encrypted)
                     {
-                        Array.Reverse(entropyChecksumBytes);
+                        byte[] entropyEncryptionKey = new byte[32];
+                        byte[] passhash = Cipher.SHA512.HashData(Cipher.SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
+                        Cipher.KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
+
+                        byte[] entropyChecksumFull = Cipher.SHA256.HashData(Cipher.SHA256.HashData(entropyEncryptionKey).Bytes).Bytes;
+
+                        byte[] entropyChecksumBytes = new byte[8];
+                        Array.Copy(entropyChecksumFull, entropyChecksumBytes, 8);
+
+                        if (BitConverter.IsLittleEndian)
+                        {
+                            Array.Reverse(entropyChecksumBytes);
+                        }
+
+                        ulong entropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
+
+                        if (entropyChecksum != EntropyChecksum)
+                        {
+                            throw new Exception("Discreet.Wallets.Wallet.Decrypt: Wrong passphrase!");
+                        }
+
+                        (CipherObject cipherObj, byte[] encryptedEntropyBytes) = CipherObject.GetFromPrependedArray(entropyEncryptionKey, EncryptedEntropy);
+                        Entropy = AESCBC.Decrypt(encryptedEntropyBytes, cipherObj);
                     }
 
-                    ulong entropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
-
-                    if (entropyChecksum != EntropyChecksum)
+                    for (int i = 0; i < Addresses.Length; i++)
                     {
-                        throw new Exception("Discreet.Wallets.Wallet.Decrypt: Wrong passphrase!");
+                        Addresses[i].Decrypt(Entropy);
+
+                        Addresses[i].CheckIntegrity();
                     }
 
-                    (CipherObject cipherObj, byte[] encryptedEntropyBytes) = CipherObject.GetFromPrependedArray(entropyEncryptionKey, EncryptedEntropy);
-                    Entropy = AESCBC.Decrypt(encryptedEntropyBytes, cipherObj);
+                    IsEncrypted = false;
                 }
-
-                for (int i = 0; i < Addresses.Length; i++)
-                {
-                    Addresses[i].Decrypt(Entropy);
-
-                    Addresses[i].CheckIntegrity();
-                }
-
-                IsEncrypted = false;
             }
             catch (Exception ex)
             {

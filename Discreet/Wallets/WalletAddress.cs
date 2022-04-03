@@ -297,7 +297,7 @@ namespace Discreet.Wallets
                     UTXOs[i].Encrypt();
                 }
 
-                Balance = 0;    
+                Balance = 0;
             }
             else if (Type == 1)
             {
@@ -422,6 +422,9 @@ namespace Discreet.Wallets
         public void Decrypt(byte[] key)
         {
             if (!Encrypted) return;
+
+            /* just in case */
+            Balance = 0;
 
             if (Type == 0)
             {

@@ -825,6 +825,29 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
+        [RPCEndpoint("is_wallet_locked", APISet.WALLET)]
+        public static object IsWalletLocked(string label)
+        {
+            try
+            {
+                var _visor = Network.Handler.GetHandler().daemon;
+
+                if (label == null || label == "") return new RPCError("parameter was null");
+
+                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+
+                if (wallet == null) return new RPCError($"no wallet found with label {label}");
+
+                return wallet.IsEncrypted;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to IsWalletLocked failed: {ex.Message}");
+
+                return new RPCError($"Could not get wallet lock status");
+            }
+        }
+
         public class GetWalletHeightRV
         {
             public long Height { get; set; }
