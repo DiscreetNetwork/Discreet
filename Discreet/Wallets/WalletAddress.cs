@@ -592,7 +592,7 @@ namespace Discreet.Wallets
                 amount = namount;
 
                 var nto = new IAddress[to.Length + 1];
-                Array.Copy(nto, to, to.Length);
+                Array.Copy(to, nto, to.Length);
                 nto[to.Length] = (Type == 0) ? new StealthAddress(Address) : new TAddress(Address);
                 to = nto;
             }
