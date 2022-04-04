@@ -39,6 +39,8 @@ namespace Discreet.Daemon
 
         public long Uptime { get; private set; }
 
+        public bool RPCLive { get; set; }
+
         public Daemon()
         {
             wallets = new ConcurrentBag<Wallet>();
@@ -134,16 +136,18 @@ namespace Discreet.Daemon
                 Logger.Log("Successfully created the genesis block.");
             }
 
+            RPCLive = false;
+            Logger.Log($"Starting RPC server...");
+            _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
+            _ = _rpcServer.Start();
+
             await network.Start();
             await network.Bootstrap();
             handler = network.handler;
             handler.daemon = this;
 
             handler.SetState(Network.PeerState.Startup);
-
-            Logger.Log($"Starting RPC server...");
-            _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value);
-            _ = _rpcServer.Start();
+            RPCLive = true;
 
             if (!IsMasternode)
             {

@@ -114,8 +114,11 @@ namespace Discreet.Network.Peerbloom
         /// </summary>
         /// <param name="localNode"></param>
         /// <returns></returns>
-        public async Task<bool> Connect(bool persist = false, CancellationToken token = default, bool feeler = false)
+        public async Task<bool> Connect(bool persist = false, CancellationToken token = default, bool feeler = false, int customTimeout = -1, int customTries = -1)
         {
+            int ConnectTimeout = (customTimeout > 0) ? customTimeout : Constants.CONNECTION_CONNECT_TIMEOUT;
+            int NumTries = (customTries > 0) ? customTries : Constants.CONNECTION_MAX_CONNECT_ATTEMPTS;
+
             if (feeler)
             {
                 _network.AddFeeler(this);
@@ -143,7 +146,7 @@ namespace Discreet.Network.Peerbloom
                 {
                     int numConnectionAttempts = 0;
 
-                    while (numConnectionAttempts < Constants.CONNECTION_MAX_CONNECT_ATTEMPTS && !ConnectionAcknowledged && !token.IsCancellationRequested)
+                    while (numConnectionAttempts < NumTries && !ConnectionAcknowledged && !token.IsCancellationRequested)
                     {
                         if (numConnectionAttempts > 0)
                         {
@@ -151,7 +154,7 @@ namespace Discreet.Network.Peerbloom
                         }
 
                         /* set timeout for this connect attempt */
-                        var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_CONNECT_TIMEOUT).Ticks;
+                        var _timeout = DateTime.UtcNow.AddMilliseconds(ConnectTimeout).Ticks;
 
                         /* begin connection */
                         if (!_tcpClient.Connected)
@@ -321,7 +324,7 @@ namespace Discreet.Network.Peerbloom
                         }
                     }
 
-                    if (numConnectionAttempts >= Constants.CONNECTION_MAX_CONNECT_ATTEMPTS)
+                    if (numConnectionAttempts >= NumTries)
                     {
                         Daemon.Logger.Error($"Connection.Connect: failed to complete connection with peer {Receiver}, exceeded maximum connection attempts");
                         Dispose();

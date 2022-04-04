@@ -354,6 +354,8 @@ namespace Discreet.Network.Peerbloom
                 return;
             }
 
+            int NumberConnections = (Daemon.Daemon.DebugMode ? 1 : 2);
+
             if (peerlist.NumNew + peerlist.NumTried > 0)
             {
                 Daemon.Logger.Info("Attempting to connect to known peers...");
@@ -362,18 +364,18 @@ namespace Discreet.Network.Peerbloom
                 Peer peer;
                 do
                 {
-                    (peer, _) = peerlist.Select(false);
+                    (peer, _) = peerlist.Select(false, true);
 
                     if (checkedPeers.Contains(peer)) continue;
 
                     Connection conn = new Connection(peer.Endpoint, this, LocalNode, true);
 
-                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false);
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 5000, 1);
                     peerlist.Attempt(peer.Endpoint, !success);
 
                     checkedPeers.Add(peer);
                 }
-                while (peer != null && OutboundConnectedPeers.Count < 2 && checkedPeers.Count < peerlist.NumTried + peerlist.NumNew);
+                while (peer != null && OutboundConnectedPeers.Count < NumberConnections && checkedPeers.Count < peerlist.NumTried + peerlist.NumNew);
             }
 
             if (OutboundConnectedPeers.Count > 0)

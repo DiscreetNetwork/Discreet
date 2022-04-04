@@ -22,7 +22,9 @@ namespace Discreet.RPC
 
         public bool UseTabs { get { return _useTabs; } set { if (Indented) _useTabs = value;} }
 
-        public RPCServer(int portNumber)
+        private Daemon.Daemon _daemon;
+
+        public RPCServer(int portNumber, Daemon.Daemon daemon)
         {
             RPCEndpointResolver.ReflectEndpoints();
             _port = portNumber;
@@ -34,9 +36,11 @@ namespace Discreet.RPC
             {
                 _listener.Prefixes.Add($"http://localhost:{portNumber}/");
             }
+
+            _daemon = daemon;
         }
 
-        public RPCServer(int portNumber, bool indented, int indentSize, bool useTabs) : this(portNumber)
+        public RPCServer(int portNumber, bool indented, int indentSize, bool useTabs, Daemon.Daemon daemon) : this(portNumber, daemon)
         {
             _indented = indented;
             _indentSize = indentSize;
@@ -58,6 +62,10 @@ namespace Discreet.RPC
                     Daemon.Logger.Info($"Discreet.RPC: RPC was unable to start due to insufficient privileges. Please start as administrator and open port {_port}. Continuing without RPC.");
             }
           
+            while (!_daemon.RPCLive)
+            {
+                await Task.Delay(250);
+            }
 
             while (true)
             {

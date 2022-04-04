@@ -517,7 +517,7 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
-        public (Peer, long) Select(bool newOnly)
+        public (Peer, long) Select(bool newOnly, bool triedOnly = false)
         {
             if (newOnly && NumNew == 0) return (null, 0);
 
@@ -525,7 +525,7 @@ namespace Discreet.Network.Peerbloom
 
             Random r = new Random();
 
-            if (!newOnly && (NumTried > 0 && (NumNew == 0 || r.Next(0, 2) == 0)))
+            if (triedOnly || (!newOnly && (NumTried > 0 && (NumNew == 0 || r.Next(0, 2) == 0))))
             {
                 double chanceFactor = 1.0;
 
