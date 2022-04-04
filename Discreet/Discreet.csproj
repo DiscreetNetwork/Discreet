@@ -26,7 +26,7 @@
 
   <ItemGroup>
     <PackageReference Include="Cryptography.ECDSA.Secp256K1" Version="1.1.3" />
-    <PackageReference Include="RocksDb" Version="7.0.4.27464" />
+    <PackageReference Include="RocksDB" Version="6.11.4.12240" />
     <PackageReference Include="xunit" Version="2.4.1" />
   </ItemGroup>
 
