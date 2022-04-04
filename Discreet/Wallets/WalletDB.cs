@@ -98,14 +98,14 @@ namespace Discreet.Wallets
 
             var _colFamilies = new ColumnFamilies
                 {
-                    new ColumnFamilies.Descriptor(UTXOS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(STORAGE, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(WALLETS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(WALLET_ADDRESSES, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(WALLET_HEIGHTS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(ADDRESS_BOOK, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(TX_HISTORY, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions())
+                    new ColumnFamilies.Descriptor(UTXOS, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(STORAGE, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(WALLETS, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(WALLET_ADDRESSES, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(WALLET_HEIGHTS, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(ADDRESS_BOOK, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(TX_HISTORY, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions().SetCompression(Compression.No))
                 };
 
             db = RocksDb.Open(options, path, _colFamilies);
