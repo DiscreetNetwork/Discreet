@@ -825,8 +825,15 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
-        [RPCEndpoint("is_wallet_locked", APISet.WALLET)]
-        public static object IsWalletLocked(string label)
+        public enum WalletStatus: int
+        {
+            UNLOCKED = 0,
+            LOCKED = 1,
+            UNLOADED = 2,
+        }
+
+        [RPCEndpoint("get_wallet_status", APISet.WALLET)]
+        public static object GetWalletStatus(string label)
         {
             try
             {
@@ -836,15 +843,56 @@ namespace Discreet.RPC.Endpoints
 
                 Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
 
-                if (wallet == null) return new RPCError($"no wallet found with label {label}");
+                if (wallet == null) return (int)WalletStatus.UNLOADED;
 
-                return wallet.IsEncrypted;
+                return wallet.IsEncrypted ? (int)WalletStatus.LOCKED : (int)WalletStatus.UNLOCKED;
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to IsWalletLocked failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWalletStatus failed: {ex.Message}");
 
-                return new RPCError($"Could not get wallet lock status");
+                return new RPCError($"Could not get wallet status");
+            }
+        }
+
+        public class WalletStatusRV
+        {
+            public int Status { get; set; }
+            public string Label { get; set; }
+        }
+
+        [RPCEndpoint("get_wallet_statuses")]
+        public static object GetWalletStatuses()
+        {
+            try
+            {
+                var db = WalletDB.GetDB();
+                var _visor = Network.Handler.GetHandler().daemon;
+                var wallets = db.GetWallets();
+                List<WalletStatusRV> statuses = new();
+
+                foreach (var wallet in wallets)
+                {
+                    WalletStatus status;
+                    if (_visor.wallets.Where(x => x.Label == wallet.Label).FirstOrDefault() == null)
+                    {
+                        status = WalletStatus.UNLOADED;
+                    }
+                    else
+                    {
+                        status = _visor.wallets.Where(x => x.Label == wallet.Label).FirstOrDefault().IsEncrypted ? WalletStatus.LOCKED : WalletStatus.UNLOCKED;
+                    }
+
+                    statuses.Add(new WalletStatusRV { Label = wallet.Label, Status = (int)status });
+                }
+
+                return statuses;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to GetWalletStatuses failed: {ex.Message}");
+
+                return new RPCError($"Could not get wallet statuses");
             }
         }
 
