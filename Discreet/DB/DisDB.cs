@@ -193,18 +193,18 @@ namespace Discreet.DB
 
                 var _colFamilies = new ColumnFamilies
                 {
-                    new ColumnFamilies.Descriptor(SPENT_KEYS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(TX_POOL_BLOB, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(TX_POOL_SPENT_KEYS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(OUTPUTS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(TX_INDICES, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(TXS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(BLOCK_HEIGHTS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(BLOCKS, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions()),
-                    new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions()),
+                    new ColumnFamilies.Descriptor(SPENT_KEYS, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(TX_POOL_BLOB, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(TX_POOL_SPENT_KEYS, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(OUTPUTS, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(TX_INDICES, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(TXS, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(BLOCK_HEIGHTS, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(BLOCKS, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions().SetCompression(Compression.No)),
+                    new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions().SetCompression(Compression.No)),
                 };
 
                 db = RocksDb.Open(options, path, _colFamilies);
