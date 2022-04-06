@@ -133,6 +133,8 @@ namespace Discreet.Wallets
             }
 
             Deterministic = !random;
+
+            GenerateEncryptedFields(wallet.Entropy);
         }
 
         public WalletAddress(Wallet wallet, byte type, Key secKey, Key secSpendKey, Key secViewKey)
@@ -165,6 +167,8 @@ namespace Discreet.Wallets
             UTXOs = new List<UTXO>();
 
             Deterministic = false;
+
+            GenerateEncryptedFields(wallet.Entropy);
         }
 
         /* default constructor, used for falling back on JSON deserialize */
@@ -262,6 +266,8 @@ namespace Discreet.Wallets
             UTXOs = new List<UTXO>();
 
             Deterministic = true;
+
+            GenerateEncryptedFields(entropy);
         }
 
         public void MustEncrypt(byte[] key)
@@ -272,6 +278,30 @@ namespace Discreet.Wallets
                 Encrypt(key);
 
                 if (syncerSource != null) syncerSource.Cancel();
+            }
+        }
+
+        public void GenerateEncryptedFields(byte[] key)
+        {
+            if (Type == 0)
+            {
+                CipherObject cipherObjSpend = AESCBC.GenerateCipherObject(key);
+                byte[] encryptedSecSpendKeyBytes = AESCBC.Encrypt(SecSpendKey.bytes, cipherObjSpend);
+                EncryptedSecSpendKey = cipherObjSpend.PrependIV(encryptedSecSpendKeyBytes);
+
+                CipherObject cipherObjView = AESCBC.GenerateCipherObject(key);
+                byte[] encryptedSecViewKeyBytes = AESCBC.Encrypt(SecViewKey.bytes, cipherObjView);
+                EncryptedSecViewKey = cipherObjView.PrependIV(encryptedSecViewKeyBytes);
+            }
+            else if (Type == 1)
+            {
+                CipherObject cipherObjSec = AESCBC.GenerateCipherObject(key);
+                byte[] encryptedSecKeyBytes = AESCBC.Encrypt(SecKey.bytes, cipherObjSec);
+                EncryptedSecKey = cipherObjSec.PrependIV(encryptedSecKeyBytes);
+            }
+            else
+            {
+                throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
             }
         }
 
