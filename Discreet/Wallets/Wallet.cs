@@ -298,7 +298,7 @@ namespace Discreet.Wallets
                 }
                 else
                 {
-                    if (transparent)
+                    if (!transparent)
                     {
                         byte[] hashingData = new byte[64];
                         Array.Copy(lastSeenWallet.SecSpendKey.bytes, hashingData, 32);
