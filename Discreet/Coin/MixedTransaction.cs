@@ -117,7 +117,7 @@ namespace Discreet.Coin
             int lenPInputs = ((PInputs == null) ? 0 : PInputs.Length);
             int lenPOutputs = ((POutputs == null) ? 0 : POutputs.Length);
 
-            byte[] bytes = new byte[16 + 65 * lenTInputs + 33 * lenTOutputs + 32 + lenPInputs * TXInput.Size() + lenPOutputs * 40];
+            byte[] bytes = new byte[16 + 65 * lenTInputs + 33 * lenTOutputs + ((lenPOutputs > 0) ? 32 : 0) + lenPInputs * TXInput.Size() + lenPOutputs * 40];
 
             bytes[0] = Version;
             bytes[1] = NumInputs;
@@ -145,8 +145,11 @@ namespace Discreet.Coin
                 offset += 33;
             }
 
-            Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
-            offset += 32;
+            if (lenPOutputs > 0)
+            {
+                Array.Copy(TransactionKey.bytes, 0, bytes, offset, 32);
+                offset += 32;
+            }
 
             for (int i = 0; i < lenPInputs; i++)
             {
