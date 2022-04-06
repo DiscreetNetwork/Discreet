@@ -97,7 +97,8 @@ namespace Discreet.Cipher
             CipherObject cipherObject = new()
             {
                 Key = key,
-                IV = new byte[16]
+                IV = new byte[16],
+                Mode = PaddingMode.PKCS7
             };
 
             Array.Copy(bytes, cipherObject.IV, 16);
