@@ -586,7 +586,17 @@ namespace Discreet.Network.Peerbloom
 
                 foreach (var conn in OutboundConnectedPeers.Values)
                 {
-                    peerlist.FindPeer(conn.Receiver, out _).LastSeen = DateTime.UtcNow.Ticks;
+                    var peer = peerlist.FindPeer(conn.Receiver, out _);
+
+                    // can sometimes happen during client restarts
+                    if (peer == null)
+                    {
+                        peerlist.AddNew(conn.Receiver, conn.Receiver, 0);
+                        peerlist.Good(conn.Receiver, false);
+                        peer = peerlist.FindPeer(conn.Receiver, out _);
+                    }
+                    
+                    peer.LastSeen = DateTime.UtcNow.Ticks;
                 }
 
                 foreach (var conn in InboundConnectedPeers.Values)
