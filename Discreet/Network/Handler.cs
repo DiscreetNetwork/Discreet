@@ -325,7 +325,7 @@ namespace Discreet.Network
                 Services = Services,
                 Timestamp = DateTime.UtcNow.Ticks,
                 Height = DB.DisDB.GetDB().GetChainHeight(),
-                Address = Daemon.DaemonConfig.GetConfig().Endpoint,
+                Port = Daemon.DaemonConfig.GetConfig().Port.Value,
                 Syncing = State == PeerState.Syncing
             };
         }
@@ -354,6 +354,15 @@ namespace Discreet.Network
                     return;
                 }
 
+                if (p.Port < 0 || p.Port > 65535)
+                {
+                    Daemon.Logger.Warn($"Discreet.Network.Handler.HandleVersion: version packet for peer {conn.Receiver} specified an invalid port ({p.Port})");
+                    mCache.BadVersions[conn.Receiver] = p;
+                    return;
+                }
+
+                conn.Port = p.Port;
+
                 if (mCache.BadVersions.ContainsKey(conn.Receiver))
                 {
                     mCache.BadVersions.Remove(conn.Receiver, out _);
@@ -379,7 +388,7 @@ namespace Discreet.Network
             p.Counter++;
 
             conn.SetConnectionAcknowledged();
-            _network.IncomingTester.Enqueue(conn.Receiver);
+            _network.IncomingTester.Enqueue(new IPEndPoint(conn.Receiver.Address, conn.Port));
 
             _network.Send(conn, new Packet(PacketType.VERACK, p));
             _network.AddInboundConnection(conn);

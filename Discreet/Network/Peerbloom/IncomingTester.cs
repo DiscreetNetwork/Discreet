@@ -9,6 +9,9 @@ using System.Threading.Tasks;
 
 namespace Discreet.Network.Peerbloom
 {
+    /// <summary>
+    /// Used to check incoming connection's availability, primarily to prevent junk or private peers from accidentally being added to New.
+    /// </summary>
     public class IncomingTester
     {
         private Network _network;
@@ -37,7 +40,7 @@ namespace Discreet.Network.Peerbloom
 
             if (success && conn.Receiver.Port < 49152)
             {
-                _peerlist.AddNew(conn.Receiver, new IPEndPoint(_network.ReflectedAddress, Daemon.DaemonConfig.GetConfig().Port.Value), 60L * 60L * 10_000_000L);
+                _peerlist.AddNew(new IPEndPoint(conn.Receiver.Address, conn.Port), new IPEndPoint(_network.ReflectedAddress, Daemon.DaemonConfig.GetConfig().Port.Value), 60L * 60L * 10_000_000L);
             }
 
             _connections.Remove(conn.Receiver, out _);

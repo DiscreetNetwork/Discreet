@@ -52,20 +52,17 @@ namespace Discreet.Network.Peerbloom
         private SemaphoreSlim _readMutex = new SemaphoreSlim(1, 1);
         private SemaphoreSlim _sendMutex = new SemaphoreSlim(1, 1);
 
+        // the reported port the receiving peer exposes, if public
+        private int _port = -1;
+
         public int Port 
         { 
             get 
             { 
-                if (_tcpClient != null)
-                {
-                    if (_tcpClient.Client.LocalEndPoint.AddressFamily.Equals(AddressFamily.InterNetwork) || _tcpClient.Client.LocalEndPoint.AddressFamily.Equals(AddressFamily.InterNetworkV6))
-                    {
-                        return ((IPEndPoint)_tcpClient.Client.LocalEndPoint).Port;
-                    }
-                }
-
-                return -1;
+                return _port;
             }
+
+            set { _port = value; }
         }
 
         public Connection(TcpClient tcpClient, Network network, LocalNode node, bool isOutbound = false)
@@ -208,13 +205,13 @@ namespace Discreet.Network.Peerbloom
                         if (!ConnectionAcknowledged)
                         {
                             /* perform connect send */
-                            Core.Packets.Peerbloom.VersionPacket verBody = new Core.Packets.Peerbloom.VersionPacket 
+                            Core.Packets.Peerbloom.VersionPacket verBody = new Core.Packets.Peerbloom.VersionPacket
                             {
                                 Version = Daemon.DaemonConfig.GetConfig().NetworkVersion.Value,
                                 Services = _network.handler.Services,
                                 Timestamp = DateTime.UtcNow.Ticks,
                                 Height = DB.DisDB.GetDB().GetChainHeight(),
-                                Address = Receiver,
+                                Port = Daemon.DaemonConfig.GetConfig().Port.Value,
                                 Syncing = _network.handler.State == PeerState.Syncing
                             };
 
@@ -246,7 +243,7 @@ namespace Discreet.Network.Peerbloom
                             Daemon.Logger.Debug($"Connection.Connect: sent version to {Receiver}");
 
                             /* receive remote version */
-                            byte[] _remoteVersion = new byte[43 + 10];
+                            byte[] _remoteVersion = new byte[29 + 10];
                             int numReadBytes = 0;
 
                             do
@@ -297,6 +294,15 @@ namespace Discreet.Network.Peerbloom
                                 numConnectionAttempts++;
                                 continue;
                             }
+
+                            if (remoteVersionBody.Port < 0 || remoteVersionBody.Port > 65535)
+                            {
+                                Daemon.Logger.Warn($"Connection.Connect: version packet for peer {Receiver} specified an invalid port ({remoteVersionBody.Port})");
+                                numConnectionAttempts++;
+                                continue;
+                            }
+
+                            _port = remoteVersionBody.Port; // set port
 
                             if (_network.Cache.BadVersions.ContainsKey(Receiver))
                             {

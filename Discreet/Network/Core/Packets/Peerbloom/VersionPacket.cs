@@ -14,7 +14,7 @@ namespace Discreet.Network.Core.Packets.Peerbloom
         public ServicesFlag Services { get; set; }
         public long Timestamp { get; set; }
         public long Height { get; set; }
-        public IPEndPoint Address { get; set; }
+        public int Port { get; set; } // the port of the peer. Can be different from the connected port.
         public bool Syncing { get; set; }
 
         public VersionPacket()
@@ -46,8 +46,8 @@ namespace Discreet.Network.Core.Packets.Peerbloom
             Height = Coin.Serialization.GetInt64(b, offset);
             offset += 8;
 
-            Address = Utils.DeserializeEndpoint(b, offset);
-            offset += 18;
+            Port = Coin.Serialization.GetInt32(b, offset);
+            offset += 4;
 
             Syncing = b[offset] != 0;
         }
@@ -69,7 +69,7 @@ namespace Discreet.Network.Core.Packets.Peerbloom
             s.Read(longbuf);
             Height = Coin.Serialization.GetInt64(longbuf, 0);
 
-            Address = Utils.DeserializeEndpoint(s);
+            Port = Coin.Serialization.GetInt32(s);
 
             Syncing = s.ReadByte() != 0;
         }
@@ -88,8 +88,8 @@ namespace Discreet.Network.Core.Packets.Peerbloom
             Coin.Serialization.CopyData(b, offset, Height);
             offset += 8;
 
-            Utils.SerializeEndpoint(Address, b, offset);
-            offset += 18;
+            Coin.Serialization.CopyData(b, offset, Port);
+            offset += 4;
 
             b[offset] = Syncing ? (byte)1 : (byte)0;
             return offset + 1;
@@ -101,13 +101,13 @@ namespace Discreet.Network.Core.Packets.Peerbloom
             s.Write(Coin.Serialization.UInt32((uint)Services));
             s.Write(Coin.Serialization.Int64(Timestamp));
             s.Write(Coin.Serialization.Int64(Height));
-            Utils.SerializeEndpoint(Address, s);
+            Coin.Serialization.CopyData(s, Port);
             s.WriteByte(Syncing ? (byte)1 : (byte)0);
         }
 
         public int Size()
         {
-            return 43;
+            return 29;
         }
     }
 }
