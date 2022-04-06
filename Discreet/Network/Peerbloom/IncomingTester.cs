@@ -38,9 +38,14 @@ namespace Discreet.Network.Peerbloom
         {
             var success = await conn.ConnectTest();
 
-            if (success && conn.Port < 49152)
+            if (success)
             {
-                _peerlist.AddNew(new IPEndPoint(conn.Receiver.Address, conn.Port), new IPEndPoint(_network.ReflectedAddress, Daemon.DaemonConfig.GetConfig().Port.Value), 60L * 60L * 10_000_000L);
+                _peerlist.AddNew(conn.Receiver, new IPEndPoint(_network.ReflectedAddress, Daemon.DaemonConfig.GetConfig().Port.Value), 60L * 60L * 10_000_000L);
+                Daemon.Logger.Debug($"IncomingTester.Feel: succeeded in connecting to peer {conn.Receiver}");
+            }
+            else
+            {
+                Daemon.Logger.Debug($"IncomingTester.Feel: failed to connect to peer {conn.Receiver}");
             }
 
             _connections.Remove(conn.Receiver, out _);
@@ -59,6 +64,7 @@ namespace Discreet.Network.Peerbloom
                         break;
                     }
 
+                    Daemon.Logger.Debug($"IncomingTester: testing connection for incoming peer {testEndpoint}");
                     var conn = new Connection(testEndpoint, _network, _network.LocalNode);
                     _connections[testEndpoint] = conn;
                     _ = Task.Run(() => Feel(conn, token)).ConfigureAwait(false);
