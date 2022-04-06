@@ -379,18 +379,7 @@ namespace Discreet.Network
             p.Counter++;
 
             conn.SetConnectionAcknowledged();
-            if (conn.Receiver.Port < 49152)
-            {
-                uint nID;
-                var peer = _network.peerlist.FindPeer(conn.Receiver, out nID);
-
-                if (peer == null)
-                {
-                    peer = _network.peerlist.Create(conn.Receiver, conn.Receiver, out nID, conn.TimeStarted, conn.LastValidReceive);
-                }
-
-                _network.peerlist.Good(peer.Endpoint, true);
-            }
+            _network.IncomingTester.Enqueue(conn.Receiver);
 
             _network.Send(conn, new Packet(PacketType.VERACK, p));
             _network.AddInboundConnection(conn);

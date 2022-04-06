@@ -61,11 +61,6 @@ namespace Discreet.RPC
                 if(ex.ErrorCode == 5)
                     Daemon.Logger.Info($"Discreet.RPC: RPC was unable to start due to insufficient privileges. Please start as administrator and open port {_port}. Continuing without RPC.");
             }
-          
-            while (!_daemon.RPCLive)
-            {
-                await Task.Delay(250);
-            }
 
             while (true)
             {
@@ -75,8 +70,7 @@ namespace Discreet.RPC
                 StreamReader reader = new(ss);
 
                 RPCProcess processor = new();
-                object result = processor.ProcessRemoteCall(this, reader.ReadToEnd());
-
+                object result = processor.ProcessRemoteCall(this, reader.ReadToEnd(), _daemon.RPCLive);
 
                 using var sw = new StreamWriter(ctx.Response.OutputStream);
                 await sw.WriteAsync((string)result);

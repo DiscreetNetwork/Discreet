@@ -63,13 +63,13 @@ namespace Discreet.RPC
         }
 
 
-        public object ProcessRemoteCall(RPCServer server, string rpcJsonRequest)
+        public object ProcessRemoteCall(RPCServer server, string rpcJsonRequest, bool isAvailable = true)
         {
             try
             {
                 //var req = JsonDocument.Parse(Encoding.UTF8.GetBytes(rpcJsonRequest));
                 RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest, defaultOptions);
-                object result = ExecuteInternal(request.method, request.@params);
+                object result = ExecuteInternal(request.method, isAvailable, request.@params);
                 RPCResponse response = CreateResponse(request, result);
 
                 return CreateResponseJSON(server, response);
@@ -83,8 +83,14 @@ namespace Discreet.RPC
             return null;
         }
 
-        private object ExecuteInternal(string endpoint, params object[] args)
+        private object ExecuteInternal(string endpoint, bool isAvailable, params object[] args)
         {
+            // this is a nonstandard endpoint used for checking daemon liveliness. 
+            if (endpoint == "daemon_live")
+            {
+                return isAvailable;
+            }
+
             var _endpoint = RPCEndpointResolver.GetEndpoint(endpoint);
 
             /**
@@ -120,6 +126,11 @@ namespace Discreet.RPC
                 {
                     _data[i] = JsonSerializer.Deserialize((JsonElement)args[i], _paramInfo[i + 1].ParameterType, defaultOptions);
                 }
+            }
+
+            if (!isAvailable)
+            {
+                
             }
 
             object result = _endpoint.DynamicInvoke(_data);

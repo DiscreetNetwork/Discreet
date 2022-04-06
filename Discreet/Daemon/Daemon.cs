@@ -91,49 +91,7 @@ namespace Discreet.Daemon
 
             if (IsMasternode && db.GetChainHeight() < 0)
             {
-                /* time to build the megablock */
-                //Console.WriteLine("Please, enter the wallets and amounts (input stop token EXIT when finished)");
-
-                //string _input = "";
-
-                List<StealthAddress> addresses = new List<StealthAddress>();
-                List<ulong> coins = new List<ulong>();
-
-                Wallet wallet = new Wallet("DBG_MASTERNODE", "password");
-
-                wallet.Save(true);
-
-                wallets.Add(wallet);
-
-                /*while (_input != "EXIT")
-                {
-                    Console.Write("Wallet: ");
-                    _input = Console.ReadLine();
-
-                    if (_input == "EXIT") break;
-
-                    addresses.Add(new StealthAddress(_input));
-
-                    Console.Write("Coins: ");
-                    _input = Console.ReadLine();
-
-                    if (_input == "EXIT") break;
-
-                    coins.Add(ulong.Parse(_input));
-                }*/
-
-                addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
-                coins.Add(50000000000000000);
-
-                Logger.Log("Creating genesis block...");
-
-                var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
-
-                Logger.Log((block.Verify() == null).ToString());
-
-                Mint(block);
-
-                Logger.Log("Successfully created the genesis block.");
+                BuildGenesis();
             }
 
             RPCLive = false;
@@ -461,11 +419,6 @@ namespace Discreet.Daemon
             return;
         }
 
-        public async Task SendTransaction(FullTransaction tx)
-        {
-            network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDTX, new Network.Core.Packets.SendTransactionPacket { Tx = tx }));
-        }
-
         public async Task Minter()
         {
             while (!_cancellationToken.IsCancellationRequested)
@@ -517,9 +470,47 @@ namespace Discreet.Daemon
             }
         }
 
-        public void Mint(Block blk)
+        public void BuildGenesis()
         {
-            //if (wallet.Addresses[0].Type != 0) throw new Exception("Discreet.Visor.Visor.Mint: Cannot mint a block with transparent wallet!");
+            /* time to build the megablock */
+            //Console.WriteLine("Please, enter the wallets and amounts (input stop token EXIT when finished)");
+
+            //string _input = "";
+
+            List<StealthAddress> addresses = new List<StealthAddress>();
+            List<ulong> coins = new List<ulong>();
+
+            Wallet wallet = new Wallet("DBG_MASTERNODE", "password");
+
+            wallet.Save(true);
+
+            wallets.Add(wallet);
+
+            /*while (_input != "EXIT")
+            {
+                Console.Write("Wallet: ");
+                _input = Console.ReadLine();
+
+                if (_input == "EXIT") break;
+
+                addresses.Add(new StealthAddress(_input));
+
+                Console.Write("Coins: ");
+                _input = Console.ReadLine();
+
+                if (_input == "EXIT") break;
+
+                coins.Add(ulong.Parse(_input));
+            }*/
+
+            addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
+            coins.Add(50000000000000000);
+
+            Logger.Log("Creating genesis block...");
+
+            var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
+
+            Logger.Log((block.Verify() == null).ToString());
 
             DB.DisDB db = DB.DisDB.GetDB();
 
@@ -527,7 +518,7 @@ namespace Discreet.Daemon
             {
                 lock (DB.DisDB.DBLock)
                 {
-                    db.AddBlock(blk);
+                    db.AddBlock(block);
                 }
             }
             catch (Exception e)
@@ -535,7 +526,9 @@ namespace Discreet.Daemon
                 Logger.Log(new DatabaseException("Discreet.Visor.Visor.ProcessBlock", e.Message).Message);
             }
 
-            ProcessBlock(blk);
+            ProcessBlock(block);
+
+            Logger.Log("Successfully created the genesis block.");
         }
     }
 }

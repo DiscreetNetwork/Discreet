@@ -109,6 +109,37 @@ namespace Discreet.Network.Peerbloom
             IsOutbound = isOutbound;
         }
 
+        public async Task<bool> ConnectTest(CancellationToken token = default, int timeout = 5000)
+        {
+            try
+            {
+                var _timeout = DateTime.UtcNow.AddMilliseconds(timeout).Ticks;
+
+                var result = _tcpClient.BeginConnect(Receiver.Address, Receiver.Port, null, null);
+
+                while (!result.IsCompleted && _timeout > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
+                {
+                    await Task.Delay(50, token);
+                }
+
+                if (!result.IsCompleted)
+                {
+                    Daemon.Logger.Warn($"Connection.ConnectTest: Could not connect to peer {Receiver} due to timeout");
+                    _tcpClient.Dispose();
+                    return false;
+                }
+
+                _tcpClient.Dispose();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"Connection.ConnectTest: Could not connect to peer {Receiver}: {ex.Message}");
+                _tcpClient.Dispose();
+                return false;
+            }
+        }
+
         /// <summary>
         /// Try to open a connection to the node, and return whether the acknowledge were successful
         /// </summary>

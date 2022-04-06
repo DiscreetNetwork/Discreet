@@ -587,9 +587,9 @@ namespace Discreet.RPC.Endpoints
 
                 bool deterministic = _params.Deterministic.Value;
 
-                if (deterministic && ((_params.Secret != null || _params.Secret != "") ||
-                                      (_params.Spend != null || _params.Spend != "") ||
-                                      (_params.View != null || _params.View != "")))
+                if (deterministic && ((_params.Secret != null && _params.Secret != "") ||
+                                      (_params.Spend != null && _params.Spend != "") ||
+                                      (_params.View != null && _params.View != "")))
                     return new RPCError("Secret, Spend and View cannot be set if deterministic is true");
 
                 WalletAddress addr = null;
@@ -600,13 +600,13 @@ namespace Discreet.RPC.Endpoints
                 }
                 else
                 {
-                    if (addrType == AddressType.STEALTH && (_params.Secret != null || _params.Secret != ""))
+                    if (addrType == AddressType.STEALTH && (_params.Secret != null && _params.Secret != ""))
                         return new RPCError($"Secret cannot be set if type is {_params.Type}");
 
-                    if (addrType == AddressType.TRANSPARENT && ((_params.Spend != null || _params.Spend != "") || (_params.View != null || _params.View != "")))
+                    if (addrType == AddressType.TRANSPARENT && ((_params.Spend != null && _params.Spend != "") || (_params.View != null && _params.View != "")))
                         return new RPCError($"Spend and View cannot be set if type is {_params.Type}");
 
-                    bool random = (_params.Spend == null || _params.Spend == "") && (_params.View == null || _params.View == "") && (_params.Secret == null || _params.Secret == "");
+                    bool random = !deterministic && (_params.Spend == null || _params.Spend == "") && (_params.View == null || _params.View == "") && (_params.Secret == null || _params.Secret == "");
 
                     if (random)
                     {

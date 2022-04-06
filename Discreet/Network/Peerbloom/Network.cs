@@ -251,6 +251,7 @@ namespace Discreet.Network.Peerbloom
         private PeerExchanger peerExchanger;
         private Feeler feeler;
         public Peerlist peerlist;
+        public IncomingTester IncomingTester;
 
         /// <summary>
         /// A common tokenSource to control our loops. 
@@ -272,6 +273,7 @@ namespace Discreet.Network.Peerbloom
             _shutdownTokenSource = new CancellationTokenSource();
             peerlist = new Peerlist();
             feeler = new Feeler(this, peerlist);
+            IncomingTester = new IncomingTester(this, peerlist);
         }
 
         public void StartHeartbeater()
@@ -301,6 +303,7 @@ namespace Discreet.Network.Peerbloom
         {
             TcpListener listener = new TcpListener(LocalNode.Endpoint);
             listener.Start();
+            _ = Task.Run(() => IncomingTester.Start(token)).ConfigureAwait(false);
             while (!token.IsCancellationRequested)
             {
                 var client = await listener.AcceptTcpClientAsync();
