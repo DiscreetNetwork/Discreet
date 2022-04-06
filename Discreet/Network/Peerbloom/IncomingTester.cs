@@ -40,8 +40,8 @@ namespace Discreet.Network.Peerbloom
 
             if (success)
             {
-                _peerlist.AddNew(conn.Receiver, new IPEndPoint(_network.ReflectedAddress, Daemon.DaemonConfig.GetConfig().Port.Value), 60L * 60L * 10_000_000L);
                 Daemon.Logger.Debug($"IncomingTester.Feel: succeeded in connecting to peer {conn.Receiver}");
+                _peerlist.AddNew(conn.Receiver, new IPEndPoint(_network.ReflectedAddress, Daemon.DaemonConfig.GetConfig().Port.Value), 60L * 60L * 10_000_000L);
             }
             else
             {
