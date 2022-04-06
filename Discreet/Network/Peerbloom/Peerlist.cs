@@ -408,12 +408,11 @@ namespace Discreet.Network.Peerbloom
 
         public void ClearNew(uint bucket, uint pos)
         {
-            Daemon.Logger.Debug($"Peerlist.ClearNew: removing {p.Endpoint}");
-
             if (New[bucket,pos] != 0)
             {
                 uint nIDClear = New[bucket,pos];
                 var pinfoClear = addrs[nIDClear];
+                Daemon.Logger.Debug($"Peerlist.ClearNew: removing {pinfoClear.Endpoint}, refcount is {pinfoClear.RefCount}");
                 pinfoClear.RefCount = Math.Min(pinfoClear.RefCount - 1, 0);
                 New[bucket, pos] = 0;
                 if (pinfoClear.RefCount <= 0)
