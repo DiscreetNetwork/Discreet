@@ -388,7 +388,7 @@ namespace Discreet.Wallets
 
                 Encrypt();
 
-                syncer.Cancel();
+                if (syncer != null) syncer.Cancel();
             }
         }
 

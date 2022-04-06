@@ -257,6 +257,14 @@ namespace Discreet.RPC.Endpoints
 
                 _ = Task.Run(() => _visor.WalletSyncer(wallet, true)).ConfigureAwait(false);
 
+                foreach (var addr in wallet.Addresses)
+                {
+                    if (addr.Synced == false && addr.Syncer == true)
+                    {
+                        _ = Task.Run(() => _visor.AddressSyncer(addr)).ConfigureAwait(false);
+                    }
+                }
+
                 return "OK";
             }
             catch (Exception ex)
@@ -374,6 +382,14 @@ namespace Discreet.RPC.Endpoints
                     _visor.wallets.Add(wallet);
 
                     _ = Task.Run(() => _visor.WalletSyncer(wallet, true)).ConfigureAwait(false);
+
+                    foreach (var addr in wallet.Addresses)
+                    {
+                        if (addr.Synced == false && addr.Syncer == true)
+                        {
+                            _ = Task.Run(() => _visor.AddressSyncer(addr)).ConfigureAwait(false);
+                        }
+                    }
                 });
 
                 return "OK";
@@ -469,6 +485,14 @@ namespace Discreet.RPC.Endpoints
                 }
 
                 _ = Task.Run(() => _visor.WalletSyncer(wallet, true)).ConfigureAwait(false);
+
+                foreach (var addr in wallet.Addresses)
+                {
+                    if (addr.Synced == false && addr.Syncer == true)
+                    {
+                        _ = Task.Run(() => _visor.AddressSyncer(addr)).ConfigureAwait(false);
+                    }
+                }
 
                 return "OK";
             }
