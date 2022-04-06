@@ -304,33 +304,27 @@ namespace Discreet.Network.Peerbloom
 
                             _port = remoteVersionBody.Port; // set port
 
-                            if (_network.Cache.BadVersions.ContainsKey(Receiver))
+                            if (!feeler)
                             {
-                                _network.Cache.BadVersions.Remove(Receiver, out _);
-                            }
-
-                            if (!_network.Cache.Versions.TryAdd(Receiver, remoteVersionBody))
-                            {
-                                Daemon.Logger.Error($"Connection.Connect: failed to add version for peer {Receiver}");
-
-                                if (feeler)
+                                if (_network.Cache.BadVersions.ContainsKey(Receiver))
                                 {
-                                    _network.Feelers.Remove(Receiver, out _);
-                                    Dispose();
-                                }
-                                else
-                                {
-                                    Dispose();
+                                    _network.Cache.BadVersions.Remove(Receiver, out _);
                                 }
 
-                                return false;
+                                if (!_network.Cache.Versions.TryAdd(Receiver, remoteVersionBody))
+                                {
+                                    Daemon.Logger.Error($"Connection.Connect: failed to add version for peer {Receiver}");
+                                    Dispose();
+
+                                    return false;
+                                }
                             }
 
                             Daemon.Logger.Debug($"Connection.Connect: received version from {Receiver}");
 
 
                             /* time to send VerAck. At this point we can trust the connection is reliable. */
-                            await SendAsync(new Core.Packet(Core.PacketType.VERACK, new Core.Packets.Peerbloom.VerAck { Counter = 0, ReflectedEndpoint = Receiver }), token);
+                            await SendAsync(new Core.Packet(Core.PacketType.VERACK, new Core.Packets.Peerbloom.VerAck { Counter = feeler ? -1 : 0, ReflectedEndpoint = Receiver }), token);
 
                             Daemon.Logger.Debug($"Connection.Connect: sent verack to {Receiver}");
 
@@ -349,7 +343,7 @@ namespace Discreet.Network.Peerbloom
                                 return false;
                             }
 
-                            IsPersistent = true;
+                            IsPersistent = !feeler;
                             ConnectionAcknowledged = true;
                             LastValidReceive = DateTime.UtcNow.Ticks;
                             LastValidSend = DateTime.UtcNow.Ticks;
@@ -450,14 +444,15 @@ namespace Discreet.Network.Peerbloom
                     }
                     return false;
                 }
-                else if (persist && !disposed)
+                else if (!disposed)
                 {
                     if (feeler)
                     {
                         _network.Feelers.TryRemove(Receiver, out _);
                         return true;
                     }
-                    await Persistent(token);
+
+                    if (persist) await Persistent(token);
 
                     return true;
                 }
@@ -472,6 +467,7 @@ namespace Discreet.Network.Peerbloom
                 return false;
             }
 
+            // fallthrough
             if (feeler)
             {
                 Dispose();

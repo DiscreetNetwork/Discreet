@@ -202,6 +202,22 @@ namespace Discreet.Network.Peerbloom
                 }
             }
 
+            foreach (var node in OutboundConnectedPeers.Values)
+            {
+                if (node.Receiver.Equals(endpoint))
+                {
+                    return node;
+                }
+            }
+
+            foreach (var node in ConnectingPeers.Values)
+            {
+                if (node.Receiver.Equals(endpoint))
+                {
+                    return node;
+                }
+            }
+
             return null;
         }
 

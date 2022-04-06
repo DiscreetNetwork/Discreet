@@ -382,6 +382,20 @@ namespace Discreet.Network
         {
             if (p.Counter > 0) return;
 
+            // we use counter == -1 for a test connection; we simply send back 1 as usual but don't persist the connection
+            if (p.Counter == -1)
+            {
+                p.ReflectedEndpoint = conn.Receiver;
+                p.Counter = 1;
+
+                conn.SetConnectionAcknowledged();
+                _network.Send(conn, new Packet(PacketType.VERACK, p));
+
+                _network.ConnectingPeers.Remove(conn.Receiver, out _);
+
+                return;
+            }
+
             if (p.Counter < 0) return; // something has gone wrong if this is true.
 
             p.ReflectedEndpoint = conn.Receiver;

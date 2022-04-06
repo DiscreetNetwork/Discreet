@@ -123,7 +123,7 @@ namespace Discreet.Network.Peerbloom
                     if (peer == null) break;
                     tried++;
 
-                    if (selected.Contains(peer)) continue;
+                    if (selected.Contains(peer) || _network.GetPeer(peer.Endpoint) != null) continue;
 
                     selected.Add(peer);
                     _ = Task.Run(() => Feel(peer, token)).ConfigureAwait(false);
