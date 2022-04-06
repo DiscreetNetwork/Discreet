@@ -725,7 +725,7 @@ namespace Discreet.Wallets
             {
                 while (neededAmount < totalAmount)
                 {
-                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).First();
+                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
                     neededAmount += utxo.DecodedAmount;
                     inputs.Add(utxo);
                 }
@@ -784,7 +784,7 @@ namespace Discreet.Wallets
             {
                 while (neededAmount < totalAmount)
                 {
-                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).First();
+                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
                     neededAmount += utxo.DecodedAmount;
                     inputs.Add(utxo);
                 }
@@ -908,7 +908,7 @@ namespace Discreet.Wallets
             ulong neededAmount = 0;
             while (neededAmount < totalAmount)
             {
-                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).First();
+                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
                 neededAmount += utxo.DecodedAmount;
                 inputs.Add(utxo);
             }
@@ -1302,7 +1302,7 @@ namespace Discreet.Wallets
             while (neededAmount < totalAmount)
             {
                 // search for the highest value utxo first
-                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).First();
+                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
                 neededAmount += utxo.DecodedAmount;
                 inputs.Add(utxo);
                 i++;
