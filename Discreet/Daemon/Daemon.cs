@@ -343,7 +343,7 @@ namespace Discreet.Daemon
 
             var initialChainHeight = db.GetChainHeight();
 
-            while (address.LastSeenHeight < initialChainHeight && address.LastSeenHeight < address.wallet.LastSeenHeight && _tokenSource.IsCancellationRequested)
+            while (address.LastSeenHeight < initialChainHeight && address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
             {
                 address.ProcessBlock(db.GetBlock(address.LastSeenHeight + 1));
             }
@@ -361,7 +361,7 @@ namespace Discreet.Daemon
                 return;
             }
 
-            while ((!queue.IsEmpty || handler.State != Network.PeerState.Normal) && address.LastSeenHeight < address.wallet.LastSeenHeight && _tokenSource.IsCancellationRequested)
+            while ((!queue.IsEmpty || handler.State != Network.PeerState.Normal) && address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
             {
                 SHA256 blockHash;
                 bool success = queue.TryDequeue(out blockHash);
@@ -388,9 +388,9 @@ namespace Discreet.Daemon
                 return;
             }
 
-            while (address.LastSeenHeight < address.wallet.LastSeenHeight && _tokenSource.IsCancellationRequested)
+            while (address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
             {
-                while (!queue.IsEmpty && _tokenSource.IsCancellationRequested && address.LastSeenHeight < address.wallet.LastSeenHeight)
+                while (!queue.IsEmpty && !_tokenSource.IsCancellationRequested && address.LastSeenHeight < address.wallet.LastSeenHeight)
                 {
                     SHA256 blockHash;
                     bool success = queue.TryDequeue(out blockHash);
