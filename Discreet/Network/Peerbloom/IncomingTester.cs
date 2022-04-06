@@ -38,7 +38,7 @@ namespace Discreet.Network.Peerbloom
         {
             var success = await conn.ConnectTest();
 
-            if (success && conn.Receiver.Port < 49152)
+            if (success && conn.Port < 49152)
             {
                 _peerlist.AddNew(new IPEndPoint(conn.Receiver.Address, conn.Port), new IPEndPoint(_network.ReflectedAddress, Daemon.DaemonConfig.GetConfig().Port.Value), 60L * 60L * 10_000_000L);
             }
