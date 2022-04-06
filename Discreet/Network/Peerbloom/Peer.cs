@@ -107,8 +107,8 @@ namespace Discreet.Network.Peerbloom
                 return true;
             }
 
-            // don't remove things attempted in the last minute
-            if (LastAttempt > 0 && LastAttempt >= DateTime.UtcNow.Ticks - 60L * 10_000_000L)
+            // don't remove things attempted in the last 10 minutes
+            if (LastAttempt > 0 && LastAttempt >= DateTime.UtcNow.Ticks - 600L * 10_000_000L)
             {
                 return false;
             }

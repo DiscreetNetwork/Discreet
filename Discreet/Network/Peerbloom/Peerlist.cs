@@ -354,6 +354,7 @@ namespace Discreet.Network.Peerbloom
             }
             else
             {
+                Daemon.Logger.Debug($"Peerlist.AddNew: adding {endpoint}");
                 pinfo = Create(endpoint, source, out nID);
                 pinfo.LastSeen = DateTime.UtcNow.Ticks - penalty;
                 _newCounter++;
@@ -407,6 +408,8 @@ namespace Discreet.Network.Peerbloom
 
         public void ClearNew(uint bucket, uint pos)
         {
+            Daemon.Logger.Debug($"Peerlist.ClearNew: removing {p.Endpoint}");
+
             if (New[bucket,pos] != 0)
             {
                 uint nIDClear = New[bucket,pos];
@@ -422,6 +425,8 @@ namespace Discreet.Network.Peerbloom
 
         public void ClearTried(Peer p)
         {
+            Daemon.Logger.Debug($"Peerlist.ClearTried: removing {p.Endpoint}");
+
             FindPeer(p.Endpoint, out var nID);
             if (!addrs.TryRemove(nID, out _)) return;
 
