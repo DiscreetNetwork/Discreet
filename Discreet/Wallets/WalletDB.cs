@@ -374,6 +374,11 @@ namespace Discreet.Wallets
             }
 
             db.Put(Serialization.Int32(tx.Index), tx.EncryptedString, cf: TxHistory);
+
+            lock (indexer_tx_history)
+            {
+                db.Put(Encoding.ASCII.GetBytes("indexer_tx_history"), Serialization.UInt32(indexer_tx_history.Value), cf: Meta);
+            }
         }
 
         public WalletTx GetTxFromHistory(WalletAddress address, int index)
