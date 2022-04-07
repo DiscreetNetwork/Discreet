@@ -1565,6 +1565,7 @@ namespace Discreet.Wallets
             {
                 int idx = Serialization.GetInt32(s);
                 var wtx = db.GetTxFromHistory(this, idx);
+                wtx.Index = idx;
 
                 TxHistory.Add(wtx);
             }

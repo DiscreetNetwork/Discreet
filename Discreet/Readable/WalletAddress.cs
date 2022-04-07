@@ -198,7 +198,7 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < TxHistory.Count; i++)
                 {
-                    obj.TxHistory.Add(db.GetTxFromHistory(obj, UTXOs[i]));
+                    obj.TxHistory.Add(db.GetTxFromHistory(obj, TxHistory[i]));
                 }
             }
 
