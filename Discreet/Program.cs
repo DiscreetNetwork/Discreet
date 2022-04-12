@@ -921,7 +921,7 @@ namespace Discreet
 			}
         }*/
 
-		public static Daemon.Daemon visor;
+		public static Daemon.Daemon daemon;
 
 		/*[RPCEndpoint(endpoint_name: "getBalance")]
 		public static object GetBalance(StealthAddress address)
@@ -1004,7 +1004,7 @@ namespace Discreet
 
 			//SaveWallet();
 
-			visor.Shutdown();
+			daemon.Shutdown();
 
 			Daemon.Logger.Log("Exiting program.");
 

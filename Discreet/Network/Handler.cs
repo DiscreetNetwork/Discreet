@@ -45,7 +45,7 @@ namespace Discreet.Network
 
         public ConcurrentQueue<(Core.Packet, Peerbloom.Connection)> InboundPacketQueue = new();
 
-        /* back reference to the Visor */
+        /* back reference to the Daemon */
         public Daemon.Daemon daemon;
 
         public event TransactionReceivedEventHandler OnTransactionReceived;
@@ -672,7 +672,7 @@ namespace Discreet.Network
                     }
                     catch (Exception e)
                     {
-                        Daemon.Logger.Error(new Common.Exceptions.DatabaseException("Discreet.Visor.Visor.ProcessBlock", e.Message).Message);
+                        Daemon.Logger.Error(new Common.Exceptions.DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message);
                     }
 
                     try

@@ -124,7 +124,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (_params == null)
                     return new RPCError("check integrity parameters was null");
@@ -132,7 +132,7 @@ namespace Discreet.RPC.Endpoints
                 if (_params.Address == null || _params.Address == "")
                     return new RPCError("one of the following must be set: Address, Label");
 
-                var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == _params.Address).FirstOrDefault() != null).FirstOrDefault();
+                var wallet = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == _params.Address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"could not find address {_params.Address}");
 

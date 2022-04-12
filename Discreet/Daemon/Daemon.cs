@@ -252,7 +252,7 @@ namespace Discreet.Daemon
             Logger.Log($"Starting heartbeater...");
             network.StartHeartbeater();
 
-            Logger.Log($"Visor startup complete.");
+            Logger.Log($"Daemon startup complete.");
 
             while (!_cancellationToken.IsCancellationRequested)
             {
@@ -316,7 +316,7 @@ namespace Discreet.Daemon
 
                     if (!success)
                     {
-                        Logger.Fatal("Discreet.Visor.Visor.WalletSyncer: fatal error encountered while trying to dequeue");
+                        Logger.Fatal("Discreet.Daemon.Daemon.WalletSyncer: fatal error encountered while trying to dequeue");
                         return;
                     }
 
@@ -427,7 +427,7 @@ namespace Discreet.Daemon
 
                 if (txpool.GetTransactionsForBlock().Count > 0)
                 {
-                    Logger.Log($"Discreet.Visor: Minting new block...");
+                    Logger.Log($"Discreet.Daemon: Minting new block...");
 
                     await Mint();
                 }
@@ -459,7 +459,7 @@ namespace Discreet.Daemon
                 }
                 catch (Exception e)
                 {
-                    Logger.Log(new DatabaseException("Discreet.Visor.Visor.ProcessBlock", e.Message).Message);
+                    Logger.Log(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message);
                 }
 
                 ProcessBlock(blk);
@@ -523,7 +523,7 @@ namespace Discreet.Daemon
             }
             catch (Exception e)
             {
-                Logger.Log(new DatabaseException("Discreet.Visor.Visor.ProcessBlock", e.Message).Message);
+                Logger.Log(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message);
             }
 
             ProcessBlock(block);
