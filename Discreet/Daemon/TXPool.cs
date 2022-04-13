@@ -99,7 +99,7 @@ namespace Discreet.Daemon
             }
             catch (Exception e)
             {
-                return new DatabaseException("Discreet.Visor.TXPool.ProcessIncoming", e.Message);
+                return new DatabaseException("Discreet.Daemon.TXPool.ProcessIncoming", e.Message);
             }
 
             /* no errors, so add TX to pool */

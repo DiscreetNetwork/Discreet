@@ -1,17 +1,15 @@
 ﻿using Discreet.Cipher;
-using Discreet.Coin;
-using Discreet.RPC.Common;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Text.Json.Serialization;
-using System.Text.Json;
-using System.Linq;
-using System.IO;
-using Discreet.Wallets;
-using Discreet.Common;
 using Discreet.Cipher.Mnemonics;
+using Discreet.Coin;
+using Discreet.Common;
+using Discreet.RPC.Common;
+using Discreet.Wallets;
+using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Discreet.RPC.Endpoints
@@ -104,13 +102,13 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (_params == null) return new RPCError("create wallet parameters was null");
 
                 if (_params.Label == null || _params.Label == "") return new RPCError("label was null or empty");
 
-                if (_visor.wallets.Any(x => x.Label == _params.Label)) return new RPCError("label already exists");
+                if (_daemon.wallets.Any(x => x.Label == _params.Label)) return new RPCError("label already exists");
 
                 if ((_params.Bip39.HasValue && (_params.Mnemonic != null || _params.Seed != null)) ||
                     (_params.Mnemonic != null && (_params.Seed != null || _params.Bip39.HasValue)) ||
@@ -163,11 +161,11 @@ namespace Discreet.RPC.Endpoints
 
                 if (_save)
                 {
-                    _visor.wallets.Add(wallet);
+                    _daemon.wallets.Add(wallet);
 
                     wallet.Save(true);
 
-                    _ = Task.Run(() => _visor.WalletSyncer(wallet, _scan)).ConfigureAwait(false);
+                    _ = Task.Run(() => _daemon.WalletSyncer(wallet, _scan)).ConfigureAwait(false);
                 }
 
                 return new Readable.Wallet(wallet);
@@ -197,7 +195,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint("load_wallet", APISet.WALLET)]
         public static object LoadWallet(LoadWalletParams _params)
         {
-            var _visor = Network.Handler.GetHandler().daemon;
+            var _daemon = Network.Handler.GetHandler().daemon;
 
             if (_params == null) 
                 return new RPCError("load wallet parameters was null");
@@ -242,7 +240,7 @@ namespace Discreet.RPC.Endpoints
                     }
                 }
 
-                if (_visor.wallets.Any(x => x.Label == wallet.Label || (x.WalletPath == _params.Path && x.WalletPath != null && x.WalletPath != "")))
+                if (_daemon.wallets.Any(x => x.Label == wallet.Label || (x.WalletPath == _params.Path && x.WalletPath != null && x.WalletPath != "")))
                     return new RPCError(-1, "wallet shares label or path with another loaded wallet", new Readable.Wallet(wallet));
 
                 if (wallet.Encrypted && (_params.Passphrase == null || _params.Passphrase == ""))
@@ -253,15 +251,15 @@ namespace Discreet.RPC.Endpoints
 
                 wallet.WalletPath = _params.Path;
 
-                _visor.wallets.Add(wallet);
+                _daemon.wallets.Add(wallet);
 
-                _ = Task.Run(() => _visor.WalletSyncer(wallet, true)).ConfigureAwait(false);
+                _ = Task.Run(() => _daemon.WalletSyncer(wallet, true)).ConfigureAwait(false);
 
                 foreach (var addr in wallet.Addresses)
                 {
                     if (addr.Synced == false && addr.Syncer == true)
                     {
-                        _ = Task.Run(() => _visor.AddressSyncer(addr)).ConfigureAwait(false);
+                        _ = Task.Run(() => _daemon.AddressSyncer(addr)).ConfigureAwait(false);
                     }
                 }
 
@@ -289,7 +287,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint("check_integrity", APISet.WALLET)]
         public static object CheckIntegrity(CheckIntegrityParams _params)
         {
-            var _visor = Network.Handler.GetHandler().daemon;
+            var _daemon = Network.Handler.GetHandler().daemon;
 
             if (_params == null)
                 return new RPCError("check integrity parameters was null");
@@ -304,7 +302,7 @@ namespace Discreet.RPC.Endpoints
             {
                 if (_params.Label != null && _params.Label != "")
                 {
-                    var wallet = _visor.wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
+                    var wallet = _daemon.wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
 
                     if (wallet == null) return new RPCError($"could not find wallet with label {_params.Label}");
 
@@ -313,7 +311,7 @@ namespace Discreet.RPC.Endpoints
                 else
                 {
 
-                    var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == _params.Address).FirstOrDefault() != null).FirstOrDefault();
+                    var wallet = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == _params.Address).FirstOrDefault() != null).FirstOrDefault();
 
                     if (wallet == null) return new RPCError($"could not find address {_params.Address}");
 
@@ -343,7 +341,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint("load_wallets", APISet.WALLET)]
         public static object LoadWallets(List<LoadWalletParams> _params)
         {
-            var _visor = Network.Handler.GetHandler().daemon;
+            var _daemon = Network.Handler.GetHandler().daemon;
 
             WalletDB db = WalletDB.GetDB();
 
@@ -379,15 +377,15 @@ namespace Discreet.RPC.Endpoints
 
                 wallets.ForEach(wallet =>
                 {
-                    _visor.wallets.Add(wallet);
+                    _daemon.wallets.Add(wallet);
 
-                    _ = Task.Run(() => _visor.WalletSyncer(wallet, true)).ConfigureAwait(false);
+                    _ = Task.Run(() => _daemon.WalletSyncer(wallet, true)).ConfigureAwait(false);
 
                     foreach (var addr in wallet.Addresses)
                     {
                         if (addr.Synced == false && addr.Syncer == true)
                         {
-                            _ = Task.Run(() => _visor.AddressSyncer(addr)).ConfigureAwait(false);
+                            _ = Task.Run(() => _daemon.AddressSyncer(addr)).ConfigureAwait(false);
                         }
                     }
                 });
@@ -459,7 +457,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint("unlock_wallet", APISet.WALLET)]
         public static object UnlockWallet(UnlockWalletParams _params)
         {
-            var _visor = Network.Handler.GetHandler().daemon;
+            var _daemon = Network.Handler.GetHandler().daemon;
 
             if (_params == null) return new RPCError("unlock wallet params was null");
 
@@ -467,7 +465,7 @@ namespace Discreet.RPC.Endpoints
 
             try
             {
-                Wallet wallet = _visor.wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
+                Wallet wallet = _daemon.wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"no wallet found with label {_params.Label}");
 
@@ -484,13 +482,13 @@ namespace Discreet.RPC.Endpoints
                     if (!wallet.TryDecrypt()) return new RPCError($"wallet {_params.Label} could not be decrypted");
                 }
 
-                _ = Task.Run(() => _visor.WalletSyncer(wallet, true)).ConfigureAwait(false);
+                _ = Task.Run(() => _daemon.WalletSyncer(wallet, true)).ConfigureAwait(false);
 
                 foreach (var addr in wallet.Addresses)
                 {
                     if (addr.Synced == false && addr.Syncer == true)
                     {
-                        _ = Task.Run(() => _visor.AddressSyncer(addr)).ConfigureAwait(false);
+                        _ = Task.Run(() => _daemon.AddressSyncer(addr)).ConfigureAwait(false);
                     }
                 }
 
@@ -509,11 +507,11 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
-                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                Wallet wallet = _daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"no wallet found with label {label}");
 
@@ -532,11 +530,11 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var __daemon = Network.Handler.GetHandler().daemon;
 
                 if (address == null || address == "") return new RPCError("parameter was null");
 
-                var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+                var wallet = __daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"could not find address {address}");
 
@@ -582,13 +580,13 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (_params == null) return new RPCError("unlock wallet params was null");
 
                 if (_params.Label == null || _params.Label == "") return new RPCError("label was null");
 
-                Wallet wallet = _visor.wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
+                Wallet wallet = _daemon.wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"no wallet found with label {_params.Label}");
 
@@ -698,7 +696,7 @@ namespace Discreet.RPC.Endpoints
 
                 if (scan)
                 {
-                    _ = Task.Run(() => _visor.AddressSyncer(addr)).ConfigureAwait(false);
+                    _ = Task.Run(() => _daemon.AddressSyncer(addr)).ConfigureAwait(false);
                 }
 
                 return new Readable.WalletAddress(addr);
@@ -716,11 +714,11 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
-                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                Wallet wallet = _daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"no wallet found with label {label}");
 
@@ -739,9 +737,9 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
-                return _visor.wallets.Select(x => new Readable.Wallet(x)).ToList();
+                return _daemon.wallets.Select(x => new Readable.Wallet(x)).ToList();
             }
             catch (Exception ex)
             {
@@ -756,17 +754,17 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("label was null");
 
-                var wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                var wallet = _daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"could not find wallet with label {label}");
 
                 wallet.MustEncrypt();
 
-                _visor.wallets = new ConcurrentBag<Wallet>(_visor.wallets.Where(x => x.Label != label).ToList());
+                _daemon.wallets = new ConcurrentBag<Wallet>(_daemon.wallets.Where(x => x.Label != label).ToList());
 
                 return "OK";
             }
@@ -783,11 +781,11 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
-                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                Wallet wallet = _daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"no wallet found with label {label}");
 
@@ -806,11 +804,11 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
-                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                Wallet wallet = _daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"no wallet found with label {label}");
 
@@ -829,9 +827,9 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
-                var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+                var wallet = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"could not find address {address}");
 
@@ -861,11 +859,11 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
-                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                Wallet wallet = _daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (wallet == null) return (int)WalletStatus.UNLOADED;
 
@@ -891,20 +889,20 @@ namespace Discreet.RPC.Endpoints
             try
             {
                 var db = WalletDB.GetDB();
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
                 var wallets = db.GetWallets();
                 List<WalletStatusRV> statuses = new();
 
                 foreach (var wallet in wallets)
                 {
                     WalletStatus status;
-                    if (_visor.wallets.Where(x => x.Label == wallet.Label).FirstOrDefault() == null)
+                    if (_daemon.wallets.Where(x => x.Label == wallet.Label).FirstOrDefault() == null)
                     {
                         status = WalletStatus.UNLOADED;
                     }
                     else
                     {
-                        status = _visor.wallets.Where(x => x.Label == wallet.Label).FirstOrDefault().IsEncrypted ? WalletStatus.LOCKED : WalletStatus.UNLOCKED;
+                        status = _daemon.wallets.Where(x => x.Label == wallet.Label).FirstOrDefault().IsEncrypted ? WalletStatus.LOCKED : WalletStatus.UNLOCKED;
                     }
 
                     statuses.Add(new WalletStatusRV { Label = wallet.Label, Status = (int)status });
@@ -931,11 +929,11 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
 
-                Wallet wallet = _visor.wallets.Where(x => x.Label == label).FirstOrDefault();
+                Wallet wallet = _daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"no wallet found with label {label}");
 
@@ -961,9 +959,9 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
-                var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+                var wallet = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"could not find address {address}");
 
@@ -1032,9 +1030,9 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _visor = Network.Handler.GetHandler().daemon;
+                var _daemon = Network.Handler.GetHandler().daemon;
 
-                var wallet = _visor.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+                var wallet = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"could not find address {address}");
 

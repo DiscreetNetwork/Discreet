@@ -49,7 +49,7 @@ namespace Discreet.Daemon
         {
             path = logpath;
 
-            if (File.Exists(path)) throw new Exception("Discreet.Visor.Logger: expects a valid directory path, not a file");
+            if (File.Exists(path)) throw new Exception("Discreet.Daemon.Daemon: expects a valid directory path, not a file");
 
             if (!Directory.Exists(path))
             {
