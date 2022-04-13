@@ -81,6 +81,26 @@ namespace Discreet.Network.Peerbloom
         public int MinDesiredConnections;
         public int MaxDesiredConnections;
 
+        public Connection GetPeerByAddress(IPAddress addr)
+        {
+            foreach (var p in InboundConnectedPeers)
+            {
+                if (p.Key.Address.Equals(addr)) return p.Value;
+            }
+
+            foreach (var p in OutboundConnectedPeers)
+            {
+                if (p.Key.Address.Equals(addr)) return p.Value;
+            }
+
+            foreach (var p in ConnectingPeers)
+            {
+                if (p.Key.Address.Equals(addr)) return p.Value;
+            }
+
+            return null;
+        }
+
         public void AddConnecting(Connection conn)
         {
             if (ConnectingPeers.Any(n => n.Key.Equals(conn.Receiver))) return;
