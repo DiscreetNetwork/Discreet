@@ -542,6 +542,9 @@ namespace Discreet.Wallets
                 {
                     db.SetWalletHeight(Label, LastSeenHeight);
                 }
+
+                ZMQ.Publisher.Instance.Publish("blockhash", block.Header.Hash().Bytes);
+                ZMQ.Publisher.Instance.Publish("rawblock", block.Serialize());
             }
             catch (Exception ex)
             {
