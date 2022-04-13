@@ -267,7 +267,8 @@ namespace Discreet.Network.Peerbloom
 
         public void AddTried(Peer peer, uint nID)
         {
-            if (addrs[nID] != null)
+            addrs.TryGetValue(nID, out var _atnid);
+            if (_atnid != null)
             {
                 uint startBucket = GetNewBucket(peer.Endpoint, peer.Source);
                 bool _modified = false;
@@ -476,9 +477,10 @@ namespace Discreet.Network.Peerbloom
             {
                 if (TriedCollisions.Count < Constants.PEERLIST_MAX_TRIED_COLLISION_SIZE)
                 {
-                    addrs[nID].LastAttempt = 0;
-                    addrs[nID].NumFailedConnectionAttempts = 0;
-                    TriedCollisions.Add(addrs[nID]);
+                    addrs.TryGetValue(nID, out var pp_);
+                    pp_.LastAttempt = 0;
+                    pp_.NumFailedConnectionAttempts = 0;
+                    TriedCollisions.Add(pp_);
                 }
 
                 return false;
@@ -548,7 +550,7 @@ namespace Discreet.Network.Peerbloom
                     if (i == Constants.PEERLIST_BUCKET_SIZE) continue;
 
                     uint nID = Tried[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE];
-                    var found = addrs[nID];
+                    addrs.TryGetValue(nID, out var found);
 
                     if (found == null) return (null, 0);
 
@@ -578,7 +580,7 @@ namespace Discreet.Network.Peerbloom
                     if (i == Constants.PEERLIST_BUCKET_SIZE) continue;
 
                     uint nID = New[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE];
-                    var found = addrs[nID];
+                    addrs.TryGetValue(nID, out var found);
 
                     if (found == null) return (null, 0);
 
