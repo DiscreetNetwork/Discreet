@@ -605,7 +605,8 @@ namespace Discreet.Network.Peerbloom
                 if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
                 {
                     (Peer p, _) = peerlist.Select(false);
-                    if (!_network.OutboundConnectedPeers.ContainsKey(p.Endpoint) && !_network.ConnectingPeers.ContainsKey(p.Endpoint))
+                    
+                    if (p != null && !_network.OutboundConnectedPeers.ContainsKey(p.Endpoint) && !_network.ConnectingPeers.ContainsKey(p.Endpoint))
                     {
                         _ = Task.Run(async () =>
                         {
