@@ -26,7 +26,7 @@ namespace Discreet.ZMQ
             _cancellationTokenSource = new CancellationTokenSource();
 
             _publisherSocket.Bind($"tcp://localhost:{port}");
-            Console.WriteLine($"[{DateTime.Now.ToString("hh:mm:ss")}] [INFO] - ZMQ.Publisher: Starting on port {port}");
+            Daemon.Logger.Info($"ZMQ.Publisher: Starting on port {port}");
 
             while(!_cancellationTokenSource.IsCancellationRequested)
             {
@@ -45,14 +45,14 @@ namespace Discreet.ZMQ
 
         public void Stop()
         {
-            Console.WriteLine($"[{DateTime.Now.ToString("hh:mm:ss")}] [INFO] - ZMQ.Publisher: Stopping the publisher");
+            Daemon.Logger.Info($"ZMQ.Publisher: Stopping the publisher");
             _publisherSocket.Close();
             _cancellationTokenSource.Cancel();
         }
 
         public void Publish(string topic, byte[] messageData)
         {
-            Console.WriteLine($"[{DateTime.Now.ToString("hh:mm:ss")}] [INFO] - ZMQ.Publisher: Publishing message to topic [{topic}]");
+            Daemon.Logger.Info($"ZMQ.Publisher: Publishing message to topic [{topic}]");
             _messageQueue.Enqueue(new Tuple<string, byte[]>(topic, messageData));
         }
     }
