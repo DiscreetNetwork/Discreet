@@ -269,6 +269,9 @@ namespace Discreet.Daemon
             {
                 toq.Value.Enqueue(block.Header.BlockHash);
             }
+            
+            ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.Bytes);
+            ZMQ.Publisher.Instance.Publish("rawblock", block.Serialize());
         }
 
         public async Task WalletSyncer(Wallet wallet, bool scanForFunds)
