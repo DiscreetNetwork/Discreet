@@ -1135,9 +1135,6 @@ namespace Discreet.Wallets
                 }
             }
 
-            ZMQ.Publisher.Instance.Publish("txhash", transaction.Hash().Bytes);
-            ZMQ.Publisher.Instance.Publish("txraw", transaction.Serialize());
-
             return changed;
         }
 
