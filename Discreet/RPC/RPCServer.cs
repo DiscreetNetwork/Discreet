@@ -65,16 +65,20 @@ namespace Discreet.RPC
             while (true)
             {
                 var ctx = await _listener.GetContextAsync();
-                var ss = ctx.Request.InputStream;
 
-                StreamReader reader = new(ss);
+                _ = Task.Factory.StartNew(async () =>
+                {
+                    var ss = ctx.Request.InputStream;
 
-                RPCProcess processor = new();
-                object result = processor.ProcessRemoteCall(this, reader.ReadToEnd(), _daemon.RPCLive);
+                    StreamReader reader = new(ss);
 
-                using var sw = new StreamWriter(ctx.Response.OutputStream);
-                await sw.WriteAsync((string)result);
-                await sw.FlushAsync();
+                    RPCProcess processor = new();
+                    object result = processor.ProcessRemoteCall(this, reader.ReadToEnd(), _daemon.RPCLive);
+
+                    using var sw = new StreamWriter(ctx.Response.OutputStream);
+                    await sw.WriteAsync((string)result);
+                    await sw.FlushAsync();
+                });
             }
         }
 
