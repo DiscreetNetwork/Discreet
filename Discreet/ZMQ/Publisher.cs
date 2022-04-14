@@ -25,7 +25,7 @@ namespace Discreet.ZMQ
         {
             _cancellationTokenSource = new CancellationTokenSource();
 
-            _publisherSocket.Bind($"tcp://localhost:{port}");
+            _publisherSocket.Bind($"tcp://*:{port}");
             Daemon.Logger.Info($"ZMQ.Publisher: Starting on port {port}");
 
             while(!_cancellationTokenSource.IsCancellationRequested)
@@ -34,7 +34,7 @@ namespace Discreet.ZMQ
 
                 try
                 {
-                    _publisherSocket.SendMoreFrame(message.Item1).SendFrame(message.Item2, true);
+                    _publisherSocket.SendMoreFrame(message.Item1).SendFrame(message.Item2);
                 }
                 catch (Exception e)
                 {
@@ -54,6 +54,12 @@ namespace Discreet.ZMQ
         {
             Daemon.Logger.Info($"ZMQ.Publisher: Publishing message to topic [{topic}]");
             _messageQueue.Enqueue(new Tuple<string, byte[]>(topic, messageData));
+        }
+
+        public void Publish(string topic, string message)
+        {
+            byte[] messageData = Encoding.UTF8.GetBytes(message);
+            Publish(topic, messageData);
         }
     }
 }

@@ -565,8 +565,8 @@ namespace Discreet.Network
                 // the event is raised only if (1) tx hasn't been seen before and (2) tx isn't malformed.
                 OnTransactionReceived?.Invoke(new TransactionReceivedEventArgs { Tx = p.Tx, Success = err == null });
                 
-                ZMQ.Publisher.Instance.Publish("txhash", transaction.Hash().Bytes);
-                ZMQ.Publisher.Instance.Publish("txraw", transaction.Serialize());
+                //ZMQ.Publisher.Instance.Publish("txhash", p.Tx.Hash().Bytes);
+                ZMQ.Publisher.Instance.Publish("txraw", p.Tx.Readable());
 
                 return;
             }
