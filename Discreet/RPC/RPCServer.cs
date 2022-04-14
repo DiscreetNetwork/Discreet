@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Discreet.RPC
@@ -15,6 +16,8 @@ namespace Discreet.RPC
         private bool _indented = false;
         private int _indentSize = 4;
         private bool _useTabs = false;
+
+        private CancellationTokenSource _cancellationTokenSource;
 
         public bool Indented { get { return _indented; } set { _indented = value; } }
 
@@ -49,6 +52,9 @@ namespace Discreet.RPC
 
         public async Task Start()
         {
+
+            _cancellationTokenSource = new CancellationTokenSource();
+
             try
             {
                 _listener.Start();
@@ -62,7 +68,7 @@ namespace Discreet.RPC
                     Daemon.Logger.Info($"Discreet.RPC: RPC was unable to start due to insufficient privileges. Please start as administrator and open port {_port}. Continuing without RPC.");
             }
 
-            while (true)
+            while (!_cancellationTokenSource.IsCancellationRequested)
             {
                 var ctx = await _listener.GetContextAsync();
 
