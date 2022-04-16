@@ -98,7 +98,7 @@ namespace Discreet.Daemon
             Logger.Log($"Starting RPC server...");
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
-            _ = Task.Factory.StartNew(() => ZMQ.Publisher.Instance.Start(12345));
+            _ = Task.Factory.StartNew(() => ZMQ.Publisher.Instance.Start(DaemonConfig.GetConfig().ZMQPort));
 
             await network.Start();
             await network.Bootstrap();

@@ -152,6 +152,11 @@ namespace Discreet.Daemon
                 RPCUseTabs = false;
             }
 
+            if(ZMQPort == null)
+            {
+                ZMQPort = 26833;
+            }
+
             if (HTTPPort == null)
             {
                 HTTPPort = 8351;
@@ -208,6 +213,8 @@ namespace Discreet.Daemon
         public int? RPCIndentSize { get; set; }
         public bool? RPCUseTabs { get; set; }
 
+        public int ZMQPort { get; set; }
+
         public int? HTTPPort { get; set; }
         public IPEndPoint Endpoint { get; set; }
         public IPAddress BootstrapNode { get; set; }
@@ -258,6 +265,8 @@ namespace Discreet.Daemon
             RPCIndented = false;
             RPCIndentSize = 0;
             RPCUseTabs = false;
+
+            ZMQPort = 26833;
 
             HTTPPort = 8351;
 
