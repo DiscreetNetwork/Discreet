@@ -527,6 +527,11 @@ namespace Discreet.Wallets
 
         public void ProcessBlock(Block block)
         {
+            if (LastSeenHeight >= block.Header.Height)
+            {
+                Daemon.Logger.Error($"Wallet.ProcessBlock: already processed block ({block.Header.BlockHash.ToHexShort()}) at height {block.Header.Height}");
+            }
+
             try
             {
                 foreach (WalletAddress address in Addresses)
