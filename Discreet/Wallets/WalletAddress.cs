@@ -956,7 +956,7 @@ namespace Discreet.Wallets
             return (inputs.ToArray(), tx);
         }
 
-        public void ProcessBlock(Block block)
+        public bool ProcessBlock(Block block)
         {
             WalletDB db = WalletDB.GetDB();
 
@@ -1019,6 +1019,8 @@ namespace Discreet.Wallets
                         db.UpdateWalletAddress(this);
                     }
                 }
+
+                return changed;
             }
         }
 

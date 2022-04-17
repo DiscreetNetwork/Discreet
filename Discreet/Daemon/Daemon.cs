@@ -51,7 +51,7 @@ namespace Discreet.Daemon
             db = DB.DisDB.GetDB();
 
             config = DaemonConfig.GetConfig();
-
+            
             signingKey = Key.FromHex(config.SigningKey);
 
             if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("74df105d0d37ef0c31ef2656297e514c52ec49ce387b587f97a13e2c3a57065e")))
@@ -74,7 +74,7 @@ namespace Discreet.Daemon
             network.Shutdown();
 
             _rpcServer.Stop();
-
+            ZMQ.Publisher.Instance.Stop();
             _tokenSource.Cancel();
         }
 
@@ -98,6 +98,7 @@ namespace Discreet.Daemon
             Logger.Log($"Starting RPC server...");
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
+            _ = Task.Factory.StartNew(() => ZMQ.Publisher.Instance.Start(DaemonConfig.GetConfig().ZMQPort));
 
             await network.Start();
             await network.Bootstrap();
@@ -268,6 +269,9 @@ namespace Discreet.Daemon
             {
                 toq.Value.Enqueue(block.Header.BlockHash);
             }
+            
+            //ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.Bytes);
+            ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
         }
 
         public async Task WalletSyncer(Wallet wallet, bool scanForFunds)
