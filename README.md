@@ -32,7 +32,7 @@ If you wish to build Discreet yourself, rather than use one of the prepackaged e
 
 | CPU | RAM | Storage | Network Connection |
 | :--- | :--- | :--- | :--- |
-| x64 4 cores; 4 GHz * | 8 GB | 250 GB | > 10 Mbps |
+| x64 4 cores; 3 GHz * | 8 GB | 250 GB | > 10 Mbps |
 
 <sup>(*) Processors supporting AVX2 instruction sets (produced after Q1 2011) recommended for optimal speed and on-disk chain size. </sup>
 
