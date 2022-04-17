@@ -170,6 +170,10 @@ namespace Discreet.Cipher
 
         public override bool Equals(object b)
         {
+            if (b == default && bytes == null) return true;
+            if (b == default) return false;
+            if (bytes == null) return false;
+
             return Compare(this, (SHA256)b) == 0;
         }
 

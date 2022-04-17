@@ -392,6 +392,8 @@ namespace Discreet.Network
                 _network.Send(conn, new Packet(PacketType.VERACK, p));
 
                 _network.ConnectingPeers.Remove(conn.Receiver, out _);
+                MessageCache.GetMessageCache().Versions.Remove(conn.Receiver, out _);
+                MessageCache.GetMessageCache().BadVersions.Remove(conn.Receiver, out _);
 
                 return;
             }

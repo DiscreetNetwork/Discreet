@@ -123,7 +123,11 @@ namespace Discreet.Network.Peerbloom
                     if (peer == null) break;
                     tried++;
 
-                    if (selected.Contains(peer) || _network.GetPeer(peer.Endpoint) != null) continue;
+                    // we disallow selecting already connected endpoints AND addresses.
+                    if (selected.Contains(peer) || _network.GetPeer(peer.Endpoint) != null || _network.GetPeerByAddress(peer.Endpoint.Address) != null) continue;
+
+                    // don't test peers recently attempted, i.e. in the last hour
+                    if ((peer.LastAttempt + 10_000_000L * 3600L) > DateTime.UtcNow.Ticks) { tried++; continue; }
 
                     selected.Add(peer);
                     _ = Task.Run(() => Feel(peer, token)).ConfigureAwait(false);

@@ -26,8 +26,7 @@
 
   <ItemGroup>
     <PackageReference Include="Cryptography.ECDSA.Secp256K1" Version="1.1.3" />
-    <PackageReference Include="NetMQ" Version="4.0.1.8" />
-    <PackageReference Include="RocksDB" Version="6.26.0.23332" />
+    <PackageReference Include="RocksDB" Version="7.1.1.28414" />
     <PackageReference Include="xunit" Version="2.4.1" />
   </ItemGroup>
 

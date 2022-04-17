@@ -98,6 +98,8 @@ namespace Discreet.Wallets
             return _ms.ToArray();
         }
 
+        
+
         public void Encrypt(bool clear = false)
         {
             var key = _walletAddress.GetEncryptionKey();
@@ -106,7 +108,6 @@ namespace Discreet.Wallets
             var unencryptedData = Serialize();
             var data = Cipher.AESCBC.Encrypt(unencryptedData, cipherObject);
             _encryptedString = cipherObject.PrependIV(data);
-
             // clear data in memory
             if (clear)
             {

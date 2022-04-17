@@ -81,6 +81,26 @@ namespace Discreet.Network.Peerbloom
         public int MinDesiredConnections;
         public int MaxDesiredConnections;
 
+        public Connection GetPeerByAddress(IPAddress addr)
+        {
+            foreach (var p in InboundConnectedPeers)
+            {
+                if (p.Key.Address.Equals(addr)) return p.Value;
+            }
+
+            foreach (var p in OutboundConnectedPeers)
+            {
+                if (p.Key.Address.Equals(addr)) return p.Value;
+            }
+
+            foreach (var p in ConnectingPeers)
+            {
+                if (p.Key.Address.Equals(addr)) return p.Value;
+            }
+
+            return null;
+        }
+
         public void AddConnecting(Connection conn)
         {
             if (ConnectingPeers.Any(n => n.Key.Equals(conn.Receiver))) return;
@@ -585,7 +605,8 @@ namespace Discreet.Network.Peerbloom
                 if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
                 {
                     (Peer p, _) = peerlist.Select(false);
-                    if (!_network.OutboundConnectedPeers.ContainsKey(p.Endpoint) && !_network.ConnectingPeers.ContainsKey(p.Endpoint))
+                    
+                    if (p != null && !_network.OutboundConnectedPeers.ContainsKey(p.Endpoint) && !_network.ConnectingPeers.ContainsKey(p.Endpoint))
                     {
                         _ = Task.Run(async () =>
                         {

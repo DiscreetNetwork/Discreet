@@ -309,6 +309,11 @@ namespace Discreet.Wallets
         {
             if (Encrypted) return;
 
+            foreach (var wtx in TxHistory)
+            {
+                wtx.Encrypt(true);
+            }
+
             if (Type == 0)
             {
                 CipherObject cipherObjSpend = AESCBC.GenerateCipherObject(key);
@@ -347,11 +352,6 @@ namespace Discreet.Wallets
             else
             {
                 throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + Type);
-            }
-
-            foreach (var wtx in TxHistory)
-            {
-                wtx.Encrypt(true);
             }
 
             Encrypted = true;
