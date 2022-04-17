@@ -11,6 +11,7 @@ using System.Runtime.InteropServices;
 using Discreet.Common;
 using System.Threading.Tasks;
 using System.Threading;
+using Discreet.ZMQ;
 
 namespace Discreet.Wallets
 {
@@ -534,9 +535,11 @@ namespace Discreet.Wallets
 
             try
             {
+                bool changed = false;
+
                 foreach (WalletAddress address in Addresses)
                 {
-                    address.ProcessBlock(block);
+                    changed = address.ProcessBlock(block) || changed;
                 }
 
                 LastSeenHeight = block.Header.Height;
@@ -547,6 +550,8 @@ namespace Discreet.Wallets
                 {
                     db.SetWalletHeight(Label, LastSeenHeight);
                 }
+
+                if(changed) Publisher.Instance.Publish("processblocknotify", "");
             }
             catch (Exception ex)
             {
