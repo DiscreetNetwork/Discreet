@@ -509,8 +509,11 @@ namespace Discreet.Daemon
             Logger.Log("Creating genesis block...");
 
             var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
-
-            Logger.Log((block.Verify() == null).ToString());
+            var exc = block.Verify();
+            if (exc == null)
+                Logger.Log("Genesis block successfully created.");
+            else
+                throw new Exception($"Could not create genesis block: {exc}");
 
             DB.DisDB db = DB.DisDB.GetDB();
 
