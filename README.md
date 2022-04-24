@@ -1,6 +1,6 @@
 <div align="center">
   <h1Discreet Network</h1>
-  <img src="https://discreet.net/static/media/Discreet_eye.415ae4db.svg" width="100"/>
+  <img src="https://files.discreet.net/discreet_logo.png" width="100"/>
 </div>
 
 ## Discreet Master Branch
