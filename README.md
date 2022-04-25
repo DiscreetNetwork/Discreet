@@ -24,15 +24,15 @@ If you wish to build Discreet yourself, rather than use one of the prepackaged e
 #### Please note that this is for the dæmon, not for mining/staking.
 #### Minimum Specifications
 
-| CPU | RAM | Storage | Network Connection |
+| CPU (*) | RAM | Storage | Network Connection |
 | :--- | :--- | :--- | :--- |
-| x64 1 core; 1 GHz * | 2 GB | 60 GB | 1 Mbps |
+| x64 1 core; 1 GHz | 2 GB | 60 GB | 1 Mbps |
 
 #### Optimal Specifications
 
-| CPU | RAM | Storage | Network Connection |
+| CPU (*) | RAM | Storage | Network Connection |
 | :--- | :--- | :--- | :--- |
-| x64 4 cores; 3 GHz * | 8 GB | 250 GB | > 10 Mbps |
+| x64 4 cores; 3 GHz | 8 GB | 250 GB | > 10 Mbps |
 
 <sup>(*) Processors supporting AVX2 instruction sets (produced after Q1 2011) recommended for optimal speed and on-disk chain size. </sup>
 
