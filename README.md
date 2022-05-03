@@ -43,6 +43,8 @@ To setup a local environment, use a loopback address on port `9875` to have a si
 
 <sup>(*) Processors supporting AVX2 instruction sets (produced after Q1 2011) recommended for optimal speed and on-disk chain size. </sup>
 
+<sup><b>Important:</b> Please ensure that you are running Discreet on a 64-bit environment. RocksDB does not support x86 systems.</sup>
+
 #### Copyright © 2022 - Juche, SIA
 <sup>Discreet® is a <a href="https://euipo.europa.eu/eSearch/#details/trademarks/018562628">registered trademark</a> of Juche, SIA</sup>
 
