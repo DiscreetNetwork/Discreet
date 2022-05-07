@@ -13,7 +13,7 @@ namespace Discreet.RPC
    public class RPCEndpointResolver
     {
         private static Dictionary<string, Delegate> endpoints = new Dictionary<string, Delegate> { };
-
+        private static Dictionary<string, APISet> sets = new Dictionary<string, APISet> { };
 
         public static void ReflectEndpoints()
         {
@@ -30,6 +30,7 @@ namespace Discreet.RPC
                 Delegate methodDelegate = CreateMethod(method);
                 RPCEndpoint RPCMethodName = (RPCEndpoint)method.GetCustomAttributes(typeof(RPCEndpoint), true)[0];
                 endpoints.Add(RPCMethodName.endpoint_name, methodDelegate);
+                sets.Add(RPCMethodName.endpoint_name, RPCMethodName.set);
             }
 
             Daemon.Logger.Log($"{endpoints.Count} RPC endpoints loaded successfully.");
@@ -38,6 +39,11 @@ namespace Discreet.RPC
         public static Delegate GetEndpoint(string endpoint)
         {
             return endpoints[endpoint];
+        }
+
+        public static APISet GetSet(string endpoint)
+        {
+            return sets[endpoint];
         }
 
         public static Delegate CreateMethod(MethodInfo method)

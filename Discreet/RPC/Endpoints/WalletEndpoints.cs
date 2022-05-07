@@ -108,7 +108,7 @@ namespace Discreet.RPC.Endpoints
 
                 if (_params.Label == null || _params.Label == "") return new RPCError("label was null or empty");
 
-                if (_daemon.wallets.Any(x => x.Label == _params.Label)) return new RPCError("label already exists");
+                if (_daemon.wallets.Any(x => x.Label == _params.Label)) return new RPCError("wallet with specified label already exists");
 
                 if ((_params.Bip39.HasValue && (_params.Mnemonic != null || _params.Seed != null)) ||
                     (_params.Mnemonic != null && (_params.Seed != null || _params.Bip39.HasValue)) ||
@@ -346,6 +346,10 @@ namespace Discreet.RPC.Endpoints
             WalletDB db = WalletDB.GetDB();
 
             if (_params == null || _params.Count == 0) return new RPCError("load wallets params was null");
+
+            bool dup = _params.Aggregate(new List<string>(), (lst, elem) => { lst.Add(elem.Label); return lst; }).Distinct().Count() < _params.Count;
+
+            if (dup) return new RPCError($"load wallet params contains duplicate wallets to load; cannot load wallets");
 
             try
             {
@@ -800,7 +804,7 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("change_wallet_label", APISet.WALLET)]
-        public static object ChangeWalletLabel(string label)
+        public static object ChangeWalletLabel(string label, string newLabel)
         {
             try
             {
@@ -811,6 +815,9 @@ namespace Discreet.RPC.Endpoints
                 Wallet wallet = _daemon.wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"no wallet found with label {label}");
+
+                if (label != newLabel && _daemon.wallets.Where(x => x.Label == newLabel).FirstOrDefault() != null)
+                    return new RPCError($"cannot change label to {newLabel}; wallet already loaded with this label");
 
                 return wallet.ChangeLabel(label) ? "OK" : "failed to change wallet label";
             }

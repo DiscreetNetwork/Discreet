@@ -186,6 +186,19 @@ namespace Discreet.Daemon
             {
                 NetConfig = new NetworkConfig();
             }
+
+            if (APISets == null)
+            {
+                APISets = new List<string>(new string[]
+                {
+                    "read",
+                    "txn",
+                    "wallet",
+                    "storage",
+                    "seed_recovery",
+                    "status"
+                });
+            }
         }
 
         public static void SetConfig(DaemonConfig config)
@@ -227,6 +240,8 @@ namespace Discreet.Daemon
         public string SigningKey { get; set; }
 
         public NetworkConfig NetConfig { get; set; }
+
+        public List<string> APISets { get; set; }
 
         public DaemonConfig()
         {
@@ -273,6 +288,16 @@ namespace Discreet.Daemon
             SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
 
             NetConfig = new NetworkConfig();
+
+            APISets = new List<string>(new string[]
+            {
+                "read",
+                "txn",
+                "wallet",
+                "storage",
+                "seed_recovery",
+                "status"
+            });
         }
 
         public static DaemonConfig GetDefault()

@@ -5,6 +5,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static Discreet.RPC.Common.APISetExtensions;
 
 namespace Discreet.RPC
 {
@@ -26,6 +27,10 @@ namespace Discreet.RPC
         public bool UseTabs { get { return _useTabs; } set { if (Indented) _useTabs = value;} }
 
         private Daemon.Daemon _daemon;
+
+        private Common.APISet _set;
+
+        public Common.APISet Set { get { return _set;  } private set { _set = value; } }
 
         public RPCServer(int portNumber, Daemon.Daemon daemon)
         {
@@ -54,6 +59,8 @@ namespace Discreet.RPC
         {
 
             _cancellationTokenSource = new CancellationTokenSource();
+
+            Set = CreateSet(Daemon.DaemonConfig.GetConfig().APISets);
 
             try
             {

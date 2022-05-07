@@ -69,7 +69,7 @@ namespace Discreet.RPC
             {
                 //var req = JsonDocument.Parse(Encoding.UTF8.GetBytes(rpcJsonRequest));
                 RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest, defaultOptions);
-                object result = ExecuteInternal(request.method, isAvailable, request.@params);
+                object result = ExecuteInternal(request.method, isAvailable, server.Set, request.@params);
                 RPCResponse response = CreateResponse(request, result);
 
                 return CreateResponseJSON(server, response);
@@ -83,7 +83,7 @@ namespace Discreet.RPC
             return null;
         }
 
-        private object ExecuteInternal(string endpoint, bool isAvailable, params object[] args)
+        private object ExecuteInternal(string endpoint, bool isAvailable, APISet enabledSets, params object[] args)
         {
             // this is a nonstandard endpoint used for checking daemon liveliness. 
             if (endpoint == "daemon_live")
@@ -91,7 +91,29 @@ namespace Discreet.RPC
                 return isAvailable;
             }
 
-            var _endpoint = RPCEndpointResolver.GetEndpoint(endpoint);
+            if (!isAvailable)
+            {
+                return "not available";
+            }
+
+            Delegate _endpoint;
+            APISet _set;
+
+            try
+            {
+                _endpoint = RPCEndpointResolver.GetEndpoint(endpoint);
+                _set = RPCEndpointResolver.GetSet(endpoint);
+            }
+            catch
+            {
+                Daemon.Logger.Error($"RPCProcess.ExecuteInternal: could not find endpoint with name \"{endpoint}\"");
+                return "endpoint does not exist";
+            }
+
+            if (!enabledSets.HasFlag(_set))
+            {
+                return $"RPC server does not have the sets for this endpoint enabled (sets needed: {_set.Descriptor()}; enabled sets: {enabledSets.Descriptor()})";
+            }
 
             /**
              * A note on MethodInfo for delegates.
@@ -126,11 +148,6 @@ namespace Discreet.RPC
                 {
                     _data[i] = JsonSerializer.Deserialize((JsonElement)args[i], _paramInfo[i + 1].ParameterType, defaultOptions);
                 }
-            }
-
-            if (!isAvailable)
-            {
-                
             }
 
             object result = _endpoint.DynamicInvoke(_data);
