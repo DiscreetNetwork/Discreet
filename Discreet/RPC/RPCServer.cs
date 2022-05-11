@@ -45,14 +45,11 @@ namespace Discreet.RPC
                 _listener.Prefixes.Add($"http://localhost:{portNumber}/");
             }
 
-            _daemon = daemon;
-        }
+            _indented = Daemon.DaemonConfig.GetConfig().RPCIndented.HasValue ? Daemon.DaemonConfig.GetConfig().RPCIndented.Value : false;
+            _indentSize = Daemon.DaemonConfig.GetConfig().RPCIndentSize.HasValue ? Daemon.DaemonConfig.GetConfig().RPCIndentSize.Value : 4;
+            _useTabs = Daemon.DaemonConfig.GetConfig().RPCUseTabs.HasValue ? Daemon.DaemonConfig.GetConfig().RPCUseTabs.Value : false;
 
-        public RPCServer(int portNumber, bool indented, int indentSize, bool useTabs, Daemon.Daemon daemon) : this(portNumber, daemon)
-        {
-            _indented = indented;
-            _indentSize = indentSize;
-            _useTabs = useTabs;
+            _daemon = daemon;
         }
 
         public async Task Start()
