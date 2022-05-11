@@ -852,6 +852,12 @@ namespace Discreet.Network.Peerbloom
                                 Dispose();
                                 return;
                             }
+                            else if (!ConnectionAcknowledged && !IsOutbound)
+                            {
+                                Daemon.Logger.Error($"Connection.Persistent: malformed packet received from non-acknowledged inbound peer {Receiver}; ending connection");
+                                Dispose();
+                                return;
+                            }
                         }
                         else
                         {
