@@ -113,7 +113,7 @@ namespace Discreet.Wallets
             {
                 TxID = default;
 
-                foreach (var input in Outputs)
+                foreach (var input in Inputs)
                 {
                     input.Amount = 0;
                     input.Address = null;

@@ -1177,13 +1177,22 @@ namespace Discreet.Wallets
             {
                 if (Type == (byte)AddressType.STEALTH)
                 {
+                    bool _added = false;
+
                     foreach (var utxo in spents)
                     {
                         if (tx.PInputs[i].KeyImage == utxo.LinkingTag)
                         {
                             inputAmounts.Add(utxo.DecodedAmount);
                             inputAddresses.Add(Address);
+                            _added = true;
                         }
+                    }
+
+                    if (!_added)
+                    {
+                        inputAmounts.Add(0);
+                        inputAddresses.Add("Unknown");
                     }
                 }
                 else
@@ -1203,13 +1212,22 @@ namespace Discreet.Wallets
             {
                 if (Type == (byte)AddressType.STEALTH)
                 {
+                    bool _added = false;
+
                     foreach (var utxo in unspents)
                     {
                         if (i == utxo.Item2)
                         {
                             outputAmounts.Add(utxo.Item1.DecodedAmount);
                             outputAddresses.Add(Address);
+                            _added = true;
                         }
+                    }
+
+                    if (!_added)
+                    {
+                        inputAmounts.Add(0);
+                        inputAddresses.Add("Unknown");
                     }
                 }
                 else
