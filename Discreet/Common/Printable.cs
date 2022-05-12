@@ -20,8 +20,6 @@ namespace Discreet.Common
 
         public static string Prettify(string s, bool useTabs, int numSpace)
         {
-            s = sWhitespace.Replace(s, "");
-
             int nBrace = 0;
             StringBuilder rv = new();
 

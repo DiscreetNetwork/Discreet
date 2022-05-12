@@ -244,16 +244,50 @@ namespace Discreet.RPC.Endpoints
                             {
                                 var tx = (Readable.FullTransaction)_tx.ToReadable();
 
-                                if (tx.POutputs != null) outputs.AddRange(tx.POutputs);
-                                if (tx.TOutputs != null) outputs.AddRange(tx.TOutputs);
+                                if (tx.TOutputs != null)
+                                {
+                                    foreach (var toutput in tx.TOutputs)
+                                    {
+                                        toutput.TransactionSrc = tx.TxID;
+                                    }
+
+                                    outputs.AddRange(tx.TOutputs);
+                                }
+
+                                if (tx.POutputs != null)
+                                {
+                                    foreach (var poutput in tx.POutputs)
+                                    {
+                                        poutput.TransactionSrc = tx.TxID;
+                                    }
+
+                                    outputs.AddRange(tx.POutputs);
+                                }
                             }
                         }
                         catch (Exception)
                         {
                             var tx = (Readable.FullTransaction)db.GetTransaction(SHA256.FromHex(hash)).ToReadable();
 
-                            if (tx.POutputs != null) outputs.AddRange(tx.POutputs);
-                            if (tx.TOutputs != null) outputs.AddRange(tx.TOutputs);
+                            if (tx.TOutputs != null)
+                            {
+                                foreach (var toutput in tx.TOutputs)
+                                {
+                                    toutput.TransactionSrc = tx.TxID;
+                                }
+
+                                outputs.AddRange(tx.TOutputs);
+                            }
+
+                            if (tx.POutputs != null)
+                            {
+                                foreach (var poutput in tx.POutputs)
+                                {
+                                    poutput.TransactionSrc = tx.TxID;
+                                }
+
+                                outputs.AddRange(tx.POutputs);
+                            }
                         }
                     }
                     else if (_kind == JsonValueKind.Number)
@@ -268,8 +302,25 @@ namespace Discreet.RPC.Endpoints
                             {
                                 var tx = (Readable.FullTransaction)_tx.ToReadable();
 
-                                if (tx.POutputs != null) outputs.AddRange(tx.POutputs);
-                                if (tx.TOutputs != null) outputs.AddRange(tx.TOutputs);
+                                if (tx.TOutputs != null)
+                                {
+                                    foreach (var toutput in tx.TOutputs)
+                                    {
+                                        toutput.TransactionSrc = tx.TxID;
+                                    }
+
+                                    outputs.AddRange(tx.TOutputs);
+                                }
+
+                                if (tx.POutputs != null)
+                                {
+                                    foreach (var poutput in tx.POutputs)
+                                    {
+                                        poutput.TransactionSrc = tx.TxID;
+                                    }
+
+                                    outputs.AddRange(tx.POutputs);
+                                }
                             }
                         }
                         catch (Exception)
@@ -278,12 +329,29 @@ namespace Discreet.RPC.Endpoints
                             {
                                 var tx = (Readable.FullTransaction)db.GetTransaction(id).ToReadable();
 
-                                if (tx.POutputs != null) outputs.AddRange(tx.POutputs);
-                                if (tx.TOutputs != null) outputs.AddRange(tx.TOutputs);
+                                if (tx.TOutputs != null)
+                                {
+                                    foreach (var toutput in tx.TOutputs)
+                                    {
+                                        toutput.TransactionSrc = tx.TxID;
+                                    }
+
+                                    outputs.AddRange(tx.TOutputs);
+                                }
+
+                                if (tx.POutputs != null)
+                                {
+                                    foreach (var poutput in tx.POutputs)
+                                    {
+                                        poutput.TransactionSrc = tx.TxID;
+                                    }
+
+                                    outputs.AddRange(tx.POutputs);
+                                }
                             }
                             catch (Exception)
                             {
-                                outputs.Add(db.GetOutput((uint)id));
+                                outputs.Add(db.GetOutput((uint)id).ToReadable());
                             }
                         }
                     }
