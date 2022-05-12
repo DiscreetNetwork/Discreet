@@ -51,8 +51,21 @@ namespace Discreet.Common
                         rv.Append(ch);
                         if (!quoted)
                         {
-                            rv.AppendLine();
-                            Enumerable.Range(0, ++nBrace).ForEach(item => rv.Append(spaces));
+                            if (ch == '[' && i < s.Length - 1 && s[i + 1] == ']')
+                            {
+                                rv.Append(']');
+                                i++;
+                            }
+                            else if (ch == '{' && i < s.Length - 1 && s[i + 1] == '}')
+                            {
+                                rv.Append('}');
+                                i++;
+                            }
+                            else
+                            {
+                                rv.AppendLine();
+                                Enumerable.Range(0, ++nBrace).ForEach(item => rv.Append(spaces));
+                            }
                         }
                         break;
                     case '}':
@@ -87,8 +100,18 @@ namespace Discreet.Common
                         {
                             if (i < s.Length - 1 && (s[i + 1] == '[' || s[i + 1] == '{'))
                             {
-                                rv.AppendLine();
-                                Enumerable.Range(0, nBrace).ForEach(item => rv.Append(spaces));
+                                if (i < s.Length - 2 && ((s[i + 1] == '[' && s[i + 2] == ']') || (s[i + 1] == '{' && s[i + 2] == '}')))
+                                {
+                                    rv.Append(' ');
+                                    rv.Append(s[i + 1]);
+                                    rv.Append(s[i + 2]);
+                                    i += 2;
+                                }
+                                else
+                                {
+                                    rv.AppendLine();
+                                    Enumerable.Range(0, nBrace).ForEach(item => rv.Append(spaces));
+                                }
                             }
                             else
                             {

@@ -99,8 +99,8 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
-        [RPCEndpoint("get_block_headers_range", APISet.READ)]
-        public static object GetBlockHeadersRange(long startHeight, long endHeight)
+        [RPCEndpoint("get_block_headers", APISet.READ)]
+        public static object GetBlockHeaders(long startHeight, long endHeight)
         {
             var db = DB.DisDB.GetDB();
 
@@ -114,7 +114,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"RPC call to GetBlockHeadersRange failed: {ex.Message}");
+                    Daemon.Logger.Error($"RPC call to GetBlockHeaders failed: {ex.Message}");
 
                     return new RPCError(-1, $"Could not get header at height {height}", headers);
                 }
@@ -157,18 +157,18 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
-        [RPCEndpoint("get_block_hash", APISet.READ)]
-        public static object GetBlockHash(long height)
+        [RPCEndpoint("get_block_height", APISet.READ)]
+        public static object GetBlockHeight(string hash)
         {
             try
             {
-                return DB.DisDB.GetDB().GetBlockHeader(height).BlockHash.ToHex();
+                return DB.DisDB.GetDB().GetBlockHeight(SHA256.FromHex(hash));
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetBlockHash failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetBlockHeight failed: {ex.Message}");
 
-                return new RPCError($"Could not get block hash at height {height}");
+                return new RPCError($"Could not get block height with hash {hash}");
             }
         }
 

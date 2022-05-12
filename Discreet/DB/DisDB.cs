@@ -442,6 +442,7 @@ namespace Discreet.DB
             uint[] outputIndices = new uint[tx.NumPOutputs];
             for (int i = 0; i < tx.NumPOutputs; i++)
             {
+                tx.POutputs[i].TransactionSrc = txhash;
                 outputIndices[i] = AddOutput(tx.POutputs[i]);
             }
 
