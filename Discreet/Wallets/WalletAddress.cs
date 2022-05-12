@@ -1474,6 +1474,19 @@ namespace Discreet.Wallets
             return (inputs.ToArray(), tx);
         }
 
+        public void ChangeName(string name)
+        {
+            lock (locker)
+            {
+                Name = name ?? "";
+            }
+
+            lock (WalletDB.DBLock)
+            {
+                WalletDB.GetDB().UpdateWalletAddress(this);
+            }
+        }
+
         public byte[] Serialize()
         {
             MemoryStream _ms = new MemoryStream();

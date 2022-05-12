@@ -671,6 +671,7 @@ namespace Discreet.RPC.Endpoints
                             }
 
                             addr = new WalletAddress(wallet, (byte)addrType, default, spend, view);
+                            addr.Name = _params.Name ?? "";
                         }
                         else if (addrType == AddressType.TRANSPARENT)
                         {
@@ -690,6 +691,7 @@ namespace Discreet.RPC.Endpoints
                             }
 
                             addr = new WalletAddress(wallet, (byte)addrType, secret, default, default);
+                            addr.Name = _params.Name ?? "";
                         }
 
                         wallet.AddWallet(addr);
@@ -842,7 +844,7 @@ namespace Discreet.RPC.Endpoints
 
                 WalletAddress addr = wallet.Addresses.Where(x => x.Address == address).FirstOrDefault();
 
-                addr.Name = name ?? "";
+                addr.ChangeName(name);
 
                 return "OK";
             }
