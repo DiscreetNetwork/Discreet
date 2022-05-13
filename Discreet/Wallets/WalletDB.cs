@@ -179,6 +179,15 @@ namespace Discreet.Wallets
             SetWalletHeight(wallet.Label, wallet.LastSeenHeight);
         }
 
+        public void ChangeLabel(string oldLabel, Wallet wallet)
+        {
+            // removes the wallet
+            db.Remove(Encoding.UTF8.GetBytes(oldLabel), cf: Wallets);
+
+            // then re-adds it without modifying anything else in the db.
+            db.Put(Encoding.UTF8.GetBytes(wallet.Label), wallet.Serialize(), cf: Wallets);
+        }
+
         public bool ContainsWallet(string label)
         {
             return db.Get(Encoding.UTF8.GetBytes(label), cf: Wallets) != null;

@@ -306,7 +306,7 @@ namespace Discreet.RPC.Endpoints
 
                     if (wallet == null) return new RPCError($"could not find wallet with label {_params.Label}");
 
-                    return wallet.CheckIntegrity() ? "OK" : "wallet integrity check failed. consider using restore_wallet to attempt recovery.";
+                    return wallet.CheckIntegrity() ? "OK" : "wallet integrity check failed.";
                 }
                 else
                 {
@@ -350,6 +350,11 @@ namespace Discreet.RPC.Endpoints
             bool dup = _params.Aggregate(new List<string>(), (lst, elem) => { lst.Add(elem.Label); return lst; }).Distinct().Count() < _params.Count;
 
             if (dup) return new RPCError($"load wallet params contains duplicate wallets to load; cannot load wallets");
+
+            foreach (var _wal in _daemon.wallets)
+            {
+                if (_params.Any(x => x.Label == _wal.Label)) return new RPCError($"load wallet params contains a wallet which shares a label with an already loaded wallet ({_wal.Label})");
+            }
 
             try
             {

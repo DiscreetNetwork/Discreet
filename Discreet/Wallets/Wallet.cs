@@ -582,6 +582,8 @@ namespace Discreet.Wallets
         {
             try
             {
+                var oldLabel = Label;
+
                 lock (locker)
                 {
                     Label = label;
@@ -591,7 +593,7 @@ namespace Discreet.Wallets
 
                 lock (WalletDB.DBLock)
                 {
-                    db.UpdateWallet(this);
+                    db.ChangeLabel(oldLabel, this);
                 }
 
                 return true;
