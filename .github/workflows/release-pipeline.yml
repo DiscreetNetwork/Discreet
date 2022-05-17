@@ -22,22 +22,12 @@ jobs:
       run: |
         dotnet restore
     
-    
-    - name: Publish [WIN-x86]
-      run: |
-        dotnet publish --configuration Release --runtime win-x86 --framework net6.0 --self-contained true -p:ReadyToRun=true
-    
     - name: Publish [WIN-x64]
       run: |
         dotnet publish --configuration Release --runtime win-x64 --framework net6.0 --self-contained true -p:ReadyToRun=true
         
     - name: Install zip
       uses: montudor/action-zip@v1
-        
-    - name: Zip [WIN-X86]
-      run: |
-        cd Discreet/bin/Release/net6.0/win-x86
-        zip -qq -r win-x86.zip publish
         
     - name: Zip [WIN-X64]
       run: |
@@ -61,16 +51,6 @@ jobs:
         body: CHANGELOG
       env:
         GITHUB_TOKEN: ${{ github.token }}
-    
-    - name: Upload [WIN-x86] archive to the release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ github.token }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: Discreet/bin/Release/net6.0/win-x86/win-x86.zip
-        asset_name: win-x86.zip
-        asset_content_type: application/zip
     
     - name: Upload [WIN-x64] archive to the release
       uses: actions/upload-release-asset@v1
