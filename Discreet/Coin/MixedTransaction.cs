@@ -621,7 +621,7 @@ namespace Discreet.Coin
 
             if (Version == 3)
             {
-                return ToTransparent().Verify();
+                return ToTransparent().Verify(inBlock);
             }
 
             if (Version != (byte)Config.TransactionVersions.MIXED)
@@ -720,15 +720,52 @@ namespace Discreet.Coin
             }
 
             HashSet<SHA256> _in = new HashSet<SHA256>();
+            List<SHA256> _inHashes = new();
+
+            var db = DB.DisDB.GetDB();
+            var pool = Daemon.TXPool.GetTXPool();
 
             for (int i = 0; i < NumTInputs; i++)
             {
-                _in.Add(TInputs[i].Hash());
+                var _inHash = TInputs[i].Hash();
+                _in.Add(_inHash);
+                _inHashes.Add(_inHash);
             }
 
             if (_in.Count != NumTInputs)
             {
                 return new VerifyException("MixedTransaction", $"Duplicate transparent inputs detected!");
+            }
+
+            for (int i = 0; i < NumTInputs; i++)
+            {
+                var aexc = TInputs[i].Address.Verify();
+                if (aexc != null) return aexc;
+
+                if (!TInputs[i].Address.CheckAddressBytes(TSignatures[i].y))
+                {
+                    return new VerifyException("MixedTransaction", $"Transparent input at index {i}'s address ({TInputs[i].Address}) does not match public key in signature ({TSignatures[i].y.ToHexShort()})");
+                }
+
+                /* check if present in database */
+                try
+                {
+                    DB.DisDB.GetDB().GetPubOutput(_inHashes[i]);
+                }
+                catch (Exception e)
+                {
+                    Daemon.Logger.Error(e.Message);
+                    return new VerifyException("MixedTransaction", $"Transparent input at index {i} for transaction not present in UTXO set!");
+                }
+
+                /* check if tx is in pool */
+                if (!inBlock)
+                {
+                    if (pool.ContainsSpent(_inHashes[i]))
+                    {
+                        return new VerifyException("MixedTransaction", $"Transparent input at index {i} was spent in a previous transaction currently in the mempool");
+                    }
+                }
             }
 
             foreach (Transparent.TXOutput output in TOutputs)
@@ -877,8 +914,6 @@ namespace Discreet.Coin
             {
                 return bpexc;
             }
-
-            DB.DisDB db = DB.DisDB.GetDB();
 
             /* validate inputs */
             var uncheckedTags = new List<Cipher.Key>(PInputs.Select(x => x.KeyImage));

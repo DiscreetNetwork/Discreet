@@ -186,7 +186,7 @@ namespace Discreet.Coin
         public bool CheckAddressBytes(Cipher.Key pk)
         {
             var pkh = Cipher.RIPEMD160.HashData(Discreet.Cipher.SHA256.HashData(pk.bytes).Bytes);
-            return hash.Equals(pkh.Bytes);
+            return hash.Equals(pkh);
         }
     }
 

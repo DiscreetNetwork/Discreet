@@ -610,6 +610,7 @@ namespace Discreet.Wallets
 
             if (err != null)
             {
+                Daemon.Logger.Error($"Wallets.WalletAddress.CreateTransaction: failed to create transaction: {err.Message}");
                 throw err;
             }
 

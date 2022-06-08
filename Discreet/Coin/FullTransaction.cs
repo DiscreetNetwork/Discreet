@@ -1188,7 +1188,7 @@ namespace Discreet.Coin
                 0 => ToCoinbase().Verify(inBlock),
                 1 => ToPrivate().Verify(inBlock),
                 2 => ToPrivate().Verify(inBlock),
-                3 => ToTransparent().Verify(),
+                3 => ToTransparent().Verify(inBlock),
                 4 => ToMixed().Verify(inBlock),
                 _ => throw new Exception("Unknown transaction type: " + Version),
             };

@@ -10,7 +10,7 @@ namespace Discreet.Cipher.Extensions
     {
         public static int Compare(this byte[] a, byte[] b)
         {
-            if (a == null || b == null) return 0;
+            if (a == null && b == null) return 0;
             if (a == null) return -1;
             if (b == null) return 1;
 
@@ -27,7 +27,7 @@ namespace Discreet.Cipher.Extensions
                 }
             }
 
-            if (i == 32)
+            if (i == a.Length)
             {
                 return 0;
             }

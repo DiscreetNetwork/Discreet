@@ -464,7 +464,7 @@ namespace Discreet.DB
                 db.Remove(tx.TInputs[i].Hash().Bytes, cf: PubOutputs);
             }
 
-            for (int i = 0; i < tx.TOutputs.Length; i++)
+            for (int i = 0; i < tx.NumTOutputs; i++)
             {
                 tx.TOutputs[i].TransactionSrc = txhash;
                 db.Put(tx.TOutputs[i].Hash().Bytes, tx.TOutputs[i].Serialize(), cf: PubOutputs);
