@@ -459,7 +459,7 @@ namespace Discreet.DB
                 db.Put(tx.PInputs[i].KeyImage.bytes, ZEROKEY, cf: SpentKeys);
             }
 
-            for (int i = 0; i < tx.TInputs.Length; i++)
+            for (int i = 0; i < tx.NumTInputs; i++)
             {
                 db.Remove(tx.TInputs[i].Hash().Bytes, cf: PubOutputs);
             }
