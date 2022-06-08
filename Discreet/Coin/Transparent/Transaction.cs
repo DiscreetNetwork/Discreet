@@ -257,7 +257,7 @@ namespace Discreet.Coin.Transparent
             return (uint)(44 + TXOutput.Size() * Inputs.Length + 33 * Outputs.Length + 96 * Signatures.Length);
         }
 
-        private VerifyException verify(bool signed)
+        private VerifyException verify(bool signed, bool inBlock = false)
         {
             if (Inputs == null || Inputs.Length == 0 || NumInputs == 0)
             {
@@ -295,15 +295,52 @@ namespace Discreet.Coin.Transparent
             }
 
             HashSet<SHA256> _in = new HashSet<SHA256>();
+            List<SHA256> _inHashes = new();
+
+            var db = DB.DisDB.GetDB();
+            var pool = Daemon.TXPool.GetTXPool();
 
             for (int i = 0; i < NumInputs; i++)
             {
-                _in.Add(Inputs[i].Hash());
+                var _inHash = Inputs[i].Hash();
+                _in.Add(_inHash);
+                _inHashes.Add(_inHash);
             }
 
             if (_in.Count != NumInputs)
             {
                 return new VerifyException("Transparent.Transaction", $"Duplicate inputs detected!");
+            }
+
+            for(int i = 0; i < Inputs.Length; i++)
+            {
+                var aexc = Inputs[i].Address.Verify();
+                if (aexc != null) return aexc;
+
+                if (!Inputs[i].Address.CheckAddressBytes(Signatures[i].y))
+                {
+                    return new VerifyException("Transparent.Transaction", $"Input at index {i}'s address ({Inputs[i].Address}) does not match public key in signature ({Signatures[i].y.ToHexShort()})");
+                }
+
+                /* check if present in database */
+                try
+                {
+                    DB.DisDB.GetDB().GetPubOutput(_inHashes[i]);
+                }
+                catch (Exception e)
+                {
+                    Daemon.Logger.Error(e.Message);
+                    return new VerifyException("Transparent.Transaction", $"Input at index {i} for transaction not present in UTXO set!");
+                }
+
+                /* check if tx is in pool */
+                if (!inBlock)
+                {
+                    if (pool.ContainsSpent(_inHashes[i]))
+                    {
+                        return new VerifyException("Transparent.Transaction", $"Input at index {i} was spent in a previous transaction currently in the mempool");
+                    }
+                }
             }
 
             if (Version != (byte)Config.TransactionVersions.TRANSPARENT)
@@ -413,9 +450,14 @@ namespace Discreet.Coin.Transparent
             return null;
         }
 
+        public VerifyException Verify(bool inBlock = false)
+        {
+            return verify(NumSigs == NumInputs, inBlock: inBlock);
+        }
+
         public VerifyException Verify()
         {
-            return verify(NumSigs == NumInputs);
+            return Verify(inBlock: false);
         }
     }
 }

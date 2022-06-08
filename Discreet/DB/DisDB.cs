@@ -135,6 +135,7 @@ namespace Discreet.DB
         public static ColumnFamilyHandle OutputIndices;        
         public static ColumnFamilyHandle BlockCache;
         public static ColumnFamilyHandle BlockHeaders;
+        public static ColumnFamilyHandle PubOutputs;
 
         public static string SPENT_KEYS = "spent_keys";
         public static string TX_POOL_BLOB = "tx_pool_blob";
@@ -148,6 +149,7 @@ namespace Discreet.DB
         public static string META = "meta";
         public static string BLOCK_CACHE = "block_cache";
         public static string BLOCK_HEADERS = "block_headers";
+        public static string PUB_OUTPUTS = "pub_outputs";
 
         /* zero key */
         public static byte[] ZEROKEY = new byte[8];
@@ -205,6 +207,7 @@ namespace Discreet.DB
                     new ColumnFamilies.Descriptor(OUTPUT_INDICES, new ColumnFamilyOptions().SetCompression(Compression.Lz4)),
                     new ColumnFamilies.Descriptor(BLOCK_CACHE, new ColumnFamilyOptions().SetCompression(Compression.Lz4)),
                     new ColumnFamilies.Descriptor(BLOCK_HEADERS, new ColumnFamilyOptions().SetCompression(Compression.Lz4)),
+                    new ColumnFamilies.Descriptor(PUB_OUTPUTS, new ColumnFamilyOptions().SetCompression(Compression.Lz4)),
                 };
 
                 db = RocksDb.Open(options, path, _colFamilies);
@@ -221,6 +224,7 @@ namespace Discreet.DB
                 OutputIndices = db.GetColumnFamily(OUTPUT_INDICES);
                 BlockCache = db.GetColumnFamily(BLOCK_CACHE);
                 BlockHeaders = db.GetColumnFamily(BLOCK_HEADERS);
+                PubOutputs = db.GetColumnFamily(PUB_OUTPUTS);
 
                 if (!MetaExists())
                 {
@@ -297,6 +301,7 @@ namespace Discreet.DB
             db.DropColumnFamily(OUTPUT_INDICES);
             db.DropColumnFamily(BLOCK_CACHE);
             db.DropColumnFamily(BLOCK_HEADERS);
+            db.DropColumnFamily(PUB_OUTPUTS);
 
             disdb = null;
             db.Dispose();
@@ -452,6 +457,17 @@ namespace Discreet.DB
             for (int i = 0; i < tx.NumPInputs; i++)
             {
                 db.Put(tx.PInputs[i].KeyImage.bytes, ZEROKEY, cf: SpentKeys);
+            }
+
+            for (int i = 0; i < tx.TInputs.Length; i++)
+            {
+                db.Remove(tx.TInputs[i].Hash().Bytes, cf: PubOutputs);
+            }
+
+            for (int i = 0; i < tx.TOutputs.Length; i++)
+            {
+                tx.TOutputs[i].TransactionSrc = txhash;
+                db.Put(tx.TOutputs[i].Hash().Bytes, tx.TOutputs[i].Serialize(), cf: PubOutputs);
             }
         }
 
@@ -622,6 +638,25 @@ namespace Discreet.DB
         public bool CheckSpentKeyBlock(Cipher.Key j)
         {
             return db.Get(j.bytes, cf: SpentKeys) == null;
+        }
+
+        public Coin.Transparent.TXOutput GetPubOutput(Cipher.SHA256 hash)
+        {
+            var result = db.Get(hash.Bytes, cf: PubOutputs);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.DisDB.GetPubOutput: database get exception: could not find transparent tx output with hash {hash.ToHexShort()}");
+            }
+
+            var txo = new Coin.Transparent.TXOutput();
+            txo.Deserialize(result);
+            return txo;
+        }
+
+        public void RemovePubOutput(Cipher.SHA256 hash)
+        {
+            db.Remove(hash.Bytes, cf: PubOutputs);
         }
 
         public uint[] GetOutputIndices(Cipher.SHA256 tx)

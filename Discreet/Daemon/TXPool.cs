@@ -60,10 +60,14 @@ namespace Discreet.Daemon
         }
 
         private ConcurrentDictionary<Cipher.SHA256, MemTx> pool;
+        private ConcurrentDictionary<Cipher.SHA256, Coin.Transparent.TXOutput> spentOutputs;
+        private ConcurrentDictionary<Cipher.SHA256, List<Cipher.SHA256>> spentsTx;
 
         public TXPool()
         {
             pool = new();
+            spentOutputs = new();
+            spentsTx = new();
 
             DB.DisDB db = DB.DisDB.GetDB();
 
@@ -72,6 +76,24 @@ namespace Discreet.Daemon
             foreach (var tx in _pool)
             {
                 pool[tx.Tx.Hash()] = tx;
+            }
+
+            foreach (var tx in _pool)
+            {
+                if (tx.Tx.TInputs != null && tx.Tx.TInputs.Length > 0)
+                {
+                    tx.Tx.TxID = tx.Tx.Hash();
+                    List<Cipher.SHA256> stxs = new List<Cipher.SHA256>();
+                    
+                    foreach (var txo in tx.Tx.TInputs)
+                    {
+                        var txohash = txo.Hash();
+                        spentOutputs[txohash] = txo;
+                        stxs.Add(txohash);
+                    }
+
+                    spentsTx[tx.Tx.TxID] = stxs;
+                }
             }
         }
 
@@ -104,6 +126,22 @@ namespace Discreet.Daemon
 
             /* no errors, so add TX to pool */
             pool[tx.Hash()] = memtx;
+
+            /* update the stuff */
+            if (tx.TInputs != null && tx.TInputs.Length > 0)
+            {
+                tx.TxID = tx.Hash();
+                List<Cipher.SHA256> stxs = new List<Cipher.SHA256>();
+
+                foreach (var txo in tx.TInputs)
+                {
+                    var txohash = txo.Hash();
+                    spentOutputs[txohash] = txo;
+                    stxs.Add(txohash);
+                }
+
+                spentsTx[tx.TxID] = stxs;
+            }
 
             return null;
         }
@@ -177,12 +215,30 @@ namespace Discreet.Daemon
             return db.TXPoolContains(txhash);
         }
 
+        public bool ContainsSpent(Cipher.SHA256 txohash)
+        {
+            return spentOutputs.ContainsKey(txohash);
+        }
+
         public void UpdatePool(IEnumerable<FullTransaction> blockTxs)
         {
             var hashes = blockTxs.Select(x => x.Hash());
             hashes.ToList().ForEach(x => pool.Remove(x, out _));
 
             DB.DisDB.GetDB().UpdateTXPool(hashes);
+
+            // remove spent trackers based on inclusion in block
+            foreach (var hash in hashes)
+            {
+                if (spentsTx.ContainsKey(hash))
+                {
+                    foreach (var txohash in spentsTx[hash])
+                    {
+                        spentOutputs.Remove(txohash, out _);
+                    }
+                    spentsTx.Remove(hash, out _);
+                }
+            }
         }
     }
 }

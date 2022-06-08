@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
+using Discreet.Cipher.Extensions;
 
 namespace Discreet.Cipher
 {
@@ -91,6 +92,16 @@ namespace Discreet.Cipher
         public string ToHexShort()
         {
             return ToHex().Substring(0, 8);
+        }
+
+        public override bool Equals(object? b)
+        {
+            if (b == null) return false;
+            if (b is not RIPEMD160) return false;
+
+            var bh = (RIPEMD160)b;
+
+            return bytes.BEquals(bh.bytes);
         }
     }
 }
