@@ -270,7 +270,7 @@ namespace Discreet.Daemon
                 toq.Value.Enqueue(block.Header.BlockHash);
             }
             
-            //ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.Bytes);
+            ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
             ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
         }
 
