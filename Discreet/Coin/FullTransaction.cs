@@ -38,8 +38,8 @@ namespace Discreet.Coin
         public Triptych[] PSignatures;
         public Key[] PseudoOutputs;
 
-        /* not stored on disk, but recalculated after serialize and deserialize */
-        public SHA256 TxID { get; set; }
+        private SHA256 _txid;
+        public SHA256 TxID { get { if (_txid == default) _txid = Hash(); return _txid; } }
 
         public FullTransaction() { Version = byte.MaxValue; }
 
@@ -88,8 +88,6 @@ namespace Discreet.Coin
                 PseudoOutputs = PseudoOutputs,
             };
 
-            tx.TxID = tx.Hash();
-
             return tx;
         }
 
@@ -111,8 +109,6 @@ namespace Discreet.Coin
                 Outputs = TOutputs,
                 Signatures = TSignatures,
             };
-
-            tx.TxID = tx.Hash();
 
             return tx;
         }
@@ -144,8 +140,6 @@ namespace Discreet.Coin
                 SigningHash = SigningHash,
             };
 
-            tx.TxID = tx.Hash();
-
             return tx;
         }
 
@@ -167,8 +161,6 @@ namespace Discreet.Coin
             RangeProof = tx.RangeProof;
             RangeProofPlus = tx.RangeProofPlus;
             PseudoOutputs = tx.PseudoOutputs;
-
-            TxID = tx.Hash();
         }
 
         public void FromCoinbase(Transaction tx) { FromPrivate(tx); }
@@ -189,8 +181,6 @@ namespace Discreet.Coin
             TInputs = tx.Inputs;
             TOutputs = tx.Outputs;
             TSignatures = tx.Signatures;
-
-            TxID = tx.Hash();
         }
 
         public void FromMixed(MixedTransaction tx)
@@ -214,8 +204,6 @@ namespace Discreet.Coin
             TOutputs = tx.TOutputs;
             TSignatures = tx.TSignatures;
             SigningHash = tx.SigningHash;
-
-            TxID = tx.Hash();
         }
 
         public void Deserialize(byte[] bytes) { Deserialize(bytes, 0); }
@@ -230,8 +218,6 @@ namespace Discreet.Coin
                 4 => FromMixed(bytes, offset),
                 _ => throw new Exception("Unknown transaction type: " + bytes[0]),
             };
-
-            TxID = Hash();
 
             return rv;
         }
@@ -256,8 +242,6 @@ namespace Discreet.Coin
                 default:
                     throw new Exception("Unknown transaction type: " + Version);
             }
-
-            TxID = Hash();
         }
 
         public SHA256 Hash()
