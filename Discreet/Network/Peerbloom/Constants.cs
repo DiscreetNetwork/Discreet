@@ -29,6 +29,11 @@ namespace Discreet.Network.Peerbloom
         public const int CONNECTION_CONNECT_TIMEOUT = 10000;
 
         /// <summary>
+        /// The time in seconds to force a timeout on an inbound connecting peer.
+        /// </summary>
+        public const int CONNECTING_FORCE_TIMEOUT = 30;
+
+        /// <summary>
         /// The maximum number of connection tries allowed.
         /// </summary>
         public const int CONNECTION_MAX_CONNECT_ATTEMPTS = 5;

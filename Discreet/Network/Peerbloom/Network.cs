@@ -644,6 +644,16 @@ namespace Discreet.Network.Peerbloom
                         if (peer != null) peer.LastSeen = DateTime.UtcNow.Ticks;
                     }
                 }
+
+                foreach (var conn in ConnectingPeers.Values)
+                {
+                    if (!conn.ConnectionAcknowledged && 
+                        new DateTime(conn.LastValidReceive).AddSeconds(Constants.CONNECTING_FORCE_TIMEOUT).Ticks < DateTime.UtcNow.Ticks &&
+                        new DateTime(conn.LastValidSend).AddSeconds(Constants.CONNECTING_FORCE_TIMEOUT).Ticks < DateTime.UtcNow.Ticks)
+                    {
+                        conn.Dispose();
+                    }
+                }
             }
         }
     }
