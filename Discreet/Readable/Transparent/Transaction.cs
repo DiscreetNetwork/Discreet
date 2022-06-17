@@ -168,8 +168,6 @@ namespace Discreet.Readable.Transparent
 
             obj.Fee = Fee;
 
-            if (TxID != null && TxID != "") obj.TxID = Cipher.SHA256.FromHex(TxID); else obj.TxID = obj.Hash();
-
             return obj;
         }
 

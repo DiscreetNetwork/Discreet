@@ -82,7 +82,6 @@ namespace Discreet.Daemon
             {
                 if (tx.Tx.TInputs != null && tx.Tx.TInputs.Length > 0)
                 {
-                    tx.Tx.TxID = tx.Tx.Hash();
                     List<Cipher.SHA256> stxs = new List<Cipher.SHA256>();
                     
                     foreach (var txo in tx.Tx.TInputs)
@@ -130,7 +129,6 @@ namespace Discreet.Daemon
             /* update the stuff */
             if (tx.TInputs != null && tx.TInputs.Length > 0)
             {
-                tx.TxID = tx.Hash();
                 List<Cipher.SHA256> stxs = new List<Cipher.SHA256>();
 
                 foreach (var txo in tx.TInputs)

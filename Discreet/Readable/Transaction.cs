@@ -219,8 +219,6 @@ namespace Discreet.Readable
 
             if (TransactionKey != null && TransactionKey != "") obj.TransactionKey = new Cipher.Key(Printable.Byteify(TransactionKey));
 
-            if (TxID != null && TxID != "") obj.TxID = Cipher.SHA256.FromHex(TxID); else obj.TxID = obj.Hash();
-
             return obj;
         }
 

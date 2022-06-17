@@ -40,28 +40,28 @@ namespace Discreet.Coin
         public byte version;
 
         [MarshalAs(UnmanagedType.Struct)]
-        public Discreet.Cipher.RIPEMD160 hash;
+        public Cipher.RIPEMD160 hash;
 
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
         public byte[] checksum;
 
-        public TAddress(Discreet.Cipher.Key pk)
+        public TAddress(Cipher.Key pk)
         {
             version = AddressVersion.VERSION;
 
-            hash = Discreet.Cipher.RIPEMD160.HashData(Discreet.Cipher.SHA256.HashData(pk.bytes).Bytes);
+            hash = Cipher.RIPEMD160.HashData(Cipher.SHA256.HashData(pk.bytes).Bytes);
 
             byte[] chk = new byte[21];
             chk[0] = version;
             Array.Copy(hash.Bytes, 0, chk, 1, 20);
 
-            checksum = Discreet.Cipher.Base58.GetCheckSum(chk);
+            checksum = Cipher.Base58.GetCheckSum(chk);
         }
 
         public TAddress()
         {
             version = 0;
-            hash = new Discreet.Cipher.RIPEMD160(new byte[20], false);
+            hash = new Cipher.RIPEMD160(new byte[20], false);
             checksum = new byte[4];
         }
 
@@ -70,7 +70,7 @@ namespace Discreet.Coin
             version = bytes[0];
             byte[] _hash = new byte[20];
             Array.Copy(bytes, 1, _hash, 0, 20);
-            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+            hash = new Cipher.RIPEMD160(_hash, false);
             checksum = new byte[4];
             Array.Copy(bytes, 21, checksum, 0, 4);
         }
@@ -80,7 +80,7 @@ namespace Discreet.Coin
             version = bytes[offset];
             byte[] _hash = new byte[20];
             Array.Copy(bytes, offset + 1, _hash, 0, 20);
-            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+            hash = new Cipher.RIPEMD160(_hash, false);
             checksum = new byte[4];
             Array.Copy(bytes, offset + 21, checksum, 0, 4);
         }
@@ -90,7 +90,7 @@ namespace Discreet.Coin
             version = (byte)s.ReadByte();
             byte[] _hash = new byte[20];
             s.Read(_hash);
-            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+            hash = new Cipher.RIPEMD160(_hash, false);
             checksum = new byte[4];
             s.Read(checksum);
         }
@@ -101,14 +101,14 @@ namespace Discreet.Coin
 
             if (bytes.Length != Size())
             {
-                throw new Exception($"Discreet.Coin.TAddress: Cannot make address from byte array of size {bytes.Length}, requires byte array of size {Size()} (attempted to make from string: \"{addr}\")");
+                throw new Exception($"Coin.TAddress: Cannot make address from byte array of size {bytes.Length}, requires byte array of size {Size()} (attempted to make from string: \"{addr}\")");
             }
 
             version = bytes[0];
 
             byte[] _hash = new byte[20];
             Array.Copy(bytes, 1, _hash, 0, 20);
-            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+            hash = new Cipher.RIPEMD160(_hash, false);
 
             checksum = new byte[4];
             Array.Copy(bytes, 21, checksum, 0, 4);
@@ -135,13 +135,13 @@ namespace Discreet.Coin
             version = bytes[0];
             byte[] _hash = new byte[20];
             Array.Copy(bytes, 1, _hash, 0, 20);
-            hash = new Discreet.Cipher.RIPEMD160(_hash, false);
+            hash = new Cipher.RIPEMD160(_hash, false);
             Array.Copy(bytes, 21, checksum, 0, 4);
         }
 
         public override string ToString()
         {
-            return Discreet.Cipher.Base58.EncodeWhole(Bytes());
+            return Cipher.Base58.EncodeWhole(Bytes());
         }
 
         public byte[] Checksum()
@@ -170,7 +170,7 @@ namespace Discreet.Coin
             chk[0] = version;
             Array.Copy(hash.Bytes, 0, chk, 1, 20);
 
-            var chksum = Discreet.Cipher.Base58.GetCheckSum(chk);
+            var chksum = Cipher.Base58.GetCheckSum(chk);
 
             var chksumStr = Printable.Hexify(chksum);
             var checksumStr = Printable.Hexify(checksum);
@@ -185,7 +185,7 @@ namespace Discreet.Coin
 
         public bool CheckAddressBytes(Cipher.Key pk)
         {
-            var pkh = Cipher.RIPEMD160.HashData(Discreet.Cipher.SHA256.HashData(pk.bytes).Bytes);
+            var pkh = Cipher.RIPEMD160.HashData(Cipher.SHA256.HashData(pk.bytes).Bytes);
             return hash.Equals(pkh);
         }
     }
@@ -200,15 +200,15 @@ namespace Discreet.Coin
         public byte version;
 
         [MarshalAs(UnmanagedType.Struct)]
-        public Discreet.Cipher.Key spend;
+        public Cipher.Key spend;
 
         [MarshalAs(UnmanagedType.Struct)]
-        public Discreet.Cipher.Key view;
+        public Cipher.Key view;
 
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
         public byte[] checksum;
 
-        public StealthAddress(Discreet.Cipher.Key vk, Discreet.Cipher.Key sk)
+        public StealthAddress(Cipher.Key vk, Cipher.Key sk)
         {
             version = AddressVersion.VERSION;
 
@@ -220,14 +220,14 @@ namespace Discreet.Coin
             Array.Copy(spend.bytes, 0, chk, 1, 32);
             Array.Copy(view.bytes, 0, chk, 33, 32);
 
-            checksum = Discreet.Cipher.Base58.GetCheckSum(chk);
+            checksum = Cipher.Base58.GetCheckSum(chk);
         }
 
         public StealthAddress(byte[] bytes)
         {
             if (bytes.Length != Size())
             {
-                throw new Exception($"Discreet.Coin.StealthAddress: Cannot make stealth address from byte array of size {bytes.Length}, requires byte array of size {Size()}");
+                throw new Exception($"Coin.StealthAddress: Cannot make stealth address from byte array of size {bytes.Length}, requires byte array of size {Size()}");
             }
             version = bytes[0];
 
@@ -270,7 +270,7 @@ namespace Discreet.Coin
 
             if (bytes.Length != Size())
             {
-                throw new Exception($"Discreet.Coin.StealthAddress: Cannot make stealth address from byte array of size {bytes.Length}, requires byte array of size {Size()} (attempted to make from string: \"{data}\")");
+                throw new Exception($"Coin.StealthAddress: Cannot make stealth address from byte array of size {bytes.Length}, requires byte array of size {Size()} (attempted to make from string: \"{data}\")");
             }
 
             version = bytes[0];
@@ -303,7 +303,7 @@ namespace Discreet.Coin
 
         public override string ToString()
         {
-            return Discreet.Cipher.Base58.Encode(Bytes());
+            return Cipher.Base58.Encode(Bytes());
         }
 
         public byte[] Checksum()
@@ -345,7 +345,7 @@ namespace Discreet.Coin
             Array.Copy(spend.bytes, 0, chk, 1, 32);
             Array.Copy(view.bytes, 0, chk, 33, 32);
 
-            var chksum = Discreet.Cipher.Base58.GetCheckSum(chk);
+            var chksum = Cipher.Base58.GetCheckSum(chk);
 
             var chksumStr = Printable.Hexify(chksum);
             var checksumStr = Printable.Hexify(checksum);

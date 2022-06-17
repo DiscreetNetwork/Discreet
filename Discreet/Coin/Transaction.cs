@@ -43,7 +43,8 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
         public Cipher.Key[] PseudoOutputs;
 
-        public Cipher.SHA256 TxID { get; set; }
+        private Cipher.SHA256 _txid;
+        public Cipher.SHA256 TxID { get { if (_txid == default) _txid = Hash(); return _txid; } }
 
         public Cipher.SHA256 Hash()
         {
@@ -312,8 +313,6 @@ namespace Discreet.Coin
                     offset += 72;
                 }
 
-                TxID = Hash();
-
                 return offset;
             }
             else
@@ -374,8 +373,6 @@ namespace Discreet.Coin
                     PseudoOutputs[i] = new Cipher.Key(bytes, offset);
                     offset += 32;
                 }
-
-                TxID = Hash();
 
                 return offset;
             }
@@ -456,8 +453,6 @@ namespace Discreet.Coin
                     Outputs[i] = new TXOutput();
                     Outputs[i].TXUnmarshal(s);
                 }
-
-                TxID = Hash();
             }
             else
             { 
@@ -507,8 +502,6 @@ namespace Discreet.Coin
                 {
                     PseudoOutputs[i] = new Cipher.Key(s);
                 }
-
-                TxID = Hash();
             }
         }
 
