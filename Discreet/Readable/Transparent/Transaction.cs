@@ -20,7 +20,7 @@ namespace Discreet.Readable.Transparent
 
         public string InnerHash { get; set; }
 
-        public List<TXOutput> Inputs { get; set; }
+        public List<string> Inputs { get; set; }
         public List<TXOutput> Outputs { get; set; }
         public List<string> Signatures { get; set; }
 
@@ -85,11 +85,11 @@ namespace Discreet.Readable.Transparent
             if (obj.InnerHash.Bytes != null) InnerHash = obj.InnerHash.ToHex();
             if (obj.Inputs != null)
             {
-                Inputs = new List<TXOutput>(obj.Inputs.Length);
+                Inputs = new List<string>(obj.Inputs.Length);
 
                 for (int i = 0; i < obj.Inputs.Length; i++)
                 {
-                    Inputs.Add(new TXOutput(obj.Inputs[i], false));
+                    Inputs.Add(Printable.Hexify(obj.Inputs[i].Serialize()));
                 }
             }
             if (obj.Outputs != null)
@@ -140,11 +140,12 @@ namespace Discreet.Readable.Transparent
             if (InnerHash != null && InnerHash != "") obj.InnerHash = Cipher.SHA256.FromHex(InnerHash);
             if (Inputs != null)
             {
-                obj.Inputs = new Coin.Transparent.TXOutput[Inputs.Count];
+                obj.Inputs = new Coin.Transparent.TXInput[Inputs.Count];
 
                 for (int i = 0; i < Inputs.Count; i++)
                 {
-                    obj.Inputs[i] = (Coin.Transparent.TXOutput)Inputs[i].ToObject();
+                    obj.Inputs[i] = new Coin.Transparent.TXInput();
+                    obj.Inputs[i].Deserialize(Printable.Byteify(Inputs[i]));
                 }
             }
             if (Outputs != null)
