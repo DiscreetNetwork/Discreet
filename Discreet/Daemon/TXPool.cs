@@ -60,8 +60,8 @@ namespace Discreet.Daemon
         }
 
         private ConcurrentDictionary<Cipher.SHA256, MemTx> pool;
-        private ConcurrentDictionary<Cipher.SHA256, Coin.Transparent.TXOutput> spentOutputs;
-        private ConcurrentDictionary<Cipher.SHA256, List<Cipher.SHA256>> spentsTx;
+        private ConcurrentDictionary<Coin.Transparent.TXInput, Coin.Transparent.TXOutput> spentOutputs;
+        private ConcurrentDictionary<Cipher.SHA256, List<Coin.Transparent.TXInput>> spentsTx;
 
         public TXPool()
         {
@@ -82,13 +82,12 @@ namespace Discreet.Daemon
             {
                 if (tx.Tx.TInputs != null && tx.Tx.TInputs.Length > 0)
                 {
-                    List<Cipher.SHA256> stxs = new List<Cipher.SHA256>();
+                    List<Coin.Transparent.TXInput> stxs = new List<Coin.Transparent.TXInput>();
                     
-                    foreach (var txo in tx.Tx.TInputs)
+                    foreach (var txi in tx.Tx.TInputs)
                     {
-                        var txohash = txo.Hash();
-                        spentOutputs[txohash] = txo;
-                        stxs.Add(txohash);
+                        spentOutputs[txi] = db.GetPubOutput(txi);
+                        stxs.Add(txi);
                     }
 
                     spentsTx[tx.Tx.TxID] = stxs;
@@ -129,13 +128,12 @@ namespace Discreet.Daemon
             /* update the stuff */
             if (tx.TInputs != null && tx.TInputs.Length > 0)
             {
-                List<Cipher.SHA256> stxs = new List<Cipher.SHA256>();
+                List<Coin.Transparent.TXInput> stxs = new List<Coin.Transparent.TXInput>();
 
-                foreach (var txo in tx.TInputs)
+                foreach (var txi in tx.TInputs)
                 {
-                    var txohash = txo.Hash();
-                    spentOutputs[txohash] = txo;
-                    stxs.Add(txohash);
+                    spentOutputs[txi] = db.GetPubOutput(txi);
+                    stxs.Add(txi);
                 }
 
                 spentsTx[tx.TxID] = stxs;
@@ -213,9 +211,9 @@ namespace Discreet.Daemon
             return db.TXPoolContains(txhash);
         }
 
-        public bool ContainsSpent(Cipher.SHA256 txohash)
+        public bool ContainsSpent(Coin.Transparent.TXInput txoidx)
         {
-            return spentOutputs.ContainsKey(txohash);
+            return spentOutputs.ContainsKey(txoidx);
         }
 
         public void UpdatePool(IEnumerable<FullTransaction> blockTxs)

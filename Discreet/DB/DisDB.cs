@@ -461,13 +461,13 @@ namespace Discreet.DB
 
             for (int i = 0; i < tx.NumTInputs; i++)
             {
-                db.Remove(tx.TInputs[i].Hash().Bytes, cf: PubOutputs);
+                db.Remove(tx.TInputs[i].Serialize(), cf: PubOutputs);
             }
 
             for (int i = 0; i < tx.NumTOutputs; i++)
             {
                 tx.TOutputs[i].TransactionSrc = txhash;
-                db.Put(tx.TOutputs[i].Hash().Bytes, tx.TOutputs[i].Serialize(), cf: PubOutputs);
+                db.Put(new Coin.Transparent.TXInput { TxSrc = tx.TOutputs[i].TransactionSrc, Offset = (byte)i }.Serialize(), tx.TOutputs[i].Serialize(), cf: PubOutputs);
             }
         }
 
@@ -640,13 +640,13 @@ namespace Discreet.DB
             return db.Get(j.bytes, cf: SpentKeys) == null;
         }
 
-        public Coin.Transparent.TXOutput GetPubOutput(Cipher.SHA256 hash)
+        public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input)
         {
-            var result = db.Get(hash.Bytes, cf: PubOutputs);
+            var result = db.Get(_input.Serialize(), cf: PubOutputs);
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DisDB.GetPubOutput: database get exception: could not find transparent tx output with hash {hash.ToHexShort()}");
+                throw new Exception($"Discreet.DisDB.GetPubOutput: database get exception: could not find transparent tx output with index {_input}");
             }
 
             var txo = new Coin.Transparent.TXOutput();
@@ -654,9 +654,9 @@ namespace Discreet.DB
             return txo;
         }
 
-        public void RemovePubOutput(Cipher.SHA256 hash)
+        public void RemovePubOutput(Coin.Transparent.TXInput _input)
         {
-            db.Remove(hash.Bytes, cf: PubOutputs);
+            db.Remove(_input.Serialize(), cf: PubOutputs);
         }
 
         public uint[] GetOutputIndices(Cipher.SHA256 tx)
