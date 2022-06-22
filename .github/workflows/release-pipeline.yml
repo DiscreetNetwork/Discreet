@@ -34,6 +34,15 @@ jobs:
         cd Discreet/bin/Release/net6.0/win-x64
         zip -qq -r win-x64.zip publish
         
+    - name: Publish [LINUX-x64]
+      run: |
+        dotnet publish --configuration Release --runtime linux-x64 --framework net6.0 --self-contained true -p:PublishSingleFile=true
+        
+    - name: Tar bz2 [LINUX-x64]
+      run: |
+        cd Discreet/bin/Release/net6.0/linux-x64
+        tar cfvj linux-x64.tar.bz2 publish
+        
     - uses: dev-drprasad/delete-older-releases@v0.2.0
       with:
         keep_latest: 0
@@ -61,3 +70,13 @@ jobs:
         asset_path: Discreet/bin/Release/net6.0/win-x64/win-x64.zip
         asset_name: win-x64.zip
         asset_content_type: application/zip
+
+    - name: upload linux tar
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: Discreet/bin/Release/net6.0/linux-x64/linux-x64.tar.bz2
+        asset_name: linux-x64.tar.bz2
+        asset_content_type: application/bzip2
