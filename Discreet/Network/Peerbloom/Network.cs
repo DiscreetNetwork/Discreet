@@ -109,7 +109,7 @@ namespace Discreet.Network.Peerbloom
             {
                 Daemon.Logger.Warn($"Network.AddConnecting: Currently connecting to max pending peers; dropping new connection with peer {conn.Receiver}");
                 /* dispose of connection */
-                conn.Dispose();
+                Task.Run(() => conn.Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.MAX_CONNECTING_PEERS));
                 return;
             }
 
@@ -126,7 +126,7 @@ namespace Discreet.Network.Peerbloom
             if (Feelers.Count == Constants.PEERBLOOM_MAX_FEELERS)
             {
                 Daemon.Logger.Warn($"Network.AddFeeler: Currently testing maximum number of feelers; dropping connection to feeler {conn.Receiver}");
-                conn.Dispose();
+                Task.Run(() => conn.Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.MAX_FEELER_PEERS));
                 return;
             }
 
@@ -159,7 +159,7 @@ namespace Discreet.Network.Peerbloom
                 }
 
                 /* dispose of connection */
-                conn.Dispose();
+                Task.Run(() => conn.Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.MAX_INBOUND_PEERS));
                 return;
             }
 
@@ -197,7 +197,7 @@ namespace Discreet.Network.Peerbloom
                 }
 
                 /* dispose of connection */
-                conn.Dispose();
+                Task.Run(() => conn.Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.MAX_INBOUND_PEERS));
                 return;
             }
 
@@ -651,7 +651,7 @@ namespace Discreet.Network.Peerbloom
                         new DateTime(conn.LastValidReceive).AddSeconds(Constants.CONNECTING_FORCE_TIMEOUT).Ticks < DateTime.UtcNow.Ticks &&
                         new DateTime(conn.LastValidSend).AddSeconds(Constants.CONNECTING_FORCE_TIMEOUT).Ticks < DateTime.UtcNow.Ticks)
                     {
-                        conn.Dispose();
+                        await conn.Disconnect(true, code: Core.Packets.Peerbloom.DisconnectCode.CONNECTING_TIMEOUT);
                     }
                 }
             }

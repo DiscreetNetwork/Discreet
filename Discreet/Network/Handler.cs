@@ -398,6 +398,7 @@ namespace Discreet.Network
                 MessageCache.GetMessageCache().Versions.Remove(conn.Receiver, out _);
                 MessageCache.GetMessageCache().BadVersions.Remove(conn.Receiver, out _);
 
+                await conn.Disconnect(true);
                 return;
             }
 

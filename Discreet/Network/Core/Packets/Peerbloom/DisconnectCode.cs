@@ -11,5 +11,10 @@ namespace Discreet.Network.Core.Packets.Peerbloom
         CLEAN = 0,
         FAULTY = 1,
         FATAL_ERROR = 2,
+        CONNECTING_TIMEOUT = 3,
+        MAX_CONNECTING_PEERS = 4,
+        MAX_INBOUND_PEERS = 5,
+        MAX_OUTBOUND_PEERS = 6,
+        MAX_FEELER_PEERS = 7,
     }
 }
