@@ -135,6 +135,8 @@ namespace Discreet.Network.Core
                     return new Packets.Peerbloom.NetPong(data, offset);
                 case PacketType.OLDMESSAGE:
                     return new Packets.Peerbloom.OldMessage(data, offset);
+                case PacketType.DISCONNECT:
+                    return new Packets.Peerbloom.Disconnect(data, offset);
                 case PacketType.NONE:
                     throw new Exception("Discreet.Network.Core.Packet.DecodePacketBody: dummy packet received (PacketType.NONE)");
                 default:
@@ -182,6 +184,8 @@ namespace Discreet.Network.Core
                     return new Packets.Peerbloom.NetPong(s);
                 case PacketType.OLDMESSAGE:
                     return new Packets.Peerbloom.OldMessage(s);
+                case PacketType.DISCONNECT:
+                    return new Packets.Peerbloom.Disconnect(s);
                 case PacketType.NONE:
                     throw new Exception("Discreet.Network.Core.Packet.DecodePacketBody: dummy packet received (PacketType.NONE)");
                 default:

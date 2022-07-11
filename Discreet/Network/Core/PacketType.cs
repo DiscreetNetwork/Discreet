@@ -51,5 +51,8 @@ namespace Discreet.Network.Core
         NETPING = 24,
         NETPONG = 25,
         OLDMESSAGE = 26,
+
+        /* DISCONNECT */
+        DISCONNECT = 27,
     }
 }

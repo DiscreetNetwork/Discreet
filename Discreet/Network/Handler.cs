@@ -199,6 +199,9 @@ namespace Discreet.Network
                     case PacketType.REQUESTPEERSRESP:
                         await HandleRequestPeersResp((Core.Packets.Peerbloom.RequestPeersResp)p.Body, conn);
                         break;
+                    case PacketType.DISCONNECT:
+                        await HandleDisconnect((Core.Packets.Peerbloom.Disconnect)p.Body, conn);
+                        break;
                     default:
                         Daemon.Logger.Error($"Discreet.Network.Handler.Handle: received unsupported packet from {conn.Receiver} with type {p.Header.Command}");
                         break;
@@ -735,6 +738,12 @@ namespace Discreet.Network
             }
 
             Daemon.Logger.Error($"Could not find objects: {items}");
+        }
+
+        public async Task HandleDisconnect(Core.Packets.Peerbloom.Disconnect p, Peerbloom.Connection conn)
+        {
+            Daemon.Logger.Info($"Handler.HandleDisconnect: Peer at {conn.Receiver} disconnected with the following reason: {p.Code}");
+            await conn.Disconnect(false);
         }
 
         public void Handle(string s)

@@ -934,6 +934,20 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
+        public async Task Disconnect(bool notify, Core.Packets.Peerbloom.DisconnectCode code = Core.Packets.Peerbloom.DisconnectCode.CLEAN)
+        {
+            if (notify)
+            {
+                bool success = await SendAsync(new Core.Packet(Core.PacketType.DISCONNECT, new Core.Packets.Peerbloom.Disconnect { Code = code }));
+                if (!success)
+                {
+                    Daemon.Logger.Error($"Connection.Disconnect: could not send disconnect packet to peer {Receiver}");
+                }
+            }
+
+            Dispose();
+        }
+
         ~Connection()
         {
             Dispose(false);
