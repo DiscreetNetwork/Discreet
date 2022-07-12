@@ -14,7 +14,9 @@ This is the main repository for the Discreet Network. This project interfaces wi
 
 For a cross-platform graphical user interface you can review the [discreet-gui](https://github.com/DiscreetNetwork/discreet-gui) repository.
 
-Documentation on building this repository for multiple platforms, interacting with the daemon through the API will soon be added to the [main Discreet website](https://discreet.net/roadmap).
+Documentation on building this repository for multiple platforms will soon be added.
+
+Interacting with the daemon through the JSON-RPC API is documented [on the Discreet docs website](https://developers.discreet.net/docs).
 
 ### Compilation guide
 If you wish to build Discreet yourself, rather than use one of the prepackaged executables, you can do so. A guide is coming soon.
