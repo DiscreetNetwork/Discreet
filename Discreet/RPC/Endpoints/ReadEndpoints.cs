@@ -518,7 +518,7 @@ namespace Discreet.RPC.Endpoints
 
                 GetTransactionCountRV _rv = new GetTransactionCountRV
                 {
-                    TransactionCount = DB.DisDB.GetDB().GetTransactionIndex(),
+                    TransactionCount = DB.DisDB.GetDB().GetTransactionIndexer(),
                     Synced = _handler.State == Network.PeerState.Normal,
                     Untrusted = false,
                     Status = "OK"

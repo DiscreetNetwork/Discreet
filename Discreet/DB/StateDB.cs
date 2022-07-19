@@ -180,5 +180,203 @@ namespace Discreet.DB
         {
             return rdb.Get(j.bytes, cf: SpentKeys) == null;
         }
+
+        public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input)
+        {
+            var result = rdb.Get(_input.Serialize(), cf: PubOutputs);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.StateDB.GetPubOutput: database get exception: could not find transparent tx output with index {_input}");
+            }
+
+            var txo = new Coin.Transparent.TXOutput();
+            txo.Deserialize(result);
+            return txo;
+        }
+
+        public void RemovePubOutput(Coin.Transparent.TXInput _input)
+        {
+            rdb.Remove(_input.Serialize(), cf: PubOutputs);
+        }
+
+        public uint[] GetOutputIndices(Cipher.SHA256 tx)
+        {
+            var result = rdb.Get(tx.Bytes, cf: OutputIndices);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.StateDB.GetOutputIndices: database get exception: could not find with tx {tx.ToHexShort()}");
+            }
+
+            return Serialization.GetUInt32Array(result);
+        }
+
+        public TXOutput GetOutput(uint index)
+        {
+            var result = rdb.Get(Serialization.UInt32(index), cf: Outputs);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.StateDB.GetOutput: No output exists with index {index}");
+            }
+
+            TXOutput output = new TXOutput();
+            output.Deserialize(result);
+            return output;
+        }
+
+        public TXOutput[] GetMixins(uint[] index)
+        {
+            TXOutput[] rv = new TXOutput[index.Length];
+
+            for (int i = 0; i < index.Length; i++)
+            {
+                byte[] key = Serialization.UInt32(index[i]);
+
+                var result = rdb.Get(key, cf: Outputs);
+
+                if (result == null)
+                {
+                    throw new Exception($"Discreet.StateDB.GetMixins: could not get output at index {index[i]}");
+                }
+
+                rv[i] = new TXOutput();
+                rv[i].Deserialize(result);
+            }
+
+            return rv;
+        }
+
+        public (TXOutput[], int) GetMixins(uint index)
+        {
+            TXOutput[] rv = new TXOutput[64];
+
+            uint max = GetOutputIndex();
+            Random rng = new Random();
+            SortedSet<uint> chosen = new SortedSet<uint>();
+            chosen.Add(index);
+
+            int i = 0;
+
+            for (; i < 32;)
+            {
+                uint rindex = (uint)rng.Next(1, (int)max);
+                if (chosen.Contains(rindex)) continue;
+
+                byte[] key = Serialization.UInt32(rindex);
+
+                var result = rdb.Get(key, cf: Outputs);
+
+                if (result == null)
+                {
+                    throw new Exception($"Discreet.StateDB.GetMixins: could not get output at index {rindex}");
+                }
+
+                rv[i] = new TXOutput();
+                rv[i].Deserialize(result);
+                rv[i].Index = rindex;
+                chosen.Add(rindex);
+                i++;
+            }
+
+            for (; i < 63;)
+            {
+                double uniformVariate = rng.NextDouble();
+                double frac = 3.0 / 4.0 * Math.Sqrt(uniformVariate * (1.0 / 4.0) * (1.0 / 4.0));
+                uint rindex = (uint)Math.Floor(frac * max);
+                if (chosen.Contains(rindex) || rindex == 0) continue;
+
+                byte[] key = Serialization.UInt32(rindex);
+
+                var result = rdb.Get(key, cf: Outputs);
+
+                if (result == null)
+                {
+                    throw new Exception($"Discreet.StateDB.GetMixins: could not get output at index {rindex}");
+                }
+
+                rv[i] = new TXOutput();
+                rv[i].Deserialize(result);
+                rv[i].Index = rindex;
+                chosen.Add(rindex);
+                i++;
+            }
+
+            byte[] ikey = Serialization.UInt32(index);
+            var iresult = rdb.Get(ikey, Outputs);
+
+            if (iresult == null)
+            {
+                throw new Exception($"Discreet.StateDB.GetMixins: could not get output at index {index}");
+            }
+
+            var OutAtIndex = rv[i] = new TXOutput();
+            rv[i].Deserialize(iresult);
+            rv[i].Index = index;
+
+            /* randomly shuffle */
+            var rvEnumerated = rv.OrderBy(x => rng.Next(0, 64)).ToList();
+            return (rvEnumerated.ToArray(), rvEnumerated.IndexOf(OutAtIndex));
+        }
+
+        public (TXOutput[], int) GetMixinsUniform(uint index)
+        {
+            TXOutput[] rv = new TXOutput[64];
+
+            uint max = GetOutputIndex();
+            Random rng = new Random();
+            SortedSet<uint> chosen = new SortedSet<uint>();
+            chosen.Add(index);
+
+            int i = 0;
+
+            for (; i < 63;)
+            {
+                double uniformVariate = rng.NextDouble();
+                double frac = 3.0 / 4.0 * Math.Sqrt(uniformVariate * (1.0 / 4.0) * (1.0 / 4.0));
+                uint rindex = (uint)Math.Floor(frac * max);
+                if (chosen.Contains(rindex) || rindex == 0) continue;
+
+                byte[] key = Serialization.UInt32(rindex);
+
+                var result = rdb.Get(key, cf: Outputs);
+
+                if (result == null)
+                {
+                    throw new Exception($"Discreet.StateDB.GetMixins: could not get output at index {rindex}");
+                }
+
+                rv[i] = new TXOutput();
+                rv[i].Deserialize(result);
+                rv[i].Index = rindex;
+                chosen.Add(rindex);
+                i++;
+            }
+
+            byte[] ikey = Serialization.UInt32(index);
+            var iresult = rdb.Get(ikey, Outputs);
+
+            if (iresult == null)
+            {
+                throw new Exception($"Discreet.StateDB.GetMixins: could not get output at index {index}");
+            }
+
+            var OutAtIndex = rv[i] = new TXOutput();
+            rv[i].Deserialize(iresult);
+            rv[i].Index = index;
+
+            /* randomly shuffle */
+            var rvEnumerated = rv.OrderBy(x => rng.Next(0, 64)).ToList();
+            return (rvEnumerated.ToArray(), rvEnumerated.IndexOf(OutAtIndex));
+        }
+
+        public uint GetOutputIndex()
+        {
+            lock (indexer_output)
+            {
+                return indexer_output.Value;
+            }
+        }
     }
 }

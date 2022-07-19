@@ -288,5 +288,131 @@ namespace Discreet.DB
 
             BlockCache = rdb.CreateColumnFamily(new ColumnFamilyOptions(), BLOCK_CACHE);
         }
+
+        public FullTransaction GetTransaction(ulong txid)
+        {
+            var result = rdb.Get(Serialization.UInt64(txid), cf: Txs);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.GetTransaction: No transaction exists with index {txid}");
+            }
+
+            FullTransaction tx = new FullTransaction();
+            tx.Deserialize(result);
+            return tx;
+        }
+
+        public FullTransaction GetTransaction(Cipher.SHA256 txhash)
+        {
+            var result = rdb.Get(txhash.Bytes, cf: TxIndices);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.GetTransaction: No transaction exists with transaction hash {txhash.ToHexShort()}");
+            }
+
+            ulong txid = Serialization.GetUInt64(result, 0);
+            return GetTransaction(txid);
+        }
+
+        public Block GetBlock(long height)
+        {
+            var result = rdb.Get(Serialization.Int64(height), cf: Blocks);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.GetBlock: No block exists with height {height}");
+            }
+
+            Block blk = new Block();
+            blk.Deserialize(result);
+            return blk;
+        }
+
+        public Block GetBlock(Cipher.SHA256 blockHash)
+        {
+            var result = rdb.Get(blockHash.Bytes, cf: BlockHeights);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.GetBlock: No block exists with block hash {blockHash.ToHexShort()}");
+            }
+
+            long height = Serialization.GetInt64(result, 0);
+            return GetBlock(height);
+        }
+
+        public BlockHeader GetBlockHeader(Cipher.SHA256 blockHash)
+        {
+            var result = rdb.Get(blockHash.Bytes, cf: BlockHeights);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.GetBlockHeader: No block header exists with block hash {blockHash.ToHexShort()}");
+            }
+
+            long height = Serialization.GetInt64(result, 0);
+            return GetBlockHeader(height);
+        }
+
+        public BlockHeader GetBlockHeader(long height)
+        {
+            var result = rdb.Get(Serialization.Int64(height), cf: BlockHeaders);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.GetBlockHeader: No block header exists with height {height}");
+            }
+
+            BlockHeader header = new BlockHeader();
+            header.Deserialize(result);
+            return header;
+        }
+
+        public long GetChainHeight()
+        {
+            lock (height)
+            {
+                return height.Value;
+            }
+        }
+
+        public ulong GetTransactionIndexer()
+        {
+            lock (indexer_tx)
+            {
+                return indexer_tx.Value;
+            }
+        }
+
+        public ulong GetTransactionIndex(Cipher.SHA256 txhash)
+        {
+            var result = rdb.Get(txhash.Bytes, cf: TxIndices);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.GetTransactionIndex: No transaction exists with transaction hash {txhash.ToHexShort()}");
+            }
+
+            return Serialization.GetUInt64(result, 0);
+        }
+
+        public bool ContainsTransaction(Cipher.SHA256 txhash)
+        {
+            return rdb.Get(txhash.Bytes, cf: TxIndices) != null;
+        }
+
+        public long GetBlockHeight(Cipher.SHA256 blockHash)
+        {
+            var result = rdb.Get(blockHash.Bytes, cf: BlockHeights);
+
+            if (result == null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.GetBlockHeight: No block exists with block hash {blockHash.ToHexShort()}");
+            }
+
+            return Serialization.GetInt64(result, 0);
+        }
     }
 }

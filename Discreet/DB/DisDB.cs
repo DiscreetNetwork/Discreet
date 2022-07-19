@@ -899,7 +899,7 @@ namespace Discreet.DB
             }
         }
 
-        public ulong GetTransactionIndex()
+        public ulong GetTransactionIndexer()
         {
             lock (indexer_tx)
             {
