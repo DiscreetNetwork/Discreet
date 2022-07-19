@@ -29,7 +29,7 @@ namespace Discreet.DB
 
         public static byte[] ZEROKEY = new byte[8];
 
-        private RocksDb archivedb;
+        private RocksDb rdb;
 
         public string Folder
         {
@@ -45,7 +45,7 @@ namespace Discreet.DB
         {
             try
             {
-                return archivedb.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) != null;
+                return rdb.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) != null;
             }
             catch
             {
@@ -77,33 +77,33 @@ namespace Discreet.DB
                     new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions().SetCompression(Compression.Lz4)),
                 };
 
-                archivedb = RocksDb.Open(options, path, _colFamilies);
+                rdb = RocksDb.Open(options, path, _colFamilies);
 
-                Txs = archivedb.GetColumnFamily(TXS);
-                TxIndices = archivedb.GetColumnFamily(TX_INDICES);
-                BlockHeights = archivedb.GetColumnFamily(BLOCK_HEIGHTS);
-                Blocks = archivedb.GetColumnFamily(BLOCKS);
-                BlockCache = archivedb.GetColumnFamily(BLOCK_CACHE);
-                BlockHeaders = archivedb.GetColumnFamily(BLOCK_HEADERS);
-                Meta = archivedb.GetColumnFamily(META);
+                Txs = rdb.GetColumnFamily(TXS);
+                TxIndices = rdb.GetColumnFamily(TX_INDICES);
+                BlockHeights = rdb.GetColumnFamily(BLOCK_HEIGHTS);
+                Blocks = rdb.GetColumnFamily(BLOCKS);
+                BlockCache = rdb.GetColumnFamily(BLOCK_CACHE);
+                BlockHeaders = rdb.GetColumnFamily(BLOCK_HEADERS);
+                Meta = rdb.GetColumnFamily(META);
 
                 if (!MetaExists())
                 {
                     /* completely empty and has just been created */
-                    archivedb.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
-                    archivedb.Put(Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value), cf: Meta);
-                    archivedb.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
+                    rdb.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
+                    rdb.Put(Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value), cf: Meta);
+                    rdb.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
                 }
                 else
                 {
-                    var result = archivedb.Get(Encoding.ASCII.GetBytes("indexer_tx"), cf: Meta);
+                    var result = rdb.Get(Encoding.ASCII.GetBytes("indexer_tx"), cf: Meta);
 
                     if (result == null)
                     {
                         throw new Exception($"ArchiveDB: Fatal error: could not get indexer_tx");
                     }
 
-                    result = archivedb.Get(Encoding.ASCII.GetBytes("height"), cf: Meta);
+                    result = rdb.Get(Encoding.ASCII.GetBytes("height"), cf: Meta);
 
                     if (result == null)
                     {
@@ -121,6 +121,172 @@ namespace Discreet.DB
             }
         }
 
+        public void AddBlockToCache(Block blk)
+        {
+            var result = rdb.Get(Serialization.Int64(blk.Header.Height), cf: BlockHeights);
 
+            if (result != null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!");
+            }
+
+            if (blk.Transactions == null || blk.Transactions.Length == 0 || blk.Header.NumTXs == 0)
+            {
+                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has no transactions!");
+            }
+
+            if ((long)blk.Header.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
+            {
+                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} from too far in the future!");
+            }
+
+            /* unfortunately, we can't check the transactions yet, since some output indices might not be present. We check a few things though. */
+            foreach (FullTransaction tx in blk.Transactions)
+            {
+                if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
+                {
+                    throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
+                }
+            }
+
+            if (blk.GetMerkleRoot() != blk.Header.MerkleRoot)
+            {
+                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has invalid Merkle root");
+            }
+
+            if (!blk.CheckSignature())
+            {
+                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has missing or invalid signature!");
+            }
+
+            rdb.Put(blk.Header.BlockHash.Bytes, blk.Serialize(), cf: BlockCache);
+        }
+
+        public bool BlockCacheHas(Cipher.SHA256 block)
+        {
+            return rdb.Get(block.Bytes, cf: BlockCache) != null;
+        }
+
+        public void AddBlock(Block blk)
+        {
+            var result = rdb.Get(Serialization.Int64(blk.Header.Height), cf: Blocks);
+
+            if (result != null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!");
+            }
+
+            if (blk.Header.Height > 0)
+            {
+                result = rdb.Get(blk.Header.PreviousBlock.Bytes, cf: BlockHeights);
+
+                if (result == null)
+                {
+                    throw new Exception($"Discreet.ArchiveDB.AddBlock: Previous block hash {blk.Header.PreviousBlock.ToHexShort()} for block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) not found");
+                }
+
+                long prevBlockHeight = Serialization.GetInt64(result, 0);
+                if (prevBlockHeight != height.Value)
+                {
+                    throw new Exception($"Discreet.ArchiveDB.AddBlock: Previous block hash {blk.Header.PreviousBlock.ToHexShort()} for block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) not previous one in sequence (at height {prevBlockHeight})");
+                }
+            }
+
+            lock (height)
+            {
+                if (blk.Header.Height != height.Value + 1)
+                {
+                    throw new Exception($"Discreeet.ArchiveDB.AddBlock: block height {blk.Header.Height} not in sequence!");
+                }
+
+                height.Value++;
+            }
+
+            if (blk.Header.NumTXs != blk.Transactions.Length)
+            {
+                throw new Exception($"Discreet.ArchiveDB.AddBlock: NumTXs field not equal to length of Transaction array in block ({blk.Header.NumTXs} != {blk.Transactions.Length})");
+            }
+
+            for (int i = 0; i < blk.Header.NumTXs; i++)
+            {
+                AddTransaction(blk.Transactions[i]);
+            }
+
+            lock (indexer_tx)
+            {
+                rdb.Put(Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value), cf: Meta);
+            }
+
+            lock (height)
+            {
+                rdb.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
+            }
+
+            rdb.Put(blk.Header.BlockHash.Bytes, Serialization.Int64(blk.Header.Height), cf: BlockHeights);
+            rdb.Put(Serialization.Int64(blk.Header.Height), blk.Serialize(), cf: Blocks);
+
+            rdb.Put(Serialization.Int64(blk.Header.Height), blk.Header.Serialize(), cf: BlockHeaders);
+        }
+
+        private void AddTransaction(FullTransaction tx)
+        {
+            Cipher.SHA256 txhash = tx.TxID;
+            if (rdb.Get(txhash.Bytes, cf: TxIndices) != null)
+            {
+                throw new Exception($"Discreet.ArchiveDB.AddTransaction: Transaction {txhash.ToHexShort()} already in TX table!");
+            }
+
+            ulong txIndex;
+
+            lock (indexer_tx)
+            {
+                indexer_tx.Value++;
+                txIndex = indexer_tx.Value;
+            }
+
+            rdb.Put(txhash.Bytes, Serialization.UInt64(txIndex), cf: TxIndices);
+            byte[] txraw = tx.Serialize();
+            rdb.Put(Serialization.UInt64(txIndex), txraw, cf: Txs);
+        }
+
+        public Dictionary<long, Block> GetBlockCache()
+        {
+            Dictionary<long, Block> blockCache = new Dictionary<long, Block>();
+
+            var iterator = rdb.NewIterator(cf: BlockCache);
+
+            iterator.SeekToFirst();
+
+            while (iterator.Valid())
+            {
+                byte[] bytes = iterator.Value();
+
+                if (bytes[0] == 1 || bytes[0] == 2)
+                {
+                    Block block = new Block();
+                    block.Deserialize(bytes);
+
+                    blockCache.Add(block.Header.Height, block);
+                }
+                else
+                {
+                    Block block = new Block();
+                    block.Deserialize(bytes);
+
+                    blockCache.Add(block.Header.Height, block);
+                }
+
+                iterator.Next();
+            }
+
+            return blockCache;
+        }
+
+        public void ClearBlockCache()
+        {
+            rdb.DropColumnFamily(BLOCK_CACHE);
+
+            BlockCache = rdb.CreateColumnFamily(new ColumnFamilyOptions(), BLOCK_CACHE);
+        }
     }
 }

@@ -25,7 +25,7 @@ namespace Discreet.DB
 
         public static byte[] ZEROKEY = new byte[8];
 
-        private RocksDb statedb;
+        private RocksDb rdb;
 
         public string Folder
         {
@@ -42,7 +42,7 @@ namespace Discreet.DB
         {
             try
             {
-                return statedb.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) != null;
+                return rdb.Get(Encoding.ASCII.GetBytes("meta"), cf: Meta) != null;
             }
             catch
             {
@@ -77,23 +77,23 @@ namespace Discreet.DB
                     new ColumnFamilies.Descriptor(META, new ColumnFamilyOptions().SetCompression(Compression.Lz4)),
                 };
 
-                statedb = RocksDb.Open(options, path, _colFamilies);
+                rdb = RocksDb.Open(options, path, _colFamilies);
 
-                SpentKeys = statedb.GetColumnFamily(SPENT_KEYS);
-                Outputs = statedb.GetColumnFamily(OUTPUTS);
-                OutputIndices = statedb.GetColumnFamily(OUTPUT_INDICES);
-                PubOutputs = statedb.GetColumnFamily(PUB_OUTPUTS);
-                Meta = statedb.GetColumnFamily(META);
+                SpentKeys = rdb.GetColumnFamily(SPENT_KEYS);
+                Outputs = rdb.GetColumnFamily(OUTPUTS);
+                OutputIndices = rdb.GetColumnFamily(OUTPUT_INDICES);
+                PubOutputs = rdb.GetColumnFamily(PUB_OUTPUTS);
+                Meta = rdb.GetColumnFamily(META);
 
                 if (!MetaExists())
                 {
-                    statedb.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
-                    statedb.Put(Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value), cf: Meta);
-                    statedb.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
+                    rdb.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
+                    rdb.Put(Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value), cf: Meta);
+                    rdb.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
                 }
                 else
                 {
-                    var result = statedb.Get(Encoding.ASCII.GetBytes("indexer_output"), cf: Meta);
+                    var result = rdb.Get(Encoding.ASCII.GetBytes("indexer_output"), cf: Meta);
 
                     if (result == null)
                     {
@@ -102,7 +102,7 @@ namespace Discreet.DB
 
                     indexer_output.Value = Serialization.GetUInt32(result, 0);
 
-                    result = statedb.Get(Encoding.ASCII.GetBytes("height"), cf: Meta);
+                    result = rdb.Get(Encoding.ASCII.GetBytes("height"), cf: Meta);
 
                     if (result == null)
                     {
@@ -116,6 +116,69 @@ namespace Discreet.DB
             {
                 Daemon.Logger.Fatal($"StateDB: failed to create the database: {ex}");
             }
+        }
+
+        public void AddBlock(Block blk)
+        {
+            foreach (var tx in blk.Transactions)
+            {
+                uint[] outputIndices = new uint[tx.NumPOutputs];
+                for (int i = 0; i < tx.NumPOutputs; i++)
+                {
+                    tx.POutputs[i].TransactionSrc = tx.TxID;
+                    outputIndices[i] = AddOutput(tx.POutputs[i]);
+                }
+
+                byte[] uintArr = Serialization.UInt32Array(outputIndices);
+                rdb.Put(tx.TxID.Bytes, uintArr, cf: OutputIndices);
+
+                for (int i = 0; i < tx.NumPInputs; i++)
+                {
+                    rdb.Put(tx.PInputs[i].KeyImage.bytes, ZEROKEY, cf: SpentKeys);
+                }
+
+                for (int i = 0; i < tx.NumTInputs; i++)
+                {
+                    rdb.Remove(tx.TInputs[i].Serialize(), cf: PubOutputs);
+                }
+
+                for (int i = 0; i < tx.NumTOutputs; i++)
+                {
+                    tx.TOutputs[i].TransactionSrc = tx.TxID;
+                    rdb.Put(new Coin.Transparent.TXInput { TxSrc = tx.TOutputs[i].TransactionSrc, Offset = (byte)i }.Serialize(), tx.TOutputs[i].Serialize(), cf: PubOutputs);
+                }
+            }
+
+            lock (indexer_output)
+            {
+                rdb.Put(Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value), cf: Meta);
+            }
+        }
+
+        public uint AddOutput(TXOutput output)
+        {
+            uint outputIndex;
+
+            lock (indexer_output)
+            {
+                indexer_output.Value++;
+                outputIndex = indexer_output.Value;
+            }
+
+            rdb.Put(Serialization.UInt32(outputIndex), output.Serialize(), cf: Outputs);
+
+            return outputIndex;
+        }
+
+        public bool CheckSpentKey(Cipher.Key j)
+        {
+            bool rv = rdb.Get(j.bytes, cf: SpentKeys) == null;
+            return rv && !Daemon.TXPool.GetTXPool().ContainsSpentKey(j);
+        }
+
+        public bool CheckSpentKeyBlock(Cipher.Key j)
+        {
+            return rdb.Get(j.bytes, cf: SpentKeys) == null;
         }
     }
 }

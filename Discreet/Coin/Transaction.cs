@@ -580,6 +580,11 @@ namespace Discreet.Coin
                 return new VerifyException("Transaction", "Transactions cannot have zero outputs");
             }
 
+            if (!inBlock && Version == 0)
+            {
+                return new VerifyException("Transaction", "Cannot have a coinbase transaction outside of block!");
+            }
+
             if (Version != 0)
             {
                 if (NumInputs != Inputs.Length)

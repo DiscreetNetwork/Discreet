@@ -477,7 +477,7 @@ namespace Discreet.Network
                         }
                         catch
                         {
-                            txs.Add(db.GetTXFromPool(h));
+                            txs.Add(Daemon.TXPool.GetTXPool().GetTransaction(h));
                         }
                     }
                 }
@@ -542,7 +542,7 @@ namespace Discreet.Network
                 return;
             }
 
-            if (!Daemon.TXPool.GetTXPool().Contains(p.Tx.Hash()) && !DB.DisDB.GetDB().TXPoolContains(p.Tx.Hash()))
+            if (!Daemon.TXPool.GetTXPool().Contains(p.Tx.Hash()))
             {
                 var err = Daemon.TXPool.GetTXPool().ProcessIncoming(p.Tx);
 

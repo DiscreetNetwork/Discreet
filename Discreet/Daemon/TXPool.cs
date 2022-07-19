@@ -73,11 +73,12 @@ namespace Discreet.Daemon
             spentKeys = new(new Cipher.KeyComparer());
             updateSpentKeys = new();
 
-            DB.DisDB db = DB.DisDB.GetDB();
+            //DB.DisDB db = DB.DisDB.GetDB();
 
-            var _pool = db.GetTXPool();
+            //var _pool = db.GetTXPool();
 
-            foreach (var tx in _pool)
+            // TODO: add back in after sync code is complete
+            /*foreach (var tx in _pool)
             {
                 pool[tx.Tx.Hash()] = tx;
             }
@@ -109,7 +110,7 @@ namespace Discreet.Daemon
 
                     updateSpentKeys[tx.Tx.TxID] = ks;
                 }
-            }
+            }*/
         }
 
         public Exception ProcessIncoming(FullTransaction tx)
@@ -236,14 +237,14 @@ namespace Discreet.Daemon
         {
             txs.ToList().ForEach(x => pool.Remove(x, out _));
 
-            DB.DisDB.GetDB().UpdateTXPool(txs);
+            //DB.DisDB.GetDB().UpdateTXPool(txs);
         }
 
         public bool Contains(Cipher.SHA256 txhash)
         {
-            DB.DisDB db = DB.DisDB.GetDB();
-
-            return db.TXPoolContains(txhash);
+            return pool.ContainsKey(txhash);
+            //DB.DisDB db = DB.DisDB.GetDB();
+            //return db.TXPoolContains(txhash);
         }
 
         public bool ContainsSpent(Coin.Transparent.TXInput txoidx)
@@ -279,6 +280,18 @@ namespace Discreet.Daemon
                     updateSpentKeys.Remove(hash, out _);
                 }
             }
+        }
+
+        public FullTransaction GetTransaction(Cipher.SHA256 txhash)
+        {
+            bool res = pool.TryGetValue(txhash, out MemTx memtx);
+
+            if (!res)
+            {
+                throw new Exception($"TXPool.GetTransaction: could not find tx with hash {txhash.ToHexShort()}");
+            }
+
+            return memtx.Tx;
         }
     }
 }
