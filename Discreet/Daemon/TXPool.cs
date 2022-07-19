@@ -62,12 +62,16 @@ namespace Discreet.Daemon
         private ConcurrentDictionary<Cipher.SHA256, MemTx> pool;
         private ConcurrentDictionary<Coin.Transparent.TXInput, Coin.Transparent.TXOutput> spentOutputs;
         private ConcurrentDictionary<Cipher.SHA256, List<Coin.Transparent.TXInput>> spentsTx;
+        private SortedSet<Cipher.Key> spentKeys;
+        private ConcurrentDictionary<Cipher.SHA256, List<Cipher.Key>> updateSpentKeys;
 
         public TXPool()
         {
             pool = new();
             spentOutputs = new();
             spentsTx = new();
+            spentKeys = new(new Cipher.KeyComparer());
+            updateSpentKeys = new();
 
             DB.DisDB db = DB.DisDB.GetDB();
 
@@ -91,6 +95,19 @@ namespace Discreet.Daemon
                     }
 
                     spentsTx[tx.Tx.TxID] = stxs;
+                }
+
+                if (tx.Tx.PInputs != null && tx.Tx.PInputs.Length > 0)
+                {
+                    List<Cipher.Key> ks = new List<Cipher.Key>();
+
+                    foreach (var ptxi in tx.Tx.PInputs)
+                    {
+                        spentKeys.Add(ptxi.KeyImage);
+                        ks.Add(ptxi.KeyImage);
+                    }
+
+                    updateSpentKeys[tx.Tx.TxID] = ks;
                 }
             }
         }
@@ -139,6 +156,19 @@ namespace Discreet.Daemon
                 spentsTx[tx.TxID] = stxs;
             }
 
+            if (tx.PInputs != null && tx.PInputs.Length > 0)
+            {
+                List<Cipher.Key> ks = new List<Cipher.Key>();
+
+                foreach (var ptxi in tx.PInputs)
+                {
+                    spentKeys.Add(ptxi.KeyImage);
+                    ks.Add(ptxi.KeyImage);
+                }
+
+                updateSpentKeys[tx.TxID] = ks;
+            }
+
             return null;
         }
 
@@ -155,6 +185,11 @@ namespace Discreet.Daemon
         public Exception ProcessIncoming(Coin.Transparent.Transaction tx)
         {
             return ProcessIncoming(tx.ToFull());
+        }
+
+        public bool ContainsSpentKey(Cipher.Key k)
+        {
+            return spentKeys.Contains(k);
         }
 
         public List<FullTransaction> SelectAndRemove(int maxBytes)
@@ -233,6 +268,15 @@ namespace Discreet.Daemon
                         spentOutputs.Remove(txohash, out _);
                     }
                     spentsTx.Remove(hash, out _);
+                }
+
+                if (updateSpentKeys.ContainsKey(hash))
+                {
+                    foreach (var kv in updateSpentKeys[hash])
+                    {
+                        spentKeys.Remove(kv);
+                    }
+                    updateSpentKeys.Remove(hash, out _);
                 }
             }
         }
