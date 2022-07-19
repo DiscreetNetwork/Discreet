@@ -694,7 +694,7 @@ namespace Discreet.Wallets
                 {
                     byte[] data = new byte[64];
                     Array.Copy(tx.SigningHash.Bytes, data, 32);
-                    Array.Copy(tx.TInputs[i].Hash().Bytes, 0, data, 32, 32);
+                    Array.Copy(tx.TInputs[i].Hash(new Coin.Transparent.TXOutput { TransactionSrc = tx.TInputs[i].TxSrc, Address = new TAddress(Address), Amount = utx.inputAmounts[i] }).Bytes, 0, data, 32, 32);
 
                     var hash = SHA256.HashData(data);
 
@@ -799,11 +799,11 @@ namespace Discreet.Wallets
                 utx.NumPOutputs = 0;
 
                 /* Construct inputs */
-                utx.TInputs = new Coin.Transparent.TXOutput[utx.NumInputs];
+                utx.TInputs = new Coin.Transparent.TXInput[utx.NumInputs];
                 utx.inputAmounts = new ulong[utx.NumInputs];
                 for (int i = 0; i < utx.NumInputs; i++)
                 {
-                    utx.TInputs[i] = new Coin.Transparent.TXOutput(inputs[i].TransactionSrc, new TAddress(Address), inputs[i].Amount);
+                    utx.TInputs[i] = new Coin.Transparent.TXInput { TxSrc = inputs[i].TransactionSrc, Offset = (byte)inputs[i].Index };
                     utx.inputAmounts[i] = inputs[i].Amount;
                 }
             }
@@ -923,10 +923,10 @@ namespace Discreet.Wallets
             tx.Fee = 0;
 
             /* create inputs */
-            tx.Inputs = new Coin.Transparent.TXOutput[tx.NumInputs];
+            tx.Inputs = new Coin.Transparent.TXInput[tx.NumInputs];
             for (int i = 0; i < tx.NumInputs; i++)
             {
-                tx.Inputs[i] = new Coin.Transparent.TXOutput(inputs[i].TransactionSrc, new TAddress(Address), inputs[i].Amount);
+                tx.Inputs[i] = new Coin.Transparent.TXInput { TxSrc = inputs[i].TransactionSrc, Offset = (byte)inputs[i].Index };
             }
 
             /* create outputs */
@@ -947,7 +947,7 @@ namespace Discreet.Wallets
             {
                 byte[] data = new byte[64];
                 Array.Copy(tx.InnerHash.Bytes, data, 32);
-                Array.Copy(tx.Inputs[i].Hash().Bytes, 0, data, 32, 32);
+                Array.Copy(tx.Inputs[i].Hash(new Coin.Transparent.TXOutput { TransactionSrc = tx.Inputs[i].TxSrc, Address = new TAddress(Address), Amount = inputs[i].Amount }).Bytes, 0, data, 32, 32);
 
                 var hash = SHA256.HashData(data);
 
@@ -1064,7 +1064,7 @@ namespace Discreet.Wallets
                 {
                     for (int k = 0; k < UTXOs.Count; k++)
                     {
-                        if (UTXOs[k].TransactionSrc == transaction.TInputs[i].TransactionSrc && UTXOs[k].Amount == transaction.TInputs[i].Amount && Address == transaction.TInputs[i].Address.ToString())
+                        if (UTXOs[k].TransactionSrc == transaction.TInputs[i].TxSrc && UTXOs[k].Index == transaction.TInputs[i].Offset)
                         {
                             Balance -= UTXOs[k].Amount;
                             UTXOs.RemoveAt(k);
@@ -1170,8 +1170,10 @@ namespace Discreet.Wallets
 
             for (int i = 0; i < numTInputs; i++)
             {
-                inputAmounts.Add(tx.TInputs[i].Amount);
-                inputAddresses.Add(tx.TInputs[i].Address.ToString());
+                //TODO: this is a quick fix, look over again during refactor
+                var _input = DB.DisDB.GetDB().GetPubOutput(tx.TInputs[i]);
+                inputAmounts.Add(_input.Amount);
+                inputAddresses.Add(_input.Address.ToString());
             }
 
             for (int i = 0; i < numPInputs; i++)

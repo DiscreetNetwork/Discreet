@@ -25,7 +25,7 @@ namespace Discreet.Readable
 
         public string SigningHash { get; set; }
 
-        public List<Transparent.TXOutput> TInputs { get; set; }
+        public List<string> TInputs { get; set; }
         public List<Transparent.TXOutput> TOutputs { get; set; }
         public List<string> TSignatures { get; set; }
 
@@ -276,11 +276,11 @@ namespace Discreet.Readable
 
             if (obj.TInputs != null)
             {
-                TInputs = new List<Transparent.TXOutput>(obj.TInputs.Length);
+                TInputs = new List<string>(obj.TInputs.Length);
 
                 for (int i = 0; i < obj.TInputs.Length; i++)
                 {
-                    TInputs.Add(new Transparent.TXOutput(obj.TInputs[i], false));
+                    TInputs.Add(Printable.Hexify(obj.TInputs[i].Serialize()));
                 }
             }
             if (obj.TOutputs != null)
@@ -376,11 +376,12 @@ namespace Discreet.Readable
 
             if (TInputs != null)
             {
-                obj.TInputs = new Coin.Transparent.TXOutput[TInputs.Count];
+                obj.TInputs = new Coin.Transparent.TXInput[TInputs.Count];
 
                 for (int i = 0; i < TInputs.Count; i++)
                 {
-                    obj.TInputs[i] = (Coin.Transparent.TXOutput)TInputs[i].ToObject();
+                    obj.TInputs[i] = new Coin.Transparent.TXInput();
+                    obj.TInputs[i].Deserialize(Printable.Byteify(TInputs[i]));
                 }
             }
             if (TOutputs != null)

@@ -317,6 +317,7 @@ namespace Discreet.Wallets
             {
                 tx.TOutputs[i].TransactionSrc = tx.Hash();
                 utxo = new UTXO(tx.TOutputs[i]);
+                utxo.Index = (uint)i;
             }
             else if (tx.Version == 4)
             {
@@ -324,6 +325,7 @@ namespace Discreet.Wallets
                 {
                     tx.TOutputs[i].TransactionSrc = tx.Hash();
                     utxo = new UTXO(tx.TOutputs[i]);
+                    utxo.Index = (uint)i;
                 }
                 else
                 {

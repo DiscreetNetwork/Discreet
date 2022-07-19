@@ -19,7 +19,7 @@ namespace Discreet.Wallets
         public Cipher.SHA256 SigningHash;
         public ulong Fee;
 
-        public Coin.Transparent.TXOutput[] TInputs;
+        public Coin.Transparent.TXInput[] TInputs;
         public Coin.Transparent.TXOutput[] TOutputs;
 
         public Cipher.Key TransactionKey;

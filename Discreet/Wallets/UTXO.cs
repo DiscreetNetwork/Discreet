@@ -27,7 +27,7 @@ namespace Discreet.Wallets
         public bool Encrypted;
 
         /* stealth transactions */
-        public uint Index;
+        public uint Index; // now used for transparent TXs
         public Key UXKey;
         public Key UXSecKey;
         public Key Commitment;

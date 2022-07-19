@@ -25,7 +25,7 @@ namespace Discreet.Coin
         public ulong Fee;
 
         /* Transparent part */
-        public Transparent.TXOutput[] TInputs;
+        public Transparent.TXInput[] TInputs;
         public Transparent.TXOutput[] TOutputs;
         public Signature[] TSignatures;
 
@@ -567,7 +567,7 @@ namespace Discreet.Coin
             for (int i = 0; i < TInputs.Length; i++)
             {
                 TInputs[i].Serialize(bytes, offset);
-                offset += 65;
+                offset += Transparent.TXInput.Size();
             }
 
             for (int i = 0; i < TOutputs.Length; i++)
@@ -617,7 +617,7 @@ namespace Discreet.Coin
             for (int i = 0; i < lenTInputs; i++)
             {
                 TInputs[i].Serialize(bytes, offset);
-                offset += 65;
+                offset += Transparent.TXInput.Size();
             }
 
             for (int i = 0; i < lenTOutputs; i++)
@@ -773,13 +773,13 @@ namespace Discreet.Coin
 
             SigningHash = new SHA256(s);
 
-            TInputs = new Transparent.TXOutput[NumInputs];
+            TInputs = new Transparent.TXInput[NumInputs];
             TOutputs = new Transparent.TXOutput[NumOutputs];
             TSignatures = new Signature[NumSigs];
 
             for (int i = 0; i < NumInputs; i++)
             {
-                TInputs[i] = new Transparent.TXOutput();
+                TInputs[i] = new Transparent.TXInput();
                 TInputs[i].Deserialize(s);
             }
 
@@ -814,11 +814,11 @@ namespace Discreet.Coin
 
             SigningHash = new SHA256(s);
 
-            TInputs = new Transparent.TXOutput[NumTInputs];
+            TInputs = new Transparent.TXInput[NumTInputs];
             for (int i = 0; i < NumTInputs; i++)
             {
-                TInputs[i] = new Transparent.TXOutput();
-                TInputs[i].TXUnmarshal(s);
+                TInputs[i] = new Transparent.TXInput();
+                TInputs[i].Deserialize(s);
             }
 
             TOutputs = new Transparent.TXOutput[NumTOutputs];
@@ -988,12 +988,12 @@ namespace Discreet.Coin
             SigningHash = new SHA256(bytes, offset);
             offset += 32;
 
-            TInputs = new Transparent.TXOutput[NumInputs];
+            TInputs = new Transparent.TXInput[NumInputs];
             for (int i = 0; i < TInputs.Length; i++)
             {
-                TInputs[i] = new Transparent.TXOutput();
+                TInputs[i] = new Transparent.TXInput();
                 TInputs[i].Deserialize(bytes, offset);
-                offset += Transparent.TXOutput.Size();
+                offset += Transparent.TXInput.Size();
             }
 
             TOutputs = new Transparent.TXOutput[NumOutputs];
@@ -1034,12 +1034,12 @@ namespace Discreet.Coin
             SigningHash = new SHA256(bytes, offset);
             offset += 32;
 
-            TInputs = new Transparent.TXOutput[NumTInputs];
+            TInputs = new Transparent.TXInput[NumTInputs];
             for (int i = 0; i < NumTInputs; i++)
             {
-                TInputs[i] = new Transparent.TXOutput();
+                TInputs[i] = new Transparent.TXInput();
                 TInputs[i].Deserialize(bytes, offset);
-                offset += 65;
+                offset += Transparent.TXInput.Size();
             }
 
             TOutputs = new Transparent.TXOutput[NumTOutputs];
@@ -1111,8 +1111,8 @@ namespace Discreet.Coin
                 0 => (uint)(4 + 32 + NumOutputs * 72),
                 1 => (uint)(4 + TXInput.Size() * PInputs.Length + 72 * POutputs.Length + RangeProof.Size() + 8 + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
                 2 => (uint)(4 + TXInput.Size() * PInputs.Length + 72 * POutputs.Length + RangeProofPlus.Size() + 8 + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
-                3 => (uint)(44 + Transparent.TXOutput.Size() * TInputs.Length + 33 * TOutputs.Length + 96 * TSignatures.Length),
-                4 => (uint)(48 + 65 * (TInputs == null ? 0 : TInputs.Length)
+                3 => (uint)(44 + Transparent.TXInput.Size() * TInputs.Length + 33 * TOutputs.Length + 96 * TSignatures.Length),
+                4 => (uint)(48 + Transparent.TXInput.Size() * (TInputs == null ? 0 : TInputs.Length)
                                + 33 * (TOutputs == null ? 0 : TOutputs.Length)
                                + 96 * (TSignatures == null ? 0 : TSignatures.Length)
                                + (NumPOutputs > 0 ? 32 : 0)
