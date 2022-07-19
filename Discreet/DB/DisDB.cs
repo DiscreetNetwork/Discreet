@@ -59,35 +59,6 @@ namespace Discreet.DB
      * Same goes for transaction metadata for now.
      * For tx_indices, we only store tx ID. 
      */
-    public class U64
-    {
-        public ulong Value;
-
-        public U64(ulong value)
-        {
-            Value = value;
-        }
-    }
-
-    public class L64
-    {
-        public long Value;
-
-        public L64(long value)
-        {
-            Value = value;
-        }
-    }
-
-    public class U32
-    {
-        public uint Value;
-
-        public U32(uint value)
-        {
-            Value = value;
-        }
-    }
 
     /**
      * New implementation of kvstore backend using RocksDbSharp
