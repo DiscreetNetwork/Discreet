@@ -13,13 +13,6 @@ namespace Discreet.DB
         private ArchiveDB archiveDB;
         private StateDB stateDB;
 
-        private static CurView instance;
-
-        static CurView()
-        {
-            instance = new CurView();
-        }
-
         public CurView()
         {
             archiveDB = new ArchiveDB(Path.Join(Daemon.DaemonConfig.GetConfig().DBPath, "archive"));
@@ -46,7 +39,7 @@ namespace Discreet.DB
 
         public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input) => stateDB.GetPubOutput(_input);
     
-        public void RemovePubOutput(Coin.Transparent.TXInput _input) => stateDB?.RemovePubOutput(_input);
+        public void RemovePubOutput(Coin.Transparent.TXInput _input) => stateDB.RemovePubOutput(_input);
 
         public TXOutput[] GetMixins(uint[] index) => stateDB.GetMixins(index);
 
