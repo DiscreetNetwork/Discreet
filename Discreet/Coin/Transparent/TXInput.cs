@@ -19,6 +19,14 @@ namespace Discreet.Coin.Transparent
         [MarshalAs(UnmanagedType.U1)]
         public byte Offset;
 
+        public TXInput() { }
+
+        public TXInput(Cipher.SHA256 txid, byte offset)
+        {
+            TxSrc = txid;
+            Offset = offset;
+        }
+
         public Cipher.SHA256 Hash(TXOutput txo)
         {
             byte[] hshdat = new byte[66];
@@ -90,6 +98,11 @@ namespace Discreet.Coin.Transparent
             }
 
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return Cipher.SHA256.HashData(Serialize()).GetHashCode();
         }
 
         public static bool operator ==(TXInput a, TXInput b) => a.Equals(b);

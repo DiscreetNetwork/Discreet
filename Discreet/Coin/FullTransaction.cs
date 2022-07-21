@@ -1209,5 +1209,18 @@ namespace Discreet.Coin
 
             return NumOutputs != 0 && (NumTOutputs + NumPOutputs) != 0 && _noOutputs != 0;
         }
+
+        public SHA256 GetSigningHash()
+        {
+            return Version switch
+            {
+                0 or 1 or 2 => ToPrivate().SigningHash(),
+                3 => ToTransparent().SigningHash(),
+                4 => ToMixed().TXSigningHash(),
+                _ => throw new Exception("Unknown transaction type: " + Version),
+            };
+        }
+
+        public Key[] GetCommitments() => (POutputs == null) ? Array.Empty<Key>() : POutputs.Select(x => x.Commitment).ToArray();
     }
 }

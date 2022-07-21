@@ -250,6 +250,18 @@ namespace Discreet.Coin
             return null;
         }
 
+        public VerifyException Verify(FullTransaction tx)
+        {
+            Cipher.Bulletproof bp = new Cipher.Bulletproof(this, tx.GetCommitments());
+
+            if (!Cipher.Bulletproof.Verify(bp))
+            {
+                return new VerifyException("Bulletproof", "Bulletproof is invalid!");
+            }
+
+            return null;
+        }
+
         /* UNUSED. Use Verify(Transaction tx) instead */
         public VerifyException Verify()
         {
