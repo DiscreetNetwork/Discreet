@@ -166,7 +166,7 @@ namespace Discreet.Coin
             for (int i = 0; i < txs.Count; i++)
             {
                 block.Header.Fee += txs[i].Fee;
-                block.Header.NumOutputs += txs[i].NumOutputs;
+                block.Header.NumOutputs += txs[i].NumPOutputs;
                 block.Header.BlockSize += txs[i].Size();
             }
 
@@ -437,7 +437,7 @@ namespace Discreet.Coin
             for (int i = 0; i < Transactions.Length; i++)
             {
                 fee += Transactions[i].Fee;
-                numOutputs += Transactions[i].NumOutputs;
+                numOutputs += Transactions[i].NumPOutputs;
                 blockSize += Transactions[i].Size();
             }
 

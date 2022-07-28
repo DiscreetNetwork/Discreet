@@ -70,5 +70,9 @@ namespace Discreet.DB
         public bool ContainsTransaction(Cipher.SHA256 txhash) => archiveDB.ContainsTransaction(txhash);
 
         public long GetBlockHeight(Cipher.SHA256 blockHash) => archiveDB.GetBlockHeight(blockHash);
+
+        public bool BlockExists(Cipher.SHA256 blockHash) => archiveDB.BlockExists(blockHash);
+
+        public bool BlockHeightExists(long height) => archiveDB.BlockHeightExists(height);
     }
 }

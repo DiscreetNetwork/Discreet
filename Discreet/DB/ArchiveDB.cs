@@ -403,6 +403,16 @@ namespace Discreet.DB
             return rdb.Get(txhash.Bytes, cf: TxIndices) != null;
         }
 
+        public bool BlockExists(Cipher.SHA256 block)
+        {
+            return rdb.Get(block.Bytes, cf: BlockHeights) != null;
+        }
+
+        public bool BlockHeightExists(long height)
+        {
+            return rdb.Get(Serialization.Int64(height), cf: BlockHeaders) != null;
+        }
+
         public long GetBlockHeight(Cipher.SHA256 blockHash)
         {
             var result = rdb.Get(blockHash.Bytes, cf: BlockHeights);

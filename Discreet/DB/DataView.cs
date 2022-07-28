@@ -79,5 +79,9 @@ namespace Discreet.DB
         public bool ContainsTransaction(Cipher.SHA256 txhash) => curView.ContainsTransaction(txhash);
 
         public long GetBlockHeight(Cipher.SHA256 blockHash) => curView.GetBlockHeight(blockHash);
+
+        public bool BlockExists(Cipher.SHA256 blockHash) => curView.BlockExists(blockHash);
+
+        public bool BlockHeightExists(long height) => curView.BlockHeightExists(height);
     }
 }

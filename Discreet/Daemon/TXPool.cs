@@ -382,39 +382,13 @@ namespace Discreet.Daemon
             var npsg = (tx.PSignatures == null) ? 0 : tx.PSignatures.Length;
             var ntsg = (tx.TSignatures == null) ? 0 : tx.TSignatures.Length;
 
-            /* malformed checks; length checks, sig length checks */
-            if (ntin != tx.NumTInputs) return new VerifyException("FullTransaction", $"Transparent input mismatch: expected {tx.NumTInputs}; got {ntin}");
-            if (ntout != tx.NumTOutputs) return new VerifyException("FullTransaction", $"Transparent output mismatch: expected {tx.NumTOutputs}; got {ntout}");
-            if (npin != tx.NumPInputs) return new VerifyException("FullTransaction", $"Private input mismatch: expected {tx.NumPInputs}; got {npin}");
-            if (npout != tx.NumPOutputs) return new VerifyException("FullTransaction", $"Private output mismatch: expected {tx.NumPOutputs}; got {npout}");
-            if (ntsg != ntin) return new VerifyException("FullTransaction", $"Number of transparent input signatures ({ntsg}) not equal to number of transparent inputs ({ntin})");
-            if (npsg != npin) return new VerifyException("FullTransaction", $"Number of  Triptych signatures ({npsg}) not equal to number of private inputs ({npin})");
-            if (npin + ntin != tx.NumInputs) return new VerifyException("FullTransaction", $"Input mismatch: expected {tx.NumInputs}; got {ntin + npin}");
-            if (ntout + npout != tx.NumOutputs) return new VerifyException("FullTransaction", $"Output mismatch: expected {tx.NumOutputs}; got {ntout + npout}");
-
-            /* ensure at least 1 in, 1 out */
-            if (tx.NumInputs == 0) return new VerifyException("FullTransaction", $"Transactions must have at least one input");
-            if (tx.NumOutputs == 0) return new VerifyException("FullTransaction", $"Transactions must have at least one output");
-
-            /* ensure no size limit reached */
-            if (ntin >= Config.TRANSPARENT_MAX_NUM_INPUTS) return new VerifyException("FullTransaction", $"Number of transparent inputs exceeds maximum ({Config.TRANSPARENT_MAX_NUM_INPUTS})");
-            if (ntout >= Config.TRANSPARENT_MAX_NUM_OUTPUTS) return new VerifyException("FullTransaction", $"Number of transparent outputs exceeds maximum ({Config.TRANSPARENT_MAX_NUM_OUTPUTS})");
-            if (npin >= Config.PRIVATE_MAX_NUM_INPUTS) return new VerifyException("FullTransaction", $"Number of private inputs exceeds maximum ({Config.PRIVATE_MAX_NUM_INPUTS})");
-            if (npout >= Config.PRIVATE_MAX_NUM_OUTPUTS) return new VerifyException("FullTransaction", $"Number of private outputs exceeds maximum ({Config.PRIVATE_MAX_NUM_OUTPUTS})");
-
-            /* ensure no coinbase */
-            if (tx.Version == 0) return new VerifyException("FullTransaction", $"Coinbase transaction must be in a block");
+            /* precheck tx */
+            var precheckExc = tx.Precheck();
+            if (precheckExc != null) return precheckExc;
 
             /* reject if already present in pool or main branch */
             if (pool.ContainsKey(tx.TxID)) return new VerifyException("FullTransaction", $"Transaction {tx.TxID.ToHexShort()} already present in pool");
             if (view.ContainsTransaction(tx.TxID)) return new VerifyException("FullTransaction", $"Transaction {tx.TxID.ToHexShort()} already present in main branch");
-
-            /* verify additional presence */
-            if (npout > 0 && (tx.RangeProof == null && tx.RangeProofPlus == null)) return new VerifyException("FullTransaction", $"Transaction has no range proof but has private ouputs");
-            if (npout > 0 && (tx.RangeProof != null && tx.RangeProofPlus != null)) return new VerifyException("FullTransaction", $"Transaction has private outputs and sets both range proof types");
-            if (npout == 0 && (tx.RangeProof != null || tx.RangeProofPlus != null)) return new VerifyException("FullTransaction", $"Transaction has no private outputs but has a range proof present");
-            if (npout > 0 && (tx.TransactionKey == default || tx.TransactionKey.bytes == null)) return new VerifyException("FullTransaction", $"Transaction has private outputs but no transaction key");
-            if (npout == 0 && (tx.TransactionKey != default && tx.TransactionKey.bytes != null)) return new VerifyException("FullTransaction", $"Transaction has no private outputs but has a transaction key");
 
             /* transparent checks */
             Coin.Transparent.TXOutput[] tinVals = new Coin.Transparent.TXOutput[ntin];
@@ -428,15 +402,6 @@ namespace Discreet.Daemon
 
                     if (spentOutputs.ContainsKey(tx.TInputs[i])) return new VerifyException("FullTransaction", $"Transparent input at index {i} was spent in a previous transaction currently in the mempool");
                 }
-
-                /* duplicate inputs in same tx */
-                if (_in.Count < ntin) return new VerifyException("FullTransaction", $"Transparent input double spend in same tx");
-            }
-
-            /* check for zero coin output */
-            for (int i = 0; i < ntout; i++)
-            {
-                if (tx.TOutputs[i].Amount == 0) return new VerifyException("FullTransaction", $"Transparent output at index {i} is a zero coin output");
             }
 
             /* more transparent checks */
@@ -492,8 +457,6 @@ namespace Discreet.Daemon
             
             /* private checks */
             var npsout = (tx.PseudoOutputs == null) ? 0 : tx.PseudoOutputs.Length;
-            if (npsout != npin) return new VerifyException("FullTransaction", $"PseudoOutput mismatch: expected {npin} (one for each private input); got {npsout}");
-            
             TXOutput[][] mixins = new TXOutput[npin][];
             if (npin > 0)
             {
@@ -503,13 +466,6 @@ namespace Discreet.Daemon
                 {
                     /* verify no duplicate spends in pool or main branch */
                     if (!view.CheckSpentKey(tx.PInputs[i].KeyImage) || !ContainsSpentKey(tx.PInputs[i].KeyImage)) return new VerifyException("FullTransaction", $"Private input's key image ({tx.PInputs[i].KeyImage.ToHexShort()}) already spent");
-
-                    /* check if duplicate private inputs */
-                    uncheckedTags.Remove(tx.PInputs[i].KeyImage);
-                    if (uncheckedTags.Any(x => x == tx.PInputs[i].KeyImage))
-                    {
-                        return new VerifyException("FullTransaction", $"Key image for {i} ({tx.PInputs[i].KeyImage.ToHexShort()}) already spent in this transaction");
-                    }
 
                     /* verify existence of all mixins */
                     try
@@ -522,20 +478,6 @@ namespace Discreet.Daemon
                     }
                 }
             }
-
-            if (npout > 0)
-            {
-                /* nonzero amount and commitment for each output */
-                for (int i = 0; i < npout; i++)
-                {
-                    if (tx.POutputs[i].Amount == 0) return new VerifyException("FullTransaction", $"Zero amount field in private output at index {i}");
-                    if (tx.POutputs[i].Commitment.Equals(Cipher.Key.Z)) return new VerifyException("FullTransaction", $"Zero commitment field in private output at index {i}");
-                }
-            }
-
-            /* validate signing hash */
-            if (tx.SigningHash != default && tx.SigningHash.Bytes != null && tx.SigningHash != tx.GetSigningHash()) return new VerifyException("FullTransaction", $"Signing Hash {tx.SigningHash.ToHexShort()} does not match computed signing hash {tx.GetSigningHash().ToHexShort()}");
-            if (tx.SigningHash == default || tx.SigningHash.Bytes == null) tx.SigningHash = tx.GetSigningHash();
 
             /* calculate tinAmt */
             ulong tinAmt = 0;
