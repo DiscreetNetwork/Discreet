@@ -1143,15 +1143,16 @@ namespace Discreet
 			//Console.Write("If this is a masternode, type \"discreet\" : ");
 
 			//if (Console.ReadLine() == "discreet")
-            //{
+			//{
 			//	daemon.IsMasternode = true;
-            //}
+			//}
 
 			//visor.wallet.ToFile(Path.Combine(visorConfig.WalletPath, $"{w.Label}.dis"));
 
 			//w.Decrypt(passphrase);
 
 			await daemon.Start();
+
 		}
 	}
 }

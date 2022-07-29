@@ -530,7 +530,7 @@ namespace Discreet.Coin
         public static bool IsMasternode(Key k)
         {
             //TODO: Implement hardcoded masternode IDs
-            return k == Key.FromHex("74df105d0d37ef0c31ef2656297e514c52ec49ce387b587f97a13e2c3a57065e");
+            return k == Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d");
             //return true;
         }
     }
