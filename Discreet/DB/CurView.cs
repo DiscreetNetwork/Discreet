@@ -74,5 +74,42 @@ namespace Discreet.DB
         public bool BlockExists(Cipher.SHA256 blockHash) => archiveDB.BlockExists(blockHash);
 
         public bool BlockHeightExists(long height) => archiveDB.BlockHeightExists(height);
+
+        public void Flush(IEnumerable<UpdateEntry> updates)
+        {
+            /* split the updates into state and archive */
+            List<UpdateEntry> stateUpdates = new();
+            List<UpdateEntry> archiveUpdates = new();
+
+            foreach (var update in updates)
+            {
+                switch (update.type) 
+                {
+                    case UpdateType.NULL:
+                        break;
+                    case UpdateType.SPENTKEY:
+                    case UpdateType.OUTPUTINDICES:
+                    case UpdateType.OUTPUT:
+                    case UpdateType.PUBOUTPUT:
+                    case UpdateType.OUTPUTINDEXER:
+                        stateUpdates.Add(update);
+                        break;
+                    case UpdateType.TX:
+                    case UpdateType.TXINDEX:
+                    case UpdateType.BLOCKHEADER:
+                    case UpdateType.BLOCKHEIGHT:
+                    case UpdateType.BLOCK:
+                    case UpdateType.TXINDEXER:
+                    case UpdateType.HEIGHT:
+                        archiveUpdates.Add(update);
+                        break;
+                    default:
+                        throw new ArgumentException("one of the given update rules has unknown type");
+                }
+            }
+
+            stateDB.Flush(stateUpdates);
+            archiveDB.Flush(archiveUpdates);
+        }
     }
 }

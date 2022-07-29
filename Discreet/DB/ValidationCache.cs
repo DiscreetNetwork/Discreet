@@ -427,5 +427,10 @@ namespace Discreet.DB
 
             return null;
         }
+
+        public void Flush()
+        {
+            dataView.Flush(updates);
+        }
     }
 }

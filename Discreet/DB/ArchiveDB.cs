@@ -424,5 +424,62 @@ namespace Discreet.DB
 
             return Serialization.GetInt64(result, 0);
         }
+
+        public void Flush(IEnumerable<UpdateEntry> updates)
+        {
+            WriteBatch batch = new WriteBatch();
+            U64 txUpdate = null;
+            L64 heightUpdate = null;
+
+            foreach (var update in updates)
+            {
+                switch (update.type)
+                {
+                    case UpdateType.TXINDEXER:
+                        txUpdate = new U64(Serialization.GetUInt64(update.value, 0));
+                        batch.Put(update.key, update.value, cf: Meta);
+                        break;
+                    case UpdateType.HEIGHT:
+                        heightUpdate = new L64(Serialization.GetInt64(update.value, 0));
+                        batch.Put(update.key, update.value, cf: Meta);
+                        break;
+                    case UpdateType.TX:
+                        batch.Put(update.key, update.value, cf: Txs);
+                        break;
+                    case UpdateType.TXINDEX:
+                        batch.Put(update.key, update.value, cf: TxIndices);
+                        break;
+                    case UpdateType.BLOCKHEADER:
+                        batch.Put(update.key, update.value, cf: BlockHeaders);
+                        break;
+                    case UpdateType.BLOCKHEIGHT:
+                        batch.Put(update.key, update.value, cf: BlockHeights);
+                        break;
+                    case UpdateType.BLOCK:
+                        batch.Put(update.key, update.value, cf: Blocks);
+                        break;
+                    default:
+                        throw new ArgumentException("unknown or invalid type given");
+                }
+            }
+
+            if (txUpdate != null)
+            {
+                lock (indexer_tx)
+                {
+                    indexer_tx.Value = txUpdate.Value;
+                }
+            }
+
+            if (heightUpdate != null)
+            {
+                lock (height)
+                {
+                    height.Value = heightUpdate.Value;
+                }
+            }
+
+            rdb.Write(batch);
+        }
     }
 }

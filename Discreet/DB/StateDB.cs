@@ -378,5 +378,47 @@ namespace Discreet.DB
                 return indexer_output.Value;
             }
         }
+
+        public void Flush(IEnumerable<UpdateEntry> updates)
+        {
+            WriteBatch batch = new WriteBatch();
+            U32 outputUpdate = null;
+
+            foreach (var update in updates)
+            {
+                switch (update.type)
+                {
+                    case UpdateType.OUTPUTINDEXER:
+                        outputUpdate = new U32(Serialization.GetUInt32(update.value, 0));
+                        batch.Put(update.key, update.value, cf: Meta);
+                        break;
+                    case UpdateType.OUTPUT:
+                        batch.Put(update.key, update.value, cf: Outputs);
+                        break;
+                    case UpdateType.OUTPUTINDICES:
+                        batch.Put(update.key, update.value, cf: OutputIndices);
+                        break;
+                    case UpdateType.SPENTKEY:
+                        batch.Put(update.key, update.value, cf: SpentKeys);
+                        break;
+                    case UpdateType.PUBOUTPUT:
+                        if (update.rule == UpdateRule.ADD) batch.Put(update.key, update.value, cf: PubOutputs);
+                        else batch.Delete(update.key, cf: PubOutputs);
+                        break;
+                    default:
+                        throw new ArgumentException("unknown or invalid type given");
+                }
+            }
+
+            if (outputUpdate != null)
+            {
+                lock (indexer_output)
+                {
+                    indexer_output.Value = outputUpdate.Value;
+                }
+            }
+
+            rdb.Write(batch);
+        }
     }
 }

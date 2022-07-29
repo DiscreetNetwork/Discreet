@@ -83,5 +83,7 @@ namespace Discreet.DB
         public bool BlockExists(Cipher.SHA256 blockHash) => curView.BlockExists(blockHash);
 
         public bool BlockHeightExists(long height) => curView.BlockHeightExists(height);
+
+        public void Flush(IEnumerable<UpdateEntry> updates) => curView.Flush(updates);
     }
 }
