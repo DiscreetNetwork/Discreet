@@ -91,9 +91,8 @@ namespace Discreet.Coin.Transparent
 
         public override bool Equals(object obj)
         {
-            if (obj is TXInput)
+            if (obj is TXInput other)
             {
-                TXInput other = (TXInput)obj;
                 return CompareTo(other) == 0;
             }
 
@@ -102,7 +101,7 @@ namespace Discreet.Coin.Transparent
 
         public override int GetHashCode()
         {
-            return Cipher.SHA256.HashData(Serialize()).GetHashCode();
+            return (int)(((uint)TxSrc.Bytes[0] << 24) | ((uint)TxSrc.Bytes[1] << 16) | ((uint)TxSrc.Bytes[2] << 8) | Offset);
         }
 
         public static bool operator ==(TXInput a, TXInput b) => a.Equals(b);

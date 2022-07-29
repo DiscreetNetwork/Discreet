@@ -207,7 +207,15 @@ namespace Discreet.Daemon
 
                 foreach (var txi in tx.Tx.TInputs)
                 {
-                    spentOutputs[txi] = view.GetPubOutput(txi);
+                    if (newOutputs.TryGetValue(txi, out var txo))
+                    {
+                        newOutputs.Remove(txi, out _);
+                        spentOutputs[txi] = txo;
+                    }
+                    else
+                    {
+                        spentOutputs[txi] = view.GetPubOutput(txi);
+                    }
                     stxs.Add(txi);
                 }
 
@@ -576,7 +584,7 @@ namespace Discreet.Daemon
             /* verify triptych signatures */
             for (int i = 0; i < npin; i++)
             {
-                if (tx.PInputs[i].Offsets.Length != 64) return new VerifyException("MixedTransaction", $"Private input at index {i} has an anonymity set of size {tx.PInputs[i].Offsets.Length}; expected 64");
+                if (tx.PInputs[i].Offsets.Length != 64) return new VerifyException("FullTransaction", $"Private input at index {i} has an anonymity set of size {tx.PInputs[i].Offsets.Length}; expected 64");
 
                 Cipher.Key[] M = mixins[i].Select(x => x.UXKey).ToArray();
                 Cipher.Key[] P = mixins[i].Select(x => x.Commitment).ToArray();

@@ -644,30 +644,30 @@ namespace Discreet.Wallets
         {
             MixedTransaction tx = utx.ToMixed();
 
-            Key[] blindingFactors = new Key[tx.NumInputs];
-            Key tmp = new Key(new byte[32]);
-            for (int i = 0; i < tx.NumInputs - 1; i++)
-            {
-                blindingFactors[i] = KeyOps.GenerateSeckey();
-                tx.PseudoOutputs[i] = new Key(new byte[32]);
-                KeyOps.GenCommitment(ref tx.PseudoOutputs[i], ref blindingFactors[i], utx.inputAmounts[i]);
-            }
-
-            Key dif = new Key(new byte[32]);
-            for (int k = 0; k < blindingFactors.Length; k++)
-            {
-                KeyOps.ScalarAdd(ref tmp, ref dif, ref blindingFactors[k]);
-                Array.Copy(tmp.bytes, dif.bytes, 32);
-            }
-
-            Key xm = new Key(new byte[32]);
-            KeyOps.ScalarSub(ref xm, ref utx.sumGammas, ref dif);
-            tx.PseudoOutputs[tx.NumInputs - 1] = new Key(new byte[32]);
-            KeyOps.GenCommitment(ref tx.PseudoOutputs[tx.NumInputs - 1], ref xm, utx.inputAmounts[tx.NumInputs - 1]);
-            blindingFactors[tx.NumInputs - 1] = xm;
-
             if (Type == (byte)WalletType.PRIVATE)
             {
+                Key[] blindingFactors = new Key[tx.NumInputs];
+                Key tmp = new Key(new byte[32]);
+                for (int i = 0; i < tx.NumPInputs - 1; i++)
+                {
+                    blindingFactors[i] = KeyOps.GenerateSeckey();
+                    tx.PseudoOutputs[i] = new Key(new byte[32]);
+                    KeyOps.GenCommitment(ref tx.PseudoOutputs[i], ref blindingFactors[i], utx.inputAmounts[i]);
+                }
+
+                Key dif = new Key(new byte[32]);
+                for (int k = 0; k < blindingFactors.Length; k++)
+                {
+                    KeyOps.ScalarAdd(ref tmp, ref dif, ref blindingFactors[k]);
+                    Array.Copy(tmp.bytes, dif.bytes, 32);
+                }
+
+                Key xm = new Key(new byte[32]);
+                KeyOps.ScalarSub(ref xm, ref utx.sumGammas, ref dif);
+                tx.PseudoOutputs[tx.NumInputs - 1] = new Key(new byte[32]);
+                KeyOps.GenCommitment(ref tx.PseudoOutputs[tx.NumInputs - 1], ref xm, utx.inputAmounts[tx.NumInputs - 1]);
+                blindingFactors[tx.NumInputs - 1] = xm;
+
                 for (int i = 0; i < tx.NumInputs; i++)
                 {
                     Key C_offset = tx.PseudoOutputs[i];

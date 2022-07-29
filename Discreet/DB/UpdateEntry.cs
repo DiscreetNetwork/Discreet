@@ -11,7 +11,8 @@ namespace Discreet.DB
         NULL = 0,
         ADD = 1,
         DEL = 2,
-        UNDEF = 3,
+        UPDATE = 3,
+        UNDEF = 4,
     }
 
     public enum UpdateType: int
@@ -26,14 +27,19 @@ namespace Discreet.DB
         BLOCKHEADER = 7,
         BLOCKHEIGHT = 8,
         BLOCK = 9,
+        TXINDEXER = 10,
+        OUTPUTINDEXER = 11,
+        HEIGHT = 12,
     }
 
     public class UpdateEntry
     {
-        public UpdateRule rule { get; private set; }
-        public UpdateType type { get; private set; }
+        public UpdateRule rule { get; set; }
+        public UpdateType type { get; set; }
         public byte[] key;
         public byte[] value;
+
+        public UpdateEntry() { }
 
         public UpdateEntry(byte[] k, byte[] v, UpdateRule r, UpdateType t)
         {
