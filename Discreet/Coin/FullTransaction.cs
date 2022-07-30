@@ -39,7 +39,7 @@ namespace Discreet.Coin
         public Key[] PseudoOutputs;
 
         private SHA256 _txid;
-        public SHA256 TxID { get { if (_txid == default) _txid = Hash(); return _txid; } }
+        public SHA256 TxID { get { if (_txid == default || _txid.Bytes == null) _txid = Hash(); return _txid; } }
 
         public FullTransaction() { Version = byte.MaxValue; }
 

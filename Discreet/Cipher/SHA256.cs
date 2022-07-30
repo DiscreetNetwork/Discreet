@@ -50,7 +50,7 @@ namespace Discreet.Cipher
             }
         }
 
-        public byte[] GetBytes() { return (byte[])bytes.Clone(); }
+        public byte[] GetBytes() { return bytes; }
 
         private static int sha256(byte[] dataout, byte[] datain, ulong len) => Native.Native.Instance.sha256(dataout, datain, len);
 
