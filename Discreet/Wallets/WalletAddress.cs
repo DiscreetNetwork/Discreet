@@ -817,7 +817,7 @@ namespace Discreet.Wallets
             Key r = new Key(new byte[32]);
             Key R = new Key(new byte[32]);
             KeyOps.GenerateKeypair(ref r, ref R);
-            utx.TransactionKey = R;
+            if (utx.NumPOutputs > 0) utx.TransactionKey = R;
 
             Key sum = new Key(new byte[32]);
             Key tmp = new Key(new byte[32]);

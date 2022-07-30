@@ -407,14 +407,7 @@ namespace Discreet.RPC.Endpoints
 
                         var tx = DB.DataView.GetView().GetTransaction(SHA256.FromHex(hash));
 
-                        txs.Add(tx.Version switch
-                        {
-                            0 => tx.ToCoinbase().ToReadable(),
-                            1 or 2 => tx.ToPrivate().ToReadable(),
-                            3 => tx.ToTransparent().ToReadable(),
-                            4 => tx.ToMixed().ToReadable(),
-                            _ => tx.ToReadable()
-                        });
+                        txs.Add(tx.ToReadable());
                     }
                     else if (_kind == JsonValueKind.Number)
                     {
@@ -422,14 +415,7 @@ namespace Discreet.RPC.Endpoints
 
                         var tx = DB.DataView.GetView().GetTransaction(id);
 
-                        txs.Add(tx.Version switch
-                        {
-                            0 => tx.ToCoinbase().ToReadable(),
-                            1 or 2 => tx.ToPrivate().ToReadable(),
-                            3 => tx.ToTransparent().ToReadable(),
-                            4 => tx.ToMixed().ToReadable(),
-                            _ => tx.ToReadable()
-                        });
+                        txs.Add(tx.ToReadable());
                     }
                     else
                     {
@@ -462,14 +448,7 @@ namespace Discreet.RPC.Endpoints
 
                     var tx = DB.DataView.GetView().GetTransaction(SHA256.FromHex(hash));
 
-                    return tx.Version switch
-                    {
-                        0 => tx.ToCoinbase().ToReadable(),
-                        1 or 2 => tx.ToPrivate().ToReadable(),
-                        3 => tx.ToTransparent().ToReadable(),
-                        4 => tx.ToMixed().ToReadable(),
-                        _ => tx.ToReadable()
-                    };
+                    return tx.ToReadable();
                 }
                 else if (_kind == JsonValueKind.Number)
                 {
@@ -477,14 +456,7 @@ namespace Discreet.RPC.Endpoints
 
                     var tx = DB.DataView.GetView().GetTransaction(id);
 
-                    return tx.Version switch
-                    {
-                        0 => tx.ToCoinbase().ToReadable(),
-                        1 or 2 => tx.ToPrivate().ToReadable(),
-                        3 => tx.ToTransparent().ToReadable(),
-                        4 => tx.ToMixed().ToReadable(),
-                        _ => tx.ToReadable()
-                    };
+                    return tx.ToReadable();
                 }
                 else
                 {
@@ -604,14 +576,7 @@ namespace Discreet.RPC.Endpoints
                 GetBlockchainRV _rv = new GetBlockchainRV
                 {
                     Head = (Readable.Block)db.GetBlock(db.GetChainHeight()).ToReadable(),
-                    TxPool = Daemon.TXPool.GetTXPool().GetTransactions().Select(x => x.Version switch
-                    {
-                        0 => x.ToCoinbase().ToReadable(),
-                        1 or 2 => x.ToPrivate().ToReadable(),
-                        3 => x.ToTransparent().ToReadable(),
-                        4 => x.ToMixed().ToReadable(),
-                        _ => x.ToReadable()
-                    }).ToList(),
+                    TxPool = Daemon.TXPool.GetTXPool().GetTransactions().Select(x => x.ToReadable()).ToList(),
                     Synced = _handler.State == Network.PeerState.Normal,
                     Status = "OK"
                 };
@@ -665,14 +630,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                return Daemon.TXPool.GetTXPool().GetTransactions().Select(x => x.Version switch
-                {
-                    0 => x.ToCoinbase().ToReadable(),
-                    1 or 2 => x.ToPrivate().ToReadable(),
-                    3 => x.ToTransparent().ToReadable(),
-                    4 => x.ToMixed().ToReadable(),
-                    _ => x.ToReadable()
-                }).ToList();
+                return Daemon.TXPool.GetTXPool().GetTransactions().Select(x => x.ToReadable()).ToList();
             }
             catch (Exception ex)
             {
