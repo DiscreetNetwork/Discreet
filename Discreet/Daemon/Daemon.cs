@@ -431,12 +431,12 @@ namespace Discreet.Daemon
                 {
                     Logger.Log($"Discreet.Daemon: Minting new block...");
 
-                    await Mint();
+                    Mint();
                 }
             }
         }
 
-        public async Task Mint()
+        public void Mint()
         {
             /*if (wallet.Addresses[0].Type != 0)
             {
@@ -456,19 +456,22 @@ namespace Discreet.Daemon
                 {
                     DB.ValidationCache vCache = new DB.ValidationCache(blk);
                     var vErr = vCache.Validate();
-                    if (vErr != null) throw vErr;
+                    if (vErr != null)
+                    {
+                        Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}");
+                    }
                     vCache.Flush();
                 }
                 catch (Exception e)
                 {
-                    Logger.Log(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message);
+                    Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message);
                 }
 
                 ProcessBlock(blk);
             }
             catch (Exception e)
             {
-                Logger.Log("Minting block failed: " + e.Message);
+                Logger.Error("Minting block failed: " + e.Message);
             }
         }
 

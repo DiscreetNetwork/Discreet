@@ -671,7 +671,15 @@ namespace Discreet.Network
                     }
 
                     /* accept block and propagate */
-                    vCache.Flush();
+                    try
+                    {
+                        vCache.Flush();
+                    }
+                    catch (Exception e)
+                    {
+                        Daemon.Logger.Error(e.Message + "\n" + e.StackTrace);
+                    }
+
                     Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
 
                     try
@@ -687,6 +695,10 @@ namespace Discreet.Network
 
                     /* check orphan data and process accordingly */
                     AcceptOrphans(p.Block.Header.BlockHash);
+                }
+                else
+                {
+                    Daemon.Logger.Info($"HandleSendBlock: already have block at height {p.Block.Header.Height} ({p.Block.Header.BlockHash.ToHexShort()}, prev block {p.Block.Header.PreviousBlock.ToHexShort()})");
                 }
             }
         }
@@ -746,7 +758,14 @@ namespace Discreet.Network
 
                     /* orphan data is valid; validate branch and publish changes */
                     Daemon.Logger.Info($"HandleBlocks: Root found for orphan branch beginning with block {p.Blocks[0].Header.BlockHash.ToHexShort()}");
-                    vCache.Flush();
+                    try
+                    {
+                        vCache.Flush();
+                    }
+                    catch (Exception e)
+                    {
+                        Daemon.Logger.Error(e.Message);
+                    }
 
                     /* recursively accept orphan blocks from message cache */
                     AcceptOrphans(p.Blocks[0].Header.BlockHash);
@@ -816,7 +835,14 @@ namespace Discreet.Network
                     return;
                 }
 
-                vCache.Flush();
+                try
+                {
+                    vCache.Flush();
+                }
+                catch (Exception e)
+                {
+                    Daemon.Logger.Error(e.Message);
+                }
 
                 try
                 {

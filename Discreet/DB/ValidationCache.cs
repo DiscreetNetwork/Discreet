@@ -282,7 +282,7 @@ namespace Discreet.DB
 
                     /* calculate pinAmt */
                     Cipher.Key pinAmt = new(new byte[32]);
-                    for (int j = 0; j < npsout; i++)
+                    for (int j = 0; j < npsout; j++)
                     {
                         Cipher.KeyOps.AddKeys(ref tmp, ref pinAmt, ref tx.PseudoOutputs[j]);
                         Array.Copy(tmp.bytes, pinAmt.bytes, 32);
