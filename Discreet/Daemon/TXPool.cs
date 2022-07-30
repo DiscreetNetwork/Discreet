@@ -79,6 +79,8 @@ namespace Discreet.Daemon
             spentKeys = new(new Cipher.KeyComparer());
             updateSpentKeys = new();
             orphanTxs = new();
+            newOutputs = new();
+            updateNewOutputs = new();
 
             view = DB.DataView.GetView();
 
