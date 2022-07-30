@@ -560,7 +560,7 @@ namespace Discreet.Coin
          */
         public VerifyException Verify(bool inBlock = false)
         {
-            DB.DisDB db = DB.DisDB.GetDB();
+            DB.DataView dataView = DB.DataView.GetView();
 
             /* this function is the most important one for coin logic. We must verify everything. */
             
@@ -578,6 +578,11 @@ namespace Discreet.Coin
             if (NumOutputs == 0)
             {
                 return new VerifyException("Transaction", "Transactions cannot have zero outputs");
+            }
+
+            if (!inBlock && Version == 0)
+            {
+                return new VerifyException("Transaction", "Cannot have a coinbase transaction outside of block!");
             }
 
             if (Version != 0)
@@ -705,7 +710,7 @@ namespace Discreet.Coin
                     TXOutput[] mixins;
                     try
                     {
-                        mixins = db.GetMixins(Inputs[i].Offsets);
+                        mixins = dataView.GetMixins(Inputs[i].Offsets);
                     }
                     catch (Exception e)
                     {
@@ -730,14 +735,14 @@ namespace Discreet.Coin
 
                     if (inBlock)
                     {
-                        if (!db.CheckSpentKeyBlock(Inputs[i].KeyImage))
+                        if (!dataView.CheckSpentKeyBlock(Inputs[i].KeyImage))
                         {
                             return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                         }
                     }
                     else
                     {
-                        if (!db.CheckSpentKey(Inputs[i].KeyImage))
+                        if (!dataView.CheckSpentKey(Inputs[i].KeyImage))
                         {
                             return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                         }

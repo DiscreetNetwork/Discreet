@@ -713,7 +713,7 @@ namespace Discreet.Coin
             HashSet<Transparent.TXInput> _in = new HashSet<Transparent.TXInput>(new Transparent.TXInputEqualityComparer());
             Transparent.TXOutput[] tinputValues = new Transparent.TXOutput[TInputs.Length];
 
-            var db = DB.DisDB.GetDB();
+            var dataView = DB.DataView.GetView();
             var pool = Daemon.TXPool.GetTXPool();
 
             for (int i = 0; i < NumTInputs; i++)
@@ -722,7 +722,7 @@ namespace Discreet.Coin
 
                 try
                 {
-                    tinputValues[i] = DB.DisDB.GetDB().GetPubOutput(TInputs[i]);
+                    tinputValues[i] = dataView.GetPubOutput(TInputs[i]);
                 }
                 catch (Exception e)
                 {
@@ -918,7 +918,7 @@ namespace Discreet.Coin
                 TXOutput[] mixins;
                 try
                 {
-                    mixins = db.GetMixins(PInputs[i].Offsets);
+                    mixins = dataView.GetMixins(PInputs[i].Offsets);
                 }
                 catch (Exception e)
                 {
@@ -943,14 +943,14 @@ namespace Discreet.Coin
 
                 if (inBlock)
                 {
-                    if (!db.CheckSpentKeyBlock(PInputs[i].KeyImage))
+                    if (!dataView.CheckSpentKeyBlock(PInputs[i].KeyImage))
                     {
                         return new VerifyException("MixedTransaction", $"Key image for input at index {i} ({PInputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                     }
                 }
                 else
                 {
-                    if (!db.CheckSpentKey(PInputs[i].KeyImage))
+                    if (!dataView.CheckSpentKey(PInputs[i].KeyImage))
                     {
                         return new VerifyException("MixedTransaction", $"Key image for input at index {i} ({PInputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                     }

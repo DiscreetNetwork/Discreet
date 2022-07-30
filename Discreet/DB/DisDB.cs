@@ -59,35 +59,6 @@ namespace Discreet.DB
      * Same goes for transaction metadata for now.
      * For tx_indices, we only store tx ID. 
      */
-    public class U64
-    {
-        public ulong Value;
-
-        public U64(ulong value)
-        {
-            Value = value;
-        }
-    }
-
-    public class L64
-    {
-        public long Value;
-
-        public L64(long value)
-        {
-            Value = value;
-        }
-    }
-
-    public class U32
-    {
-        public uint Value;
-
-        public U32(uint value)
-        {
-            Value = value;
-        }
-    }
 
     /**
      * New implementation of kvstore backend using RocksDbSharp
@@ -632,7 +603,8 @@ namespace Discreet.DB
 
         public bool CheckSpentKey(Cipher.Key j)
         {
-            return db.Get(j.bytes, cf: TxPoolSpentKeys) == null;
+            bool rv = db.Get(j.bytes, cf: SpentKeys) == null;
+            return rv && !Daemon.TXPool.GetTXPool().ContainsSpentKey(j);
         }
 
         public bool CheckSpentKeyBlock(Cipher.Key j)
@@ -927,7 +899,7 @@ namespace Discreet.DB
             }
         }
 
-        public ulong GetTransactionIndex()
+        public ulong GetTransactionIndexer()
         {
             lock (indexer_tx)
             {

@@ -166,17 +166,17 @@ namespace Discreet.Coin
             for (int i = 0; i < txs.Count; i++)
             {
                 block.Header.Fee += txs[i].Fee;
-                block.Header.NumOutputs += txs[i].NumOutputs;
+                block.Header.NumOutputs += txs[i].NumPOutputs;
                 block.Header.BlockSize += txs[i].Size();
             }
 
-            DB.DisDB db = DB.DisDB.GetDB();
+            DB.DataView dataView = DB.DataView.GetView();
 
-            block.Header.Height = db.GetChainHeight() + 1;
+            block.Header.Height = dataView.GetChainHeight() + 1;
 
             if (block.Header.Height > 0)
             {
-                block.Header.PreviousBlock = db.GetBlockHeader(block.Header.Height - 1).BlockHash;
+                block.Header.PreviousBlock = dataView.GetBlockHeader(block.Header.Height - 1).BlockHash;
             }
             else
             {
@@ -372,16 +372,16 @@ namespace Discreet.Coin
              * is not needed, as blocks are always processed in order.
              */
 
-            DB.DisDB db = DB.DisDB.GetDB();
+            DB.DataView dataView = DB.DataView.GetView();
 
             if (Header.Version != 1 && Header.Version != 2)
             {
                 return new VerifyException("Block", $"Unsupported version (blocks are either version 1 or 2); got version {Header.Version}");
             }
 
-            if (Header.Height != db.GetChainHeight() + 1)
+            if (Header.Height != dataView.GetChainHeight() + 1)
             {
-                return new VerifyException("Block", $"Block is not next in sequence (expected {db.GetChainHeight() + 1}, but got {Header.Height})");
+                return new VerifyException("Block", $"Block is not next in sequence (expected {dataView.GetChainHeight() + 1}, but got {Header.Height})");
             }
 
             if (Transactions == null || Transactions.Length == 0)
@@ -410,7 +410,7 @@ namespace Discreet.Coin
             }
             else
             {
-                SHA256 prevBlockHash = db.GetBlockHeader(Header.Height - 1).BlockHash;
+                SHA256 prevBlockHash = dataView.GetBlockHeader(Header.Height - 1).BlockHash;
 
                 if (!prevBlockHash.Equals(Header.PreviousBlock))
                 {
@@ -437,7 +437,7 @@ namespace Discreet.Coin
             for (int i = 0; i < Transactions.Length; i++)
             {
                 fee += Transactions[i].Fee;
-                numOutputs += Transactions[i].NumOutputs;
+                numOutputs += Transactions[i].NumPOutputs;
                 blockSize += Transactions[i].Size();
             }
 

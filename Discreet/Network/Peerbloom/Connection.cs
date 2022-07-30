@@ -210,7 +210,7 @@ namespace Discreet.Network.Peerbloom
                                 Version = Daemon.DaemonConfig.GetConfig().NetworkVersion.Value,
                                 Services = _network.handler.Services,
                                 Timestamp = DateTime.UtcNow.Ticks,
-                                Height = DB.DisDB.GetDB().GetChainHeight(),
+                                Height = DB.DataView.GetView().GetChainHeight(),
                                 Port = Daemon.DaemonConfig.GetConfig().Port.Value,
                                 Syncing = _network.handler.State == PeerState.Syncing
                             };

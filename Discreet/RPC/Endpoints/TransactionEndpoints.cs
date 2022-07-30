@@ -62,7 +62,7 @@ namespace Discreet.RPC.Endpoints
                     tx = null;
                 }
 
-                var _exc = tx.Verify();
+                var _exc = Daemon.TXPool.GetTXPool().CheckTx(tx);
                 if (_exc != null)
                 {
                     return new RPCError(-1, "raw transaction was invalid", _exc.Message);
@@ -170,7 +170,7 @@ namespace Discreet.RPC.Endpoints
 
                 if (_relay)
                 {
-                    var _exc = tx.Verify();
+                    var _exc = Daemon.TXPool.GetTXPool().CheckTx(tx);
                     if (_exc != null)
                     {
                         _rv.Error = _exc.Message;

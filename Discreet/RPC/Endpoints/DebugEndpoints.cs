@@ -138,7 +138,7 @@ namespace Discreet.RPC.Endpoints
 
                     var tx = wallet.Addresses[0].CreateTransaction(new IAddress[] { new TAddress(address) }, new ulong[] { amount }).ToFull();
 
-                    var verify = tx.Verify();
+                    var verify = Daemon.TXPool.GetTXPool().CheckTx(tx);
                     string _verify = "";
 
                     if (verify == null)

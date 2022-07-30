@@ -19,6 +19,14 @@ namespace Discreet.Coin.Transparent
         [MarshalAs(UnmanagedType.U1)]
         public byte Offset;
 
+        public TXInput() { }
+
+        public TXInput(Cipher.SHA256 txid, byte offset)
+        {
+            TxSrc = txid;
+            Offset = offset;
+        }
+
         public Cipher.SHA256 Hash(TXOutput txo)
         {
             byte[] hshdat = new byte[66];
@@ -83,13 +91,17 @@ namespace Discreet.Coin.Transparent
 
         public override bool Equals(object obj)
         {
-            if (obj is TXInput)
+            if (obj is TXInput other)
             {
-                TXInput other = (TXInput)obj;
                 return CompareTo(other) == 0;
             }
 
             return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return (int)(((uint)TxSrc.Bytes[0] << 24) | ((uint)TxSrc.Bytes[1] << 16) | ((uint)TxSrc.Bytes[2] << 8) | Offset);
         }
 
         public static bool operator ==(TXInput a, TXInput b) => a.Equals(b);

@@ -61,7 +61,7 @@ namespace Discreet.RPC.Endpoints
                 var _daemon = Network.Handler.GetHandler().daemon;
                 var _handler = Network.Handler.GetHandler();
                 var _network = Network.Peerbloom.Network.GetNetwork();
-                var _db = DB.DisDB.GetDB();
+                var dataView = DB.DataView.GetView();
                 var _txpool = Daemon.TXPool.GetTXPool();
 
                 var _up = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - _daemon.Uptime);
@@ -71,7 +71,7 @@ namespace Discreet.RPC.Endpoints
                 var _wal = _daemon.wallets.Count;
                 var _state = _handler.State;
                 var _ver = _handler.MakeVersionPacket();
-                var _head = (Readable.BlockHeader)_db.GetBlockHeader(_db.GetChainHeight()).ToReadable();
+                var _head = (Readable.BlockHeader)dataView.GetBlockHeader(dataView.GetChainHeight()).ToReadable();
                 var _tsz = _txpool.GetTransactions().Count;
                 var _blk = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - (long)_head.Timestamp);
 

@@ -22,5 +22,8 @@ namespace Discreet.Coin
 
         public static uint TRANSPARENT_MAX_NUM_INPUTS = 255;
         public static uint TRANSPARENT_MAX_NUM_OUTPUTS = 255;
+
+        public static uint PRIVATE_MAX_NUM_INPUTS = 64;
+        public static uint PRIVATE_MAX_NUM_OUTPUTS = 16;
     }
 }

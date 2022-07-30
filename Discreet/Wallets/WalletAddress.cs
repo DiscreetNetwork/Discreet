@@ -606,7 +606,7 @@ namespace Discreet.Wallets
             tx = SignTransaction(utx);
 
             // perform sanity check
-            var err = tx.Verify();
+            var err = Daemon.TXPool.GetTXPool().CheckTx(tx.ToFull());
 
             if (err != null)
             {
@@ -644,30 +644,30 @@ namespace Discreet.Wallets
         {
             MixedTransaction tx = utx.ToMixed();
 
-            Key[] blindingFactors = new Key[tx.NumInputs];
-            Key tmp = new Key(new byte[32]);
-            for (int i = 0; i < tx.NumInputs - 1; i++)
-            {
-                blindingFactors[i] = KeyOps.GenerateSeckey();
-                tx.PseudoOutputs[i] = new Key(new byte[32]);
-                KeyOps.GenCommitment(ref tx.PseudoOutputs[i], ref blindingFactors[i], utx.inputAmounts[i]);
-            }
-
-            Key dif = new Key(new byte[32]);
-            for (int k = 0; k < blindingFactors.Length; k++)
-            {
-                KeyOps.ScalarAdd(ref tmp, ref dif, ref blindingFactors[k]);
-                Array.Copy(tmp.bytes, dif.bytes, 32);
-            }
-
-            Key xm = new Key(new byte[32]);
-            KeyOps.ScalarSub(ref xm, ref utx.sumGammas, ref dif);
-            tx.PseudoOutputs[tx.NumInputs - 1] = new Key(new byte[32]);
-            KeyOps.GenCommitment(ref tx.PseudoOutputs[tx.NumInputs - 1], ref xm, utx.inputAmounts[tx.NumInputs - 1]);
-            blindingFactors[tx.NumInputs - 1] = xm;
-
             if (Type == (byte)WalletType.PRIVATE)
             {
+                Key[] blindingFactors = new Key[tx.NumInputs];
+                Key tmp = new Key(new byte[32]);
+                for (int i = 0; i < tx.NumPInputs - 1; i++)
+                {
+                    blindingFactors[i] = KeyOps.GenerateSeckey();
+                    tx.PseudoOutputs[i] = new Key(new byte[32]);
+                    KeyOps.GenCommitment(ref tx.PseudoOutputs[i], ref blindingFactors[i], utx.inputAmounts[i]);
+                }
+
+                Key dif = new Key(new byte[32]);
+                for (int k = 0; k < blindingFactors.Length; k++)
+                {
+                    KeyOps.ScalarAdd(ref tmp, ref dif, ref blindingFactors[k]);
+                    Array.Copy(tmp.bytes, dif.bytes, 32);
+                }
+
+                Key xm = new Key(new byte[32]);
+                KeyOps.ScalarSub(ref xm, ref utx.sumGammas, ref dif);
+                tx.PseudoOutputs[tx.NumInputs - 1] = new Key(new byte[32]);
+                KeyOps.GenCommitment(ref tx.PseudoOutputs[tx.NumInputs - 1], ref xm, utx.inputAmounts[tx.NumInputs - 1]);
+                blindingFactors[tx.NumInputs - 1] = xm;
+
                 for (int i = 0; i < tx.NumInputs; i++)
                 {
                     Key C_offset = tx.PseudoOutputs[i];
@@ -707,7 +707,7 @@ namespace Discreet.Wallets
 
         public (UTXO[], UnsignedTX) CreateUnsignedTransaction(IAddress[] to, ulong[] amount)
         {
-            DB.DisDB db = DB.DisDB.GetDB();
+            DB.DataView dataView = DB.DataView.GetView();
 
             UnsignedTX utx = new();
             utx.Version = 4;
@@ -747,7 +747,7 @@ namespace Discreet.Wallets
                 utx.IsCoinbase = new bool[utx.NumInputs];
                 for (int i = 0; i < utx.NumInputs; i++)
                 {
-                    (TXOutput[] anonymitySet, int l) = db.GetMixins(inputs[i].Index);
+                    (TXOutput[] anonymitySet, int l) = dataView.GetMixins(inputs[i].Index);
 
                     utx.PInputs[i] = new PTXInput();
                     utx.PInputs[i].l = l;
@@ -1171,7 +1171,7 @@ namespace Discreet.Wallets
             for (int i = 0; i < numTInputs; i++)
             {
                 //TODO: this is a quick fix, look over again during refactor
-                var _input = DB.DisDB.GetDB().GetPubOutput(tx.TInputs[i]);
+                var _input = DB.DataView.GetView().GetPubOutput(tx.TInputs[i]);
                 inputAmounts.Add(_input.Amount);
                 inputAddresses.Add(_input.Address.ToString());
             }
@@ -1288,7 +1288,7 @@ namespace Discreet.Wallets
                 throw new Exception($"Discreet.Wallets.WalletAddress.CreateTransaction: version cannot be {version}; currently supporting 1 and 2");
             }
 
-            DB.DisDB db = DB.DisDB.GetDB();
+            DB.DataView dataView = DB.DataView.GetView();
 
             /* mahjick happens now. */
             if (Encrypted) throw new Exception("Discreet.Wallets.WalletAddress.CreateTransaction: Wallet is still encrypted!");
@@ -1441,7 +1441,7 @@ namespace Discreet.Wallets
 
             for (i = 0; i < inputs.Count; i++)
             {
-                (TXOutput[] anonymitySet, int l) = db.GetMixins(inputs[i].Index);
+                (TXOutput[] anonymitySet, int l) = dataView.GetMixins(inputs[i].Index);
 
                 /* get ringsig params */
                 Key[] M = new Key[64];

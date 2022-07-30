@@ -170,7 +170,7 @@ namespace Discreet.Network
                         await HandleSendTx((SendTransactionPacket)p.Body, conn.Receiver);
                         break;
                     case PacketType.SENDBLOCK:
-                        await HandleSendBlock((SendBlockPacket)p.Body, conn.Receiver);
+                        await HandleSendBlock((SendBlockPacket)p.Body, conn);
                         break;
                     case PacketType.INVENTORY:
                         /* currently unused */
@@ -182,7 +182,7 @@ namespace Discreet.Network
                         /* currently there is no handler for this packet */
                         break;
                     case PacketType.BLOCKS:
-                        await HandleBlocks((BlocksPacket)p.Body);
+                        await HandleBlocks((BlocksPacket)p.Body, conn);
                         break;
                     case PacketType.NOTFOUND:
                         await HandleNotFound((NotFoundPacket)p.Body);
@@ -327,7 +327,7 @@ namespace Discreet.Network
                 Version = Daemon.DaemonConfig.GetConfig().NetworkVersion.Value,
                 Services = Services,
                 Timestamp = DateTime.UtcNow.Ticks,
-                Height = DB.DisDB.GetDB().GetChainHeight(),
+                Height = DB.DataView.GetView().GetChainHeight(),
                 Port = Daemon.DaemonConfig.GetConfig().Port.Value,
                 Syncing = State == PeerState.Syncing
             };
@@ -416,7 +416,7 @@ namespace Discreet.Network
 
         public async Task HandleGetBlocks(GetBlocksPacket p, IPEndPoint senderEndpoint)
         {
-            DB.DisDB db = DB.DisDB.GetDB();
+            DB.DataView dataView = DB.DataView.GetView();
 
             List<Coin.Block> blocks = new List<Coin.Block>();
 
@@ -426,11 +426,11 @@ namespace Discreet.Network
                 {
                     if (h.IsLong())
                     {
-                        blocks.Add(db.GetBlock(h.ToInt64()));
+                        blocks.Add(dataView.GetBlock(h.ToInt64()));
                     }
                     else
                     {
-                        blocks.Add(db.GetBlock(h));
+                        blocks.Add(dataView.GetBlock(h));
                     }
                 }
 
@@ -457,7 +457,7 @@ namespace Discreet.Network
 
         public async Task HandleGetTxs(GetTransactionsPacket p, IPEndPoint senderEndpoint)
         {
-            DB.DisDB db = DB.DisDB.GetDB();
+            DB.DataView dataView = DB.DataView.GetView();
 
             List<Coin.FullTransaction> txs = new List<Coin.FullTransaction>();
 
@@ -467,17 +467,17 @@ namespace Discreet.Network
                 {
                     if (h.IsLong())
                     {
-                        txs.Add(db.GetTransaction(h.ToUInt64()));
+                        txs.Add(dataView.GetTransaction(h.ToUInt64()));
                     }
                     else
                     {
                         try
                         {
-                            txs.Add(db.GetTransaction(h));
+                            txs.Add(dataView.GetTransaction(h));
                         }
                         catch
                         {
-                            txs.Add(db.GetTXFromPool(h));
+                            txs.Add(Daemon.TXPool.GetTXPool().GetTransaction(h));
                         }
                     }
                 }
@@ -533,18 +533,18 @@ namespace Discreet.Network
                 return;
             }
 
-            var txhash = p.Tx.Hash();
+            var txhash = p.Tx.TxID;
 
             /* sometimes a SendTx can occur as propagation for a recently added block */
-            if (DB.DisDB.GetDB().ContainsTransaction(txhash))
+            if (DB.DataView.GetView().ContainsTransaction(txhash))
             {
                 Daemon.Logger.Debug($"HandleSendTx: Transaction received was in a previous block");
                 return;
             }
 
-            if (!Daemon.TXPool.GetTXPool().Contains(p.Tx.Hash()) && !DB.DisDB.GetDB().TXPoolContains(p.Tx.Hash()))
+            if (!Daemon.TXPool.GetTXPool().Contains(p.Tx.Hash()))
             {
-                var err = Daemon.TXPool.GetTXPool().ProcessIncoming(p.Tx);
+                var err = Daemon.TXPool.GetTXPool().ProcessTx(p.Tx);
 
                 if (err != null)
                 {
@@ -578,7 +578,7 @@ namespace Discreet.Network
             }
         }
 
-        public async Task HandleSendBlock(SendBlockPacket p, IPEndPoint senderEndpoint)
+        public async Task HandleSendBlock(SendBlockPacket p, Peerbloom.Connection conn)
         {
             if (p.Error != null && p.Error != "")
             {
@@ -592,22 +592,19 @@ namespace Discreet.Network
                     Code = RejectionCode.MALFORMED,
                 };
 
-                Daemon.Logger.Error($"Malformed block received from peer {senderEndpoint}: {p.Error}");
+                Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {p.Error}");
 
-                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
+                Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.REJECT, resp));
                 return;
             }
 
             if (State == PeerState.Syncing)
             {
-                if (!DB.DisDB.GetDB().BlockCacheHas(p.Block.Header.BlockHash))
+                if (!DB.DataView.GetView().BlockCacheHas(p.Block.Header.BlockHash))
                 {
                     try
                     {
-                        lock (DB.DisDB.DBLock)
-                        {
-                            DB.DisDB.GetDB().AddBlockToCache(p.Block);
-                        }
+                        DB.DataView.GetView().AddBlockToCache(p.Block);
 
                         Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
                         return;
@@ -624,9 +621,9 @@ namespace Discreet.Network
                             Code = RejectionCode.INVALID,
                         };
 
-                        Daemon.Logger.Error($"Malformed block received from peer {senderEndpoint}: {e.Message}");
+                        Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {e.Message}");
 
-                        Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
+                        Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.REJECT, resp));
                         return;
                     }
                 }
@@ -642,15 +639,20 @@ namespace Discreet.Network
             }
             else
             {
-                try
+                if (!DB.DataView.GetView().BlockExists(p.Block.Header.BlockHash))
                 {
-                    DB.DisDB.GetDB().GetBlockHeight(p.Block.Header.BlockHash);
-                }
-                catch 
-                {
-                    var err = p.Block.Verify();
+                    /* create validation cache and perform check */
+                    DB.ValidationCache vCache = new DB.ValidationCache(p.Block);
+                    var err = vCache.Validate();
 
-                    if (err != null)
+                    if (err is DB.OrphanBlockException orphanErr)
+                    {
+                        Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added; querying {conn.Receiver} for previous block");
+
+                        MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
+                        Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Block.Header.PreviousBlock }, Count = 1 }));
+                    }
+                    else if (err != null)
                     {
                         RejectPacket resp = new RejectPacket
                         {
@@ -662,27 +664,15 @@ namespace Discreet.Network
                             Code = RejectionCode.INVALID,
                         };
 
-                        Daemon.Logger.Error($"Malformed block received from peer {senderEndpoint}: {err.Message}");
+                        Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {err.Message}");
 
-                        Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
+                        Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.REJECT, resp));
                         return;
                     }
 
+                    /* accept block and propagate */
+                    vCache.Flush();
                     Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
-
-                    DB.DisDB db = DB.DisDB.GetDB();
-
-                    try
-                    {
-                        lock (DB.DisDB.DBLock)
-                        {
-                            db.AddBlock(p.Block);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Daemon.Logger.Error(new Common.Exceptions.DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message);
-                    }
 
                     try
                     {
@@ -694,24 +684,24 @@ namespace Discreet.Network
                     }
 
                     OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = p.Block });
+
+                    /* check orphan data and process accordingly */
+                    AcceptOrphans(p.Block.Header.BlockHash);
                 }
             }
         }
 
-        public async Task HandleBlocks(BlocksPacket p)
+        public async Task HandleBlocks(BlocksPacket p, Peerbloom.Connection conn)
         {
             if (State == PeerState.Syncing)
             {
-                DB.DisDB db = DB.DisDB.GetDB();
+                DB.DataView dataView = DB.DataView.GetView();
 
                 foreach (var block in p.Blocks)
                 {
-                    if (!db.BlockCacheHas(block.Header.BlockHash))
+                    if (!dataView.BlockCacheHas(block.Header.BlockHash))
                     {
-                        lock (DB.DisDB.DBLock)
-                        {
-                            db.AddBlockToCache(block);
-                        }
+                        dataView.AddBlockToCache(block);
                     }
                     if (!MessageCache.GetMessageCache().BlockCache.ContainsKey(block.Header.Height))
                     {
@@ -720,6 +710,47 @@ namespace Discreet.Network
                 }
 
                 LastSeenHeight = p.Blocks.Select(x => x.Header.Height).Max();
+            }
+            else
+            {
+                /* we asked for this block due to orphan */
+                if (p.Blocks.Count() != 1)
+                {
+                    Daemon.Logger.Error("HandleBlocks: queried peer returned more than one block (not syncing; orphan block most likely)");
+                    return;
+                }
+                if (DB.DataView.GetView().BlockExists(p.Blocks[0].Header.BlockHash))
+                {
+                    Daemon.Logger.Error("HandleBlocks: queried peer returned an existing block; ignoring");
+                }
+                else
+                {
+                    Daemon.Logger.Info($"HandleBlocks: received missing block at height {p.Blocks[0].Header.Height}");
+
+                    DB.ValidationCache vCache = new DB.ValidationCache(p.Blocks[0]);
+                    var err = vCache.Validate();
+                    if (err is DB.OrphanBlockException orphanErr)
+                    {
+                        Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added; querying {conn.Receiver} for previous block");
+
+                        MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
+                        Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Blocks[0].Header.PreviousBlock }, Count = 1 }));
+                    }
+                    else if (err != null)
+                    {
+                        Daemon.Logger.Error($"HandleBlocks: Malformed or invalid block received from peer {conn.Receiver}: {err.Message} (bogus block for orphan requirement)");
+
+                        /* for now assume invalid root always has invalid leaves */
+                        TossOrphans(p.Blocks[0].Header.BlockHash);
+                    }
+
+                    /* orphan data is valid; validate branch and publish changes */
+                    Daemon.Logger.Info($"HandleBlocks: Root found for orphan branch beginning with block {p.Blocks[0].Header.BlockHash.ToHexShort()}");
+                    vCache.Flush();
+
+                    /* recursively accept orphan blocks from message cache */
+                    AcceptOrphans(p.Blocks[0].Header.BlockHash);
+                }
             }
         }
 
@@ -750,6 +781,55 @@ namespace Discreet.Network
         public void Handle(string s)
         {
             Daemon.Logger.Log(s);
+        }
+
+        /// <summary>
+        /// Removes a bad root and branch up to orphan leaf in the orphan block structure
+        /// </summary>
+        /// <param name="bHash"></param>
+        public void TossOrphans(Cipher.SHA256 bHash)
+        {
+            MessageCache mCache = MessageCache.GetMessageCache();
+            while (mCache.OrphanBlocks.ContainsKey(bHash))
+            {
+                mCache.OrphanBlocks.Remove(bHash, out var block);
+                bHash = block.Header.BlockHash;
+            }
+        }
+
+        /// <summary>
+        /// Accepts all blocks on an orphan branch, if any.
+        /// </summary>
+        /// <param name="bHash"></param>
+        public void AcceptOrphans(Cipher.SHA256 bHash)
+        {
+            MessageCache mCache = MessageCache.GetMessageCache();
+            while (mCache.OrphanBlocks.ContainsKey(bHash))
+            {
+                mCache.OrphanBlocks.Remove(bHash, out var block);
+                DB.ValidationCache vCache = new DB.ValidationCache(block);
+                var err = vCache.Validate();
+                if (err != null)
+                {
+                    Daemon.Logger.Error($"HandleBlocks: Malformed or invalid block in orphan branch {bHash.ToHexShort()} (height {block.Header.Height}): {err.Message}; tossing branch");
+                    TossOrphans(bHash);
+                    return;
+                }
+
+                vCache.Flush();
+
+                try
+                {
+                    daemon.ProcessBlock(block);
+                }
+                catch (Exception e)
+                {
+                    Daemon.Logger.Error(e.Message);
+                }
+
+                OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = block });
+                bHash = block.Header.BlockHash;
+            }
         }
     }
 }
