@@ -68,14 +68,7 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < obj.Transactions.Length; i++)
                 {
-                    Transactions.Add(obj.Transactions[i].Version switch 
-                    { 
-                        0 => new Transaction(obj.Transactions[i].ToCoinbase()),
-                        1 or 2 => new Transaction(obj.Transactions[i].ToPrivate()),
-                        3 => new Transparent.Transaction(obj.Transactions[i].ToTransparent()),
-                        4 => new MixedTransaction(obj.Transactions[i].ToMixed()),
-                        _ => new FullTransaction(obj.Transactions[i])
-                    });
+                    Transactions.Add(obj.Transactions[i]);
                 }
             }
         }
