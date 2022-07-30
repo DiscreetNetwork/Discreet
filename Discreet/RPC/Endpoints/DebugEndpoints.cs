@@ -25,6 +25,13 @@ namespace Discreet.RPC.Endpoints
 
                     var tx = wallet.Addresses[0].CreateTransaction(new StealthAddress(address), amount).Item2.ToFull();
 
+                    /* sanity check */
+                    var err = Daemon.TXPool.GetTXPool().CheckTx(tx);
+                    if (err != null)
+                    {
+                        Daemon.Logger.Error($"DbgFaucetStealth: failed to send tx: {err.Message}");
+                        return new RPCError("failed to create transaction: " + err.Message);
+                    }
                     _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDTX, new Network.Core.Packets.SendTransactionPacket { Tx = tx }));
 
                     return tx.Hash().ToHex();

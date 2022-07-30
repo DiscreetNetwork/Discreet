@@ -767,6 +767,15 @@ namespace Discreet.Network
                         Daemon.Logger.Error(e.Message);
                     }
 
+                    try
+                    {
+                        daemon.ProcessBlock(p.Blocks[0]);
+                    }
+                    catch (Exception e)
+                    {
+                        Daemon.Logger.Error(e.Message);
+                    }
+
                     /* recursively accept orphan blocks from message cache */
                     AcceptOrphans(p.Blocks[0].Header.BlockHash);
                 }
