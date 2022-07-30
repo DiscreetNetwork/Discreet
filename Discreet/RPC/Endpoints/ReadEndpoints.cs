@@ -32,7 +32,7 @@ namespace Discreet.RPC.Endpoints
 
                 GetBlockCountRV _rv = new GetBlockCountRV
                 {
-                    Height = DB.DisDB.GetDB().GetChainHeight(),
+                    Height = DB.DataView.GetView().GetChainHeight(),
                     Synced = _handler.State == Network.PeerState.Normal,
                     Untrusted = false
                 };
@@ -74,7 +74,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                return DB.DisDB.GetDB().GetBlockHeader(height).BlockHash.ToHex();
+                return DB.DataView.GetView().GetBlockHeader(height).BlockHash.ToHex();
             }
             catch (Exception ex)
             {
@@ -89,7 +89,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                return DB.DisDB.GetDB().GetBlockHeader(height).ToReadable();
+                return DB.DataView.GetView().GetBlockHeader(height).ToReadable();
             }
             catch (Exception ex)
             {
@@ -102,7 +102,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint("get_block_headers", APISet.READ)]
         public static object GetBlockHeaders(long startHeight, long endHeight)
         {
-            var db = DB.DisDB.GetDB();
+            var dataView = DB.DataView.GetView();
 
             List<Readable.BlockHeader> headers = new();
 
@@ -110,7 +110,7 @@ namespace Discreet.RPC.Endpoints
             {
                 try
                 {
-                    headers.Add((Readable.BlockHeader)db.GetBlockHeader(height).ToReadable());
+                    headers.Add((Readable.BlockHeader)dataView.GetBlockHeader(height).ToReadable());
                 }
                 catch (Exception ex)
                 {
@@ -136,13 +136,13 @@ namespace Discreet.RPC.Endpoints
 
                     if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid block hash {hash}");
 
-                    return DB.DisDB.GetDB().GetBlock(SHA256.FromHex(hash)).ToReadable();
+                    return DB.DataView.GetView().GetBlock(SHA256.FromHex(hash)).ToReadable();
                 }
                 else if (_kind == JsonValueKind.Number)
                 {
                     long height = ((JsonElement)_jsonElement).GetInt64();
 
-                    return DB.DisDB.GetDB().GetBlock(height).ToReadable();
+                    return DB.DataView.GetView().GetBlock(height).ToReadable();
                 }
                 else
                 {
@@ -162,7 +162,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                return DB.DisDB.GetDB().GetBlockHeight(SHA256.FromHex(hash));
+                return DB.DataView.GetView().GetBlockHeight(SHA256.FromHex(hash));
             }
             catch (Exception ex)
             {
@@ -191,13 +191,13 @@ namespace Discreet.RPC.Endpoints
 
                         if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid block hash {hash}");
 
-                        blocks.Add((Readable.Block)DB.DisDB.GetDB().GetBlock(SHA256.FromHex(hash)).ToReadable());
+                        blocks.Add((Readable.Block)DB.DataView.GetView().GetBlock(SHA256.FromHex(hash)).ToReadable());
                     }
                     else if (_kind == JsonValueKind.Number)
                     {
                         long height = ((JsonElement)_jsonElement).GetInt64();
 
-                        blocks.Add((Readable.Block)DB.DisDB.GetDB().GetBlock(height).ToReadable());
+                        blocks.Add((Readable.Block)DB.DataView.GetView().GetBlock(height).ToReadable());
                     }
                     else
                     {
@@ -222,7 +222,7 @@ namespace Discreet.RPC.Endpoints
 
             List<object> outputs = new();
 
-            var db = DB.DisDB.GetDB();
+            var dataView = DB.DataView.GetView();
 
             foreach (object _jsonElement in idxs)
             {
@@ -238,7 +238,7 @@ namespace Discreet.RPC.Endpoints
 
                         try
                         {
-                            var block = db.GetBlock(SHA256.FromHex(hash));
+                            var block = dataView.GetBlock(SHA256.FromHex(hash));
 
                             foreach (var _tx in block.Transactions)
                             {
@@ -267,7 +267,7 @@ namespace Discreet.RPC.Endpoints
                         }
                         catch (Exception)
                         {
-                            var tx = (Readable.FullTransaction)db.GetTransaction(SHA256.FromHex(hash)).ToReadable();
+                            var tx = (Readable.FullTransaction)dataView.GetTransaction(SHA256.FromHex(hash)).ToReadable();
 
                             if (tx.TOutputs != null)
                             {
@@ -296,7 +296,7 @@ namespace Discreet.RPC.Endpoints
                         /* could be block height, tx id, or output index */
                         try
                         {
-                            var block = db.GetBlock((long)id);
+                            var block = dataView.GetBlock((long)id);
 
                             foreach (var _tx in block.Transactions)
                             {
@@ -327,7 +327,7 @@ namespace Discreet.RPC.Endpoints
                         {
                             try
                             {
-                                var tx = (Readable.FullTransaction)db.GetTransaction(id).ToReadable();
+                                var tx = (Readable.FullTransaction)dataView.GetTransaction(id).ToReadable();
 
                                 if (tx.TOutputs != null)
                                 {
@@ -351,7 +351,7 @@ namespace Discreet.RPC.Endpoints
                             }
                             catch (Exception)
                             {
-                                outputs.Add(db.GetOutput((uint)id).ToReadable());
+                                outputs.Add(dataView.GetOutput((uint)id).ToReadable());
                             }
                         }
                     }
@@ -376,7 +376,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                return DB.DisDB.GetDB().GetOutput(index).ToReadable();
+                return DB.DataView.GetView().GetOutput(index).ToReadable();
             }
             catch (Exception ex)
             {
@@ -405,7 +405,7 @@ namespace Discreet.RPC.Endpoints
 
                         if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid transaction hash or id {hash}");
 
-                        var tx = DB.DisDB.GetDB().GetTransaction(SHA256.FromHex(hash));
+                        var tx = DB.DataView.GetView().GetTransaction(SHA256.FromHex(hash));
 
                         txs.Add(tx.Version switch
                         {
@@ -420,7 +420,7 @@ namespace Discreet.RPC.Endpoints
                     {
                         ulong id = ((JsonElement)_jsonElement).GetUInt64();
 
-                        var tx = DB.DisDB.GetDB().GetTransaction(id);
+                        var tx = DB.DataView.GetView().GetTransaction(id);
 
                         txs.Add(tx.Version switch
                         {
@@ -460,7 +460,7 @@ namespace Discreet.RPC.Endpoints
 
                     if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid transaction hash or id {hash}");
 
-                    var tx = DB.DisDB.GetDB().GetTransaction(SHA256.FromHex(hash));
+                    var tx = DB.DataView.GetView().GetTransaction(SHA256.FromHex(hash));
 
                     return tx.Version switch
                     {
@@ -475,7 +475,7 @@ namespace Discreet.RPC.Endpoints
                 {
                     ulong id = ((JsonElement)_jsonElement).GetUInt64();
 
-                    var tx = DB.DisDB.GetDB().GetTransaction(id);
+                    var tx = DB.DataView.GetView().GetTransaction(id);
 
                     return tx.Version switch
                     {
@@ -518,7 +518,7 @@ namespace Discreet.RPC.Endpoints
 
                 GetTransactionCountRV _rv = new GetTransactionCountRV
                 {
-                    TransactionCount = DB.DisDB.GetDB().GetTransactionIndexer(),
+                    TransactionCount = DB.DataView.GetView().GetTransactionIndexer(),
                     Synced = _handler.State == Network.PeerState.Normal,
                     Untrusted = false,
                     Status = "OK"
@@ -559,7 +559,7 @@ namespace Discreet.RPC.Endpoints
 
                 GetPrivateOutputCountRV _rv = new GetPrivateOutputCountRV
                 {
-                    PrivateOutputCount = DB.DisDB.GetDB().GetOutputIndex(),
+                    PrivateOutputCount = DB.DataView.GetView().GetOutputIndex(),
                     Synced = _handler.State == Network.PeerState.Normal,
                     Untrusted = false,
                     Status = "OK"
@@ -597,7 +597,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var db = DB.DisDB.GetDB();
+                var db = DB.DataView.GetView();
 
                 var _handler = Network.Handler.GetHandler();
 
@@ -637,9 +637,9 @@ namespace Discreet.RPC.Endpoints
         {
             if (num <= 0) return new RPCError($"parameter {num} is zero or negative");
 
-            var db = DB.DisDB.GetDB();
+            var dataView = DB.DataView.GetView();
 
-            var height = db.GetChainHeight();
+            var height = dataView.GetChainHeight();
 
             List<Readable.Block> blocks = new();
 
@@ -647,7 +647,7 @@ namespace Discreet.RPC.Endpoints
             {
                 try
                 {
-                    blocks.Add((Readable.Block)db.GetBlock(i).ToReadable());
+                    blocks.Add((Readable.Block)dataView.GetBlock(i).ToReadable());
                 }
                 catch (Exception ex)
                 {
@@ -695,13 +695,13 @@ namespace Discreet.RPC.Endpoints
 
                     if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid transaction hash or id {hash}");
 
-                    return Printable.Hexify(DB.DisDB.GetDB().GetTransaction(SHA256.FromHex(hash)).Serialize());
+                    return Printable.Hexify(DB.DataView.GetView().GetTransaction(SHA256.FromHex(hash)).Serialize());
                 }
                 else if (_kind == JsonValueKind.Number)
                 {
                     ulong id = ((JsonElement)_jsonElement).GetUInt64();
 
-                    return Printable.Hexify(DB.DisDB.GetDB().GetTransaction(id).Serialize());
+                    return Printable.Hexify(DB.DataView.GetView().GetTransaction(id).Serialize());
                 }
                 else
                 {

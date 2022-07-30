@@ -294,7 +294,7 @@ namespace Discreet.Coin.Transparent
             HashSet<TXInput> _in = new HashSet<TXInput>(new TXInputEqualityComparer());
             TXOutput[] inputValues = new TXOutput[Inputs.Length];
 
-            var db = DB.DisDB.GetDB();
+            var dataView = DB.DataView.GetView();
             var pool = Daemon.TXPool.GetTXPool();
 
             for (int i = 0; i < NumInputs; i++)
@@ -303,7 +303,7 @@ namespace Discreet.Coin.Transparent
 
                 try
                 {
-                    inputValues[i] = DB.DisDB.GetDB().GetPubOutput(Inputs[i]);
+                    inputValues[i] = DB.DataView.GetView().GetPubOutput(Inputs[i]);
                 }
                 catch (Exception e)
                 {

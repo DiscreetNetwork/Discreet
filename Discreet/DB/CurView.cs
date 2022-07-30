@@ -21,7 +21,7 @@ namespace Discreet.DB
 
         public void AddBlockToCache(Block blk) => archiveDB.AddBlockToCache(blk);
 
-        public void BlockCacheHas(Cipher.SHA256 block) => archiveDB.BlockCacheHas(block);
+        public bool BlockCacheHas(Cipher.SHA256 block) => archiveDB.BlockCacheHas(block);
 
         public void AddBlock(Block blk)
         {
@@ -40,6 +40,10 @@ namespace Discreet.DB
         public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input) => stateDB.GetPubOutput(_input);
     
         public void RemovePubOutput(Coin.Transparent.TXInput _input) => stateDB.RemovePubOutput(_input);
+
+        public uint[] GetOutputIndices(Cipher.SHA256 tx) => stateDB.GetOutputIndices(tx);
+
+        public TXOutput GetOutput(uint index) => stateDB.GetOutput(index);
 
         public TXOutput[] GetMixins(uint[] index) => stateDB.GetMixins(index);
 

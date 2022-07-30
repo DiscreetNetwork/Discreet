@@ -1223,7 +1223,7 @@ namespace Discreet.Coin
 
         public Key[] GetCommitments() => (POutputs == null) ? Array.Empty<Key>() : POutputs.Select(x => x.Commitment).ToArray();
 
-        public static Exception Precheck(FullTransaction tx)
+        public static Exception Precheck(FullTransaction tx, bool mustBeCoinbase = false)
         {
             var npin = (tx.PInputs == null) ? 0 : tx.PInputs.Length;
             var npout = (tx.POutputs == null) ? 0 : tx.POutputs.Length;
@@ -1244,7 +1244,8 @@ namespace Discreet.Coin
             if (ntout + npout != tx.NumOutputs) return new VerifyException("FullTransaction", $"Output mismatch: expected {tx.NumOutputs}; got {ntout + npout}");
 
             /* ensure at least 1 in, 1 out */
-            if (tx.NumInputs == 0) return new VerifyException("FullTransaction", $"Transactions must have at least one input");
+            if (!mustBeCoinbase && tx.NumInputs == 0) return new VerifyException("FullTransaction", $"Transactions must have at least one input");
+            if (mustBeCoinbase && tx.NumInputs > 0) return new VerifyException("FullTransaction", $"Coinbase transaction must not have any inputs");
             if (tx.NumOutputs == 0) return new VerifyException("FullTransaction", $"Transactions must have at least one output");
 
             /* ensure no size limit reached */
@@ -1254,14 +1255,17 @@ namespace Discreet.Coin
             if (npout >= Config.PRIVATE_MAX_NUM_OUTPUTS) return new VerifyException("FullTransaction", $"Number of private outputs exceeds maximum ({Config.PRIVATE_MAX_NUM_OUTPUTS})");
 
             /* ensure no coinbase */
-            if (tx.Version == 0) return new VerifyException("FullTransaction", $"Coinbase transaction must be in a block");
+            if (!mustBeCoinbase && tx.Version == 0) return new VerifyException("FullTransaction", $"Coinbase transaction must be in a block");
+            else if (mustBeCoinbase && tx.Version != 0) return new VerifyException("FullTransaction", $"Transaction must be coinbase");
 
             /* verify additional presence */
-            if (npout > 0 && (tx.RangeProof == null && tx.RangeProofPlus == null)) return new VerifyException("FullTransaction", $"Transaction has no range proof but has private ouputs");
-            if (npout > 0 && (tx.RangeProof != null && tx.RangeProofPlus != null)) return new VerifyException("FullTransaction", $"Transaction has private outputs and sets both range proof types");
-            if (npout == 0 && (tx.RangeProof != null || tx.RangeProofPlus != null)) return new VerifyException("FullTransaction", $"Transaction has no private outputs but has a range proof present");
+            if (npout > 0 && !mustBeCoinbase && (tx.RangeProof == null && tx.RangeProofPlus == null)) return new VerifyException("FullTransaction", $"Transaction has no range proof but has private ouputs");
+            if (npout > 0 && !mustBeCoinbase && (tx.RangeProof != null && tx.RangeProofPlus != null)) return new VerifyException("FullTransaction", $"Transaction has private outputs and sets both range proof types");
+            if (npout == 0 && !mustBeCoinbase && (tx.RangeProof != null || tx.RangeProofPlus != null)) return new VerifyException("FullTransaction", $"Transaction has no private outputs but has a range proof present");
             if (npout > 0 && (tx.TransactionKey == default || tx.TransactionKey.bytes == null)) return new VerifyException("FullTransaction", $"Transaction has private outputs but no transaction key");
             if (npout == 0 && (tx.TransactionKey != default && tx.TransactionKey.bytes != null)) return new VerifyException("FullTransaction", $"Transaction has no private outputs but has a transaction key");
+            if (mustBeCoinbase && (tx.RangeProof != null || tx.RangeProofPlus != null)) return new VerifyException("FullTransaction", $"Coinbase transaction has range proof");
+
 
             /* transparent checks */
             if (ntin > 0)

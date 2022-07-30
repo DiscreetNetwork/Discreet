@@ -30,7 +30,7 @@ namespace Discreet.DB
 
         public void AddBlockToCache(Block blk) => curView.AddBlockToCache(blk);
 
-        public void BlockCacheHas(Cipher.SHA256 block) => curView.BlockCacheHas(block);
+        public bool BlockCacheHas(Cipher.SHA256 block) => curView.BlockCacheHas(block);
 
         public void AddBlock(Block blk)
         {
@@ -49,6 +49,10 @@ namespace Discreet.DB
         public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input) => curView.GetPubOutput(_input);
 
         public void RemovePubOutput(Coin.Transparent.TXInput _input) => curView.RemovePubOutput(_input);
+
+        public uint[] GetOutputIndices(Cipher.SHA256 tx) => curView.GetOutputIndices(tx);
+
+        public TXOutput GetOutput(uint index) => curView.GetOutput(index);
 
         public TXOutput[] GetMixins(uint[] index) => curView.GetMixins(index);
 

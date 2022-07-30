@@ -41,6 +41,9 @@ namespace Discreet.DB
         private U64 indexer_tx = new U64(0);
         private L64 height = new L64(-1);
 
+        /* write locks */
+        private static object block_cache_lock = new();
+
         public bool MetaExists()
         {
             try
@@ -123,43 +126,46 @@ namespace Discreet.DB
 
         public void AddBlockToCache(Block blk)
         {
-            var result = rdb.Get(Serialization.Int64(blk.Header.Height), cf: BlockHeights);
-
-            if (result != null)
+            lock (block_cache_lock)
             {
-                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!");
-            }
+                var result = rdb.Get(Serialization.Int64(blk.Header.Height), cf: BlockHeights);
 
-            if (blk.Transactions == null || blk.Transactions.Length == 0 || blk.Header.NumTXs == 0)
-            {
-                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has no transactions!");
-            }
-
-            if ((long)blk.Header.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
-            {
-                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} from too far in the future!");
-            }
-
-            /* unfortunately, we can't check the transactions yet, since some output indices might not be present. We check a few things though. */
-            foreach (FullTransaction tx in blk.Transactions)
-            {
-                if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
+                if (result != null)
                 {
-                    throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
+                    throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!");
                 }
-            }
 
-            if (blk.GetMerkleRoot() != blk.Header.MerkleRoot)
-            {
-                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has invalid Merkle root");
-            }
+                if (blk.Transactions == null || blk.Transactions.Length == 0 || blk.Header.NumTXs == 0)
+                {
+                    throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has no transactions!");
+                }
 
-            if (!blk.CheckSignature())
-            {
-                throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has missing or invalid signature!");
-            }
+                if ((long)blk.Header.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
+                {
+                    throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} from too far in the future!");
+                }
 
-            rdb.Put(blk.Header.BlockHash.Bytes, blk.Serialize(), cf: BlockCache);
+                /* unfortunately, we can't check the transactions yet, since some output indices might not be present. We check a few things though. */
+                foreach (FullTransaction tx in blk.Transactions)
+                {
+                    if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
+                    {
+                        throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
+                    }
+                }
+
+                if (blk.GetMerkleRoot() != blk.Header.MerkleRoot)
+                {
+                    throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has invalid Merkle root");
+                }
+
+                if (!blk.CheckSignature())
+                {
+                    throw new Exception($"Discreet.ArchiveDB.AddBlock: Block {blk.Header.BlockHash.ToHexShort()} has missing or invalid signature!");
+                }
+
+                rdb.Put(blk.Header.BlockHash.Bytes, blk.Serialize(), cf: BlockCache);
+            }
         }
 
         public bool BlockCacheHas(Cipher.SHA256 block)

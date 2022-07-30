@@ -22,7 +22,7 @@ namespace Discreet.Daemon
         Network.Handler handler;
         Network.Peerbloom.Network network;
         Network.MessageCache messageCache;
-        DB.DisDB db;
+        DB.DataView dataView;
         DaemonConfig config;
 
         RPC.RPCServer _rpcServer;
@@ -48,7 +48,7 @@ namespace Discreet.Daemon
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
-            db = DB.DisDB.GetDB();
+            dataView = DB.DataView.GetView();
 
             config = DaemonConfig.GetConfig();
             
@@ -89,7 +89,7 @@ namespace Discreet.Daemon
 
             Uptime = DateTime.Now.Ticks;
 
-            if (IsMasternode && db.GetChainHeight() < 0)
+            if (IsMasternode && dataView.GetChainHeight() < 0)
             {
                 BuildGenesis();
             }
@@ -111,7 +111,7 @@ namespace Discreet.Daemon
             if (!IsMasternode)
             {
                 /* get height of chain */
-                long bestHeight = db.GetChainHeight();
+                long bestHeight = dataView.GetChainHeight();
                 IPEndPoint bestPeer = null;
 
                 foreach (var ver in messageCache.Versions)
@@ -129,7 +129,7 @@ namespace Discreet.Daemon
 
                 if (bestPeer != null)
                 {
-                    long _height = db.GetChainHeight();
+                    long _height = dataView.GetChainHeight();
                     beginningHeight = _height;
 
                     while (_height < bestHeight)
@@ -200,7 +200,8 @@ namespace Discreet.Daemon
 
                     Logger.Log($"Processing block at height {beginningHeight}...");
 
-                    var err = block.Verify();
+                    DB.ValidationCache vCache = new DB.ValidationCache(block);
+                    var err = vCache.Validate();
                     if (err != null)
                     {
                         Logger.Log($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}");
@@ -209,10 +210,7 @@ namespace Discreet.Daemon
 
                     try
                     {
-                        lock (DB.DisDB.DBLock)
-                        {
-                            db.AddBlock(block);
-                        }
+                        vCache.Flush();
                     }
                     catch (Exception e)
                     {
@@ -287,11 +285,11 @@ namespace Discreet.Daemon
             {
                 wallet.Synced = false;
 
-                var initialChainHeight = db.GetChainHeight();
+                var initialChainHeight = dataView.GetChainHeight();
 
                 while (wallet.LastSeenHeight < initialChainHeight && !_tokenSource.IsCancellationRequested)
                 {
-                    wallet.ProcessBlock(db.GetBlock(wallet.LastSeenHeight + 1));
+                    wallet.ProcessBlock(dataView.GetBlock(wallet.LastSeenHeight + 1));
                 }
 
                 while ((!queue.IsEmpty || handler.State != Network.PeerState.Normal) && !_tokenSource.IsCancellationRequested)
@@ -305,7 +303,7 @@ namespace Discreet.Daemon
                         continue;
                     }
 
-                    wallet.ProcessBlock(db.GetBlock(blockHash));
+                    wallet.ProcessBlock(dataView.GetBlock(blockHash));
                 }
             }
 
@@ -324,7 +322,7 @@ namespace Discreet.Daemon
                         return;
                     }
 
-                    wallet.ProcessBlock(db.GetBlock(blockHash));
+                    wallet.ProcessBlock(dataView.GetBlock(blockHash));
                 }
 
                 await Task.Delay(100, _tokenSource.Token);
@@ -345,11 +343,11 @@ namespace Discreet.Daemon
             address.Synced = false;
             address.Syncer = true;
 
-            var initialChainHeight = db.GetChainHeight();
+            var initialChainHeight = dataView.GetChainHeight();
 
             while (address.LastSeenHeight < initialChainHeight && address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
             {
-                address.ProcessBlock(db.GetBlock(address.LastSeenHeight + 1));
+                address.ProcessBlock(dataView.GetBlock(address.LastSeenHeight + 1));
             }
 
             if (address.LastSeenHeight == address.wallet.LastSeenHeight)
@@ -376,7 +374,7 @@ namespace Discreet.Daemon
                     continue;
                 }
 
-                address.ProcessBlock(db.GetBlock(blockHash));
+                address.ProcessBlock(dataView.GetBlock(blockHash));
             }
 
             if (address.LastSeenHeight == address.wallet.LastSeenHeight)
@@ -405,7 +403,7 @@ namespace Discreet.Daemon
                         continue;
                     }
 
-                    address.ProcessBlock(db.GetBlock(blockHash));
+                    address.ProcessBlock(dataView.GetBlock(blockHash));
                 }
 
                 await Task.Delay(100, _tokenSource.Token);
@@ -456,10 +454,10 @@ namespace Discreet.Daemon
 
                 try
                 {
-                    lock (DB.DisDB.DBLock)
-                    {
-                        db.AddBlock(blk);
-                    }
+                    DB.ValidationCache vCache = new DB.ValidationCache(blk);
+                    var vErr = vCache.Validate();
+                    if (vErr != null) throw vErr;
+                    vCache.Flush();
                 }
                 catch (Exception e)
                 {
@@ -513,20 +511,16 @@ namespace Discreet.Daemon
             Logger.Log("Creating genesis block...");
 
             var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
-            var exc = block.Verify();
+            DB.ValidationCache vCache = new DB.ValidationCache(block);
+            var exc = vCache.Validate();
             if (exc == null)
                 Logger.Log("Genesis block successfully created.");
             else
                 throw new Exception($"Could not create genesis block: {exc}");
 
-            DB.DisDB db = DB.DisDB.GetDB();
-
             try
             {
-                lock (DB.DisDB.DBLock)
-                {
-                    db.AddBlock(block);
-                }
+                vCache.Flush();
             }
             catch (Exception e)
             {

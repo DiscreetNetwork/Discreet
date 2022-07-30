@@ -36,7 +36,7 @@ namespace Discreet.Cipher
         }
     }
 
-    public struct SHA256 : Hash, IComparable
+    public struct SHA256 : Hash, IComparable, IComparable<SHA256>
     {
         [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
         private byte[] bytes;
@@ -196,6 +196,8 @@ namespace Discreet.Cipher
         {
             return BitConverter.ToInt32(bytes[0..4]);
         }
+
+        public int CompareTo(SHA256 other) => Compare(this, other);
 
         public static bool operator ==(SHA256 a, SHA256 b) => SHA256.Equals(a, b);
 

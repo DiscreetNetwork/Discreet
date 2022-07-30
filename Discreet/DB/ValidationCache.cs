@@ -114,249 +114,271 @@ namespace Discreet.DB
                 return new VerifyException("Block", "Block signature is invalid and/or does not come from a masternode");
             }
 
-            /* check orphan data */
-            if (!dataView.BlockExists(block.Header.PreviousBlock))
+            /* special rules for genesis block */
+            if (block.Header.Height == 0)
             {
-                return new OrphanBlockException("Orphan block detected", dataView.GetChainHeight(), block.Header.Height, block);
+                if (!block.Header.PreviousBlock.Equals(new Cipher.SHA256(new byte[32], false)))
+                {
+                    return new VerifyException("Block", "Block at height 0 must point to zero hash");
+                }
+
+                for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
+                {
+                    var tx = block.Transactions[i];
+
+                    if (txs.Contains(tx.TxID.ToKey())) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in block");
+                    var cExc = tx.ToPrivate().Verify();
+                    if (cExc != null) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} failed verification: {cExc.Message}");
+
+                    txs.Add(tx.TxID.ToKey());
+                }
             }
             else
             {
-                var prevHeader = dataView.GetBlockHeader(block.Header.PreviousBlock);
-                if (prevHeader.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
-                if (dataView.GetChainHeight() + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
-            }
-
-            for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
-            {
-                var tx = block.Transactions[i];
-
-                /* reject if duplicate or in main branch */
-                if (txs.Contains(tx.TxID.ToKey())) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in block");
-                if (dataView.ContainsTransaction(tx.TxID)) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in main branch");
-
-                /* transparent checks */
-                Coin.Transparent.TXOutput[] tinVals = new Coin.Transparent.TXOutput[tx.NumTInputs];
-                if (tx.NumTInputs > 0)
+                /* check orphan data */
+                if (!dataView.BlockExists(block.Header.PreviousBlock))
                 {
-                    /* check for spend in pool */
-                    HashSet<Coin.Transparent.TXInput> _in = new HashSet<Coin.Transparent.TXInput>(new Coin.Transparent.TXInputEqualityComparer());
-                    for (int j = 0; j < tx.NumTInputs; j++)
-                    {
-                        _in.Add(tx.TInputs[j]);
-
-                        if (spentPubs.ContainsKey(tx.TInputs[j])) return new VerifyException("Block", $"Transparent input at index {j} was spent in a previous transaction currently in the validation set");
-                    }
+                    return new OrphanBlockException("Orphan block detected", dataView.GetChainHeight(), block.Header.Height, block);
+                }
+                else
+                {
+                    var prevHeader = dataView.GetBlockHeader(block.Header.PreviousBlock);
+                    if (prevHeader.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
+                    if (dataView.GetChainHeight() + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
                 }
 
-                /* more transparent checks */
-                if (tx.NumTInputs > 0)
+                for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
                 {
-                    /* check orphan data */
-                    HashSet<Cipher.SHA256> missingTxs = new HashSet<Cipher.SHA256>();
-                    for (int j = 0; j < tx.NumTInputs; j++)
-                    {
-                        if (!txs.Contains(tx.TInputs[j].TxSrc.ToKey()) && !dataView.ContainsTransaction(tx.TInputs[j].TxSrc)) missingTxs.Add(tx.TInputs[j].TxSrc);
-                    }
+                    var tx = block.Transactions[i];
 
-                    /* reject if missing outputs */
-                    if (missingTxs.Count > 0)
-                    {
-                        return new VerifyException("Block", $"Transaction is missing outputs");
-                    }
+                    /* reject if duplicate or in main branch */
+                    if (txs.Contains(tx.TxID.ToKey())) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in block");
+                    if (dataView.ContainsTransaction(tx.TxID)) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in main branch");
 
-                    /* grab matching outputs for inputs */
-                    for (int j = 0; j < tx.NumTInputs; j++)
+                    /* transparent checks */
+                    Coin.Transparent.TXOutput[] tinVals = new Coin.Transparent.TXOutput[tx.NumTInputs];
+                    if (tx.NumTInputs > 0)
                     {
-                        bool res = newOutputs.TryGetValue(tx.TInputs[j], out tinVals[j]);
-                        if (!res)
+                        /* check for spend in pool */
+                        HashSet<Coin.Transparent.TXInput> _in = new HashSet<Coin.Transparent.TXInput>(new Coin.Transparent.TXInputEqualityComparer());
+                        for (int j = 0; j < tx.NumTInputs; j++)
                         {
+                            _in.Add(tx.TInputs[j]);
+
+                            if (spentPubs.ContainsKey(tx.TInputs[j])) return new VerifyException("Block", $"Transparent input at index {j} was spent in a previous transaction currently in the validation set");
+                        }
+                    }
+
+                    /* more transparent checks */
+                    if (tx.NumTInputs > 0)
+                    {
+                        /* check orphan data */
+                        HashSet<Cipher.SHA256> missingTxs = new HashSet<Cipher.SHA256>();
+                        for (int j = 0; j < tx.NumTInputs; j++)
+                        {
+                            if (!txs.Contains(tx.TInputs[j].TxSrc.ToKey()) && !dataView.ContainsTransaction(tx.TInputs[j].TxSrc)) missingTxs.Add(tx.TInputs[j].TxSrc);
+                        }
+
+                        /* reject if missing outputs */
+                        if (missingTxs.Count > 0)
+                        {
+                            return new VerifyException("Block", $"Transaction is missing outputs");
+                        }
+
+                        /* grab matching outputs for inputs */
+                        for (int j = 0; j < tx.NumTInputs; j++)
+                        {
+                            bool res = newOutputs.TryGetValue(tx.TInputs[j], out tinVals[j]);
+                            if (!res)
+                            {
+                                try
+                                {
+                                    tinVals[j] = dataView.GetPubOutput(tx.TInputs[j]);
+                                }
+                                catch
+                                {
+                                    return new VerifyException("Block", $"Transaction transparent input at index {j} has no matching output (double spend or fake)");
+                                }
+                            }
+                        }
+
+                        /* check address info */
+                        for (int j = 0; j < tx.NumTInputs; j++)
+                        {
+                            var aexc = tinVals[j].Address.Verify();
+                            if (aexc != null) return aexc;
+
+                            if (!tinVals[j].Address.CheckAddressBytes(tx.TSignatures[j].y))
+                            {
+                                return new VerifyException("FullTransaction", $"Transparent input at index {j}'s address ({tinVals[j].Address}) does not match public key in signature ({tx.TSignatures[j].y.ToHexShort()})");
+                            }
+                        }
+                    }
+
+                    /* private checks */
+                    var npsout = (tx.PseudoOutputs == null) ? 0 : tx.PseudoOutputs.Length;
+                    TXOutput[][] mixins = new TXOutput[tx.NumPInputs][];
+                    if (tx.NumPInputs > 0)
+                    {
+                        var uncheckedTags = new List<Cipher.Key>(tx.PInputs.Select(x => x.KeyImage));
+
+                        for (int j = 0; j < tx.NumPInputs; j++)
+                        {
+                            /* verify no duplicate spends in pool or main branch */
+                            if (!dataView.CheckSpentKey(tx.PInputs[j].KeyImage) || !spentKeys.Contains(tx.PInputs[j].KeyImage)) return new VerifyException("Block", $"Private input's key image ({tx.PInputs[j].KeyImage.ToHexShort()}) already spent");
+
+                            /* verify existence of all mixins */
                             try
                             {
-                                tinVals[j] = dataView.GetPubOutput(tx.TInputs[j]);
+                                mixins[j] = dataView.GetMixins(tx.PInputs[j].Offsets);
                             }
                             catch
                             {
-                                return new VerifyException("Block", $"Transaction transparent input at index {j} has no matching output (double spend or fake)");
+                                return new VerifyException("Block", $"Private input at index {j} has invalid or missing mixin data");
                             }
                         }
                     }
 
-                    /* check address info */
-                    for (int j = 0; j < tx.NumTInputs; j++)
+                    /* calculate tinAmt */
+                    ulong tinAmt = 0;
+                    foreach (Coin.Transparent.TXOutput output in tinVals)
                     {
-                        var aexc = tinVals[j].Address.Verify();
-                        if (aexc != null) return aexc;
-
-                        if (!tinVals[j].Address.CheckAddressBytes(tx.TSignatures[j].y))
-                        {
-                            return new VerifyException("FullTransaction", $"Transparent input at index {j}'s address ({tinVals[j].Address}) does not match public key in signature ({tx.TSignatures[j].y.ToHexShort()})");
-                        }
-                    }
-                }
-
-                /* private checks */
-                var npsout = (tx.PseudoOutputs == null) ? 0 : tx.PseudoOutputs.Length;
-                TXOutput[][] mixins = new TXOutput[tx.NumPInputs][];
-                if (tx.NumPInputs > 0)
-                {
-                    var uncheckedTags = new List<Cipher.Key>(tx.PInputs.Select(x => x.KeyImage));
-
-                    for (int j = 0; j < tx.NumPInputs; j++)
-                    {
-                        /* verify no duplicate spends in pool or main branch */
-                        if (!dataView.CheckSpentKey(tx.PInputs[j].KeyImage) || !spentKeys.Contains(tx.PInputs[j].KeyImage)) return new VerifyException("Block", $"Private input's key image ({tx.PInputs[j].KeyImage.ToHexShort()}) already spent");
-
-                        /* verify existence of all mixins */
                         try
                         {
-                            mixins[j] = dataView.GetMixins(tx.PInputs[j].Offsets);
+                            tinAmt = checked(tinAmt + output.Amount);
                         }
-                        catch
+                        catch (OverflowException)
                         {
-                            return new VerifyException("Block", $"Private input at index {j} has invalid or missing mixin data");
+                            return new VerifyException("Block", $"Transparent input sum resulted in overflow");
                         }
                     }
-                }
 
-                /* calculate tinAmt */
-                ulong tinAmt = 0;
-                foreach (Coin.Transparent.TXOutput output in tinVals)
-                {
+                    /* calculate toutAmt + Fee */
+                    ulong toutAmt = 0;
+                    foreach (Coin.Transparent.TXOutput output in tx.TOutputs)
+                    {
+                        try
+                        {
+                            toutAmt = checked(toutAmt + output.Amount);
+                        }
+                        catch (OverflowException)
+                        {
+                            return new VerifyException("Block", $"Transparent output sum resulted in overflow");
+                        }
+                    }
                     try
                     {
-                        tinAmt = checked(tinAmt + output.Amount);
+                        toutAmt = checked(tx.Fee + toutAmt);
                     }
                     catch (OverflowException)
                     {
-                        return new VerifyException("Block", $"Transparent input sum resulted in overflow");
+                        return new VerifyException("Block", $"Transaction fee + output sum resulted in overflow");
                     }
-                }
 
-                /* calculate toutAmt + Fee */
-                ulong toutAmt = 0;
-                foreach (Coin.Transparent.TXOutput output in tx.TOutputs)
-                {
-                    try
+                    Cipher.Key tmp = new(new byte[32]);
+
+                    /* calculate pinAmt */
+                    Cipher.Key pinAmt = new(new byte[32]);
+                    for (int j = 0; j < npsout; i++)
                     {
-                        toutAmt = checked(toutAmt + output.Amount);
+                        Cipher.KeyOps.AddKeys(ref tmp, ref pinAmt, ref tx.PseudoOutputs[j]);
+                        Array.Copy(tmp.bytes, pinAmt.bytes, 32);
                     }
-                    catch (OverflowException)
+
+                    /* calculate poutAmt */
+                    Cipher.Key poutAmt = new(new byte[32]);
+                    for (int j = 0; j < tx.NumPOutputs; j++)
                     {
-                        return new VerifyException("Block", $"Transparent output sum resulted in overflow");
+                        Cipher.KeyOps.AddKeys(ref tmp, ref poutAmt, ref tx.POutputs[j].Commitment);
+                        Array.Copy(tmp.bytes, poutAmt.bytes, 32);
                     }
-                }
-                try
-                {
-                    toutAmt = checked(tx.Fee + toutAmt);
-                }
-                catch (OverflowException)
-                {
-                    return new VerifyException("Block", $"Transaction fee + output sum resulted in overflow");
-                }
 
-                Cipher.Key tmp = new(new byte[32]);
+                    /* commit + sum tinAmt to pinAmt */
+                    Cipher.Key _Z = Cipher.Key.Copy(Cipher.Key.Z);
+                    Cipher.Key inAmt = new(new byte[32]);
+                    Cipher.KeyOps.GenCommitment(ref tmp, ref _Z, tinAmt);
+                    Cipher.KeyOps.AddKeys(ref inAmt, ref pinAmt, ref tmp);
 
-                /* calculate pinAmt */
-                Cipher.Key pinAmt = new(new byte[32]);
-                for (int j = 0; j < npsout; i++)
-                {
-                    Cipher.KeyOps.AddKeys(ref tmp, ref pinAmt, ref tx.PseudoOutputs[j]);
-                    Array.Copy(tmp.bytes, pinAmt.bytes, 32);
-                }
+                    /* commit + sum toutAmt to poutAmt */
+                    Cipher.Key outAmt = new(new byte[32]);
+                    Cipher.KeyOps.GenCommitment(ref tmp, ref _Z, toutAmt);
+                    Cipher.KeyOps.AddKeys(ref outAmt, ref poutAmt, ref tmp);
 
-                /* calculate poutAmt */
-                Cipher.Key poutAmt = new(new byte[32]);
-                for (int j = 0; j < tx.NumPOutputs; j++)
-                {
-                    Cipher.KeyOps.AddKeys(ref tmp, ref poutAmt, ref tx.POutputs[j].Commitment);
-                    Array.Copy(tmp.bytes, poutAmt.bytes, 32);
-                }
+                    /* verify sumIn = sumOut */
+                    if (!inAmt.Equals(outAmt)) return new VerifyException("Block", $"Transaction does not balance");
 
-                /* commit + sum tinAmt to pinAmt */
-                Cipher.Key _Z = Cipher.Key.Copy(Cipher.Key.Z);
-                Cipher.Key inAmt = new(new byte[32]);
-                Cipher.KeyOps.GenCommitment(ref tmp, ref _Z, tinAmt);
-                Cipher.KeyOps.AddKeys(ref inAmt, ref pinAmt, ref tmp);
+                    /* verify range proof */
+                    VerifyException bpexc;
+                    if (tx.RangeProof != null)
+                    {
+                        bpexc = tx.RangeProof.Verify(tx);
+                        if (bpexc != null) return bpexc;
+                    }
+                    else if (tx.RangeProofPlus != null)
+                    {
+                        bpexc = tx.RangeProofPlus.Verify(tx);
+                        if (bpexc != null) return bpexc;
+                    }
 
-                /* commit + sum toutAmt to poutAmt */
-                Cipher.Key outAmt = new(new byte[32]);
-                Cipher.KeyOps.GenCommitment(ref tmp, ref _Z, toutAmt);
-                Cipher.KeyOps.AddKeys(ref outAmt, ref poutAmt, ref tmp);
-
-                /* verify sumIn = sumOut */
-                if (!inAmt.Equals(outAmt)) return new VerifyException("Block", $"Transaction does not balance");
-
-                /* verify range proof */
-                VerifyException bpexc;
-                if (tx.RangeProof != null)
-                {
-                    bpexc = tx.RangeProof.Verify(tx);
-                    if (bpexc != null) return bpexc;
-                }
-                else if (tx.RangeProofPlus != null)
-                {
-                    bpexc = tx.RangeProofPlus.Verify(tx);
-                    if (bpexc != null) return bpexc;
-                }
-
-                /* verify transparent signatures */
-                for (int j = 0; j < tx.NumTInputs; j++)
-                {
-                    if (tx.TSignatures[j].IsNull()) return new VerifyException("Block", $"Unsigned transparent input at index {j}");
-
-                    byte[] data = new byte[64];
-                    Array.Copy(tx.SigningHash.Bytes, data, 32);
-                    Array.Copy(tx.TInputs[j].Hash(tinVals[j]).Bytes, 0, data, 32, 32);
-                    Cipher.SHA256 checkSig = Cipher.SHA256.HashData(data);
-
-                    if (!tx.TSignatures[j].Verify(checkSig)) return new VerifyException("Block", $"Transparent input at index {j} has invalid signature");
-                }
-
-                /* verify triptych signatures */
-                for (int j = 0; j < tx.NumPInputs; j++)
-                {
-                    if (tx.PInputs[j].Offsets.Length != 64) return new VerifyException("Block", $"Private input at index {j} has an anonymity set of size {tx.PInputs[j].Offsets.Length}; expected 64");
-
-                    Cipher.Key[] M = mixins[j].Select(x => x.UXKey).ToArray();
-                    Cipher.Key[] P = mixins[j].Select(x => x.Commitment).ToArray();
-
-                    var sigexc = tx.PSignatures[j].Verify(M, P, tx.PseudoOutputs[j], tx.SigningHash.ToKey(), tx.PInputs[j].KeyImage);
-                    if (sigexc != null) return sigexc;
-                }
-
-                /* valid; update validation structures */
-                txs.Add(tx.TxID.ToKey());
-
-                if (tx.NumTInputs > 0)
-                {
+                    /* verify transparent signatures */
                     for (int j = 0; j < tx.NumTInputs; j++)
                     {
-                        if (newOutputs.TryGetValue(tx.TInputs[j], out var txo))
+                        if (tx.TSignatures[j].IsNull()) return new VerifyException("Block", $"Unsigned transparent input at index {j}");
+
+                        byte[] data = new byte[64];
+                        Array.Copy(tx.SigningHash.Bytes, data, 32);
+                        Array.Copy(tx.TInputs[j].Hash(tinVals[j]).Bytes, 0, data, 32, 32);
+                        Cipher.SHA256 checkSig = Cipher.SHA256.HashData(data);
+
+                        if (!tx.TSignatures[j].Verify(checkSig)) return new VerifyException("Block", $"Transparent input at index {j} has invalid signature");
+                    }
+
+                    /* verify triptych signatures */
+                    for (int j = 0; j < tx.NumPInputs; j++)
+                    {
+                        if (tx.PInputs[j].Offsets.Length != 64) return new VerifyException("Block", $"Private input at index {j} has an anonymity set of size {tx.PInputs[j].Offsets.Length}; expected 64");
+
+                        Cipher.Key[] M = mixins[j].Select(x => x.UXKey).ToArray();
+                        Cipher.Key[] P = mixins[j].Select(x => x.Commitment).ToArray();
+
+                        var sigexc = tx.PSignatures[j].Verify(M, P, tx.PseudoOutputs[j], tx.SigningHash.ToKey(), tx.PInputs[j].KeyImage);
+                        if (sigexc != null) return sigexc;
+                    }
+
+                    /* valid; update validation structures */
+                    txs.Add(tx.TxID.ToKey());
+
+                    if (tx.NumTInputs > 0)
+                    {
+                        for (int j = 0; j < tx.NumTInputs; j++)
                         {
-                            newOutputs.Remove(tx.TInputs[j], out _);
-                            spentPubs[tx.TInputs[j]] = txo;
-                        }
-                        else
-                        {
-                            spentPubs[tx.TInputs[j]] = tinVals[j];
+                            if (newOutputs.TryGetValue(tx.TInputs[j], out var txo))
+                            {
+                                newOutputs.Remove(tx.TInputs[j], out _);
+                                spentPubs[tx.TInputs[j]] = txo;
+                            }
+                            else
+                            {
+                                spentPubs[tx.TInputs[j]] = tinVals[j];
+                            }
                         }
                     }
-                }
 
-                if (tx.NumTOutputs > 0)
-                {
-                    for (int j = 0; j < tx.TOutputs.Length; j++)
+                    if (tx.NumTOutputs > 0)
                     {
-                        var newOut = new Coin.Transparent.TXInput(tx.TxID, (byte)j);
-                        newOutputs[newOut] = tx.TOutputs[j];
+                        for (int j = 0; j < tx.TOutputs.Length; j++)
+                        {
+                            var newOut = new Coin.Transparent.TXInput(tx.TxID, (byte)j);
+                            newOutputs[newOut] = tx.TOutputs[j];
+                        }
                     }
-                }
 
-                if (tx.NumPInputs > 0)
-                {
-                    for (int j = 0; j < tx.PInputs.Length; j++)
+                    if (tx.NumPInputs > 0)
                     {
-                        spentKeys.Add(tx.PInputs[j].KeyImage);
+                        for (int j = 0; j < tx.PInputs.Length; j++)
+                        {
+                            spentKeys.Add(tx.PInputs[j].KeyImage);
+                        }
                     }
                 }
             }
@@ -431,6 +453,15 @@ namespace Discreet.DB
         public void Flush()
         {
             dataView.Flush(updates);
+            Daemon.TXPool.GetTXPool().UpdatePool(block.Transactions);
+        }
+
+        public static void Process(Block block)
+        {
+            ValidationCache vCache = new ValidationCache(block);
+            var exc = vCache.Validate();
+            if (exc != null) throw exc;
+            vCache.Flush();
         }
     }
 }

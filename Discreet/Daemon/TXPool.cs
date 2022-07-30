@@ -136,13 +136,13 @@ namespace Discreet.Daemon
             var memtx = new MemTx { Tx = tx, Received = DateTime.UtcNow.Ticks };
 
             /* try adding to database */
-            DB.DisDB db = DB.DisDB.GetDB();
+            //DB.DisDB db = DB.DisDB.GetDB();
             try
             {
-                lock (DB.DisDB.DBLock)
-                {
-                    db.AddTXToPool(memtx);
-                }
+                //lock (DB.DisDB.DBLock)
+                //{
+                //    db.AddTXToPool(memtx);
+                //}
             }
             catch (Exception e)
             {
@@ -159,7 +159,7 @@ namespace Discreet.Daemon
 
                 foreach (var txi in tx.TInputs)
                 {
-                    spentOutputs[txi] = db.GetPubOutput(txi);
+                    spentOutputs[txi] = DB.DataView.GetView().GetPubOutput(txi);
                     stxs.Add(txi);
                 }
 
@@ -334,7 +334,7 @@ namespace Discreet.Daemon
             var hashes = blockTxs.Select(x => x.Hash());
             hashes.ToList().ForEach(x => pool.Remove(x, out _));
 
-            DB.DisDB.GetDB().UpdateTXPool(hashes);
+            //DB.DisDB.GetDB().UpdateTXPool(hashes);
 
             // remove spent trackers based on inclusion in block
             foreach (var hash in hashes)

@@ -707,7 +707,7 @@ namespace Discreet.Wallets
 
         public (UTXO[], UnsignedTX) CreateUnsignedTransaction(IAddress[] to, ulong[] amount)
         {
-            DB.DisDB db = DB.DisDB.GetDB();
+            DB.DataView dataView = DB.DataView.GetView();
 
             UnsignedTX utx = new();
             utx.Version = 4;
@@ -747,7 +747,7 @@ namespace Discreet.Wallets
                 utx.IsCoinbase = new bool[utx.NumInputs];
                 for (int i = 0; i < utx.NumInputs; i++)
                 {
-                    (TXOutput[] anonymitySet, int l) = db.GetMixins(inputs[i].Index);
+                    (TXOutput[] anonymitySet, int l) = dataView.GetMixins(inputs[i].Index);
 
                     utx.PInputs[i] = new PTXInput();
                     utx.PInputs[i].l = l;
@@ -1171,7 +1171,7 @@ namespace Discreet.Wallets
             for (int i = 0; i < numTInputs; i++)
             {
                 //TODO: this is a quick fix, look over again during refactor
-                var _input = DB.DisDB.GetDB().GetPubOutput(tx.TInputs[i]);
+                var _input = DB.DataView.GetView().GetPubOutput(tx.TInputs[i]);
                 inputAmounts.Add(_input.Amount);
                 inputAddresses.Add(_input.Address.ToString());
             }
@@ -1288,7 +1288,7 @@ namespace Discreet.Wallets
                 throw new Exception($"Discreet.Wallets.WalletAddress.CreateTransaction: version cannot be {version}; currently supporting 1 and 2");
             }
 
-            DB.DisDB db = DB.DisDB.GetDB();
+            DB.DataView dataView = DB.DataView.GetView();
 
             /* mahjick happens now. */
             if (Encrypted) throw new Exception("Discreet.Wallets.WalletAddress.CreateTransaction: Wallet is still encrypted!");
@@ -1441,7 +1441,7 @@ namespace Discreet.Wallets
 
             for (i = 0; i < inputs.Count; i++)
             {
-                (TXOutput[] anonymitySet, int l) = db.GetMixins(inputs[i].Index);
+                (TXOutput[] anonymitySet, int l) = dataView.GetMixins(inputs[i].Index);
 
                 /* get ringsig params */
                 Key[] M = new Key[64];

@@ -11,27 +11,27 @@ namespace Discreet.Wallets
 {
     public class WalletDB
     {
-        private static WalletDB disdb;
+        private static WalletDB walletdb;
 
-        private static object disdb_lock = new object();
+        private static object walletdb_lock = new object();
 
         public static WalletDB GetDB()
         {
-            lock (disdb_lock)
+            lock (walletdb_lock)
             {
-                if (disdb == null) Initialize();
+                if (walletdb == null) Initialize();
 
-                return disdb;
+                return walletdb;
             }
         }
 
         public static void Initialize()
         {
-            lock (disdb_lock)
+            lock (walletdb_lock)
             {
-                if (disdb == null)
+                if (walletdb == null)
                 {
-                    disdb = new WalletDB(Daemon.DaemonConfig.GetConfig().WalletPath);
+                    walletdb = new WalletDB(Daemon.DaemonConfig.GetConfig().WalletPath);
                 }
             }
         }
@@ -87,7 +87,7 @@ namespace Discreet.Wallets
 
         public WalletDB(string path)
         {
-            if(File.Exists(path)) throw new Exception("Discreet.DisDB: expects a valid directory path, not a file");
+            if(File.Exists(path)) throw new Exception("Discreet.WalletDB: expects a valid directory path, not a file");
 
             if (!Directory.Exists(path))
             {
@@ -133,7 +133,7 @@ namespace Discreet.Wallets
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_owned_outputs");
+                    throw new Exception($"Discreet.WalletDB: Fatal error: could not get indexer_owned_outputs");
                 }
 
                 indexer_owned_outputs.Value = Serialization.GetUInt32(result, 0);
@@ -142,7 +142,7 @@ namespace Discreet.Wallets
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_wallet_addresses");
+                    throw new Exception($"Discreet.WalletDB: Fatal error: could not get indexer_wallet_addresses");
                 }
 
                 indexer_wallet_addresses.Value = Serialization.GetUInt32(result, 0);
@@ -151,7 +151,7 @@ namespace Discreet.Wallets
 
                 if (result == null)
                 {
-                    throw new Exception($"Discreet.DisDB: Fatal error: could not get indexer_tx_history");
+                    throw new Exception($"Discreet.WalletDB: Fatal error: could not get indexer_tx_history");
                 }
 
                 indexer_tx_history.Value = Serialization.GetUInt32(result, 0);
@@ -164,7 +164,7 @@ namespace Discreet.Wallets
         {
             if (TryGetWallet(wallet.Label) != null)
             {
-                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: wallet with label {wallet.Label} already exists");
+                throw new Exception($"Discreet.WalletDB.GetWalletOutput: database get exception: wallet with label {wallet.Label} already exists");
             }
 
             wallet.Addresses.ToList().ForEach(address => AddWalletAddress(address));
@@ -199,7 +199,7 @@ namespace Discreet.Wallets
 
             if (res == null)
             {
-                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get wallet with label {label}");
+                throw new Exception($"Discreet.WalletDB.GetWalletOutput: database get exception: could not get wallet with label {label}");
             }
 
             Wallet wallet = new Wallet();
@@ -278,7 +278,7 @@ namespace Discreet.Wallets
 
             if (res == null)
             {
-                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get wallet height with label {label}");
+                throw new Exception($"Discreet.WalletDB.GetWalletOutput: database get exception: could not get wallet height with label {label}");
             }
 
             return Serialization.GetInt64(res, 0);
@@ -290,7 +290,7 @@ namespace Discreet.Wallets
 
             if (res == null)
             {
-                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get wallet address at index {index}");
+                throw new Exception($"Discreet.WalletDB.GetWalletOutput: database get exception: could not get wallet address at index {index}");
             }
 
             WalletAddress address = new WalletAddress();
@@ -301,7 +301,7 @@ namespace Discreet.Wallets
 
         public uint GetTXOutputIndex(FullTransaction tx, int i)
         {
-            return DB.DisDB.GetDB().GetOutputIndices(tx.Hash())[i];
+            return DB.DataView.GetView().GetOutputIndices(tx.Hash())[i];
         }
 
         public (int, UTXO) AddWalletOutput(WalletAddress addr, FullTransaction tx, int i, bool transparent)
@@ -367,7 +367,7 @@ namespace Discreet.Wallets
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DisDB.GetWalletOutput: database get exception: could not get output at index {index}");
+                throw new Exception($"Discreet.WalletDB.GetWalletOutput: database get exception: could not get output at index {index}");
             }
 
             UTXO utxo = new UTXO();
@@ -398,7 +398,7 @@ namespace Discreet.Wallets
 
             if (result == null)
             {
-                throw new Exception($"Discreet.DisDB.GetTxFromHistory: database get exception: could not get tx from history at index {index}");
+                throw new Exception($"Discreet.WalletDB.GetTxFromHistory: database get exception: could not get tx from history at index {index}");
             }
 
             WalletTx tx = new WalletTx(address, result);
