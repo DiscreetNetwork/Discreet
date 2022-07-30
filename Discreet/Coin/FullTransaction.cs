@@ -1318,7 +1318,7 @@ namespace Discreet.Coin
 
             /* validate signing hash */
             if (!mustBeCoinbase && tx.SigningHash != default && tx.SigningHash.Bytes != null && tx.SigningHash != tx.GetSigningHash()) return new VerifyException("FullTransaction", $"Signing Hash {tx.SigningHash.ToHexShort()} does not match computed signing hash {tx.GetSigningHash().ToHexShort()}");
-            if (!mustBeCoinbase && tx.SigningHash == default || tx.SigningHash.Bytes == null) tx.SigningHash = tx.GetSigningHash();
+            if (!mustBeCoinbase && (tx.SigningHash == default || tx.SigningHash.Bytes == null)) tx.SigningHash = tx.GetSigningHash();
             if (mustBeCoinbase && tx.SigningHash != default && tx.SigningHash.Bytes != null) return new VerifyException("FullTransaction", $"Signing hash is not null for coinbase tx");
             return null;
         }
