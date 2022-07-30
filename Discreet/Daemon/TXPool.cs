@@ -505,15 +505,18 @@ namespace Discreet.Daemon
 
             /* calculate toutAmt + Fee */
             ulong toutAmt = 0;
-            foreach (Coin.Transparent.TXOutput output in tx.TOutputs)
+            if (ntout > 0)
             {
-                try
+                foreach (Coin.Transparent.TXOutput output in tx.TOutputs)
                 {
-                    toutAmt = checked(toutAmt + output.Amount);
-                }
-                catch (OverflowException)
-                {
-                    return new VerifyException("FullTransaction", $"Transparent output sum resulted in overflow");
+                    try
+                    {
+                        toutAmt = checked(toutAmt + output.Amount);
+                    }
+                    catch (OverflowException)
+                    {
+                        return new VerifyException("FullTransaction", $"Transparent output sum resulted in overflow");
+                    }
                 }
             }
             try

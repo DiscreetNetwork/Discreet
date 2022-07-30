@@ -255,15 +255,18 @@ namespace Discreet.DB
 
                     /* calculate toutAmt + Fee */
                     ulong toutAmt = 0;
-                    foreach (Coin.Transparent.TXOutput output in tx.TOutputs)
+                    if (tx.NumTOutputs > 0)
                     {
-                        try
+                        foreach (Coin.Transparent.TXOutput output in tx.TOutputs)
                         {
-                            toutAmt = checked(toutAmt + output.Amount);
-                        }
-                        catch (OverflowException)
-                        {
-                            return new VerifyException("Block", $"Transparent output sum resulted in overflow");
+                            try
+                            {
+                                toutAmt = checked(toutAmt + output.Amount);
+                            }
+                            catch (OverflowException)
+                            {
+                                return new VerifyException("FullTransaction", $"Transparent output sum resulted in overflow");
+                            }
                         }
                     }
                     try
@@ -272,7 +275,7 @@ namespace Discreet.DB
                     }
                     catch (OverflowException)
                     {
-                        return new VerifyException("Block", $"Transaction fee + output sum resulted in overflow");
+                        return new VerifyException("FullTransaction", $"Transaction fee + output sum resulted in overflow");
                     }
 
                     Cipher.Key tmp = new(new byte[32]);
