@@ -111,6 +111,8 @@ namespace Discreet.DB
 
                     height.Value = Serialization.GetInt64(result, 0);
                 }
+
+                folder = path;
             }
             catch (Exception ex)
             {
