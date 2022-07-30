@@ -269,7 +269,7 @@ namespace Discreet.Daemon
 
         public bool ContainsSpentKey(Cipher.Key k)
         {
-            return spentKeys.Contains(k);
+            return !spentKeys.Contains(k);
         }
 
         public List<FullTransaction> SelectAndRemove(int maxBytes)

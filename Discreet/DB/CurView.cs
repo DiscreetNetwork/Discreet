@@ -35,8 +35,6 @@ namespace Discreet.DB
 
         public bool CheckSpentKey(Cipher.Key j) => stateDB.CheckSpentKey(j);
 
-        public bool CheckSpentKeyBlock(Cipher.Key j) => stateDB.CheckSpentKeyBlock(j);
-
         public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input) => stateDB.GetPubOutput(_input);
     
         public void RemovePubOutput(Coin.Transparent.TXInput _input) => stateDB.RemovePubOutput(_input);

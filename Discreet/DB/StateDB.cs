@@ -174,12 +174,6 @@ namespace Discreet.DB
 
         public bool CheckSpentKey(Cipher.Key j)
         {
-            bool rv = rdb.Get(j.bytes, cf: SpentKeys) == null;
-            return rv && !Daemon.TXPool.GetTXPool().ContainsSpentKey(j);
-        }
-
-        public bool CheckSpentKeyBlock(Cipher.Key j)
-        {
             return rdb.Get(j.bytes, cf: SpentKeys) == null;
         }
 

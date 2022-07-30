@@ -44,8 +44,6 @@ namespace Discreet.DB
 
         public bool CheckSpentKey(Cipher.Key j) => curView.CheckSpentKey(j);
 
-        public bool CheckSpentKeyBlock(Cipher.Key j) => curView.CheckSpentKeyBlock(j);
-
         public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input) => curView.GetPubOutput(_input);
 
         public void RemovePubOutput(Coin.Transparent.TXInput _input) => curView.RemovePubOutput(_input);

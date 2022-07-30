@@ -225,7 +225,7 @@ namespace Discreet.DB
                         for (int j = 0; j < tx.NumPInputs; j++)
                         {
                             /* verify no duplicate spends in pool or main branch */
-                            if (!dataView.CheckSpentKey(tx.PInputs[j].KeyImage) || !spentKeys.Contains(tx.PInputs[j].KeyImage)) return new VerifyException("Block", $"Private input's key image ({tx.PInputs[j].KeyImage.ToHexShort()}) already spent");
+                            if (!dataView.CheckSpentKey(tx.PInputs[j].KeyImage) || spentKeys.Contains(tx.PInputs[j].KeyImage)) return new VerifyException("Block", $"Private input's key image ({tx.PInputs[j].KeyImage.ToHexShort()}) already spent");
 
                             /* verify existence of all mixins */
                             try

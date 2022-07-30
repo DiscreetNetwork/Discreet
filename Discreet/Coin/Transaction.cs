@@ -735,14 +735,14 @@ namespace Discreet.Coin
 
                     if (inBlock)
                     {
-                        if (!dataView.CheckSpentKeyBlock(Inputs[i].KeyImage))
+                        if (!dataView.CheckSpentKey(Inputs[i].KeyImage))
                         {
                             return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                         }
                     }
                     else
                     {
-                        if (!dataView.CheckSpentKey(Inputs[i].KeyImage))
+                        if (!dataView.CheckSpentKey(Inputs[i].KeyImage) || !Daemon.TXPool.GetTXPool().ContainsSpentKey(Inputs[i].KeyImage))
                         {
                             return new VerifyException("Transaction", $"Key image for input at index {i} ({Inputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                         }
