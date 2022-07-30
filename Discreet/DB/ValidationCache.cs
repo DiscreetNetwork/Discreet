@@ -127,7 +127,7 @@ namespace Discreet.DB
                     var tx = block.Transactions[i];
 
                     if (txs.Contains(tx.TxID.ToKey())) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in block");
-                    var cExc = tx.ToPrivate().Verify();
+                    var cExc = tx.ToPrivate().Verify(inBlock: true);
                     if (cExc != null) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} failed verification: {cExc.Message}");
 
                     txs.Add(tx.TxID.ToKey());
