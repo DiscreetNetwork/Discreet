@@ -950,7 +950,7 @@ namespace Discreet.Coin
                 }
                 else
                 {
-                    if (!dataView.CheckSpentKey(PInputs[i].KeyImage) || !Daemon.TXPool.GetTXPool().ContainsSpentKey(PInputs[i].KeyImage))
+                    if (!dataView.CheckSpentKey(PInputs[i].KeyImage) || Daemon.TXPool.GetTXPool().ContainsSpentKey(PInputs[i].KeyImage))
                     {
                         return new VerifyException("MixedTransaction", $"Key image for input at index {i} ({PInputs[i].KeyImage.ToHexShort()}) already spent! (double spend)");
                     }

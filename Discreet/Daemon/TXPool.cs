@@ -269,7 +269,7 @@ namespace Discreet.Daemon
 
         public bool ContainsSpentKey(Cipher.Key k)
         {
-            return !spentKeys.Contains(k);
+            return spentKeys.Contains(k);
         }
 
         public List<FullTransaction> SelectAndRemove(int maxBytes)
@@ -475,7 +475,7 @@ namespace Discreet.Daemon
                 for (int i = 0; i < npin; i++)
                 {
                     /* verify no duplicate spends in pool or main branch */
-                    if (!view.CheckSpentKey(tx.PInputs[i].KeyImage) || !ContainsSpentKey(tx.PInputs[i].KeyImage)) return new VerifyException("FullTransaction", $"Private input's key image ({tx.PInputs[i].KeyImage.ToHexShort()}) already spent");
+                    if (!view.CheckSpentKey(tx.PInputs[i].KeyImage) || ContainsSpentKey(tx.PInputs[i].KeyImage)) return new VerifyException("FullTransaction", $"Private input's key image ({tx.PInputs[i].KeyImage.ToHexShort()}) already spent");
 
                     /* verify existence of all mixins */
                     try
