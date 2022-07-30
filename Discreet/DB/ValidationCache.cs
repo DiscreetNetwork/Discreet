@@ -104,7 +104,7 @@ namespace Discreet.DB
             /* pre-check transaction data */
             for (int i = (block.Header.Version == 2) ? 1 : 0; i < block.Transactions.Length; i++)
             {
-                var precheckExc = block.Transactions[i].Precheck();
+                var precheckExc = block.Transactions[i].Precheck(mustBeCoinbase: block.Header.Height == 0);
                 if (precheckExc != null) return precheckExc;
             }
 

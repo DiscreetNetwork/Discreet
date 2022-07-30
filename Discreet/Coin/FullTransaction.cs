@@ -1323,6 +1323,6 @@ namespace Discreet.Coin
             return null;
         }
 
-        public Exception Precheck() => Precheck(this);
+        public Exception Precheck(bool mustBeCoinbase = false) => Precheck(this, mustBeCoinbase);
     }
 }
