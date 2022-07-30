@@ -606,7 +606,7 @@ namespace Discreet.Wallets
             tx = SignTransaction(utx);
 
             // perform sanity check
-            var err = tx.Verify();
+            var err = Daemon.TXPool.GetTXPool().CheckTx(tx.ToFull());
 
             if (err != null)
             {
