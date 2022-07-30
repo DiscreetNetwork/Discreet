@@ -135,6 +135,10 @@ namespace Discreet.Cipher
         /* a > b => 1, a == b => 0, a < b => -1 */
         public static int Compare(SHA256 a, SHA256 b)
         {
+            if (a.bytes == null && b.bytes == null) return 0;
+            if (a.bytes == null) return -1;
+            if (b.bytes == null) return 1;
+
             int i;
 
             for (i = 0; i < 32; i++)
@@ -173,8 +177,9 @@ namespace Discreet.Cipher
             if (b == default && bytes == null) return true;
             if (b == default) return false;
             if (bytes == null) return false;
+            if (b is SHA256 bs) return Compare(this, bs) == 0;
 
-            return Compare(this, (SHA256)b) == 0;
+            return false;
         }
 
         public static bool Equals(SHA256 a, SHA256 b)
