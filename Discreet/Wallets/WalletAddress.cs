@@ -677,7 +677,7 @@ namespace Discreet.Wallets
 
                     if (utx.IsCoinbase[i])
                     {
-                        sign_x = Key.I;
+                        sign_x = Key.Z;
                     }
                     
                     Key sign_s = new(new byte[32]);
@@ -837,7 +837,7 @@ namespace Discreet.Wallets
                         StealthAddress addr = new StealthAddress(to[i].Bytes());
                         pOutput.UXKey = KeyOps.DKSAP(ref r, addr.view, addr.spend, pOutputs.Count);
                         pOutput.Commitment = new Key(new byte[32]);
-                        Key mask = Key.I; // makes logic work
+                        Key mask = Key.Z; // makes logic work
                         KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
                         pOutput.Amount = KeyOps.GenAmountMask(ref r, ref addr.view, pOutputs.Count, amount[i]);
                         gammas.Add(mask);
@@ -1197,7 +1197,8 @@ namespace Discreet.Wallets
             for (int i = 0; i < numTInputs; i++)
             {
                 //TODO: this is a quick fix, look over again during refactor
-                var _input = DB.DataView.GetView().GetPubOutput(tx.TInputs[i]);
+
+                var _input = DB.DataView.GetView().MustGetPubOutput(tx.TInputs[i]);
                 inputAmounts.Add(_input.Amount);
                 inputAddresses.Add(_input.Address.ToString());
             }
@@ -1510,6 +1511,13 @@ namespace Discreet.Wallets
                 KeyOps.DKSAPRecover(ref sign_r, ref inputs[i].TransactionKey, ref SecViewKey, ref SecSpendKey, inputs[i].DecodeIndex);
 
                 Key sign_x = KeyOps.GenCommitmentMaskRecover(ref inputs[i].TransactionKey, ref SecViewKey, inputs[i].DecodeIndex);
+
+                // this should work
+                if (inputs[i].IsCoinbase)
+                {
+                    sign_x = Key.Z;
+                }
+
                 Key sign_s = new(new byte[32]);
                 /* s = zt = xt - x't */
                 KeyOps.ScalarSub(ref sign_s, ref sign_x, ref blindingFactors[i]);

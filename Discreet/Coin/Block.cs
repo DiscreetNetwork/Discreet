@@ -199,8 +199,8 @@ namespace Discreet.Coin
                 TXOutput minerOutput = new();
                 minerOutput.Commitment = new Key(new byte[32]);
 
-                /* the mask is always the identity for miner tx */
-                Key mask = Key.I;
+                /* the mask is always the identity (scalar identity is zero) for miner tx */
+                Key mask = Key.Z;
                 KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, block.Header.Fee);
 
                 minerOutput.UXKey = KeyOps.DKSAP(ref r, miner.view, miner.spend, 0);

@@ -87,5 +87,17 @@ namespace Discreet.DB
         public bool BlockHeightExists(long height) => curView.BlockHeightExists(height);
 
         public void Flush(IEnumerable<UpdateEntry> updates) => curView.Flush(updates);
+
+        public Coin.Transparent.TXOutput MustGetPubOutput(Coin.Transparent.TXInput input)
+        {
+            try
+            {
+                return curView.GetPubOutput(input);
+            }
+            catch
+            {
+                return curView.GetTransaction(input.TxSrc).TOutputs[input.Offset];
+            }
+        }
     }
 }
