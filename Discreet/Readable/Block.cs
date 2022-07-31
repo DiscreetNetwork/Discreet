@@ -68,7 +68,7 @@ namespace Discreet.Readable
 
                 for (int i = 0; i < obj.Transactions.Length; i++)
                 {
-                    Transactions.Add(obj.Transactions[i]);
+                    Transactions.Add(obj.Transactions[i].ToReadable());
                 }
             }
         }
