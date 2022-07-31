@@ -839,7 +839,7 @@ namespace Discreet.Wallets
                         pOutput.Commitment = new Key(new byte[32]);
                         Key mask = Key.I; // makes logic work
                         KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
-                        pOutput.Amount = KeyOps.GenAmountMask(ref r, ref addr.view, pOutputs.Count, amount[i]);
+                        pOutput.Amount = amount[i];
                         gammas.Add(mask);
                         amounts.Add(amount[i]);
                         pOutputs.Add(pOutput);

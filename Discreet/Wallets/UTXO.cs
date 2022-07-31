@@ -170,24 +170,31 @@ namespace Discreet.Wallets
             Array.Copy(KeyOps.ScalarmultKey(ref TransactionKey, ref addr.SecViewKey).bytes, cdata, 32);
             Coin.Serialization.CopyData(cdata, 32, DecodeIndex);
 
-            Key c = new Key(new byte[32]);
-            HashOps.HashToScalar(ref c, cdata, 36);
+            if (isCoinbase)
+            {
+                DecodedAmount = Amount;
+            }
+            else
+            {
+                Key c = new Key(new byte[32]);
+                HashOps.HashToScalar(ref c, cdata, 36);
 
-            byte[] gdata = new byte[38];
-            gdata[0] = (byte)'a';
-            gdata[1] = (byte)'m';
-            gdata[2] = (byte)'o';
-            gdata[3] = (byte)'u';
-            gdata[4] = (byte)'n';
-            gdata[5] = (byte)'t';
-            Array.Copy(c.bytes, 0, gdata, 6, 32);
+                byte[] gdata = new byte[38];
+                gdata[0] = (byte)'a';
+                gdata[1] = (byte)'m';
+                gdata[2] = (byte)'o';
+                gdata[3] = (byte)'u';
+                gdata[4] = (byte)'n';
+                gdata[5] = (byte)'t';
+                Array.Copy(c.bytes, 0, gdata, 6, 32);
 
-            Key g = new Key(new byte[32]);
-            HashOps.HashData(ref g, gdata, 38);
+                Key g = new Key(new byte[32]);
+                HashOps.HashData(ref g, gdata, 38);
 
-            /* DecodedAmount = g ^ Amount */
-            /* Amount stores the encrypted amount. */
-            DecodedAmount = KeyOps.XOR8(ref g, Amount);
+                /* DecodedAmount = g ^ Amount */
+                /* Amount stores the encrypted amount. */
+                DecodedAmount = KeyOps.XOR8(ref g, Amount);
+            }
 
             LinkingTag = new Key(new byte[32]);
             KeyOps.GenerateLinkingTag(ref LinkingTag, ref UXSecKey);
@@ -207,24 +214,31 @@ namespace Discreet.Wallets
             Array.Copy(KeyOps.ScalarmultKey(ref TransactionKey, ref addr.SecViewKey).bytes, cdata, 32);
             Coin.Serialization.CopyData(cdata, 32, DecodeIndex);
 
-            Key c = new Key(new byte[32]);
-            HashOps.HashToScalar(ref c, cdata, 36);
+            if (isCoinbase)
+            {
+                DecodedAmount = Amount;
+            }
+            else
+            {
+                Key c = new Key(new byte[32]);
+                HashOps.HashToScalar(ref c, cdata, 36);
 
-            byte[] gdata = new byte[38];
-            gdata[0] = (byte)'a';
-            gdata[1] = (byte)'m';
-            gdata[2] = (byte)'o';
-            gdata[3] = (byte)'u';
-            gdata[4] = (byte)'n';
-            gdata[5] = (byte)'t';
-            Array.Copy(c.bytes, 0, gdata, 6, 32);
+                byte[] gdata = new byte[38];
+                gdata[0] = (byte)'a';
+                gdata[1] = (byte)'m';
+                gdata[2] = (byte)'o';
+                gdata[3] = (byte)'u';
+                gdata[4] = (byte)'n';
+                gdata[5] = (byte)'t';
+                Array.Copy(c.bytes, 0, gdata, 6, 32);
 
-            Key g = new Key(new byte[32]);
-            HashOps.HashData(ref g, gdata, 38);
+                Key g = new Key(new byte[32]);
+                HashOps.HashData(ref g, gdata, 38);
 
-            /* DecodedAmount = g ^ Amount */
-            /* Amount stores the encrypted amount. */
-            DecodedAmount = KeyOps.XOR8(ref g, Amount);
+                /* DecodedAmount = g ^ Amount */
+                /* Amount stores the encrypted amount. */
+                DecodedAmount = KeyOps.XOR8(ref g, Amount);
+            }
 
             LinkingTag = new Key(new byte[32]);
             KeyOps.GenerateLinkingTag(ref LinkingTag, ref UXSecKey);
