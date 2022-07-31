@@ -311,18 +311,18 @@ namespace Discreet.Daemon
 
             while (!_tokenSource.IsCancellationRequested)
             {
-                while (!queue.IsEmpty && !_tokenSource.IsCancellationRequested)
-                {
-                    SHA256 blockHash;
-                    bool success = queue.TryDequeue(out blockHash);
+                long _height = dataView.GetChainHeight();
 
-                    if (!success)
+                if (_height > wallet.LastSeenHeight)
+                {
+                    wallet.Synced = false;
+
+                    for (long k = wallet.LastSeenHeight; k < _height; k++)
                     {
-                        Logger.Fatal("Discreet.Daemon.Daemon.WalletSyncer: fatal error encountered while trying to dequeue");
-                        return;
+                        wallet.ProcessBlock(dataView.GetBlock(k));
                     }
 
-                    wallet.ProcessBlock(dataView.GetBlock(blockHash));
+                    wallet.Synced = true;
                 }
 
                 await Task.Delay(100, _tokenSource.Token);
