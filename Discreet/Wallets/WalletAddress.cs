@@ -817,7 +817,7 @@ namespace Discreet.Wallets
             Key r = new Key(new byte[32]);
             Key R = new Key(new byte[32]);
             KeyOps.GenerateKeypair(ref r, ref R);
-            if (utx.NumPOutputs > 0) utx.TransactionKey = R;
+            utx.TransactionKey = R;
 
             Key sum = new Key(new byte[32]);
             Key tmp = new Key(new byte[32]);
@@ -881,6 +881,10 @@ namespace Discreet.Wallets
             {
                 Cipher.BulletproofPlus bp = Cipher.BulletproofPlus.Prove(amounts.ToArray(), gammas.ToArray());
                 utx.RangeProof = new Coin.BulletproofPlus(bp);
+            }
+            else
+            {
+                utx.TransactionKey = default;
             }
             
             utx.TOutputs = tOutputs.ToArray();

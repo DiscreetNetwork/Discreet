@@ -442,6 +442,7 @@ namespace Discreet.DB
             /* new toutputs */
             foreach ((var txi, var txo) in pubUpdates) 
             {
+                txo.TransactionSrc = txi.TxSrc;
                 updates.Add(new UpdateEntry { key = txi.Serialize(), value = txo.Serialize(), rule = UpdateRule.ADD, type = UpdateType.PUBOUTPUT });
             }
 
