@@ -463,7 +463,7 @@ namespace Discreet.Coin
                 PSignatures[i].Serialize(s);
             }
 
-            for (int i = 0; i < NumInputs; i++)
+            for (int i = 0; i < lenPInputs; i++)
             {
                 s.Write(PseudoOutputs[i].bytes);
             }
@@ -662,7 +662,7 @@ namespace Discreet.Coin
                 offset += Triptych.Size();
             }
 
-            for (int i = 0; i < NumInputs; i++)
+            for (int i = 0; i < lenPInputs; i++)
             {
                 Array.Copy(PseudoOutputs[i].bytes, 0, bytes, offset, 32);
                 offset += 32;
@@ -866,8 +866,8 @@ namespace Discreet.Coin
                 PSignatures[i].Deserialize(s);
             }
 
-            PseudoOutputs = new Key[NumInputs];
-            for (int i = 0; i < NumInputs; i++)
+            PseudoOutputs = new Key[NumPInputs];
+            for (int i = 0; i < NumPInputs; i++)
             {
                 PseudoOutputs[i] = new Key(s);
             }
@@ -1094,8 +1094,8 @@ namespace Discreet.Coin
                 offset += Triptych.Size();
             }
 
-            PseudoOutputs = new Key[NumInputs];
-            for (int i = 0; i < NumInputs; i++)
+            PseudoOutputs = new Key[NumPInputs];
+            for (int i = 0; i < NumPInputs; i++)
             {
                 PseudoOutputs[i] = new Key(bytes, offset);
                 offset += 32;
@@ -1120,7 +1120,7 @@ namespace Discreet.Coin
                                + (POutputs == null ? 0 : POutputs.Length) * 72
                                + ((RangeProofPlus == null && NumPOutputs == 0) ? 0 : RangeProofPlus.Size())
                                + Triptych.Size() * (PSignatures == null ? 0 : PSignatures.Length)
-                               + 32 * PseudoOutputs.Length),
+                               + ((NumPInputs == 0) ? 0 : 32 * PseudoOutputs.Length)),
                 _ => throw new Exception("Unknown transaction type: " + Version),
             };
         }

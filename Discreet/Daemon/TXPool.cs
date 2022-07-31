@@ -547,12 +547,14 @@ namespace Discreet.Daemon
             }
 
             /* commit + sum tinAmt to pinAmt */
-            Cipher.Key _Z = Cipher.Key.Copy(Cipher.Key.Z);
+            Cipher.Key _N = new(new byte[32]);
+            _N.bytes[0] = (byte)((ntin > 0 && npout > 0) ? npout : 0);
             Cipher.Key inAmt = new(new byte[32]);
-            Cipher.KeyOps.GenCommitment(ref tmp, ref _Z, tinAmt);
+            Cipher.KeyOps.GenCommitment(ref tmp, ref _N, tinAmt);
             Cipher.KeyOps.AddKeys(ref inAmt, ref pinAmt, ref tmp);
 
             /* commit + sum toutAmt to poutAmt */
+            Cipher.Key _Z = new(new byte[32]);
             Cipher.Key outAmt = new(new byte[32]);
             Cipher.KeyOps.GenCommitment(ref tmp, ref _Z, toutAmt);
             Cipher.KeyOps.AddKeys(ref outAmt, ref poutAmt, ref tmp);

@@ -831,20 +831,40 @@ namespace Discreet.Wallets
                 }
                 else
                 {
-                    TXOutput pOutput = new TXOutput();
-                    StealthAddress addr = new StealthAddress(to[i].Bytes());
-                    pOutput.UXKey = KeyOps.DKSAP(ref r, addr.view, addr.spend, pOutputs.Count);
-                    pOutput.Commitment = new Key(new byte[32]);
-                    Key mask = KeyOps.GenCommitmentMask(ref r, ref addr.view, pOutputs.Count);
-                    KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
-                    pOutput.Amount = KeyOps.GenAmountMask(ref r, ref addr.view, pOutputs.Count, amount[i]);
-                    gammas.Add(mask);
-                    amounts.Add(amount[i]);
-                    pOutputs.Add(pOutput);
-                    utx.NumPOutputs++;
+                    if (Type == (byte)WalletType.TRANSPARENT)
+                    {
+                        TXOutput pOutput = new TXOutput();
+                        StealthAddress addr = new StealthAddress(to[i].Bytes());
+                        pOutput.UXKey = KeyOps.DKSAP(ref r, addr.view, addr.spend, pOutputs.Count);
+                        pOutput.Commitment = new Key(new byte[32]);
+                        Key mask = Key.I; // makes logic work
+                        KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
+                        pOutput.Amount = KeyOps.GenAmountMask(ref r, ref addr.view, pOutputs.Count, amount[i]);
+                        gammas.Add(mask);
+                        amounts.Add(amount[i]);
+                        pOutputs.Add(pOutput);
+                        utx.NumPOutputs++;
 
-                    KeyOps.ScalarAdd(ref tmp, ref sum, ref mask);
-                    Array.Copy(tmp.bytes, sum.bytes, 32);
+                        KeyOps.ScalarAdd(ref tmp, ref sum, ref mask);
+                        Array.Copy(tmp.bytes, sum.bytes, 32);
+                    }
+                    else
+                    {
+                        TXOutput pOutput = new TXOutput();
+                        StealthAddress addr = new StealthAddress(to[i].Bytes());
+                        pOutput.UXKey = KeyOps.DKSAP(ref r, addr.view, addr.spend, pOutputs.Count);
+                        pOutput.Commitment = new Key(new byte[32]);
+                        Key mask = KeyOps.GenCommitmentMask(ref r, ref addr.view, pOutputs.Count);
+                        KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
+                        pOutput.Amount = KeyOps.GenAmountMask(ref r, ref addr.view, pOutputs.Count, amount[i]);
+                        gammas.Add(mask);
+                        amounts.Add(amount[i]);
+                        pOutputs.Add(pOutput);
+                        utx.NumPOutputs++;
+
+                        KeyOps.ScalarAdd(ref tmp, ref sum, ref mask);
+                        Array.Copy(tmp.bytes, sum.bytes, 32);
+                    }
                 }
             }
 
@@ -1038,6 +1058,8 @@ namespace Discreet.Wallets
             int numPOutputs = (transaction.Version == 4) ? transaction.NumPOutputs : ((transaction.Version == 3) ? 0 : transaction.NumOutputs);
             int numTOutputs = (transaction.Version == 4) ? transaction.NumTOutputs : ((transaction.Version == 3) ? transaction.NumOutputs : 0);
 
+            bool tToP = (transaction.Version == 4 && transaction.NumTInputs > 0 && transaction.NumPOutputs > 0);
+
             if (Type == (byte)AddressType.STEALTH)
             {
                 for (int i = 0; i < transaction.NumPInputs; i++)
@@ -1117,7 +1139,7 @@ namespace Discreet.Wallets
                     if (Address == address)
                     {
                         Daemon.Logger.Log("You received some Discreet!");
-                        var utxo = ProcessOutput(transaction, i, true);
+                        var utxo = ProcessOutput(transaction, i, true, isCoinbase: tToP);
                         changed = true;
                     }
                 }
@@ -1248,14 +1270,14 @@ namespace Discreet.Wallets
             AddTransactionToHistory(wtx);
         }
 
-        private UTXO ProcessOutput(FullTransaction transaction, int i, bool transparent)
+        private UTXO ProcessOutput(FullTransaction transaction, int i, bool transparent, bool isCoinbase = false)
         {
             WalletDB db = WalletDB.GetDB();
             UTXO utxo = null;
 
             lock (WalletDB.DBLock)
             {
-                (int index, utxo) = db.AddWalletOutput(this, transaction, i, transparent);
+                (int index, utxo) = db.AddWalletOutput(this, transaction, i, transparent, isCoinbase);
                 utxo.OwnedIndex = index;
                 UTXOs.Add(utxo);
                 if (transparent)
