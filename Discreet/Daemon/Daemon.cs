@@ -319,7 +319,7 @@ namespace Discreet.Daemon
 
                     for (long k = wallet.LastSeenHeight; k < _height; k++)
                     {
-                        wallet.ProcessBlock(dataView.GetBlock(k));
+                        wallet.ProcessBlock(dataView.GetBlock(k + 1));
                     }
 
                     wallet.Synced = true;
