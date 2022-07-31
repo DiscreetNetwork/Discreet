@@ -310,13 +310,13 @@ namespace Discreet.Wallets
                     /* DecodedAmount = g ^ Amount */
                     /* Amount stores the encrypted amount. */
                     DecodedAmount = KeyOps.XOR8(ref g, Amount);
+                }
 
-                    KeyOps.DKSAPRecover(ref UXSecKey, ref TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, DecodeIndex);
+                KeyOps.DKSAPRecover(ref UXSecKey, ref TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, DecodeIndex);
 
-                    if (LinkingTag == Key.Z || LinkingTag == default)
-                    {
-                        KeyOps.GenerateLinkingTag(ref LinkingTag, ref UXSecKey);
-                    }
+                if (LinkingTag == Key.Z || LinkingTag == default)
+                {
+                    KeyOps.GenerateLinkingTag(ref LinkingTag, ref UXSecKey);
                 }
             }
             else if (Type == UTXOType.TRANSPARENT)
