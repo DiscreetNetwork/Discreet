@@ -677,7 +677,7 @@ namespace Discreet.Wallets
 
                     if (utx.IsCoinbase[i])
                     {
-                        sign_x = Key.Z;
+                        sign_x = Key.I;
                     }
                     
                     Key sign_s = new(new byte[32]);
@@ -837,7 +837,7 @@ namespace Discreet.Wallets
                         StealthAddress addr = new StealthAddress(to[i].Bytes());
                         pOutput.UXKey = KeyOps.DKSAP(ref r, addr.view, addr.spend, pOutputs.Count);
                         pOutput.Commitment = new Key(new byte[32]);
-                        Key mask = Key.Z; // makes logic work
+                        Key mask = Key.I; // makes logic work
                         KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
                         pOutput.Amount = KeyOps.GenAmountMask(ref r, ref addr.view, pOutputs.Count, amount[i]);
                         gammas.Add(mask);
@@ -1117,7 +1117,7 @@ namespace Discreet.Wallets
                     if (KeyOps.CheckForBalance(ref cscalar, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
                     {
                         Daemon.Logger.Log($"You received some Discreet!");
-                        var utxo = ProcessOutput(transaction, i, false);
+                        var utxo = ProcessOutput(transaction, i, false, isCoinbase: tToP);
                         changed = true;
 
                         if (unspents == null)
@@ -1139,7 +1139,7 @@ namespace Discreet.Wallets
                     if (Address == address)
                     {
                         Daemon.Logger.Log("You received some Discreet!");
-                        var utxo = ProcessOutput(transaction, i, true, isCoinbase: tToP);
+                        var utxo = ProcessOutput(transaction, i, true);
                         changed = true;
                     }
                 }
@@ -1515,7 +1515,7 @@ namespace Discreet.Wallets
                 // this should work
                 if (inputs[i].IsCoinbase)
                 {
-                    sign_x = Key.Z;
+                    sign_x = Key.I;
                 }
 
                 Key sign_s = new(new byte[32]);
