@@ -640,6 +640,46 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
+        [RPCEndpoint("get_pub_output", APISet.READ)]
+        public static object GetPubOutputs(Coin.Transparent.TXInput input)
+        {
+            if (input == null) return new RPCError(-1, $"No arguments given", Array.Empty<object>());
+
+            try
+            {
+                return (Readable.Transparent.TXOutput)DB.DataView.GetView().MustGetPubOutput(input).ToReadable();
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to GetPubOutput failed: {ex.Message}");
+
+                return new RPCError("Could not get pub output");
+            }
+        }
+
+        [RPCEndpoint("get_pub_outputs", APISet.READ)]
+        public static object GetPubOutputs(Coin.Transparent.TXInput[] inputs)
+        {
+            if (inputs == null) return new RPCError(-1, $"No arguments given", Array.Empty<object>());
+
+            try
+            {
+                List<Readable.Transparent.TXOutput> outputs = new();
+                foreach (var input in inputs)
+                {
+                    outputs.Add((Readable.Transparent.TXOutput)DB.DataView.GetView().MustGetPubOutput(input).ToReadable());
+                }
+
+                return outputs;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to GetPubOutputs failed: {ex.Message}");
+
+                return new RPCError("Could not get pub outputs");
+            }
+        }
+
         [RPCEndpoint("get_raw_transaction", APISet.READ)]
         public static object GetRawTransaction(object _jsonElement)
         {

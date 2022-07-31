@@ -27,6 +27,13 @@ namespace Discreet.Coin.Transparent
             Offset = offset;
         }
 
+        public TXInput(byte[] data)
+        {
+            if (data == null || data.Length != 33) throw new ArgumentException("data");
+            TxSrc = new Cipher.SHA256(data[0..32], false);
+            Offset = data[32];
+        }
+
         public Cipher.SHA256 Hash(TXOutput txo)
         {
             byte[] hshdat = new byte[66];
@@ -82,6 +89,11 @@ namespace Discreet.Coin.Transparent
         public override string ToString()
         {
             return $"({Offset}){TxSrc.ToHexShort()}";
+        }
+
+        public string ToReadable()
+        {
+            return Common.Printable.Hexify(Serialize());
         }
 
         public int CompareTo(TXInput other)

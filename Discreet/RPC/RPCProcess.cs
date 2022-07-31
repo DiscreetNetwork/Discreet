@@ -58,6 +58,7 @@ namespace Discreet.RPC
                     new TAddressConverter(),
                     new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
                     new StringConverter(),
+                    new TXInputConverter(),
                 }).ForEach(x => defaultOptions.Converters.Add(x));
             }
         }
