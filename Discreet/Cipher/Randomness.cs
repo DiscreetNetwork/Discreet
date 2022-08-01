@@ -8,18 +8,13 @@ namespace Discreet.Cipher
 {
     public static class Randomness
     {
-        private static RNGCryptoServiceProvider csp;
-
-        static Randomness()
-        {
-            csp = new RNGCryptoServiceProvider();
-        }
+        public static void Random([In, Out] byte[] data, uint len) => Native.Native.Instance.generate_random_bytes_thread_safe(data, len);
 
         public static byte[] Random(uint len)
         {
             byte[] bytes = new byte[len];
 
-            csp.GetBytes(bytes);
+            Random(bytes, len);
 
             return bytes;
         }
