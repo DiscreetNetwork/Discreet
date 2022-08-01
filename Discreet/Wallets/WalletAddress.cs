@@ -528,31 +528,19 @@ namespace Discreet.Wallets
 
         public byte GetTransactionType(IAddress[] to)
         {
-            Config.TransactionVersions ver = (Type == 0) ? Config.TransactionVersions.BP_PLUS : Config.TransactionVersions.TRANSPARENT;
+            Config.TransactionVersions ver = ((WalletType)Type == WalletType.PRIVATE) ? Config.TransactionVersions.BP_PLUS : Config.TransactionVersions.TRANSPARENT;
 
-            foreach (IAddress addr in to)
+            byte ptype = to[0].Type();
+
+            for (int i = 1; i < to.Length; i++)
             {
-                if (addr.Type() == (byte)AddressType.STEALTH)
+                if (ptype != to[i].Type())
                 {
-                    if (ver == Config.TransactionVersions.TRANSPARENT)
-                    {
-                        ver = Config.TransactionVersions.MIXED;
-                        break;
-                    }
-
-                    ver = Config.TransactionVersions.BP_PLUS;
-                }
-                else if (addr.Type() == (byte)AddressType.TRANSPARENT)
-                {
-                    if (ver != Config.TransactionVersions.TRANSPARENT)
-                    {
-                        ver = Config.TransactionVersions.MIXED;
-                        break;
-                    }
-
-                    ver = Config.TransactionVersions.TRANSPARENT;
+                    return (byte)Config.TransactionVersions.MIXED;
                 }
             }
+
+            if (Type != ptype) return (byte)Config.TransactionVersions.MIXED;
 
             return (byte)ver;
         }
