@@ -579,11 +579,11 @@ namespace Discreet.Wallets
                 case 2:
                     (utxos, var _txP) = CreateTransaction(GetStealthAddresses(to), amount);
                     tx = new MixedTransaction(_txP);
-                    break;
+                    return tx;
                 case 3:
                     (utxos, var _txT) = CreateTransaction(GetTAddresses(to), amount);
                     tx = new MixedTransaction(_txT);
-                    break;
+                    return tx;
                 case 4:
                     break;
                 default:
