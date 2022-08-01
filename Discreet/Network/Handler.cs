@@ -651,6 +651,7 @@ namespace Discreet.Network
 
                         MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
                         Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Block.Header.PreviousBlock }, Count = 1 }));
+                        return;
                     }
                     else if (err != null)
                     {
@@ -678,6 +679,7 @@ namespace Discreet.Network
                     catch (Exception e)
                     {
                         Daemon.Logger.Error(e.Message + "\n" + e.StackTrace);
+                        return;
                     }
 
                     Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
@@ -689,6 +691,7 @@ namespace Discreet.Network
                     catch (Exception e)
                     {
                         Daemon.Logger.Error(e.Message);
+                        return;
                     }
 
                     OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = p.Block });
@@ -747,6 +750,7 @@ namespace Discreet.Network
 
                         MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
                         Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Blocks[0].Header.PreviousBlock }, Count = 1 }));
+                        return;
                     }
                     else if (err != null)
                     {
@@ -754,6 +758,7 @@ namespace Discreet.Network
 
                         /* for now assume invalid root always has invalid leaves */
                         TossOrphans(p.Blocks[0].Header.BlockHash);
+                        return;
                     }
 
                     /* orphan data is valid; validate branch and publish changes */
@@ -765,6 +770,7 @@ namespace Discreet.Network
                     catch (Exception e)
                     {
                         Daemon.Logger.Error(e.Message);
+                        return;
                     }
 
                     try
@@ -774,6 +780,7 @@ namespace Discreet.Network
                     catch (Exception e)
                     {
                         Daemon.Logger.Error(e.Message);
+                        return;
                     }
 
                     /* recursively accept orphan blocks from message cache */
