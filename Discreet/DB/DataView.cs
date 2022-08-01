@@ -96,7 +96,8 @@ namespace Discreet.DB
             }
             catch
             {
-                return curView.GetTransaction(input.TxSrc).TOutputs[input.Offset];
+                var tx = curView.GetTransaction(input.TxSrc);
+                return tx.TOutputs[input.Offset];
             }
         }
     }

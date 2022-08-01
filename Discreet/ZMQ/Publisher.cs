@@ -21,7 +21,7 @@ namespace Discreet.ZMQ
 
         private Publisher() { }
 
-        public void Start(int port)
+        public async Task Start(int port)
         {
             _cancellationTokenSource = new CancellationTokenSource();
 
@@ -30,7 +30,7 @@ namespace Discreet.ZMQ
 
             while(!_cancellationTokenSource.IsCancellationRequested)
             {
-                if (!_messageQueue.TryDequeue(out var message)) continue;
+                if (!_messageQueue.TryDequeue(out var message)) { await Task.Delay(10, _cancellationTokenSource.Token); continue; }
 
                 try
                 {
