@@ -641,7 +641,7 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_pub_output", APISet.READ)]
-        public static object GetPubOutputs(Coin.Transparent.TXInput input)
+        public static object GetPubOutput(Coin.Transparent.TXInput input)
         {
             if (input == null) return new RPCError(-1, $"No arguments given", Array.Empty<object>());
 
