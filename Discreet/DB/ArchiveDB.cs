@@ -106,6 +106,8 @@ namespace Discreet.DB
                         throw new Exception($"ArchiveDB: Fatal error: could not get indexer_tx");
                     }
 
+                    indexer_tx.Value = Serialization.GetUInt64(result, 0);
+
                     result = rdb.Get(Encoding.ASCII.GetBytes("height"), cf: Meta);
 
                     if (result == null)
