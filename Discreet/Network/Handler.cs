@@ -404,6 +404,9 @@ namespace Discreet.Network
 
             if (p.Counter < 0) return; // something has gone wrong if this is true.
 
+            // set our reflected address
+            if (_network.ReflectedAddress == null) _network.ReflectedAddress = p.ReflectedEndpoint.Address;
+
             p.ReflectedEndpoint = conn.Receiver;
             p.Counter++;
 
