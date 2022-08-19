@@ -178,5 +178,71 @@ namespace Discreet.RPC.Endpoints
                 return new RPCError($"Could not fulfill faucet request");
             }
         }
+
+        public class PeerObject
+        {
+            public System.Net.IPEndPoint Endpoint { get; set; }
+            public System.Net.IPEndPoint Source { get; set; }
+            public long LastSeen { get; set; }
+            public long FirstSeen { get; set; }
+
+            public bool InTried { get; set; }
+
+            public int NumFailedConnectionAttempts { get; set; }
+
+            public long LastSuccess { get; set; }
+            public long LastAttempt { get; set; }
+
+            // how many times this occurs in the NEW set
+            public int RefCount { get; set; }
+
+            public PeerObject(Network.Peerbloom.Peer p)
+            {
+                Endpoint = p.Endpoint;
+                Source = p.Source;
+                LastSeen = p.LastSeen;
+                FirstSeen = p.FirstSeen;
+                LastAttempt = p.LastAttempt;
+                RefCount = p.RefCount;
+                LastSuccess = p.LastSuccess;
+                LastAttempt = p.LastAttempt;
+                NumFailedConnectionAttempts = p.NumFailedConnectionAttempts;
+                InTried = p.InTried;
+            }
+        }
+
+        public class GetPeerlistRV
+        {
+            public int NumNew { get; set; }
+            public int NumTried { get; set; }
+
+            public List<PeerObject> Peers { get; set; }
+        }
+
+        [RPCEndpoint("dbg_get_peerlist")]
+        public static object DbgGetPeerlist(string path)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(path))
+                {
+                    var _network = Network.Peerbloom.Network.GetNetwork();
+                    var _peers = _network.peerlist;
+
+                    return new GetPeerlistRV { NumNew = _peers.NumNew, NumTried = _peers.NumTried, Peers = _peers.GetPeers().Select(p => new PeerObject(p)).ToList() };
+                }
+                else
+                {
+                    var _peers = new Network.Peerbloom.Peerlist(path);
+                    return new GetPeerlistRV { NumNew = _peers.NumNew, NumTried = _peers.NumTried, Peers = _peers.GetPeers().Select(p => new PeerObject(p)).ToList() };
+                }
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to DbgGetPeerlist failed: {ex}");
+
+                return new RPCError($"Could not fulfill request");
+            }
+        }
     }
 }

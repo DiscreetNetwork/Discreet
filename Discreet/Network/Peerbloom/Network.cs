@@ -401,6 +401,8 @@ namespace Discreet.Network.Peerbloom
 
                 List<Peer> checkedPeers = new List<Peer>();
                 Peer peer;
+                int timeoutLength = 5000;
+                int numAttempts = 1;
                 do
                 {
                     (peer, _) = peerlist.Select(false, true);
@@ -409,10 +411,17 @@ namespace Discreet.Network.Peerbloom
 
                     Connection conn = new Connection(peer.Endpoint, this, LocalNode, true);
 
-                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 5000, 1);
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, timeoutLength, numAttempts);
                     peerlist.Attempt(peer.Endpoint, !success);
 
                     checkedPeers.Add(peer);
+                    if (peerlist.NumTried == checkedPeers.Count)
+                    {
+                        Daemon.Logger.Warn("Could not find any online/valid peers. Increasing timeout length and allowed attempts.");
+                        timeoutLength += 5000;
+                        numAttempts++;
+                        checkedPeers.Clear();
+                    }
                 }
                 while (peer != null && OutboundConnectedPeers.Count < NumberConnections && checkedPeers.Count < peerlist.NumTried + peerlist.NumNew);
             }

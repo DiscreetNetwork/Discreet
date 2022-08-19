@@ -35,6 +35,14 @@ namespace Discreet.Network.Peerbloom
 
         private SemaphoreSlim doubleMutexGambit = new SemaphoreSlim(1, 1);
 
+        public Peerlist(string path)
+        {
+            path = Path.Combine(path, "peerlist.bin");
+
+            Deserialize(File.ReadAllBytes(path));
+            return;
+        }
+
         public Peerlist()
         {
             var path = Path.Combine(Daemon.DaemonConfig.GetConfig().DaemonPath, "peerlist.bin");
@@ -66,6 +74,11 @@ namespace Discreet.Network.Peerbloom
             new Random().NextBytes(salt);
 
             File.WriteAllBytes(path, Serialize());
+        }
+
+        public List<Peer> GetPeers()
+        {
+            return addrs.Values.ToList();
         }
 
         public byte[] Serialize()
