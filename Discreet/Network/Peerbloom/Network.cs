@@ -415,7 +415,7 @@ namespace Discreet.Network.Peerbloom
                     peerlist.Attempt(peer.Endpoint, !success);
 
                     checkedPeers.Add(peer);
-                    if (peerlist.NumTried == checkedPeers.Count)
+                    if (peerlist.NumTried == checkedPeers.Count && !success)
                     {
                         Daemon.Logger.Warn("Could not find any online/valid peers. Increasing timeout length and allowed attempts.");
                         timeoutLength += 5000;
