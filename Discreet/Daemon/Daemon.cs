@@ -10,6 +10,7 @@ using Discreet.Cipher;
 using System.Net;
 using System.Threading;
 using System.Collections.Concurrent;
+using Discreet.Network.Peerbloom;
 
 namespace Discreet.Daemon
 {
@@ -54,7 +55,7 @@ namespace Discreet.Daemon
             
             signingKey = Key.FromHex(config.SigningKey);
 
-            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d")))
+            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex(Constants.TEMPORARY_MASTERNODE_PUBLIC_KEY)))
             {
                 IsMasternode = true;
             }

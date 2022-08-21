@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
+using Discreet.Network.Peerbloom;
 using System.IO;
 using System.Linq;
 
@@ -530,7 +531,7 @@ namespace Discreet.Coin
         public static bool IsMasternode(Key k)
         {
             //TODO: Implement hardcoded masternode IDs
-            return k == Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d");
+            return k == Key.FromHex(Constants.TEMPORARY_MASTERNODE_PUBLIC_KEY);
             //return true;
         }
     }

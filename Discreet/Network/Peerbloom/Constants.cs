@@ -177,5 +177,10 @@ namespace Discreet.Network.Peerbloom
         /// How often, in seconds, to save the peerlist to disk.
         /// </summary>
         public const int PEERLIST_SAVE_INTERVAL = 600;
+
+        /// <summary>
+        /// Public key for temporary masternode until Aurem is ready to go live
+        /// </summary>
+        public const string TEMPORARY_MASTERNODE_PUBLIC_KEY = "806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d";
     }
 }

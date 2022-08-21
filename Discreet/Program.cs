@@ -21,6 +21,10 @@ namespace Discreet
 	public delegate void MessagePacketReceivedEvent(string messageId, string content);
 	public delegate void MessageReceivedEvent(string message);
 
+
+	/// <summary>
+	/// **WARNING**: This is a playground file. To view the entrypoint, see Daemon/Daemon.cs
+	/// </summary>
 	class Program
 	{
 		/*public class TaskData
