@@ -363,7 +363,7 @@ namespace Discreet.Network.Peerbloom
         public async Task Bootstrap()
         {
             IsBootstrapping = true;
-            Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetConfig().BootstrapNode, 5555), this, LocalNode, true);
+            Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetConfig().BootstrapNode, Constants.BOOTSTRAP_NODE_DEFAULT_PORT), this, LocalNode, true);
 
             handler = Handler.Initialize(this);
 
@@ -377,7 +377,7 @@ namespace Discreet.Network.Peerbloom
             // This check is in case THIS device, is the bootstrap node. In that case, it should not try to bootstrap itself, as it is the first node in the network
             // Eventually this check needs to be modified, when we include multiple bootstrap nodes
             // For now: make sure the int we check against, matches the port of the bootstrap node, in the line above
-            if (LocalNode.Endpoint.Port == 5555)
+            if (LocalNode.Endpoint.Port == Constants.BOOTSTRAP_NODE_DEFAULT_PORT)
             {
                 Daemon.DaemonConfig.GetConfig().IsPublic = true;
                 LocalNode.SetPublic();

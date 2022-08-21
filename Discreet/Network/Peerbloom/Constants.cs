@@ -49,6 +49,11 @@ namespace Discreet.Network.Peerbloom
         public const int CONNECTION_READ_TIMEOUT = 10000;
 
         /// <summary>
+        /// The default port for a bootstrap node.
+        /// </summary>
+        public const int BOOTSTRAP_NODE_DEFAULT_PORT = 5555;
+
+        /// <summary>
         /// The maximum number of outbound connections allowed by the network.
         /// </summary>
         public const int PEERBLOOM_MAX_OUTBOUND_CONNECTIONS = 10;
