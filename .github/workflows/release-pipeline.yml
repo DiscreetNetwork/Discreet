@@ -31,8 +31,8 @@ jobs:
         
     - name: Zip [WIN-X64]
       run: |
-        cd Discreet/bin/Release/net6.0/win-x64
-        zip -qq -r win-x64.zip publish
+        cd Discreet/bin/Release/net6.0/win-x64/publish
+        zip -qq -r ../win-x64.zip .
         
     - name: Publish [LINUX-x64]
       run: |
@@ -40,8 +40,7 @@ jobs:
         
     - name: Tar bz2 [LINUX-x64]
       run: |
-        cd Discreet/bin/Release/net6.0/linux-x64
-        tar cfvj linux-x64.tar.bz2 publish
+        tar cfvj Discreet/bin/Release/net6.0/linux-x64/linux-x64.tar.bz2 -C Discreet/bin/Release/net6.0/linux-x64/publish *
         
     - uses: dev-drprasad/delete-older-releases@v0.2.0
       with:
