@@ -244,6 +244,7 @@ namespace Discreet.Daemon
 
             Logger.Log($"Starting handler...");
             handler.SetState(Network.PeerState.Normal);
+            ZMQ.Publisher.Instance.Publish("daemonstatechanged", "ready");
 
             Logger.Log($"Starting peer exchanger...");
             network.StartPeerExchanger();
@@ -356,6 +357,7 @@ namespace Discreet.Daemon
 
                 address.Synced = true;
                 address.Syncer = false;
+                ZMQ.Publisher.Instance.Publish("addresssynced", address.Address);
                 return;
             }
             else if (_tokenSource.IsCancellationRequested)
@@ -383,6 +385,7 @@ namespace Discreet.Daemon
 
                 address.Synced = true;
                 address.Syncer = false;
+                ZMQ.Publisher.Instance.Publish("addresssynced", address.Address);
                 return;
             }
             else if (_tokenSource.IsCancellationRequested)
@@ -418,6 +421,7 @@ namespace Discreet.Daemon
 
             address.Synced = true;
             address.Syncer = false;
+            ZMQ.Publisher.Instance.Publish("addresssynced", address.Address);
             return;
         }
 
