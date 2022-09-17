@@ -279,6 +279,14 @@ namespace Discreet.Network.Peerbloom
                             }
 
                             Core.Packet remoteVersion = new Core.Packet(_remoteVersion);
+
+                            if (remoteVersion.Header.Command != Core.PacketType.VERSION)
+                            {
+                                Daemon.Logger.Error($"Connection.Connect: packet type mismatch from {Receiver}: Expected VERSION; got {remoteVersion.Header.Command}");
+                                numConnectionAttempts++;
+                                continue;
+                            }
+
                             Core.Packets.Peerbloom.VersionPacket remoteVersionBody = (Core.Packets.Peerbloom.VersionPacket)remoteVersion.Body;
 
                             if (remoteVersionBody.Version != Daemon.DaemonConfig.GetConfig().NetworkVersion)
@@ -329,6 +337,13 @@ namespace Discreet.Network.Peerbloom
                             Daemon.Logger.Debug($"Connection.Connect: sent verack to {Receiver}");
 
                             var verAck = await ReadAsync(token);
+
+                            if (verAck.Header.Command != Core.PacketType.VERACK)
+                            {
+                                Daemon.Logger.Error($"Connection.Connect: packet type mismatch from {Receiver}: Expected VERACK; got {verAck.Header.Command}");
+                                numConnectionAttempts++;
+                                continue;
+                            }
 
                             Daemon.Logger.Debug($"Connection.Connect: received verack from {Receiver}");
 

@@ -383,8 +383,13 @@ namespace Discreet.Network.Peerbloom
             {
                 if (!_insert)
                 {
-                    var existingPeer = addrs[New[bucket,pos]];
-                    if (existingPeer.IsTerrible() || (existingPeer.RefCount > 1 && pinfo.RefCount == 0))
+                    var success = addrs.TryGetValue(New[bucket,pos], out var existingPeer);
+                    
+                    if (!success)
+                    {
+                        _insert = true;
+                    }
+                    else if (existingPeer.IsTerrible() || (existingPeer.RefCount > 1 && pinfo.RefCount == 0))
                     {
                         _insert = true;
                     }
