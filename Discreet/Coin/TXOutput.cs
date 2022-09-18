@@ -116,6 +116,8 @@ namespace Discreet.Coin
             return 105;
         }
 
+        public static uint TXSize() => 73;
+
         public void Deserialize(byte[] bytes)
         {
             Deserialize(bytes, 0);

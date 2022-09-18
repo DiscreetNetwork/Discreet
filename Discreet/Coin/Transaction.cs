@@ -112,7 +112,7 @@ namespace Discreet.Coin
 
             if (Version == 0)
             {
-                byte[] bytes = new byte[4 + 32 + NumOutputs * 72];
+                byte[] bytes = new byte[4 + 32 + NumOutputs * TXOutput.TXSize()];
 
                 bytes[0] = Version;
                 bytes[1] = NumInputs;
@@ -125,7 +125,7 @@ namespace Discreet.Coin
                 for (int i = 0; i < Outputs.Length; i++)
                 {
                     Outputs[i].TXMarshal(bytes, offset);
-                    offset += 72;
+                    offset += TXOutput.TXSize();
                 }
 
                 return bytes;
@@ -154,7 +154,7 @@ namespace Discreet.Coin
                 for (int i = 0; i < Outputs.Length; i++)
                 {
                     Outputs[i].TXMarshal(bytes, offset);
-                    offset += 72;
+                    offset += TXOutput.TXSize();
                 }
 
                 if (Version == 2)
@@ -241,6 +241,7 @@ namespace Discreet.Coin
                 Cipher.KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref mask, amnt);
                 tx.Outputs[i].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, i);
                 tx.Outputs[i].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, i, amnt);
+                tx.Outputs[i].ViewTag = Cipher.Randomness.Random(1)[0];
             }
 
             tx.TransactionKey = R;
@@ -273,6 +274,7 @@ namespace Discreet.Coin
             Cipher.KeyOps.GenCommitment(ref tx.Outputs[0].Commitment, ref mask, amnt);
             tx.Outputs[0].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, 0);
             tx.Outputs[0].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, 0, amnt);
+            tx.Outputs[0].ViewTag = Cipher.SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), to.view.bytes, Serialization.UInt32(0)).Bytes[0];
 
             tx.TransactionKey = R;
 
@@ -310,7 +312,7 @@ namespace Discreet.Coin
                 {
                     Outputs[i] = new TXOutput();
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 72;
+                    offset += TXOutput.TXSize();
                 }
 
                 return offset;
@@ -343,7 +345,7 @@ namespace Discreet.Coin
                 {
                     Outputs[i] = new TXOutput();
                     Outputs[i].TXUnmarshal(bytes, offset);
-                    offset += 72;
+                    offset += TXOutput.TXSize();
                 }
 
                 if (Version == 2)
@@ -509,13 +511,13 @@ namespace Discreet.Coin
         {
             if (Version == 0)
             {
-                return (uint)(4 + 32 + 72 * Outputs.Length);
+                return (uint)(4 + 32 + TXOutput.TXSize() * Outputs.Length);
             }
             else if (Version == 2)
             {
-                return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProofPlus.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 32);
+                return (uint)(4 + TXInput.Size() * Inputs.Length + TXOutput.TXSize() * Outputs.Length + RangeProofPlus.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 32);
             }
-            return (uint)(4 + TXInput.Size() * Inputs.Length + 72 * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 32);
+            return (uint)(4 + TXInput.Size() * Inputs.Length + TXOutput.TXSize() * Outputs.Length + RangeProof.Size() + 8 + Triptych.Size() * Signatures.Length + 32 * PseudoOutputs.Length + 32);
         }
 
         public static Transaction GenerateMock()

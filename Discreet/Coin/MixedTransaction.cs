@@ -229,7 +229,7 @@ namespace Discreet.Coin
             for (int i = 0; i < lenPOutputs; i++)
             {
                 POutputs[i].TXMarshal(bytes, offset);
-                offset += 72;
+                offset += TXOutput.TXSize();
             }
 
             if (RangeProofPlus != null && lenPOutputs > 0)
@@ -342,7 +342,7 @@ namespace Discreet.Coin
             {
                 POutputs[i] = new TXOutput();
                 POutputs[i].TXUnmarshal(bytes, offset);
-                offset += 72;
+                offset += TXOutput.TXSize();
             }
 
             if (NumPOutputs > 0)
@@ -522,7 +522,7 @@ namespace Discreet.Coin
                              + 96 * (TSignatures == null ? 0 : TSignatures.Length)
                              + (NumPOutputs > 0 ? 32 : 0)
                              + (PInputs == null ? 0 : PInputs.Length) * TXInput.Size()
-                             + (POutputs == null ? 0 : POutputs.Length) * 72
+                             + (POutputs == null ? 0 : POutputs.Length) * TXOutput.TXSize()
                              + ((RangeProofPlus == null && NumPOutputs == 0) ? 0 : RangeProofPlus.Size())
                              + Triptych.Size() * (PSignatures == null ? 0 : PSignatures.Length)
                              + ((NumPInputs == 0) ? 0 : 32 * PseudoOutputs.Length));

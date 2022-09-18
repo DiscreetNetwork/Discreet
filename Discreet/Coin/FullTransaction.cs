@@ -471,7 +471,7 @@ namespace Discreet.Coin
 
         public byte[] ToCoinbaseBytes()
         {
-            byte[] bytes = new byte[4 + 32 + NumOutputs * 72];
+            byte[] bytes = new byte[4 + 32 + NumOutputs * TXOutput.TXSize()];
 
             bytes[0] = Version;
             bytes[1] = NumInputs;
@@ -486,7 +486,7 @@ namespace Discreet.Coin
             for (int i = 0; i < POutputs.Length; i++)
             {
                 POutputs[i].TXMarshal(bytes, offset);
-                offset += 72;
+                offset += TXOutput.TXSize();
             }
 
             return bytes;
@@ -518,7 +518,7 @@ namespace Discreet.Coin
             for (int i = 0; i < POutputs.Length; i++)
             {
                 POutputs[i].TXMarshal(bytes, offset);
-                offset += 72;
+                offset += TXOutput.TXSize();
             }
 
             if (Version == 2)
@@ -647,7 +647,7 @@ namespace Discreet.Coin
             for (int i = 0; i < lenPOutputs; i++)
             {
                 POutputs[i].TXMarshal(bytes, offset);
-                offset += 72;
+                offset += TXOutput.TXSize();
             }
 
             if (RangeProofPlus != null && lenPOutputs > 0)
@@ -895,7 +895,7 @@ namespace Discreet.Coin
             {
                 POutputs[i] = new TXOutput();
                 POutputs[i].TXUnmarshal(bytes, offset);
-                offset += 72;
+                offset += TXOutput.TXSize();
             }
 
             return offset;
@@ -934,7 +934,7 @@ namespace Discreet.Coin
             {
                 POutputs[i] = new TXOutput();
                 POutputs[i].TXUnmarshal(bytes, offset);
-                offset += 72;
+                offset += TXOutput.TXSize();
             }
 
             if (Version == 2)
@@ -1076,7 +1076,7 @@ namespace Discreet.Coin
             {
                 POutputs[i] = new TXOutput();
                 POutputs[i].TXUnmarshal(bytes, offset);
-                offset += 72;
+                offset += TXOutput.TXSize();
             }
 
             if (NumPOutputs > 0)
@@ -1108,16 +1108,16 @@ namespace Discreet.Coin
         {
             return Version switch
             {
-                0 => (uint)(4 + 32 + NumOutputs * 72),
-                1 => (uint)(4 + TXInput.Size() * PInputs.Length + 72 * POutputs.Length + RangeProof.Size() + 8 + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
-                2 => (uint)(4 + TXInput.Size() * PInputs.Length + 72 * POutputs.Length + RangeProofPlus.Size() + 8 + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
+                0 => (uint)(4 + 32 + NumOutputs * TXOutput.TXSize()),
+                1 => (uint)(4 + TXInput.Size() * PInputs.Length + TXOutput.TXSize() * POutputs.Length + RangeProof.Size() + 8 + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
+                2 => (uint)(4 + TXInput.Size() * PInputs.Length + TXOutput.TXSize() * POutputs.Length + RangeProofPlus.Size() + 8 + Triptych.Size() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
                 3 => (uint)(44 + Transparent.TXInput.Size() * TInputs.Length + 33 * TOutputs.Length + 96 * TSignatures.Length),
                 4 => (uint)(48 + Transparent.TXInput.Size() * (TInputs == null ? 0 : TInputs.Length)
                                + 33 * (TOutputs == null ? 0 : TOutputs.Length)
                                + 96 * (TSignatures == null ? 0 : TSignatures.Length)
                                + (NumPOutputs > 0 ? 32 : 0)
                                + (PInputs == null ? 0 : PInputs.Length) * TXInput.Size()
-                               + (POutputs == null ? 0 : POutputs.Length) * 72
+                               + (POutputs == null ? 0 : POutputs.Length) * TXOutput.TXSize()
                                + ((RangeProofPlus == null && NumPOutputs == 0) ? 0 : RangeProofPlus.Size())
                                + Triptych.Size() * (PSignatures == null ? 0 : PSignatures.Length)
                                + ((NumPInputs == 0) ? 0 : 32 * PseudoOutputs.Length)),

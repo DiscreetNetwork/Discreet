@@ -988,11 +988,9 @@ namespace Discreet.Wallets
 
                     if (Coinbase != null && Type == (byte)AddressType.STEALTH)
                     {
-                        Key txKey = Coinbase.TransactionKey;
-                        Key outputSecKey = KeyOps.DKSAPRecover(ref txKey, ref SecViewKey, ref SecSpendKey, 0);
-                        Key outputPubKey = KeyOps.ScalarmultBase(ref outputSecKey);
+                        Key cscalar = KeyOps.ScalarmultKey(ref Coinbase.TransactionKey, ref SecViewKey);
 
-                        if (Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
+                        if (KeyOps.CheckForBalance(ref cscalar, ref PubViewKey, Coinbase.Outputs[0].ViewTag, ref PubSpendKey, ref Coinbase.Outputs[0].UXKey, 0))
                         {
                             int index;
                             UTXO utxo;

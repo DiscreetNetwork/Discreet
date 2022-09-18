@@ -205,6 +205,7 @@ namespace Discreet.Coin
 
                 minerOutput.UXKey = KeyOps.DKSAP(ref r, miner.view, miner.spend, 0);
                 minerOutput.Amount = block.Header.Fee;
+                minerOutput.ViewTag = SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), miner.view.bytes, Serialization.UInt32(0)).Bytes[0];
 
                 minertx.Outputs = new TXOutput[1] { minerOutput };
 
@@ -286,7 +287,7 @@ namespace Discreet.Coin
                 KeyOps.GenCommitment(ref tx.Outputs[0].Commitment, ref mask, values[i]);
                 tx.Outputs[0].UXKey = KeyOps.DKSAP(ref r, addresses[i].view, addresses[i].spend, 0);
                 tx.Outputs[0].Amount = KeyOps.GenAmountMask(ref r, ref addresses[i].view, 0, values[i]);
-
+                tx.Outputs[0].ViewTag = Cipher.SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), addresses[i].view.bytes, Serialization.UInt32(i)).Bytes[0];
 
                 tx.TransactionKey = R;
 

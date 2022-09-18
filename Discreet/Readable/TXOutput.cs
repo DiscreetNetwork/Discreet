@@ -15,6 +15,8 @@ namespace Discreet.Readable
         public string Commitment { get; set; }
         public ulong Amount { get; set; }
 
+        public byte ViewTag { get; set; }
+
         public string JSON()
         {
             return JsonSerializer.Serialize(this, ReadableOptions.Options);
@@ -32,6 +34,7 @@ namespace Discreet.Readable
             UXKey = tXOutput.UXKey;
             Commitment = tXOutput.Commitment;
             Amount = tXOutput.Amount;
+            ViewTag = tXOutput.ViewTag;
         }
 
         public TXOutput(Coin.TXOutput obj)
@@ -72,6 +75,7 @@ namespace Discreet.Readable
             if (obj.UXKey.bytes != null) UXKey = obj.UXKey.ToHex();
             if (obj.Commitment.bytes != null) Commitment = obj.Commitment.ToHex();
             Amount = obj.Amount;
+            ViewTag = obj.ViewTag;
         }
 
         public T ToObject<T>()
@@ -94,6 +98,7 @@ namespace Discreet.Readable
             if (UXKey != null && UXKey != "") obj.UXKey = Cipher.Key.FromHex(UXKey);
             if (Commitment != null && Commitment != "") obj.Commitment = Cipher.Key.FromHex(Commitment);
             obj.Amount = Amount;
+            obj.ViewTag = ViewTag;
 
             return obj;
         }
@@ -103,6 +108,7 @@ namespace Discreet.Readable
             if (obj.UXKey.bytes != null) UXKey = obj.UXKey.ToHex();
             if (obj.Commitment.bytes != null) Commitment = obj.Commitment.ToHex();
             Amount = obj.Amount;
+            ViewTag = obj.ViewTag;
         }
 
         public static Coin.TXOutput FromReadable(string json)
