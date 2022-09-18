@@ -274,7 +274,7 @@ namespace Discreet.Coin
             Cipher.KeyOps.GenCommitment(ref tx.Outputs[0].Commitment, ref mask, amnt);
             tx.Outputs[0].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, 0);
             tx.Outputs[0].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, 0, amnt);
-            tx.Outputs[0].ViewTag = Cipher.SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), to.view.bytes, Serialization.UInt32(0)).Bytes[0];
+            tx.Outputs[0].ViewTag = Cipher.KeyOps.GetViewTag(to.view, r, 0);
 
             tx.TransactionKey = R;
 

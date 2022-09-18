@@ -828,7 +828,7 @@ namespace Discreet.Wallets
                         Key mask = Key.I; // makes logic work
                         KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
                         pOutput.Amount = amount[i];
-                        pOutput.ViewTag = SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), KeyOps.ScalarmultKey(ref r, ref addr.view).bytes, Serialization.UInt32((uint)i)).Bytes[0];
+                        pOutput.ViewTag = KeyOps.GetViewTag(addr.view, r, i);
                         gammas.Add(mask);
                         amounts.Add(amount[i]);
                         pOutputs.Add(pOutput);
@@ -846,7 +846,7 @@ namespace Discreet.Wallets
                         Key mask = KeyOps.GenCommitmentMask(ref r, ref addr.view, pOutputs.Count);
                         KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
                         pOutput.Amount = KeyOps.GenAmountMask(ref r, ref addr.view, pOutputs.Count, amount[i]);
-                        pOutput.ViewTag = SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), KeyOps.ScalarmultKey(ref r, ref addr.view).bytes, Serialization.UInt32((uint)i)).Bytes[0];
+                        pOutput.ViewTag = KeyOps.GetViewTag(addr.view, r, i);
                         gammas.Add(mask);
                         amounts.Add(amount[i]);
                         pOutputs.Add(pOutput);
@@ -868,7 +868,7 @@ namespace Discreet.Wallets
                     Key mask = KeyOps.GenCommitmentMask(ref r, ref PubViewKey, pOutputs.Count);
                     KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, neededAmount - totalAmount);
                     pOutput.Amount = KeyOps.GenAmountMask(ref r, ref PubViewKey, pOutputs.Count, neededAmount - totalAmount);
-                    pOutput.ViewTag = SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), KeyOps.ScalarmultKey(ref r, ref PubViewKey).bytes, Serialization.UInt32((uint)pOutputs.Count)).Bytes[0];
+                    pOutput.ViewTag = KeyOps.GetViewTag(PubViewKey, r, pOutputs.Count);
                     gammas.Add(mask);
                     amounts.Add(neededAmount - totalAmount);
                     pOutputs.Add(pOutput);
@@ -1372,7 +1372,7 @@ namespace Discreet.Wallets
                 Key mask = KeyOps.GenCommitmentMask(ref r, ref to[i].view, i);
                 KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref mask, amount[i]);
                 tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref to[i].view, i, amount[i]);
-                tx.Outputs[i].ViewTag = SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), KeyOps.ScalarmultKey(ref r, ref to[i].view).bytes, Serialization.UInt32((uint)i)).Bytes[0];
+                tx.Outputs[i].ViewTag = KeyOps.GetViewTag(to[i].view, r, i);
                 gammas[i] = mask;
             }
 
@@ -1385,7 +1385,7 @@ namespace Discreet.Wallets
                 Key rmask = KeyOps.GenCommitmentMask(ref r, ref PubViewKey, i);
                 KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref rmask, neededAmount - totalAmount);
                 tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref PubViewKey, i, neededAmount - totalAmount);
-                tx.Outputs[i].ViewTag = SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), KeyOps.ScalarmultKey(ref r, ref PubViewKey).bytes, Serialization.UInt32((uint)i)).Bytes[0];
+                tx.Outputs[i].ViewTag = KeyOps.GetViewTag(PubViewKey, r, i);
                 gammas[i] = rmask;
             }
 

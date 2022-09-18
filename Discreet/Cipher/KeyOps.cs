@@ -260,9 +260,9 @@ namespace Discreet.Cipher
             return t;
         }
 
-        public static bool CheckForBalance(ref Key cscalar, ref Key pv, byte tag, ref Key ps, ref Key UXKey, int i)
+        public static bool CheckForBalance(ref Key cscalar, byte tag, ref Key ps, ref Key UXKey, int i)
         {
-            if (SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), pv.bytes, Coin.Serialization.UInt32((uint)i)).Bytes[0] == tag)
+            if (GetViewTag(cscalar, i) == tag)
             {
                 byte[] txbytes = new byte[36];
                 Array.Copy(cscalar.bytes, txbytes, 32);
@@ -324,5 +324,9 @@ namespace Discreet.Cipher
 
             return i;
         }
+
+        public static byte GetViewTag(Key c, int index) => SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), c.bytes, Coin.Serialization.UInt32((uint)index)).Bytes[0];
+
+        public static byte GetViewTag(Key v, Key r, int index) => SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), ScalarmultKey(ref v, ref r).bytes, Coin.Serialization.UInt32((uint)index)).Bytes[0];
     }
 }
