@@ -990,7 +990,7 @@ namespace Discreet.Wallets
                     {
                         Key cscalar = KeyOps.ScalarmultKey(ref Coinbase.TransactionKey, ref SecViewKey);
 
-                        if (KeyOps.CheckForBalance(ref cscalar, ref PubViewKey, Coinbase.Outputs[0].ViewTag, ref PubSpendKey, ref Coinbase.Outputs[0].UXKey, 0))
+                        if (KeyOps.CheckForBalance(ref cscalar, Coinbase.Outputs[0].ViewTag, ref PubSpendKey, ref Coinbase.Outputs[0].UXKey, 0))
                         {
                             int index;
                             UTXO utxo;
@@ -1103,7 +1103,7 @@ namespace Discreet.Wallets
                         }
                     }
 
-                    if (KeyOps.CheckForBalance(ref cscalar, ref PubViewKey, transaction.POutputs[i].ViewTag, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
+                    if (KeyOps.CheckForBalance(ref cscalar, transaction.POutputs[i].ViewTag, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
                     {
                         Daemon.Logger.Log($"You received some Discreet!");
                         var utxo = ProcessOutput(transaction, i, false, isCoinbase: tToP);
