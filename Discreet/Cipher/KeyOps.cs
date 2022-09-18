@@ -260,23 +260,28 @@ namespace Discreet.Cipher
             return t;
         }
 
-        public static bool CheckForBalance(ref Key cscalar, ref Key ps, ref Key UXKey, int i)
+        public static bool CheckForBalance(ref Key cscalar, ref Key pv, byte tag, ref Key ps, ref Key UXKey, int i)
         {
-            byte[] txbytes = new byte[36];
-            Array.Copy(cscalar.bytes, txbytes, 32);
-            txbytes[32] = (byte)(i >> 24);
-            txbytes[33] = (byte)((i >> 16) & 0xFF);
-            txbytes[34] = (byte)((i >> 8) & 0xFF);
-            txbytes[35] = (byte)(i & 0xFF);
+            if (SHA256.HashData(Encoding.ASCII.GetBytes("view_tag"), pv.bytes, Coin.Serialization.UInt32((uint)i)).Bytes[0] == tag)
+            {
+                byte[] txbytes = new byte[36];
+                Array.Copy(cscalar.bytes, txbytes, 32);
+                txbytes[32] = (byte)(i >> 24);
+                txbytes[33] = (byte)((i >> 16) & 0xFF);
+                txbytes[34] = (byte)((i >> 8) & 0xFF);
+                txbytes[35] = (byte)(i & 0xFF);
 
-            Key c = new Key(new byte[32]);
-            HashOps.HashToScalar(ref c, txbytes, 36);
+                Key c = new Key(new byte[32]);
+                HashOps.HashToScalar(ref c, txbytes, 36);
 
-            Key cg = ScalarmultBase(ref c);
-            Key psq = new Key(new byte[32]);
-            SubKeys(ref psq, ref UXKey, ref cg);
+                Key cg = ScalarmultBase(ref c);
+                Key psq = new Key(new byte[32]);
+                SubKeys(ref psq, ref UXKey, ref cg);
 
-            return psq.Equals(ps);
+                return psq.Equals(ps);
+            }
+
+            return false;
         }
 
         public static Key[] DKSAP(ref Key r, ref Key R, Key[] pv, Key[] ps)
