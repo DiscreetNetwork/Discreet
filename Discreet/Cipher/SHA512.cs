@@ -60,6 +60,25 @@ namespace Discreet.Cipher
             return new SHA512(_bytes, false);
         }
 
+        public static SHA512 HashData(params byte[][] data)
+        {
+            int sz = 0;
+            for (int i = 0; i < data.Length; i++)
+            {
+                sz += data[i].Length;
+            }
+
+            byte[] d2h = new byte[sz];
+            sz = 0;
+            for (int i = 0; i < data.Length; i++)
+            {
+                Array.Copy(data[i], 0, d2h, sz, data[i].Length);
+                sz += data[i].Length;
+            }
+
+            return HashData(d2h);
+        }
+
         public SHA512(byte[] data, bool hash)
         {
             if (hash)
