@@ -329,7 +329,7 @@ namespace Discreet.Network.Peerbloom
                             }
 
                             Daemon.Logger.Debug($"Connection.Connect: received version from {Receiver}");
-                            Connection _dupe = _network.GetPeer(new IPEndPoint(Receiver.Address, Port));
+                            Connection _dupe = _network.GetPeer(new IPEndPoint(Receiver.Address, Port), true);
 
                             if (!feeler && _dupe != null)
                             {
