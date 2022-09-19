@@ -96,7 +96,7 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// When to ping a peer by the heartbeater, in seconds.
         /// </summary>
-        public const int PEERBLOOM_HEARTBEATER_TIMEOUT = 60 * 20;
+        public const int PEERBLOOM_HEARTBEATER_TIMEOUT = 60 * 5;
 
         /// <summary>
         /// Maximum number of feeler connections to use at a time.
