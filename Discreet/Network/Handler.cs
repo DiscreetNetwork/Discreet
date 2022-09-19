@@ -371,6 +371,16 @@ namespace Discreet.Network
                     mCache.BadVersions.Remove(conn.Receiver, out _);
                 }
 
+                Peerbloom.Connection _dupe = _network.GetPeer(new IPEndPoint(conn.Receiver.Address, conn.Port));
+
+                if (_dupe != null)
+                {
+                    // duplicate connection; end
+                    Daemon.Logger.Warn($"Discreet.Network.Handler.HandleVersion: duplicate peer connection found for {conn.Receiver} (currently at {_dupe.Receiver}); ending connection");
+                    await conn.Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.CLEAN);
+                    return;
+                }
+
                 if (!mCache.Versions.TryAdd(conn.Receiver, p))
                 {
                     Daemon.Logger.Error($"Discreet.Network.Handler.HandleVersion: failed to add version for {conn.Receiver}");

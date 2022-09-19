@@ -329,6 +329,15 @@ namespace Discreet.Network.Peerbloom
                             }
 
                             Daemon.Logger.Debug($"Connection.Connect: received version from {Receiver}");
+                            Connection _dupe = _network.GetPeer(new IPEndPoint(Receiver.Address, Port));
+
+                            if (!feeler && _dupe != null)
+                            {
+                                // duplicate connection; end
+                                Daemon.Logger.Warn($"Connection.Connect: duplicate peer connection found for {Receiver} (currently at {_dupe.Receiver}); ending connection");
+                                await Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.CLEAN);
+                                return false;
+                            }
 
 
                             /* time to send VerAck. At this point we can trust the connection is reliable. */
@@ -958,6 +967,8 @@ namespace Discreet.Network.Peerbloom
                 {
                     Daemon.Logger.Error($"Connection.Disconnect: could not send disconnect packet to peer {Receiver}");
                 }
+                // delay the disconnect to ensure the packet reaches the peer
+                await Task.Delay(500);
             }
 
             Dispose();

@@ -342,12 +342,21 @@ namespace Discreet.Network.Peerbloom
             _ = Task.Run(() => IncomingTester.Start(token)).ConfigureAwait(false);
             while (!token.IsCancellationRequested)
             {
-                var client = await listener.AcceptTcpClientAsync();
+                var client = await listener.AcceptTcpClientAsync(token);
                 Daemon.Logger.Info($"TcpReceiver found a connection to client {client.Client.RemoteEndPoint}");
                 if (!IsBootstrapping)
                 {
-                    var conn = new Connection(client, this, LocalNode, false);
-                    _ = Task.Run(() => conn.Connect(true, _shutdownTokenSource.Token), token).ConfigureAwait(false);
+                    // check if we're already connected to a node at this endpoint
+                    if (GetPeer((IPEndPoint)client.Client.RemoteEndPoint) != null)
+                    {
+                        Daemon.Logger.Warn($"Network.TcpListener: already connected to a peer at this endpoint ({client.Client.RemoteEndPoint}); dropping connection");
+                        client.Dispose();
+                    }
+                    else
+                    {
+                        var conn = new Connection(client, this, LocalNode, false);
+                        _ = Task.Run(() => conn.Connect(true, _shutdownTokenSource.Token), token).ConfigureAwait(false);
+                    }
                 }
             }
         }
