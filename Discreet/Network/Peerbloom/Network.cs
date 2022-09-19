@@ -212,7 +212,7 @@ namespace Discreet.Network.Peerbloom
             return peerlist.GetAddr(maxPeers, 0);
         }
 
-        public Connection GetPeer(IPEndPoint endpoint)
+        public Connection GetPeer(IPEndPoint endpoint, bool excludeConnecting = false)
         {
             foreach (var node in InboundConnectedPeers.Values)
             {
@@ -230,11 +230,14 @@ namespace Discreet.Network.Peerbloom
                 }
             }
 
-            foreach (var node in ConnectingPeers.Values)
+            if (!excludeConnecting)
             {
-                if (node.Receiver.Equals(endpoint))
+                foreach (var node in ConnectingPeers.Values)
                 {
-                    return node;
+                    if (node.Receiver.Equals(endpoint))
+                    {
+                        return node;
+                    }
                 }
             }
 

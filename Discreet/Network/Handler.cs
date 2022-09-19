@@ -371,7 +371,7 @@ namespace Discreet.Network
                     mCache.BadVersions.Remove(conn.Receiver, out _);
                 }
 
-                Peerbloom.Connection _dupe = _network.GetPeer(new IPEndPoint(conn.Receiver.Address, conn.Port));
+                Peerbloom.Connection _dupe = _network.GetPeer(new IPEndPoint(conn.Receiver.Address, conn.Port), true);
 
                 if (_dupe != null)
                 {
