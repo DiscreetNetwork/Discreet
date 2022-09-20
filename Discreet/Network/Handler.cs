@@ -486,7 +486,7 @@ namespace Discreet.Network
             }
 
             /* we reply with our own version */
-            _network.Send(conn, new Packet(PacketType.VERSION, MakeVersionPacket()));
+            await conn.SendAsync(new Packet(PacketType.VERSION, MakeVersionPacket()));
         }
 
         public async Task HandleVerAck(Core.Packets.Peerbloom.VerAck p, Peerbloom.Connection conn)
@@ -500,7 +500,7 @@ namespace Discreet.Network
                 p.Counter = 1;
 
                 conn.SetConnectionAcknowledged();
-                _network.Send(conn, new Packet(PacketType.VERACK, p));
+                await conn.SendAsync(new Packet(PacketType.VERACK, p));
 
                 _network.ConnectingPeers.Remove(conn.Receiver, out _);
                 MessageCache.GetMessageCache().Versions.Remove(conn.Receiver, out _);
