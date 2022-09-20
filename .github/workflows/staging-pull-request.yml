@@ -1,5 +1,5 @@
 name: Staging-Pull-Request-Merged
- 
+  
 on:
   pull_request:
     types: [closed]
