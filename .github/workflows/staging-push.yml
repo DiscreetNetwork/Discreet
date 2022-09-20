@@ -64,7 +64,7 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         automatic_release_tag: "staging-preview"
         prerelease: true
-        title: v{{ steps.create_tag_name.outputs.TAG_NAME }}-preview
+        title: v${{ steps.create_tag_name.outputs.TAG_NAME }}-preview
 
     - name: Upload win archive to the release
       uses: actions/upload-release-asset@v1
