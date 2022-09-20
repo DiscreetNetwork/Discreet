@@ -486,7 +486,7 @@ namespace Discreet.Network.Peerbloom
 
             if (p.InTried) return false;
 
-            if (p.RefCount > 0) return false;
+            if (p.RefCount == 0) return false;
 
             uint bucket = GetTriedBucket(p.Endpoint);
             uint pos = GetBucketPosition(false, bucket, p.Endpoint);

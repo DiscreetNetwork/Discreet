@@ -627,7 +627,7 @@ namespace Discreet.Network.Peerbloom
                 {
                     (Peer p, _) = peerlist.Select(false);
                     
-                    if (p != null && !_network.OutboundConnectedPeers.ContainsKey(p.Endpoint) && !_network.ConnectingPeers.ContainsKey(p.Endpoint))
+                    if (p != null && !_network.OutboundConnectedPeers.ContainsKey(p.Endpoint) && !_network.ConnectingPeers.ContainsKey(p.Endpoint) && !_network.Feelers.ContainsKey(p.Endpoint))
                     {
                         _ = Task.Run(async () =>
                         {
