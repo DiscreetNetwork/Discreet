@@ -1,0 +1,103 @@
+name: .NET
+
+on:
+  push:
+    branches: [ master ]
+
+concurrency: shared
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    
+    - name: Unlock pending version increments
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: 'https://releases.discreet.net/versions/daemon/unlock'
+        method: 'POST'
+        customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
+    
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+        
+    - name: Restore dependencies
+      run: dotnet restore
+        
+    - name: Fetch next version
+      id: versionResponse
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: 'https://releases.discreet.net/versions/daemon/build/started'
+        method: 'POST'
+        customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
+
+    - name: Prepare tag name
+      id: create_tag_name
+      run: echo "::set-output name=TAG_NAME::$( echo ${{ steps.versionResponse.outputs.response }} | tr -d '"')"
+      shell: bash
+
+    - name: Publish [WIN-x64]
+      run: |
+        dotnet publish --configuration Release --runtime win-x64 --framework net6.0 --self-contained true -p:ReadyToRun=true -p:Version=${{ steps.versionResponse.outputs.response }}
+        
+    - name: Install zip
+      uses: montudor/action-zip@v1
+        
+    - name: Zip [WIN-X64]
+      run: |
+        cd Discreet/bin/Release/net6.0/win-x64/publish
+        zip -qq -r ../win-x64.zip .
+        
+    - name: Publish [LINUX-x64]
+      run: |
+        dotnet publish --configuration Release --runtime linux-x64 --framework net6.0 --self-contained true -p:Version=${{ steps.versionResponse.outputs.response }}
+        
+    - name: Tar bz2 [LINUX-x64]
+      run: |
+        cd Discreet/bin/Release/net6.0/linux-x64/publish
+        tar -cjvf ../linux-x64.tar.bz2 *
+    
+    - name: Create the Github Release
+      uses: actions/create-release@v1
+      id: create_release
+      with:
+        draft: false
+        prerelease: false
+        release_name: v${{ steps.create_tag_name.outputs.TAG_NAME }}
+        tag_name: v${{ steps.create_tag_name.outputs.TAG_NAME }}
+        body: CHANGELOG
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+    
+    - name: Upload win archive to the release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: Discreet/bin/Release/net6.0/win-x64/win-x64.zip
+        asset_name: win-x64.zip
+        asset_content_type: application/zip
+
+    - name: Upload linux tar to the release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: Discreet/bin/Release/net6.0/linux-x64/linux-x64.tar.bz2
+        asset_name: linux-x64.tar.bz2
+        asset_content_type: application/bzip2
+
+    - name: Mark build as finished in the version API
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: 'https://releases.discreet.net/versions/daemon/build/finished'
+        method: 'POST'
+        customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
