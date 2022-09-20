@@ -99,11 +99,16 @@ namespace Discreet.Network
         public void Start(CancellationToken token)
         {
             _token = token;
-            _ = Task.Run(() => Handle(token)).ConfigureAwait(false);
+            _ = Task.Run(() => Handle(token), token).ConfigureAwait(false);
         }
 
         public async Task Handle(CancellationToken token)
         {
+            Dictionary<Peerbloom.Connection, List<Packet>> proute = new();
+
+            List<(Packet, Peerbloom.Connection)> parallel = new();
+            List<(Packet, Peerbloom.Connection)> sequential = new();
+
             while (!token.IsCancellationRequested)
             {
                 while (!InboundPacketQueue.IsEmpty)
@@ -112,17 +117,110 @@ namespace Discreet.Network
 
                     if (success)
                     {
-                        await Handle(packet.Item1, packet.Item2);
+                        // route the packages accordingly
+                        if (IsOrderDependent(packet.Item1))
+                        {
+                            bool prsucc = proute.TryGetValue(packet.Item2, out _);
+
+                            if (!prsucc)
+                            {
+                                proute[packet.Item2] = new();
+                                proute[packet.Item2].Add(packet.Item1);
+                            }
+                            else
+                            {
+                                proute[packet.Item2].Add(packet.Item1);
+                            }
+                        }
+                        else if (IsParallel(packet.Item1))
+                        {
+                            parallel.Add(packet);
+                        }
+                        else
+                        {
+                            sequential.Add(packet);
+                        }                        
                     }
                 }
 
-                await Task.Delay(100, token);
+                // execute each packet handler
+                foreach (var pritem in proute)
+                {
+                    _ = Task.Run(() => Handle(pritem.Value, pritem.Key), token).ConfigureAwait(false);
+                }
+
+                foreach (var packet in parallel)
+                {
+                    _ = Task.Run(() => Handle(packet.Item1, packet.Item2), token).ConfigureAwait(false);
+                }
+
+                if (sequential.Count > 0)
+                {
+                    _ = Task.Run(() => Handle(sequential), token).ConfigureAwait(false);
+                }
+
+                // clear the routed packet structures
+                proute.Clear();
+                parallel.Clear();
+                sequential.Clear();
+
+                // delay
+                await Task.Delay(5, token);
+            }
+        }
+
+        public bool IsOrderDependent(Packet p)
+        {
+            switch (p.Header.Command)
+            {
+                case PacketType.REJECT:
+                case PacketType.VERSION:
+                case PacketType.VERACK:
+                case PacketType.SENDMSG:
+                case PacketType.NOTFOUND:
+                case PacketType.NETPING:
+                case PacketType.NETPONG:
+                case PacketType.REQUESTPEERS:
+                case PacketType.REQUESTPEERSRESP:
+                case PacketType.DISCONNECT:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        public bool IsParallel(Packet p)
+        {
+            switch (p.Header.Command)
+            {
+                case PacketType.GETBLOCKS:
+                case PacketType.SENDTX:
+                case PacketType.SENDBLOCK:
+                case PacketType.GETTXS:
+                case PacketType.TXS:
+                case PacketType.BLOCKS:
+                    return true;
+                case PacketType.ALERT:
+                case PacketType.NONE:
+                case PacketType.INVENTORY:
+                default:
+                    return false;
             }
         }
 
         public void AddPacketToQueue(Packet p, Peerbloom.Connection conn)
         {
             InboundPacketQueue.Enqueue((p, conn));
+        }
+
+        public async Task Handle(IEnumerable<(Packet, Peerbloom.Connection)> ps)
+        {
+            foreach (var packet in ps) await Handle(packet.Item1, packet.Item2);
+        }
+
+        public async Task Handle(IEnumerable<Packet> ps, Peerbloom.Connection conn)
+        {
+            foreach (Packet packet in ps) await Handle(packet, conn);
         }
 
         /* handles incoming packets */
@@ -388,7 +486,7 @@ namespace Discreet.Network
             }
 
             /* we reply with our own version */
-            _network.Send(conn, new Packet(PacketType.VERSION, MakeVersionPacket()));
+            await conn.SendAsync(new Packet(PacketType.VERSION, MakeVersionPacket()));
         }
 
         public async Task HandleVerAck(Core.Packets.Peerbloom.VerAck p, Peerbloom.Connection conn)
@@ -402,7 +500,7 @@ namespace Discreet.Network
                 p.Counter = 1;
 
                 conn.SetConnectionAcknowledged();
-                _network.Send(conn, new Packet(PacketType.VERACK, p));
+                await conn.SendAsync(new Packet(PacketType.VERACK, p));
 
                 _network.ConnectingPeers.Remove(conn.Receiver, out _);
                 MessageCache.GetMessageCache().Versions.Remove(conn.Receiver, out _);

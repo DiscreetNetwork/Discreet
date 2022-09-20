@@ -890,7 +890,7 @@ namespace Discreet.Network.Peerbloom
                         }
                     }
 
-                    await Task.Delay(100, token);
+                    await Task.Delay(50, token);
 
                 }
                 catch (Exception ex)
@@ -920,7 +920,7 @@ namespace Discreet.Network.Peerbloom
                         }
                     }
 
-                    await Task.Delay(100, token);
+                    await Task.Delay(50, token);
 
                 }
                 catch (Exception ex)
@@ -962,6 +962,7 @@ namespace Discreet.Network.Peerbloom
         {
             if (notify)
             {
+                await Task.Delay(500);
                 bool success = await SendAsync(new Core.Packet(Core.PacketType.DISCONNECT, new Core.Packets.Peerbloom.Disconnect { Code = code }));
                 if (!success)
                 {
