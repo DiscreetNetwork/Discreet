@@ -21,7 +21,6 @@ jobs:
         
     - name: Restore dependencies
       run: |
-        cd Discreet-GUI/
         dotnet restore
     
     - name: Fetch next version
