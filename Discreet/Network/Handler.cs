@@ -116,7 +116,7 @@ namespace Discreet.Network
                     }
                 }
 
-                await Task.Delay(100, token);
+                await Task.Delay(5, token);
             }
         }
 
