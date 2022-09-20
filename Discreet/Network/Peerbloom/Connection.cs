@@ -890,7 +890,7 @@ namespace Discreet.Network.Peerbloom
                         }
                     }
 
-                    await Task.Delay(100, token);
+                    await Task.Delay(50, token);
 
                 }
                 catch (Exception ex)
@@ -920,7 +920,7 @@ namespace Discreet.Network.Peerbloom
                         }
                     }
 
-                    await Task.Delay(100, token);
+                    await Task.Delay(50, token);
 
                 }
                 catch (Exception ex)
