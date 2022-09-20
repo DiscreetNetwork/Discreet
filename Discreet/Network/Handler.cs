@@ -195,11 +195,11 @@ namespace Discreet.Network
             {
                 case PacketType.GETBLOCKS:
                 case PacketType.SENDTX:
-                case PacketType.SENDBLOCK:
                 case PacketType.GETTXS:
                 case PacketType.TXS:
                 case PacketType.BLOCKS:
                     return true;
+                case PacketType.SENDBLOCK:
                 case PacketType.ALERT:
                 case PacketType.NONE:
                 case PacketType.INVENTORY:
