@@ -117,7 +117,7 @@ namespace Discreet.Network.Peerbloom
 
                 Daemon.Logger.Debug($"Feeler: beginning feelers...");
 
-                int newFeelers = Constants.PEERBLOOM_MAX_PEERS - _network.Feelers.Count;
+                int newFeelers = Constants.PEERBLOOM_MAX_FEELERS - _network.Feelers.Count;
                 List<Peer> selected = new List<Peer>();
                 int tried = 0; // used to prevent infinite loops, happens in the case of too few peers in tried or new
 
