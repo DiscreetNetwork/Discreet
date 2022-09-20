@@ -1,0 +1,62 @@
+name: Staging 
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [ "staging" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    
+    - name: Check incomming branch
+      id: set_branch
+      run: |
+       branch="${{ github.head_ref }}"
+       branch_short=${branch%%/*}
+       if [ "$branch_short" == "patch" ]; then
+          echo "::set-output name=IS_PATCH::$(echo true)"
+       else
+          echo "::set-output name=IS_PATCH::$(echo false)"
+       fi
+       
+       if [ "$branch_short" == "feature" ]; then
+          echo "::set-output name=IS_FEATURE::$(echo true)"
+       else
+          echo "::set-output name=IS_FEATURE::$(echo false)"
+       fi
+      if: ${{ github.event.pull_request.merged == true }} 
+    
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+      if: ${{ github.event.pull_request.merged == true }} 
+        
+    - name: Restore dependencies
+      run: | 
+        dotnet restore
+      if: ${{ github.event.pull_request.merged == true }} 
+      
+    - name: Build
+      run: |
+        dotnet build --no-restore
+      if: ${{ github.event.pull_request.merged == true }} 
+    
+    - name: Increment patch version
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: 'https://releases.discreet.net/versions/daemon/patch'
+        method: 'POST'
+        customHeaders: '{ "x-wallet-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
+      if: ${{ github.event.pull_request.merged == true && contains(steps.set_branch.outputs.IS_PATCH, 'true') }} 
+      
+    - name: Increment feature version
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: 'https://releases.discreet.net/versions/daemon/feature'
+        method: 'POST'
+        customHeaders: '{ "x-wallet-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
+      if: ${{ github.event.pull_request.merged == true && contains(steps.set_branch.outputs.IS_FEATURE, 'true') }} 
