@@ -976,7 +976,7 @@ namespace Discreet.Network.Peerbloom
                     Daemon.Logger.Error($"Connection.Disconnect: could not send disconnect packet to peer {Receiver}");
                 }
                 // delay the disconnect to ensure the packet reaches the peer
-                await Task.Delay(500);
+                await Task.Delay(5000);
             }
 
             Dispose();
