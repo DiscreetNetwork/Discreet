@@ -64,12 +64,12 @@ jobs:
 
 
 
-    - name: Fetch next version
+    - name: Fetch preview version
       id: versionResponse
       uses: fjogeleit/http-request-action@v1
       with:
-        url: 'https://releases.discreet.net/versions/daemon/build/started'
-        method: 'POST'
+        url: 'https://releases.discreet.net/versions/daemon/preview'
+        method: 'GET'
         customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
       if: ${{ github.event.pull_request.merged == true }}
       
