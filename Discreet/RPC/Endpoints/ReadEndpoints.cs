@@ -57,7 +57,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetBlockCount failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetBlockCount failed: {ex.Message}", ex);
 
                 return new GetBlockCountRV
                 {
@@ -78,7 +78,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetBlockHashByHeight failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetBlockHashByHeight failed: {ex.Message}", ex);
 
                 return "";
             }
@@ -93,7 +93,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetBlockHeaderByHeight failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetBlockHeaderByHeight failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get header at height {height}");
             }
@@ -114,7 +114,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"RPC call to GetBlockHeaders failed: {ex.Message}");
+                    Daemon.Logger.Error($"RPC call to GetBlockHeaders failed: {ex.Message}", ex);
 
                     return new RPCError(-1, $"Could not get header at height {height}", headers);
                 }
@@ -151,7 +151,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetBlock failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetBlock failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get block with parameter {((JsonElement)_jsonElement).GetRawText()}");
             }
@@ -166,7 +166,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetBlockHeight failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetBlockHeight failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get block height with hash {hash}");
             }
@@ -206,7 +206,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"RPC call to GetBlocks failed: {ex.Message}");
+                    Daemon.Logger.Error($"RPC call to GetBlocks failed: {ex.Message}", ex);
 
                     return new RPCError(-1, $"Could not get block with parameter {((JsonElement)_jsonElement).GetRawText()}", blocks);
                 }
@@ -362,7 +362,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"RPC call to GetOutputs failed: {ex.Message}");
+                    Daemon.Logger.Error($"RPC call to GetOutputs failed: {ex.Message}", ex);
 
                     return new RPCError(-1, $"Could not get outputs with parameter {((JsonElement)_jsonElement).GetRawText()}", outputs);
                 }
@@ -380,7 +380,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetOutput failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetOutput failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get output at index {index}");
             }
@@ -424,7 +424,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"RPC call to GetTransactions failed: {ex.Message}");
+                    Daemon.Logger.Error($"RPC call to GetTransactions failed: {ex.Message}", ex);
 
                     return new RPCError(-1, $"Could not get transaction with parameter {((JsonElement)_jsonElement).GetRawText()}", txs);
                 }
@@ -465,7 +465,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetTransaction failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetTransaction failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get transaction with parameter {((JsonElement)_jsonElement).GetRawText()}");
             }
@@ -500,7 +500,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetTransactionCount failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetTransactionCount failed: {ex.Message}", ex);
 
                 return new GetTransactionCountRV
                 {
@@ -541,7 +541,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetPrivateOutputCount failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetPrivateOutputCount failed: {ex.Message}", ex);
 
                 return new GetPrivateOutputCountRV
                 {
@@ -585,7 +585,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetBlockchain failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetBlockchain failed: {ex.Message}", ex);
 
                 return new GetBlockchainRV
                 {
@@ -616,7 +616,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"RPC call to GetLastBlocks failed: {ex.Message}");
+                    Daemon.Logger.Error($"RPC call to GetLastBlocks failed: {ex.Message}", ex);
 
                     return new RPCError(-1, $"Could not get block with parameter {i}", blocks);
                 }
@@ -634,7 +634,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetTransactionPool failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetTransactionPool failed: {ex.Message}", ex);
 
                 return new RPCError("Could not get transaction pool");
             }
@@ -651,7 +651,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetPubOutput failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetPubOutput failed: {ex.Message}", ex);
 
                 return new RPCError("Could not get pub output");
             }
@@ -674,7 +674,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetPubOutputs failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetPubOutputs failed: {ex.Message}", ex);
 
                 return new RPCError("Could not get pub outputs");
             }
@@ -708,7 +708,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetRawTransaction failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetRawTransaction failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get transaction with parameter {((JsonElement)_jsonElement).GetRawText()}");
             }
@@ -734,7 +734,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to VerifyAddress failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to VerifyAddress failed: {ex.Message}", ex);
 
                 return new RPCError($"unknown type address {addr} is malformed");
             }

@@ -28,7 +28,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetVersion failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetVersion failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get version data");
             }
@@ -94,7 +94,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetHealth failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetHealth failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get health data");
             }
@@ -180,7 +180,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetConnections failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetConnections failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get connections");
             }
@@ -197,7 +197,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetNumConnections failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetNumConnections failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get num connections");
             }
@@ -235,7 +235,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetOutbound failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetOutbound failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get outbound connections");
             }
@@ -273,7 +273,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetInbound failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetInbound failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get inbound connections");
             }
@@ -311,7 +311,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetConnecting failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetConnecting failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get connecting connections");
             }

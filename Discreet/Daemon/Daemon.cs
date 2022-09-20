@@ -462,20 +462,20 @@ namespace Discreet.Daemon
                     var vErr = vCache.Validate();
                     if (vErr != null)
                     {
-                        Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}");
+                        Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
                     }
                     vCache.Flush();
                 }
                 catch (Exception e)
                 {
-                    Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message);
+                    Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message, e);
                 }
 
                 ProcessBlock(blk);
             }
             catch (Exception e)
             {
-                Logger.Error("Minting block failed: " + e.Message);
+                Logger.Error("Minting block failed: " + e.Message, e);
             }
         }
 

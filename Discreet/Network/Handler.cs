@@ -209,7 +209,7 @@ namespace Discreet.Network
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"Handler.Handle: handling packet {p.Header.Command} got an exception: {ex.Message}");
+                Daemon.Logger.Error($"Handler.Handle: handling packet {p.Header.Command} got an exception: {ex.Message}", ex);
             }
         }
 
@@ -571,7 +571,7 @@ namespace Discreet.Network
                         Code = RejectionCode.INVALID,
                     };
 
-                    Daemon.Logger.Error($"Malformed transaction received from peer {senderEndpoint}: {err.Message}");
+                    Daemon.Logger.Error($"Malformed transaction received from peer {senderEndpoint}: {err.Message}", err);
 
                     Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.REJECT, resp));
                     return;
@@ -634,7 +634,7 @@ namespace Discreet.Network
                             Code = RejectionCode.INVALID,
                         };
 
-                        Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {e.Message}");
+                        Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {e.Message}", e);
 
                         Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.REJECT, resp));
                         return;
@@ -678,7 +678,7 @@ namespace Discreet.Network
                             Code = RejectionCode.INVALID,
                         };
 
-                        Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {err.Message}");
+                        Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {err.Message}", err);
 
                         Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.REJECT, resp));
                         return;
@@ -691,7 +691,7 @@ namespace Discreet.Network
                     }
                     catch (Exception e)
                     {
-                        Daemon.Logger.Error(e.Message + "\n" + e.StackTrace);
+                        Daemon.Logger.Error($"HandleSendBlock: An error was encountered while flushing validation cache for block at height {p.Block.Header.Height}: {e.Message}", e);
                         return;
                     }
 
@@ -703,7 +703,7 @@ namespace Discreet.Network
                     }
                     catch (Exception e)
                     {
-                        Daemon.Logger.Error(e.Message);
+                        Daemon.Logger.Error($"HandleSendBlock: An error was encountered while processing block at height {p.Block.Header.Height}: {e.Message}", e);
                         return;
                     }
 
@@ -767,7 +767,7 @@ namespace Discreet.Network
                     }
                     else if (err != null)
                     {
-                        Daemon.Logger.Error($"HandleBlocks: Malformed or invalid block received from peer {conn.Receiver}: {err.Message} (bogus block for orphan requirement)");
+                        Daemon.Logger.Error($"HandleBlocks: Malformed or invalid block received from peer {conn.Receiver}: {err.Message} (bogus block for orphan requirement)", err);
 
                         /* for now assume invalid root always has invalid leaves */
                         TossOrphans(p.Blocks[0].Header.BlockHash);
@@ -782,7 +782,7 @@ namespace Discreet.Network
                     }
                     catch (Exception e)
                     {
-                        Daemon.Logger.Error(e.Message);
+                        Daemon.Logger.Error($"HandleBlocks: An error was encountered while flushing validation cache for blocks: {e.Message}", e);
                         return;
                     }
 
@@ -792,7 +792,7 @@ namespace Discreet.Network
                     }
                     catch (Exception e)
                     {
-                        Daemon.Logger.Error(e.Message);
+                        Daemon.Logger.Error($"HandleBlocks: An error was encountered while processing blocks: {e.Message}", e);
                         return;
                     }
 
@@ -859,7 +859,7 @@ namespace Discreet.Network
                 var err = vCache.Validate();
                 if (err != null)
                 {
-                    Daemon.Logger.Error($"HandleBlocks: Malformed or invalid block in orphan branch {bHash.ToHexShort()} (height {block.Header.Height}): {err.Message}; tossing branch");
+                    Daemon.Logger.Error($"AcceptOrphans: Malformed or invalid block in orphan branch {bHash.ToHexShort()} (height {block.Header.Height}): {err.Message}; tossing branch", err);
                     TossOrphans(bHash);
                     return;
                 }
@@ -870,7 +870,7 @@ namespace Discreet.Network
                 }
                 catch (Exception e)
                 {
-                    Daemon.Logger.Error(e.Message);
+                    Daemon.Logger.Error($"AcceptOrphans: an error was encountered while flushing validation cache for block at height {block.Header.Height}: {e.Message}", e);
                 }
 
                 try
@@ -879,7 +879,7 @@ namespace Discreet.Network
                 }
                 catch (Exception e)
                 {
-                    Daemon.Logger.Error(e.Message);
+                    Daemon.Logger.Error($"AcceptOrphans: an error was encountered while processing block at height {block.Header.Height}: {e.Message}", e);
                 }
 
                 OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = block });
