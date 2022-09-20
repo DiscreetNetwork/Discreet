@@ -347,6 +347,13 @@ namespace Discreet.Network.Peerbloom
 
                             var verAck = await ReadAsync(token);
 
+                            if (verAck == null)
+                            {
+                                Daemon.Logger.Error($"Connection.Connect: Could not retrieve VERACK from {Receiver}");
+                                numConnectionAttempts++;
+                                continue;
+                            }
+
                             if (verAck.Header.Command != Core.PacketType.VERACK)
                             {
                                 Daemon.Logger.Error($"Connection.Connect: packet type mismatch from {Receiver}: Expected VERACK; got {verAck.Header.Command}");
