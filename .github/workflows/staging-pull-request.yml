@@ -50,7 +50,7 @@ jobs:
       with:
         url: 'https://releases.discreet.net/versions/daemon/patch'
         method: 'POST'
-        customHeaders: '{ "x-wallet-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
+        customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
       if: ${{ github.event.pull_request.merged == true && contains(steps.set_branch.outputs.IS_PATCH, 'true') }} 
       
     - name: Increment feature version
@@ -58,5 +58,5 @@ jobs:
       with:
         url: 'https://releases.discreet.net/versions/daemon/feature'
         method: 'POST'
-        customHeaders: '{ "x-wallet-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
+        customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
       if: ${{ github.event.pull_request.merged == true && contains(steps.set_branch.outputs.IS_FEATURE, 'true') }} 
