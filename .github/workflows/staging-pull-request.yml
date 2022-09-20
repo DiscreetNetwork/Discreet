@@ -1,4 +1,4 @@
-name: Staging 
+name: Staging-Pull-Request-Merged
 
 on:
   pull_request:
@@ -60,3 +60,79 @@ jobs:
         method: 'POST'
         customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
       if: ${{ github.event.pull_request.merged == true && contains(steps.set_branch.outputs.IS_FEATURE, 'true') }} 
+
+
+
+
+    - name: Fetch next version
+      id: versionResponse
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: 'https://releases.discreet.net/versions/daemon/build/started'
+        method: 'POST'
+        customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Prepare tag name
+      id: create_tag_name
+      run: echo "::set-output name=TAG_NAME::$( echo ${{ steps.versionResponse.outputs.response }} | tr -d '"')"
+      shell: bash
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Publish [WIN-x64]
+      run: |
+        dotnet publish --configuration Release --runtime win-x64 --framework net6.0 --self-contained true -p:ReadyToRun=true -p:Version=${{ steps.versionResponse.outputs.response }}
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Install zip
+      uses: montudor/action-zip@v1
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Zip [WIN-X64]
+      run: |
+        cd Discreet/bin/Release/net6.0/win-x64/publish
+        zip -qq -r ../win-x64.zip .
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Publish [LINUX-x64]
+      run: |
+        dotnet publish --configuration Release --runtime linux-x64 --framework net6.0 --self-contained true -p:Version=${{ steps.versionResponse.outputs.response }}
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Tar bz2 [LINUX-x64]
+      run: |
+        cd Discreet/bin/Release/net6.0/linux-x64/publish
+        tar -cjvf ../linux-x64.tar.bz2 *
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Create preview release
+      uses: "marvinpinto/action-automatic-releases@latest"
+      id: create_release
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "staging-preview"
+        prerelease: true
+        title: v${{ steps.create_tag_name.outputs.TAG_NAME }}-preview
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Upload win archive to the release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: Discreet/bin/Release/net6.0/win-x64/win-x64.zip
+        asset_name: win-x64.zip
+        asset_content_type: application/zip
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Upload linux tar to the release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: Discreet/bin/Release/net6.0/linux-x64/linux-x64.tar.bz2
+        asset_name: linux-x64.tar.bz2
+        asset_content_type: application/bzip2
+      if: ${{ github.event.pull_request.merged == true }}
