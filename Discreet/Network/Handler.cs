@@ -120,7 +120,7 @@ namespace Discreet.Network
                         // route the packages accordingly
                         if (IsOrderDependent(packet.Item1))
                         {
-                            bool prsucc = proute.TryGetValue(packet.Item2, out List<Packet> chan);
+                            bool prsucc = proute.TryGetValue(packet.Item2, out _);
 
                             if (!prsucc)
                             {
