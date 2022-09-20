@@ -57,14 +57,15 @@ jobs:
       run: |
         cd Discreet/bin/Release/net6.0/linux-x64/publish
         tar -cjvf ../linux-x64.tar.bz2 *
-        
-    - uses: "marvinpinto/action-automatic-releases@latest"
-        id: create_release
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "staging-preview"
-          prerelease: true
-          title: v{{ steps.create_tag_name.outputs.TAG_NAME }}-preview
+    
+    - name: Create preview release
+      uses: "marvinpinto/action-automatic-releases@latest"
+      id: create_release
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        automatic_release_tag: "staging-preview"
+        prerelease: true
+        title: v{{ steps.create_tag_name.outputs.TAG_NAME }}-preview
 
     - name: Upload win archive to the release
       uses: actions/upload-release-asset@v1
