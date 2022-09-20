@@ -50,7 +50,7 @@ jobs:
         
     - name: Publish [LINUX-x64]
       run: |
-        dotnet publish --configuration Release --runtime linux-x64 --framework net6.0 --self-contained true
+        dotnet publish --configuration Release --runtime linux-x64 --framework net6.0 --self-contained true -p:Version=${{ steps.versionResponse.outputs.response }}
         
     - name: Tar bz2 [LINUX-x64]
       run: |
