@@ -146,7 +146,8 @@ namespace Discreet.Network
                 // execute each packet handler
                 foreach (var pritem in proute)
                 {
-                    _ = Task.Run(() => Handle(new List<Packet>(pritem.Value), pritem.Key), token).ConfigureAwait(false);
+                    var prlist = new List<Packet>(pritem.Value);
+                    _ = Task.Run(() => Handle(prlist, pritem.Key), token).ConfigureAwait(false);
                 }
 
                 foreach (var packet in parallel)
@@ -156,7 +157,8 @@ namespace Discreet.Network
 
                 if (sequential.Count > 0)
                 {
-                    _ = Task.Run(() => Handle(new List<(Packet, Peerbloom.Connection)>(sequential)), token).ConfigureAwait(false);
+                    var seqlist = new List<(Packet, Peerbloom.Connection)>(sequential);
+                    _ = Task.Run(() => Handle(seqlist), token).ConfigureAwait(false);
                 }
 
                 // clear the routed packet structures
