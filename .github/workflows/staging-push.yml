@@ -38,7 +38,7 @@ jobs:
         
     - name: Publish [WIN-x64]
       run: |
-        dotnet publish --configuration Release --runtime win-x64 --framework net6.0 --self-contained true -p:ReadyToRun=true
+        dotnet publish --configuration Release --runtime win-x64 --framework net6.0 --self-contained true -p:ReadyToRun=true -p:Version=${{ steps.versionResponse.outputs.response }}
         
     - name: Install zip
       uses: montudor/action-zip@v1
