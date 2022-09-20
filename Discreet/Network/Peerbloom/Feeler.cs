@@ -48,12 +48,15 @@ namespace Discreet.Network.Peerbloom
 
         public async Task Feel(Peer p, CancellationToken token = default)
         {
+            Daemon.Logger.Debug($"Feeler.Feel: testing peer {p.Endpoint}...");
+            
             Connection conn = new Connection(p.Endpoint, _network, _network.LocalNode);
 
             bool success = await conn.Connect(false, token, true);
 
             if (!success)
             {
+                Daemon.Logger.Debug($"Feeler.Feel: peer {p.Endpoint} failed feel attempt");
                 if (p.InTried)
                 {
                     _peerlist.Attempt(p.Endpoint, true);
@@ -72,6 +75,7 @@ namespace Discreet.Network.Peerbloom
             }
             else
             {
+                Daemon.Logger.Debug($"Feeler.Feel: peer {p.Endpoint} succeeded feel attempt; adding to tried");
                 _peerlist.Good(p.Endpoint, true);
             }
         }

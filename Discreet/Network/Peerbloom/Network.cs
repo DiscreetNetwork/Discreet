@@ -650,8 +650,11 @@ namespace Discreet.Network.Peerbloom
                     if (peer == null)
                     {
                         peerlist.AddNew(conn.Receiver, conn.Receiver, 0);
-                        peerlist.Good(conn.Receiver, false);
                         peer = peerlist.FindPeer(conn.Receiver, out _);
+                    }
+                    else if (!peer.InTried)
+                    {
+                        peerlist.Good(conn.Receiver, false);
                     }
                     
                     peer.LastSeen = DateTime.UtcNow.Ticks;
