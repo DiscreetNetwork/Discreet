@@ -152,6 +152,11 @@ namespace Discreet.Daemon
                 RPCUseTabs = false;
             }
 
+            if (PrintStackTraces == null)
+            {
+                PrintStackTraces = false;
+            }
+
             if(ZMQPort == null)
             {
                 ZMQPort = 26833;
@@ -226,7 +231,9 @@ namespace Discreet.Daemon
         public int? RPCIndentSize { get; set; }
         public bool? RPCUseTabs { get; set; }
 
-        public int ZMQPort { get; set; }
+        public bool? PrintStackTraces { get; set; }
+
+        public int? ZMQPort { get; set; }
 
         public int? HTTPPort { get; set; }
         public IPEndPoint Endpoint { get; set; }
@@ -280,6 +287,8 @@ namespace Discreet.Daemon
             RPCIndented = false;
             RPCIndentSize = 0;
             RPCUseTabs = false;
+
+            PrintStackTraces = false;
 
             ZMQPort = 26833;
 
