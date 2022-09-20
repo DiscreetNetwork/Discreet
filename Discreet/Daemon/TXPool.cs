@@ -185,11 +185,13 @@ namespace Discreet.Daemon
             if (tx.PInputs != null && tx.PInputs.Length > 0)
             {
                 List<Cipher.Key> ks = new List<Cipher.Key>();
-
-                foreach (var ptxi in tx.PInputs)
+                lock (spentKeys)
                 {
-                    spentKeys.Add(ptxi.KeyImage);
-                    ks.Add(ptxi.KeyImage);
+                    foreach (var ptxi in tx.PInputs)
+                    {
+                        ks.Add(ptxi.KeyImage);
+                        spentKeys.Add(ptxi.KeyImage);
+                    }
                 }
 
                 updateSpentKeys[tx.TxID] = ks;
@@ -242,10 +244,14 @@ namespace Discreet.Daemon
             {
                 List<Cipher.Key> ks = new List<Cipher.Key>();
 
-                foreach (var ptxi in tx.Tx.PInputs)
+                lock (spentKeys)
                 {
-                    spentKeys.Add(ptxi.KeyImage);
-                    ks.Add(ptxi.KeyImage);
+                    foreach (var ptxi in tx.Tx.PInputs)
+                    {
+                    
+                        spentKeys.Add(ptxi.KeyImage);
+                        ks.Add(ptxi.KeyImage);
+                    }
                 }
 
                 updateSpentKeys[tx.Tx.TxID] = ks;
@@ -269,7 +275,10 @@ namespace Discreet.Daemon
 
         public bool ContainsSpentKey(Cipher.Key k)
         {
-            return spentKeys.Contains(k);
+            lock (spentKeys)
+            {
+                return spentKeys.Contains(k);
+            }
         }
 
         public List<FullTransaction> SelectAndRemove(int maxBytes)
@@ -361,9 +370,12 @@ namespace Discreet.Daemon
 
                 if (updateSpentKeys.ContainsKey(hash))
                 {
-                    foreach (var kv in updateSpentKeys[hash])
+                    lock (spentKeys)
                     {
-                        spentKeys.Remove(kv);
+                        foreach (var kv in updateSpentKeys[hash])
+                        {
+                            spentKeys.Remove(kv);
+                        }
                     }
                     updateSpentKeys.Remove(hash, out _);
                 }
