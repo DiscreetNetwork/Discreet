@@ -440,7 +440,7 @@ namespace Discreet.Wallets
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"Discreet.Wallets.Wallet.TryDecrypt: could not decrypt wallet: {ex}");
+                Daemon.Logger.Error($"Discreet.Wallets.Wallet.TryDecrypt: could not decrypt wallet: {ex.Message}", ex);
 
                 return false;
             }
@@ -555,7 +555,7 @@ namespace Discreet.Wallets
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"Wallet: ProcessBlock failed: {ex}");
+                Daemon.Logger.Error($"Wallet: ProcessBlock failed: {ex.Message}", ex);
             }
         }
 
@@ -571,7 +571,7 @@ namespace Discreet.Wallets
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"CheckIntegrity failed: {ex}");
+                    Daemon.Logger.Error($"CheckIntegrity failed: {ex.Message}", ex);
 
                     return false;
                 }
@@ -600,7 +600,7 @@ namespace Discreet.Wallets
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"Discreet.Wallets.Wallet.ChangeLabel: {ex}");
+                Daemon.Logger.Error($"Discreet.Wallets.Wallet.ChangeLabel: {ex.Message}", ex);
 
                 return false;
             }

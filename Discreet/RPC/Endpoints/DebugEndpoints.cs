@@ -29,7 +29,7 @@ namespace Discreet.RPC.Endpoints
                     var err = Daemon.TXPool.GetTXPool().CheckTx(tx);
                     if (err != null)
                     {
-                        Daemon.Logger.Error($"DbgFaucetStealth: failed to send tx: {err.Message}");
+                        Daemon.Logger.Error($"DbgFaucetStealth: failed to send tx: {err.Message}", err);
                         return new RPCError("failed to create transaction: " + err.Message);
                     }
                     _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDTX, new Network.Core.Packets.SendTransactionPacket { Tx = tx }));
@@ -43,7 +43,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not fulfill faucet request");
             }
@@ -86,7 +86,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex}");
+                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not fulfill faucet request");
             }
@@ -124,7 +124,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex}");
+                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex.Message}", ex);
 
                 return new RPCError(-1, $"Could not fulfill faucet request", utxos);
             }
@@ -173,7 +173,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex}");
+                Daemon.Logger.Error($"RPC call to DbgFaucet failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not fulfill faucet request");
             }
@@ -239,7 +239,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to DbgGetPeerlist failed: {ex}");
+                Daemon.Logger.Error($"RPC call to DbgGetPeerlist failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not fulfill request");
             }

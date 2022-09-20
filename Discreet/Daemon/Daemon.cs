@@ -98,7 +98,7 @@ namespace Discreet.Daemon
             Logger.Log($"Starting RPC server...");
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
-            _ = Task.Factory.StartNew(async () => await ZMQ.Publisher.Instance.Start(DaemonConfig.GetConfig().ZMQPort));
+            _ = Task.Factory.StartNew(async () => await ZMQ.Publisher.Instance.Start(DaemonConfig.GetConfig().ZMQPort.Value));
 
             await network.Start();
             await network.Bootstrap();
@@ -462,20 +462,20 @@ namespace Discreet.Daemon
                     var vErr = vCache.Validate();
                     if (vErr != null)
                     {
-                        Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}");
+                        Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
                     }
                     vCache.Flush();
                 }
                 catch (Exception e)
                 {
-                    Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message);
+                    Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message, e);
                 }
 
                 ProcessBlock(blk);
             }
             catch (Exception e)
             {
-                Logger.Error("Minting block failed: " + e.Message);
+                Logger.Error("Minting block failed: " + e.Message, e);
             }
         }
 

@@ -74,7 +74,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to RelayTx failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to RelayTx failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not relay tx");
             }
@@ -191,7 +191,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to CreateTransaction failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to CreateTransaction failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not create transaction");
             }

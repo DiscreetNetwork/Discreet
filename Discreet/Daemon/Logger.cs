@@ -120,9 +120,12 @@ namespace Discreet.Daemon
             Log(msg, "WARN");
         }
 
-        public static void Error(string msg)
+        public static void Error(string msg, Exception exc = null)
         {
-            Log(msg, "ERROR");
+            if (exc != null && DaemonConfig.GetConfig().PrintStackTraces.Value)
+                Log($"{msg}\nStack Trace:\n{exc.StackTrace}", "ERROR");
+            else
+                Log(msg, "ERROR");
         }
 
         public static void Fatal(string msg)

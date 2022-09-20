@@ -725,7 +725,7 @@ namespace Discreet.Coin
                 }
                 catch (Exception e)
                 {
-                    Daemon.Logger.Error(e.Message);
+                    Daemon.Logger.Error("MixedTransaction.Verify: " + e.Message, e);
                     return new VerifyException("MixedTransaction", $"Transparent input at index {i} for transaction not present in UTXO set!");
                 }
             }

@@ -32,7 +32,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWallet failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWallet failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get wallet {label}");
             }
@@ -49,7 +49,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWalletsFromDb failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWalletsFromDb failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get wallets from WalletDB");
             }
@@ -172,7 +172,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to CreateWallet failed: {ex}");
+                Daemon.Logger.Error($"RPC call to CreateWallet failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not create wallet");
             }
@@ -234,7 +234,7 @@ namespace Discreet.RPC.Endpoints
                     }
                     catch (Exception ex)
                     {
-                        Daemon.Logger.Error($"RPC call resulted in an error: {ex}");
+                        Daemon.Logger.Error($"RPC call resulted in an error: {ex.Message}", ex);
 
                         return new RPCError($"could not load wallet with label {_params.Label}; try checking wallet integrity or seeing if it is missing");
                     }
@@ -267,7 +267,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to LoadWallet failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to LoadWallet failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not load wallet");
             }
@@ -321,7 +321,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to CheckIntegrity failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to CheckIntegrity failed: {ex.Message}", ex);
 
                 return new RPCError($"failed");
             }
@@ -403,7 +403,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to LoadWallets failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to LoadWallets failed: {ex.Message}", ex);
 
                 return new RPCError($"could not load wallets");
             }
@@ -426,7 +426,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to LockWallet failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to LockWallet failed: {ex.Message}", ex);
 
                 return new RPCError($"could not lock wallet");
             }
@@ -446,7 +446,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to LockWallets failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to LockWallets failed: {ex.Message}", ex);
 
                 return new RPCError($"could not lock wallets");
             }
@@ -505,7 +505,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to UnlockWallet failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to UnlockWallet failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not unlock wallet");
             }
@@ -528,7 +528,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWalletBalance failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWalletBalance failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get wallet balance");
             }
@@ -551,7 +551,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetBalance failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetBalance failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get address balance");
             }
@@ -714,7 +714,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to CreateAddress failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to CreateAddress failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not create address");
             }
@@ -737,7 +737,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetAddresses failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetAddresses failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get addresses");
             }
@@ -754,7 +754,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWallets failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWallets failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get wallets");
             }
@@ -781,7 +781,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to StopWallet failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to StopWallet failed: {ex.Message}", ex);
 
                 return new RPCError($"could not stop wallet");
             }
@@ -804,7 +804,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWalletVersion failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWalletVersion failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get wallet version");
             }
@@ -830,7 +830,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to ChangeWalletLabel failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to ChangeWalletLabel failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not change wallet label");
             }
@@ -855,7 +855,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to ChangeAddressName failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to ChangeAddressName failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not change address name");
             }
@@ -885,7 +885,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWalletStatus failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWalletStatus failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get wallet status");
             }
@@ -926,7 +926,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWalletStatuses failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWalletStatuses failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get wallet statuses");
             }
@@ -955,7 +955,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWalletHeight failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWalletHeight failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get wallet height");
             }
@@ -985,7 +985,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWalletHeight failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWalletHeight failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get wallet height");
             }
@@ -1015,7 +1015,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetMnemonic failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetMnemonic failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get mnemonic");
             }
@@ -1100,7 +1100,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetTransactionHistory failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetTransactionHistory failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get transaction history");
             }

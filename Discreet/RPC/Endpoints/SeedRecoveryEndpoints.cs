@@ -75,7 +75,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetWalletSeed failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetWalletSeed failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not recover seed for wallet {label}");
             }
@@ -199,7 +199,7 @@ namespace Discreet.RPC.Endpoints
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"RPC call to GetSecretKey failed: {ex.Message}");
+                Daemon.Logger.Error($"RPC call to GetSecretKey failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not recover seed for wallet {label}'s address {address}");
             }
