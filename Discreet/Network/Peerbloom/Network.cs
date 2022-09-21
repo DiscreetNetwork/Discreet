@@ -537,7 +537,7 @@ namespace Discreet.Network.Peerbloom
 
                     Connection conn = new Connection(node, this, LocalNode, true);
 
-                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 5000, 1);
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 5000, 2);
                     peerlist.Attempt(node, !success);
 
                     if (success) numConnected++;
@@ -545,8 +545,9 @@ namespace Discreet.Network.Peerbloom
                     checkedPeers.Add(node);
                     if (numConnected == 0 && endpoints.Count == checkedPeers.Count && !success)
                     {
-                        Daemon.Logger.Warn("Could not find any online/valid peers. Increasing timeout length and allowed attempts.");
-                        checkedPeers.Clear();
+                        Daemon.Logger.Warn("Could not find any online/valid peers. Restarting bootstrap.");
+                        await Bootstrap();
+                        return;
                     }
                 }
             }
