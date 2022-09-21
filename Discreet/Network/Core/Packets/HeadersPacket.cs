@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Discreet.Network.Core.Packets
 {
-    internal class HeadersPacket: IPacketBody
+    public class HeadersPacket: IPacketBody
     {
         public uint Count { get; set; }
         public Coin.BlockHeader[] Headers { get; set; }

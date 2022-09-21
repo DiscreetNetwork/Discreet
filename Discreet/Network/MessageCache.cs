@@ -30,6 +30,7 @@ namespace Discreet.Network
         public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> Versions;
         public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> BadVersions;
         public ConcurrentDictionary<long, Coin.Block> BlockCache;
+        public ConcurrentDictionary<long, Coin.BlockHeader> HeaderCache;
 
         public ConcurrentDictionary<Cipher.SHA256, Coin.Block> OrphanBlocks;
 
@@ -42,6 +43,7 @@ namespace Discreet.Network
             BadVersions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BlockCache = new ConcurrentDictionary<long, Coin.Block>();
             OrphanBlocks = new ConcurrentDictionary<Cipher.SHA256, Coin.Block>();
+            HeaderCache = new ConcurrentDictionary<long, Coin.BlockHeader>();
         }
     }
 }

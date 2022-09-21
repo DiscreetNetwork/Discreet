@@ -263,6 +263,12 @@ namespace Discreet.Network
                     case PacketType.GETBLOCKS:
                         await HandleGetBlocks((GetBlocksPacket)p.Body, conn.Receiver);
                         break;
+                    case PacketType.GETHEADERS:
+                        await HandleGetHeaders((GetHeadersPacket)p.Body, conn);
+                        break;
+                    case PacketType.HEADERS:
+                        await HandleHeaders((GetHeadersPacket)p.Body, conn);
+                        break;
                     case PacketType.SENDMSG:
                         await HandleMessage((SendMessagePacket)p.Body, conn.Receiver);
                         break;
@@ -899,6 +905,90 @@ namespace Discreet.Network
                     /* recursively accept orphan blocks from message cache */
                     AcceptOrphans(p.Blocks[0].Header.BlockHash);
                 }
+            }
+        }
+
+        public async Task HandleGetHeaders(GetHeadersPacket p, Peerbloom.Connection conn)
+        {
+            DB.DataView dataView = DB.DataView.GetView();
+
+            List<Coin.BlockHeader> headers = new List<Coin.BlockHeader>();
+
+            try
+            {
+                if (p.StartingHeight >= 0 && (p.Headers == null || p.Headers.Length == 0))
+                {
+                    // retrieve by height
+                    for (long i = p.StartingHeight; i < p.StartingHeight + p.Count; i++)
+                    {
+                        headers.Add(dataView.GetBlockHeader(i));
+                    }
+                }
+                else
+                {
+                    foreach (var h in p.Headers)
+                    {
+                        if (h.IsLong())
+                        {
+                            headers.Add(dataView.GetBlockHeader(h.ToInt64()));
+                        }
+                        else
+                        {
+                            headers.Add(dataView.GetBlockHeader(h));
+                        }
+                    }
+                }
+                
+
+                Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.HEADERS, new HeadersPacket { Count = (uint)headers.Count, Headers = headers.ToArray() }));
+            }
+            catch (Exception e)
+            {
+                Daemon.Logger.Log(e.Message);
+
+                NotFoundPacket resp = new NotFoundPacket
+                {
+                    Count = p.Count,
+                    Inventory = new InventoryVector[p.Count],
+                };
+
+                if (p.StartingHeight >= 0 && (p.Headers == null || p.Headers.Length == 0))
+                {
+                    for (long i = p.StartingHeight; i < p.StartingHeight + p.Count; i++)
+                    {
+                        resp.Inventory[i] = new InventoryVector { Hash = new Cipher.SHA256(i), Type = ObjectType.BlockHeader };
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < p.Count; i++)
+                    {
+                        resp.Inventory[i] = new InventoryVector { Hash = p.Headers[i], Type = ObjectType.BlockHeader };
+                    }
+                }
+                    
+
+                Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.NOTFOUND, resp));
+            }
+        }
+
+        public async Task HandleHeaders(HeadersPacket p, Peerbloom.Connection conn)
+        {
+            if (State == PeerState.Syncing)
+            {
+                DB.DataView dataView = DB.DataView.GetView();
+
+                foreach (var header in p.Headers)
+                {
+                    if (!MessageCache.GetMessageCache().HeaderCache.ContainsKey(header.Height))
+                    {
+                        MessageCache.GetMessageCache().HeaderCache.TryAdd(header.Height, header);
+                    }
+                }
+            }
+            else
+            {
+                Daemon.Logger.Warn($"Handler.HandleHeaders: Received unsolicited headers packet from peer {conn.Receiver}");
             }
         }
 
