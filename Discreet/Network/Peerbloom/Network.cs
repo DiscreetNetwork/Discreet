@@ -496,6 +496,8 @@ namespace Discreet.Network.Peerbloom
                 _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token)).ConfigureAwait(false);
             }
 
+            int connectCount = 0;
+
             foreach (var node in endpoints)
             {
                 if (GetNode(node) != null) continue;
@@ -511,6 +513,44 @@ namespace Discreet.Network.Peerbloom
 
                 peerlist.AddNew(node, bootstrapNode.Receiver, 0);
             }
+
+            // select at least two nodes to connect to
+            if (!Daemon.Daemon.DebugMode)
+            {
+                List<IPEndPoint> checkedPeers = new List<IPEndPoint>();
+                int numConnected = 0;
+
+                foreach (var node in endpoints)
+                {
+                    if (numConnected >= 2)
+                    {
+                        break;
+                    }
+
+                    if (node.Address.Equals(ReflectedAddress))
+                    {
+                        Daemon.Logger.Debug($"Ignoring connection to peer {node}; this one is us");
+                        continue;
+                    }
+
+                    if (checkedPeers.Contains(node)) continue;
+
+                    Connection conn = new Connection(node, this, LocalNode, true);
+
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 5000, 1);
+                    peerlist.Attempt(node, !success);
+
+                    if (success) numConnected++;
+
+                    checkedPeers.Add(node);
+                    if (numConnected == 0 && endpoints.Count == checkedPeers.Count && !success)
+                    {
+                        Daemon.Logger.Warn("Could not find any online/valid peers. Increasing timeout length and allowed attempts.");
+                        checkedPeers.Clear();
+                    }
+                }
+            }
+            
 
             IsBootstrapping = false;
             Daemon.Logger.Info("Bootstrap completed.");
