@@ -595,14 +595,6 @@ namespace Discreet.Network.Peerbloom
 
         public bool Send(IPEndPoint endpoint, Core.Packet packet)
         {
-            if (packet.Header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE > Constants.MAX_PEERBLOOM_PACKET_SIZE)
-            {
-                Daemon.Logger.Error($"Network.Send: Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
-                return false;
-            }
-
-            Daemon.Logger.Info($"Network.Send: Sending {packet.Header.Command} to {endpoint}");
-
             bool success = InboundConnectedPeers.TryGetValue(endpoint, out var conn);
 
             if (!success || conn == null)
@@ -616,9 +608,7 @@ namespace Discreet.Network.Peerbloom
                 }
             }
 
-            conn.Send(packet);
-
-            return true;
+            return Send(conn, packet);
         }
 
         public bool Send(Connection conn, Core.Packet packet)
@@ -630,6 +620,20 @@ namespace Discreet.Network.Peerbloom
             }
 
             Daemon.Logger.Info($"Network.Send: Sending {packet.Header.Command} to {conn.Receiver}");
+
+            // hacky; make specific functions for sending packets which call this instead (in the future)
+            if (packet.Header.Command == Core.PacketType.GETBLOCKS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetBlocksPacket)packet.Body, conn.Receiver);
+            }
+            else if (packet.Header.Command == Core.PacketType.GETTXS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetTransactionsPacket)packet.Body, conn.Receiver);
+            }
+            else if (packet.Header.Command == Core.PacketType.GETHEADERS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetHeadersPacket)packet.Body, conn.Receiver);
+            }
 
             conn.Send(packet);
 
@@ -666,7 +670,7 @@ namespace Discreet.Network.Peerbloom
 
                 if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
                 {
-                    (Peer p, _) = peerlist.Select(false);
+                    (Peer p, _) = peerlist.Select(false, true);
                     
                     if (p != null && !_network.OutboundConnectedPeers.ContainsKey(p.Endpoint) && !_network.ConnectingPeers.ContainsKey(p.Endpoint) && !_network.Feelers.ContainsKey(p.Endpoint))
                     {
@@ -674,7 +678,7 @@ namespace Discreet.Network.Peerbloom
                         {
                             if (p.Endpoint.Address.Equals(_network.ReflectedAddress)) return;
 
-                            Connection conn = new Connection(p.Endpoint, this, LocalNode, true);
+                            Connection conn = new Connection(p.Endpoint, this, LocalNode, true, p);
 
                             bool success = await conn.Connect(true, _shutdownTokenSource.Token, false);
 
@@ -693,22 +697,23 @@ namespace Discreet.Network.Peerbloom
                         peerlist.AddNew(conn.Receiver, conn.Receiver, 0);
                         peer = peerlist.FindPeer(conn.Receiver, out _);
                     }
-                    else if (!peer.InTried)
+
+                    if (!peer.InTried)
                     {
                         peerlist.Good(conn.Receiver, false);
                     }
                     
-                    peer.LastSeen = DateTime.UtcNow.Ticks;
+                    //peer.LastSeen = DateTime.UtcNow.Ticks;
                 }
 
-                foreach (var conn in InboundConnectedPeers.Values)
+                /*foreach (var conn in InboundConnectedPeers.Values)
                 {
                     if (conn.ConnectionAcknowledged)
                     {
                         var peer = peerlist.FindPeer(conn.Receiver, out _);
                         if (peer != null) peer.LastSeen = DateTime.UtcNow.Ticks;
                     }
-                }
+                }*/
 
                 foreach (var conn in ConnectingPeers.Values)
                 {

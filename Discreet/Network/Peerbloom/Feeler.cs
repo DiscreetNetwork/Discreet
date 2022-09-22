@@ -50,7 +50,7 @@ namespace Discreet.Network.Peerbloom
         {
             Daemon.Logger.Debug($"Feeler.Feel: testing peer {p.Endpoint}...");
             
-            Connection conn = new Connection(p.Endpoint, _network, _network.LocalNode);
+            Connection conn = new Connection(p.Endpoint, _network, _network.LocalNode, _peer: p);
 
             bool success = await conn.Connect(false, token, true);
 
@@ -110,7 +110,7 @@ namespace Discreet.Network.Peerbloom
 
                 while (timer > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(500, token);
                 }
 
                 if (token.IsCancellationRequested) return;
@@ -134,9 +134,9 @@ namespace Discreet.Network.Peerbloom
                     if ((peer.LastAttempt + 10_000_000L * 3600L) > DateTime.UtcNow.Ticks) { tried++; continue; }
 
                     selected.Add(peer);
-                    _ = Task.Run(() => Feel(peer, token)).ConfigureAwait(false);
+                    _ = Task.Run(() => Feel(peer, token), token).ConfigureAwait(false);
 
-                    await Task.Delay(100);
+                    await Task.Delay(100, token);
                 }
             }
         }

@@ -52,6 +52,8 @@ namespace Discreet.Network.Peerbloom
         private SemaphoreSlim _readMutex = new SemaphoreSlim(1, 1);
         private SemaphoreSlim _sendMutex = new SemaphoreSlim(1, 1);
 
+        private Peer peer { get; set; }
+
         // the reported port the receiving peer exposes, if public
         private int _port = -1;
 
@@ -65,7 +67,7 @@ namespace Discreet.Network.Peerbloom
             set { _port = value; }
         }
 
-        public Connection(TcpClient tcpClient, Network network, LocalNode node, bool isOutbound = false)
+        public Connection(TcpClient tcpClient, Network network, LocalNode node, bool isOutbound = false, Peer _peer = null)
         {
             LastValidReceive = DateTime.UtcNow.Ticks;
             LastValidSend = DateTime.UtcNow.Ticks;
@@ -82,11 +84,12 @@ namespace Discreet.Network.Peerbloom
             Receiver = (IPEndPoint)tcpClient.Client.RemoteEndPoint;
 
             TimeStarted = DateTime.UtcNow.Ticks;
+            peer = _peer;
 
             IsOutbound = isOutbound;
         }
 
-        public Connection(IPEndPoint receiver, Network network, LocalNode node, bool isOutbound = true)
+        public Connection(IPEndPoint receiver, Network network, LocalNode node, bool isOutbound = true, Peer _peer = null)
         {
             _tcpClient = new TcpClient();
             LastValidReceive = DateTime.UtcNow.Ticks;
@@ -102,6 +105,7 @@ namespace Discreet.Network.Peerbloom
             Receiver = receiver;
 
             TimeStarted = DateTime.UtcNow.Ticks;
+            peer = _peer;
 
             IsOutbound = isOutbound;
         }
@@ -834,6 +838,11 @@ namespace Discreet.Network.Peerbloom
                     _readMutex.Release();
                 }
                 LastValidReceive = DateTime.UtcNow.Ticks;
+                // update LastSeen if Outbound
+                if (IsOutbound && peer != null)
+                {
+                    peer.LastSeen = DateTime.UtcNow.Ticks;
+                }
                 return p;
             }
 
@@ -861,8 +870,8 @@ namespace Discreet.Network.Peerbloom
 
         public async Task Persistent(CancellationToken token)
         {
-            _ = Task.Run(() => PersistentRead(token)).ConfigureAwait(false);
-            _ = Task.Run(() => PersistentWrite(token)).ConfigureAwait(false);
+            _ = Task.Run(() => PersistentRead(token), token).ConfigureAwait(false);
+            _ = Task.Run(() => PersistentWrite(token), token).ConfigureAwait(false);
         }
 
         private async Task PersistentRead(CancellationToken token)
@@ -893,6 +902,7 @@ namespace Discreet.Network.Peerbloom
                         else
                         {
                             Daemon.Logger.Debug("Connection.Persistent: queueing data");
+
                             _network.AddPacketToQueue(p, this);
                         }
                     }

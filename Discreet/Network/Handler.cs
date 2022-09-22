@@ -11,6 +11,23 @@ using Discreet.Network.Core.Packets;
 
 namespace Discreet.Network
 {
+    internal class InventoryComparer : IComparer<InventoryVectorRef>
+    {
+        public int Compare(InventoryVectorRef x, InventoryVectorRef y) => x.vector.Compare(y.vector);
+    }
+
+    internal class InventoryVectorRef
+    {
+        public InventoryVector vector;
+        public SortedSet<InventoryVectorRef> container;
+
+        public InventoryVectorRef() { }
+
+        public InventoryVectorRef(InventoryVector vector) { this.vector = vector; }
+
+        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container) : this(vector) { this.container = container; }
+    }
+
     public class TransactionReceivedEventArgs : EventArgs
     {
         public Coin.FullTransaction Tx;
@@ -50,6 +67,154 @@ namespace Discreet.Network
 
         public event TransactionReceivedEventHandler OnTransactionReceived;
         public event BlockSuccessEventHandler OnBlockSuccess;
+
+        // used for unorganized inventory requests
+        private ConcurrentDictionary<IPEndPoint, SortedSet<InventoryVectorRef>> NeededInventory = new();
+        private Dictionary<InventoryVectorRef, long> InventoryTimeouts = new();
+
+        public async Task NeededInventoryStart(CancellationToken token)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                await Task.Delay(60000, token);
+
+                var curTimestamp = DateTime.UtcNow.Ticks;
+
+                // NeededInventory will remain small.
+                foreach(var kv in InventoryTimeouts)
+                {
+                    // remove stale requests (i.e. requests older than one hour)
+                    if (curTimestamp >= 3600_0_000_000L + kv.Value)
+                    {
+                        kv.Key.container.Remove(kv.Key);
+                    }
+                }
+            }
+        }
+
+        public void RegisterNeeded(IPacketBody packet, IPEndPoint req)
+        {
+            bool success = NeededInventory.TryGetValue(req, out var reqset);
+            if (!success || reqset == null)
+            {
+                reqset = new(new InventoryComparer());
+            }
+
+            var timestamp = DateTime.UtcNow.Ticks;
+
+            if (packet.GetType() == typeof(GetTransactionsPacket))
+            {
+                var gettx = packet as GetTransactionsPacket;
+                foreach (var tx in gettx.Transactions)
+                {
+                    var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, tx), reqset);
+                    reqset.Add(ivref);
+                    InventoryTimeouts.Add(ivref, timestamp);
+                }
+            }
+            else if (packet.GetType() == typeof(GetBlocksPacket))
+            {
+                var gettx = packet as GetBlocksPacket;
+                foreach (var block in gettx.Blocks)
+                {
+                    var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block), reqset);
+                    reqset.Add(ivref);
+                    InventoryTimeouts.Add(ivref, timestamp);
+                }
+            }
+            else if (packet.GetType() == typeof(GetHeadersPacket))
+            {
+                var gettx = packet as GetHeadersPacket;
+                if (gettx.Headers == null)
+                {
+                    for (long i = gettx.StartingHeight; i < gettx.StartingHeight + gettx.Count; i++)
+                    {
+                        var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(i)), reqset);
+                        reqset.Add(ivref);
+                        InventoryTimeouts.Add(ivref, timestamp);
+                    }
+                }
+                else
+                {
+                    foreach (var header in gettx.Headers)
+                    {
+                        var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header), reqset);
+                        reqset.Add(ivref);
+                        InventoryTimeouts.Add(ivref, timestamp);
+                    }
+                }
+            }
+            else
+            {
+                Daemon.Logger.Error($"Handler.RegisterNeeded: cannot accept packet of type {packet.GetType()}");
+            }
+        }
+
+        public bool CheckFulfillment(IPacketBody packet, IPEndPoint resp)
+        {
+            bool success = NeededInventory.TryGetValue(resp, out var reqset);
+            if (!success || reqset == null)
+            {
+                return false;
+            }
+
+            if (packet.GetType() == typeof(TransactionsPacket))
+            {
+                var txs = packet as TransactionsPacket;
+                var txinvs = txs.Txs.Select(x => new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, x.TxID)));
+
+                foreach (var txinv in txinvs)
+                {
+                    bool remsuccess = reqset.Remove(txinv);
+                    if (!remsuccess) return false;
+                }
+
+                return true;
+            }
+            else if (packet.GetType() == typeof(BlocksPacket))
+            {
+                var blocks = packet as BlocksPacket;
+
+                foreach (Coin.Block block in blocks.Blocks)
+                {
+                    var binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block.Header.BlockHash));
+                    bool remsuccess = reqset.Remove(binv);
+                    if (!remsuccess)
+                    {
+                        binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, new Cipher.SHA256(block.Header.Height)));
+                        remsuccess = reqset.Remove(binv);
+
+                        if (!success) return false;
+                    }
+                }
+
+                return true;
+            }
+            else if (packet.GetType() == typeof(HeadersPacket))
+            {
+                var headers = packet as HeadersPacket;
+
+                foreach (Coin.BlockHeader header in headers.Headers)
+                {
+                    var hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header.BlockHash));
+                    bool remsuccess = reqset.Remove(hinv);
+                    if (!remsuccess)
+                    {
+                        hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(header.Height)));
+                        remsuccess = reqset.Remove(hinv);
+
+                        if (!success) return false;
+                    }
+                }
+
+                return true;
+            }
+            else
+            {
+                Daemon.Logger.Error($"Handler.CheckFulfillment: cannot check packet of type {packet.GetType()}");
+                return false;
+            }
+        }
 
         public static Handler GetHandler()
         {
@@ -100,6 +265,7 @@ namespace Discreet.Network
         {
             _token = token;
             _ = Task.Run(() => Handle(token), token).ConfigureAwait(false);
+            _ = Task.Run(() => NeededInventoryStart(token), token).ConfigureAwait(false);
         }
 
         public async Task Handle(CancellationToken token)
@@ -267,7 +433,7 @@ namespace Discreet.Network
                         await HandleGetHeaders((GetHeadersPacket)p.Body, conn);
                         break;
                     case PacketType.HEADERS:
-                        await HandleHeaders((GetHeadersPacket)p.Body, conn);
+                        await HandleHeaders((HeadersPacket)p.Body, conn);
                         break;
                     case PacketType.SENDMSG:
                         await HandleMessage((SendMessagePacket)p.Body, conn.Receiver);
@@ -379,7 +545,7 @@ namespace Discreet.Network
             {
                 if (conn.Receiver.Port < 49152 && !_network.ReflectedAddress.Equals(endpoint.Address))
                 {
-                    _network.peerlist.AddNew(endpoint, conn.Receiver, 60L * 60L * 10_000_000L);
+                    _network.peerlist.AddNew(endpoint, conn.Receiver, 2L * 60L * 60L * 10_000_000L);
                 }
             }
         }
@@ -513,6 +679,9 @@ namespace Discreet.Network
                 _network.ConnectingPeers.Remove(conn.Receiver, out _);
                 MessageCache.GetMessageCache().Versions.Remove(conn.Receiver, out _);
                 MessageCache.GetMessageCache().BadVersions.Remove(conn.Receiver, out _);
+
+                // update lastSeen
+
 
                 await conn.Disconnect(true);
                 return;
@@ -827,6 +996,13 @@ namespace Discreet.Network
 
         public async Task HandleBlocks(BlocksPacket p, Peerbloom.Connection conn)
         {
+            // check if request was fulfilled
+            bool good = CheckFulfillment(p, conn.Receiver);
+            if (!good)
+            {
+                Daemon.Logger.Error($"Handler.HandleBlocks: received unrequested data from peer {conn.Receiver}; potentially malicious behavior");
+                return;
+            }
             if (State == PeerState.Syncing)
             {
                 DB.DataView dataView = DB.DataView.GetView();
@@ -974,6 +1150,13 @@ namespace Discreet.Network
 
         public async Task HandleHeaders(HeadersPacket p, Peerbloom.Connection conn)
         {
+            // check if request was fulfilled
+            bool good = CheckFulfillment(p, conn.Receiver);
+            if (!good)
+            {
+                Daemon.Logger.Error($"Handler.HandleHeaders: received unrequested data from peer {conn.Receiver}; potentially malicious behavior");
+                return;
+            }
             if (State == PeerState.Syncing)
             {
                 DB.DataView dataView = DB.DataView.GetView();
@@ -985,6 +1168,8 @@ namespace Discreet.Network
                         MessageCache.GetMessageCache().HeaderCache.TryAdd(header.Height, header);
                     }
                 }
+
+                LastSeenHeight = p.Headers.Select(x => x.Height).Max();
             }
             else
             {
