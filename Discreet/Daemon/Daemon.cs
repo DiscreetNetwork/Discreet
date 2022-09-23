@@ -127,7 +127,22 @@ namespace Discreet.Daemon
 
                 long beginningHeight = -1;
 
-
+                List<Network.Core.Packets.InventoryVector> missedItems = new();
+                long toBeFulfilled = 0;
+                var callback = (IPEndPoint peer, Network.Core.Packets.InventoryVector missedItem, bool success) => 
+                {
+                    if (!success)
+                    {
+                        lock (missedItems)
+                        {
+                            missedItems.Add(missedItem);
+                        }
+                    }
+                    else
+                    {
+                        Interlocked.Decrement(ref toBeFulfilled);
+                    }
+                };
                 /**
                  * A note on how Header-First Syncing works:
                  *  - node finds best node to query with longest chain and requests as many headers as possible
@@ -139,19 +154,36 @@ namespace Discreet.Daemon
                 {
                     long _hheight = dataView.GetChainHeight();
                     beginningHeight = _hheight;
+                    var bestConn = network.GetPeer(bestPeer);
 
                     while (_hheight < bestHeight)
                     {
                         var _newHheight = (_hheight + 25000) <= bestHeight ? _hheight + 25000 : bestHeight;
-                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = _hheight + 1, Count = (uint)(_newHheight - _hheight) }));
+                        Logger.Info($"Fetching block headers {_hheight + 1} to {_newHheight}");
 
-                        while (handler.LastSeenHeight < _newHheight)
+                        toBeFulfilled = _newHheight - _hheight;
+                        network.SendRequest(bestConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = _hheight + 1, Count = (uint)(_newHheight - _hheight) }), durationMilliseconds: 60000, callback: callback);
+
+                        while (handler.LastSeenHeight < _newHheight && missedItems.Count == 0)
                         {
-                            await Task.Delay(50);
+                            await Task.Delay(100);
+                        }
+
+                        while (missedItems.Count > 0 && Interlocked.Read(ref toBeFulfilled) > 0)
+                        {
+                            lock(missedItems)
+                            {
+                                network.SendRequest(bestConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = -1, Count = (uint)missedItems.Count, Headers = missedItems.Select(x => x.Hash).ToArray() }));
+                                missedItems.Clear();
+                            }
                         }
                     }
                 }
 
+                Logger.Info($"Grabbed headers; grabbing blocks");
+
+                toBeFulfilled = 0;
+                missedItems.Clear();
                 // block syncing
                 /**
                  * Rationale for syncing is as follows:
@@ -163,6 +195,8 @@ namespace Discreet.Daemon
                  */
                 if (bestPeer != null)
                 {
+                    var bestConn = network.GetPeer(bestPeer);
+
                     for (long chunk = beginningHeight; chunk < bestHeight; chunk = ((chunk + 1024) <= bestHeight ? chunk + 1024 : bestHeight))
                     {
                         var _height = chunk;
@@ -170,6 +204,7 @@ namespace Discreet.Daemon
                         Logger.Info($"Fetching blocks {chunk + 1} to {_newHeight}");
 
                         var headers = messageCache.PopHeaders(_newHeight - chunk);
+                        toBeFulfilled = _newHeight - chunk;
 
                         while (_height < _newHeight)
                         {
@@ -186,11 +221,20 @@ namespace Discreet.Daemon
                             }
 
                             var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
-                            network.Send(bestPeer, getBlocksPacket);
+                            network.SendRequest(bestConn, getBlocksPacket, durationMilliseconds: 60000, callback: callback);
 
-                            while (handler.LastSeenHeight < _nextHeight)
+                            while (handler.LastSeenHeight < _nextHeight && missedItems.Count == 0)
                             {
-                                await Task.Delay(50);
+                                await Task.Delay(100);
+                            }
+
+                            while (missedItems.Count > 0 && Interlocked.Read(ref toBeFulfilled) > 0)
+                            {
+                                lock (missedItems)
+                                {
+                                    network.SendRequest(bestConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }));
+                                    missedItems.Clear();
+                                }
                             }
                         }
 

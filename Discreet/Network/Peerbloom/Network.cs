@@ -593,6 +593,35 @@ namespace Discreet.Network.Peerbloom
             return i;
         }
 
+        public bool SendRequest(Connection conn, Core.Packet packet, long durationMilliseconds = 0, Action<IPEndPoint, Core.Packets.InventoryVector, bool> callback = null)
+        {
+            if (packet.Header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE > Constants.MAX_PEERBLOOM_PACKET_SIZE)
+            {
+                Daemon.Logger.Error($"Network.SendRequest: Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+                return false;
+            }
+
+            Daemon.Logger.Info($"Network.SendRequest: Sending request {packet.Header.Command} to {conn.Receiver}");
+
+            // hacky; make specific functions for sending packets which call this instead (in the future)
+            if (packet.Header.Command == Core.PacketType.GETBLOCKS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetBlocksPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
+            }
+            else if (packet.Header.Command == Core.PacketType.GETTXS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetTransactionsPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
+            }
+            else if (packet.Header.Command == Core.PacketType.GETHEADERS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetHeadersPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
+            }
+
+            conn.Send(packet);
+
+            return true;
+        }
+
         public bool Send(IPEndPoint endpoint, Core.Packet packet)
         {
             bool success = InboundConnectedPeers.TryGetValue(endpoint, out var conn);

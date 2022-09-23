@@ -20,12 +20,18 @@ namespace Discreet.Network
     {
         public InventoryVector vector;
         public SortedSet<InventoryVectorRef> container;
+        public Action<IPEndPoint, InventoryVector, bool> callback;
+        public IPEndPoint peer;
 
         public InventoryVectorRef() { }
 
         public InventoryVectorRef(InventoryVector vector) { this.vector = vector; }
 
         public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container) : this(vector) { this.container = container; }
+
+        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool> callback) : this(vector, container) { this.callback = callback; }
+
+        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool> callback, IPEndPoint peer) : this(vector, container, callback) { this.peer = peer; }
     }
 
     public class TransactionReceivedEventArgs : EventArgs
@@ -70,13 +76,13 @@ namespace Discreet.Network
 
         // used for unorganized inventory requests
         private ConcurrentDictionary<IPEndPoint, SortedSet<InventoryVectorRef>> NeededInventory = new();
-        private Dictionary<InventoryVectorRef, long> InventoryTimeouts = new();
+        private ConcurrentDictionary<InventoryVectorRef, (long, long)> InventoryTimeouts = new();
 
         public async Task NeededInventoryStart(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
-                await Task.Delay(60000, token);
+                await Task.Delay(5000, token);
 
                 var curTimestamp = DateTime.UtcNow.Ticks;
 
@@ -84,32 +90,40 @@ namespace Discreet.Network
                 foreach(var kv in InventoryTimeouts)
                 {
                     // remove stale requests (i.e. requests older than one hour)
-                    if (curTimestamp >= 3600_0_000_000L + kv.Value)
+                    var dur = kv.Value.Item2;
+                    if (dur <= 0)
+                    {
+                        dur = 3600_0_000_000L;
+                    }
+                    if (curTimestamp >=  dur + kv.Value.Item1)
                     {
                         kv.Key.container.Remove(kv.Key);
+                        kv.Key.callback?.Invoke(kv.Key.peer, kv.Key.vector, false);
                     }
                 }
             }
         }
 
-        public void RegisterNeeded(IPacketBody packet, IPEndPoint req)
+        public void RegisterNeeded(IPacketBody packet, IPEndPoint req, long durMilliseconds = 0, Action<IPEndPoint, InventoryVector, bool> callback = null)
         {
             bool success = NeededInventory.TryGetValue(req, out var reqset);
             if (!success || reqset == null)
             {
                 reqset = new(new InventoryComparer());
+                NeededInventory.TryAdd(req, reqset);
             }
 
             var timestamp = DateTime.UtcNow.Ticks;
+            var durTicks = durMilliseconds * 10_000L;
 
             if (packet.GetType() == typeof(GetTransactionsPacket))
             {
                 var gettx = packet as GetTransactionsPacket;
                 foreach (var tx in gettx.Transactions)
                 {
-                    var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, tx), reqset);
+                    var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, tx), reqset, callback, req);
                     reqset.Add(ivref);
-                    InventoryTimeouts.Add(ivref, timestamp);
+                    InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
                 }
             }
             else if (packet.GetType() == typeof(GetBlocksPacket))
@@ -117,9 +131,9 @@ namespace Discreet.Network
                 var gettx = packet as GetBlocksPacket;
                 foreach (var block in gettx.Blocks)
                 {
-                    var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block), reqset);
+                    var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block), reqset, callback, req);
                     reqset.Add(ivref);
-                    InventoryTimeouts.Add(ivref, timestamp);
+                    InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
                 }
             }
             else if (packet.GetType() == typeof(GetHeadersPacket))
@@ -129,18 +143,18 @@ namespace Discreet.Network
                 {
                     for (long i = gettx.StartingHeight; i < gettx.StartingHeight + gettx.Count; i++)
                     {
-                        var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(i)), reqset);
+                        var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(i)), reqset, callback, req);
                         reqset.Add(ivref);
-                        InventoryTimeouts.Add(ivref, timestamp);
+                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
                     }
                 }
                 else
                 {
                     foreach (var header in gettx.Headers)
                     {
-                        var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header), reqset);
+                        var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header), reqset, callback, req);
                         reqset.Add(ivref);
-                        InventoryTimeouts.Add(ivref, timestamp);
+                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
                     }
                 }
             }
@@ -162,51 +176,81 @@ namespace Discreet.Network
             {
                 var txs = packet as TransactionsPacket;
                 var txinvs = txs.Txs.Select(x => new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, x.TxID)));
-
+                List<InventoryVectorRef> fulfilled = new();
                 foreach (var txinv in txinvs)
                 {
-                    bool remsuccess = reqset.Remove(txinv);
-                    if (!remsuccess) return false;
+                    bool remsuccess = reqset.TryGetValue(txinv, out var trueinv);
+                    if (!remsuccess || trueinv == null) return false;
+                    fulfilled.Add(trueinv);
+                    reqset.Remove(txinv);
                 }
 
+                foreach (var x in fulfilled)
+                {
+                    x.callback?.Invoke(x.peer, x.vector, true);
+                }
                 return true;
             }
             else if (packet.GetType() == typeof(BlocksPacket))
             {
                 var blocks = packet as BlocksPacket;
+                List<InventoryVectorRef> fulfilled = new();
 
                 foreach (Coin.Block block in blocks.Blocks)
                 {
                     var binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block.Header.BlockHash));
-                    bool remsuccess = reqset.Remove(binv);
-                    if (!remsuccess)
+                    bool remsuccess = reqset.TryGetValue(binv, out var trueinv);
+                    if (!remsuccess || trueinv == null)
                     {
                         binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, new Cipher.SHA256(block.Header.Height)));
-                        remsuccess = reqset.Remove(binv);
+                        remsuccess = reqset.TryGetValue(binv, out trueinv);
 
-                        if (!success) return false;
+                        if (!success || trueinv == null) return false;
+                        fulfilled.Add(trueinv);
+                        reqset.Remove(binv);
+                    }
+                    else
+                    {
+                        fulfilled.Add(trueinv);
+                        reqset.Remove(binv);
                     }
                 }
 
+                foreach (var x in fulfilled)
+                {
+                    x.callback?.Invoke(x.peer, x.vector, true);
+                }
                 return true;
             }
             else if (packet.GetType() == typeof(HeadersPacket))
             {
                 var headers = packet as HeadersPacket;
+                List<InventoryVectorRef> fulfilled = new();
 
                 foreach (Coin.BlockHeader header in headers.Headers)
                 {
                     var hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header.BlockHash));
-                    bool remsuccess = reqset.Remove(hinv);
-                    if (!remsuccess)
+                    bool remsuccess = reqset.TryGetValue(hinv, out var trueinv);
+                    if (!remsuccess || trueinv == null)
                     {
                         hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(header.Height)));
-                        remsuccess = reqset.Remove(hinv);
+                        remsuccess = reqset.TryGetValue(hinv, out trueinv);
 
-                        if (!success) return false;
+                        if (!success || trueinv == null) return false;
+                        fulfilled.Add(trueinv);
+                        reqset.Remove(hinv);
+                    }
+                    else
+                    {
+                        fulfilled.Add(trueinv);
+                        reqset.Remove(hinv);
                     }
                 }
 
+                foreach (var x in fulfilled)
+                {
+                    x.callback?.Invoke(x.peer, x.vector, true);
+                }
                 return true;
             }
             else
