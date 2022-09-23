@@ -197,7 +197,7 @@ namespace Discreet.Network.Peerbloom
                 }
 
                 /* dispose of connection */
-                Task.Run(() => conn.Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.MAX_INBOUND_PEERS));
+                Task.Run(() => conn.Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.MAX_OUTBOUND_PEERS));
                 return;
             }
 

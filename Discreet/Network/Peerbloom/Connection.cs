@@ -201,6 +201,7 @@ namespace Discreet.Network.Peerbloom
                             if (!result.IsCompleted)
                             {
                                 Daemon.Logger.Warn($"Connection.Connect: Could not connect to peer {Receiver} due to timeout");
+                                _tcpClient.EndConnect(result);
                                 numConnectionAttempts++;
                                 continue;
                             }

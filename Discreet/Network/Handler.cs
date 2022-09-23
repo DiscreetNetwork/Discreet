@@ -410,6 +410,8 @@ namespace Discreet.Network
                 case PacketType.GETTXS:
                 case PacketType.TXS:
                 case PacketType.BLOCKS:
+                case PacketType.GETHEADERS:
+                case PacketType.HEADERS:
                     return true;
                 case PacketType.SENDBLOCK:
                 case PacketType.ALERT:
