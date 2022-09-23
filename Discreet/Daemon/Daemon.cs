@@ -169,19 +169,26 @@ namespace Discreet.Daemon
                             await Task.Delay(100);
                         }
 
-                        while (missedItems.Count > 0 && Interlocked.Read(ref toBeFulfilled) > 0)
+                        while (Interlocked.Read(ref toBeFulfilled) > 0)
                         {
-                            lock(missedItems)
+                            if (missedItems.Count > 0)
                             {
-                                network.SendRequest(bestConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = -1, Count = (uint)missedItems.Count, Headers = missedItems.Select(x => x.Hash).ToArray() }));
-                                missedItems.Clear();
+                                lock (missedItems)
+                                {
+                                    network.SendRequest(bestConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = -1, Count = (uint)missedItems.Count, Headers = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 60000, callback: callback);
+                                    missedItems.Clear();
+                                }
                             }
+                            
+                            await Task.Delay(100);
                         }
+
+                        _hheight = _newHheight;
                     }
                 }
 
                 Logger.Info($"Grabbed headers; grabbing blocks");
-
+                handler.LastSeenHeight = -1;
                 toBeFulfilled = 0;
                 missedItems.Clear();
                 // block syncing
@@ -212,12 +219,21 @@ namespace Discreet.Daemon
 
                             var totBytes = 0;
                             long _nextHeight = 0;
-                            while (totBytes < 15_000_000 && _height < _newHeight)
+                            while (totBytes < 15_000_000 && _nextHeight < _newHeight && headers.Count > 0)
                             {
                                 var header = headers.Dequeue();
                                 totBytes += (int)header.BlockSize;
                                 blocksToGet.Add(header.BlockHash);
                                 _nextHeight = header.Height;
+                            }
+
+                            if (_nextHeight == _newHeight || headers.Count == 0)
+                            {
+                                _height = _newHeight;
+                            }
+                            else
+                            {
+                                _height = _nextHeight;
                             }
 
                             var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
@@ -230,11 +246,16 @@ namespace Discreet.Daemon
 
                             while (missedItems.Count > 0 && Interlocked.Read(ref toBeFulfilled) > 0)
                             {
-                                lock (missedItems)
+                                if (missedItems.Count > 0)
                                 {
-                                    network.SendRequest(bestConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }));
-                                    missedItems.Clear();
+                                    lock (missedItems)
+                                    {
+                                        network.SendRequest(bestConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 60000, callback: callback);
+                                        missedItems.Clear();
+                                    }
                                 }
+
+                                await Task.Delay(100);
                             }
                         }
 
