@@ -16,12 +16,22 @@ namespace Discreet.Network
         public int Compare(InventoryVectorRef x, InventoryVectorRef y) => x.vector.Compare(y.vector);
     }
 
+    internal class InventoryEqualityComparer : IEqualityComparer<InventoryVectorRef>
+    {
+        public bool Equals(InventoryVectorRef x, InventoryVectorRef y) => x.vector == y.vector && x.peer.Equals(y.peer);
+
+        public int GetHashCode(InventoryVectorRef obj) => obj.vector.GetHashCode();
+    }
+
     internal class InventoryVectorRef
     {
         public InventoryVector vector;
         public SortedSet<InventoryVectorRef> container;
         public Action<IPEndPoint, InventoryVector, bool> callback;
         public IPEndPoint peer;
+        public Coin.FullTransaction tx = null;
+        public Coin.Block block = null;
+        public Coin.BlockHeader header = null;
 
         public InventoryVectorRef() { }
 
@@ -76,7 +86,7 @@ namespace Discreet.Network
 
         // used for unorganized inventory requests
         private ConcurrentDictionary<IPEndPoint, SortedSet<InventoryVectorRef>> NeededInventory = new();
-        private ConcurrentDictionary<InventoryVectorRef, (long, long)> InventoryTimeouts = new();
+        private ConcurrentDictionary<InventoryVectorRef, (long, long)> InventoryTimeouts = new(new InventoryEqualityComparer());
 
         public async Task NeededInventoryStart(CancellationToken token)
         {
@@ -164,32 +174,33 @@ namespace Discreet.Network
             }
         }
 
-        public bool CheckFulfillment(IPacketBody packet, IPEndPoint resp)
+        internal (bool, List<InventoryVectorRef>) CheckFulfillment(IPacketBody packet, IPEndPoint resp)
         {
             bool success = NeededInventory.TryGetValue(resp, out var reqset);
             if (!success || reqset == null)
             {
-                return false;
+                return (false, null);
             }
 
             if (packet.GetType() == typeof(TransactionsPacket))
             {
                 var txs = packet as TransactionsPacket;
-                var txinvs = txs.Txs.Select(x => new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, x.TxID)));
+                var txinvs = txs.Txs.Select(x => new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, x.TxID)) { tx = x});
                 List<InventoryVectorRef> fulfilled = new();
                 foreach (var txinv in txinvs)
                 {
                     bool remsuccess = reqset.TryGetValue(txinv, out var trueinv);
-                    if (!remsuccess || trueinv == null) return false;
+                    if (!remsuccess || trueinv == null) return (false, null);
                     fulfilled.Add(trueinv);
-                    reqset.Remove(txinv);
+                    trueinv.tx = txinv.tx;
                 }
 
-                foreach (var x in fulfilled)
+                fulfilled.ForEach(x =>
                 {
-                    x.callback?.Invoke(x.peer, x.vector, true);
-                }
-                return true;
+                    reqset.Remove(x);
+                    InventoryTimeouts.Remove(x, out _);
+                });
+                return (true, fulfilled);
             }
             else if (packet.GetType() == typeof(BlocksPacket))
             {
@@ -198,29 +209,30 @@ namespace Discreet.Network
 
                 foreach (Coin.Block block in blocks.Blocks)
                 {
-                    var binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block.Header.BlockHash));
+                    var binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block.Header.BlockHash)) { block = block };
                     bool remsuccess = reqset.TryGetValue(binv, out var trueinv);
                     if (!remsuccess || trueinv == null)
                     {
-                        binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, new Cipher.SHA256(block.Header.Height)));
+                        binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, new Cipher.SHA256(block.Header.Height))) { block = block };
                         remsuccess = reqset.TryGetValue(binv, out trueinv);
 
-                        if (!success || trueinv == null) return false;
+                        if (!success || trueinv == null) return (false, null);
                         fulfilled.Add(trueinv);
-                        reqset.Remove(binv);
+                        trueinv.block = block;
                     }
                     else
                     {
                         fulfilled.Add(trueinv);
-                        reqset.Remove(binv);
+                        trueinv.block = block;
                     }
                 }
 
-                foreach (var x in fulfilled)
+                fulfilled.ForEach(x =>
                 {
-                    x.callback?.Invoke(x.peer, x.vector, true);
-                }
-                return true;
+                    reqset.Remove(x);
+                    InventoryTimeouts.Remove(x, out _);
+                });
+                return (true, fulfilled);
             }
             else if (packet.GetType() == typeof(HeadersPacket))
             {
@@ -229,35 +241,66 @@ namespace Discreet.Network
 
                 foreach (Coin.BlockHeader header in headers.Headers)
                 {
-                    var hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header.BlockHash));
+                    var hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header.BlockHash)) { header = header };
                     bool remsuccess = reqset.TryGetValue(hinv, out var trueinv);
                     if (!remsuccess || trueinv == null)
                     {
-                        hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(header.Height)));
+                        hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(header.Height))) { header = header };
                         remsuccess = reqset.TryGetValue(hinv, out trueinv);
 
-                        if (!success || trueinv == null) return false;
+                        if (!success || trueinv == null) return (false, null);
                         fulfilled.Add(trueinv);
-                        reqset.Remove(hinv);
+                        trueinv.header = header;
                     }
                     else
                     {
                         fulfilled.Add(trueinv);
-                        reqset.Remove(hinv);
+                        trueinv.header = header;
                     }
                 }
 
-                foreach (var x in fulfilled)
+                fulfilled.ForEach(x =>
                 {
-                    x.callback?.Invoke(x.peer, x.vector, true);
-                }
-                return true;
+                    reqset.Remove(x);
+                    InventoryTimeouts.Remove(x, out _);
+                });
+                return (true, fulfilled);
             }
             else
             {
                 Daemon.Logger.Error($"Handler.CheckFulfillment: cannot check packet of type {packet.GetType()}");
-                return false;
+                return (false, null);
             }
+        }
+
+        internal (bool, List<InventoryVectorRef>) CheckNotFound(NotFoundPacket p, IPEndPoint resp)
+        {
+            bool success = NeededInventory.TryGetValue(resp, out var reqset);
+            if (!success || reqset == null)
+            {
+                return (false, null);
+            }
+
+            List<InventoryVectorRef> exists = new();
+
+            foreach (InventoryVector vec in p.Inventory)
+            {
+                var ivref = new InventoryVectorRef { vector = vec, peer = resp };
+                bool remsuccess = reqset.TryGetValue(ivref, out var trueinv);
+
+                if (!remsuccess || trueinv == null) return (false, null);
+                else
+                {
+                    exists.Add(trueinv);
+                }
+            }
+
+            exists.ForEach(x =>
+            {
+                reqset.Remove(x);
+                InventoryTimeouts.Remove(x, out _);
+            });
+            return (true, exists);
         }
 
         public static Handler GetHandler()
@@ -503,7 +546,7 @@ namespace Discreet.Network
                         await HandleBlocks((BlocksPacket)p.Body, conn);
                         break;
                     case PacketType.NOTFOUND:
-                        await HandleNotFound((NotFoundPacket)p.Body);
+                        await HandleNotFound((NotFoundPacket)p.Body, conn);
                         break;
                     case PacketType.NETPING:
                         await HandleNetPing((Core.Packets.Peerbloom.NetPing)p.Body, conn);
@@ -752,39 +795,52 @@ namespace Discreet.Network
         {
             DB.DataView dataView = DB.DataView.GetView();
 
-            List<Coin.Block> blocks = new List<Coin.Block>();
+            List<Coin.Block> blocks = new();
+            List<InventoryVector> notFound = new();
 
-            try
+            foreach (var h in p.Blocks)
             {
-                foreach (var h in p.Blocks)
+                if (h.IsLong())
                 {
-                    if (h.IsLong())
+                    bool success = dataView.TryGetBlock(h.ToInt64(), out var block);
+
+                    if (!success || block == null)
                     {
-                        blocks.Add(dataView.GetBlock(h.ToInt64()));
+                        notFound.Add(new InventoryVector { Hash = h, Type = ObjectType.Block });
                     }
                     else
                     {
-                        blocks.Add(dataView.GetBlock(h));
+                        blocks.Add(block);
                     }
                 }
+                else
+                {
+                    bool success = dataView.TryGetBlock(h, out var block);
 
+                    if (!success || block == null)
+                    {
+                        notFound.Add(new InventoryVector { Hash = h, Type = ObjectType.Block });
+                    }
+                    else
+                    {
+                        blocks.Add(block);
+                    }
+                }
+            }
+
+            if (blocks.Count > 0)
+            {
                 Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { BlocksLen = (uint)blocks.Count, Blocks = blocks.ToArray() }));
             }
-            catch (Exception e)
-            {
-                Daemon.Logger.Log(e.Message);
 
+            if (notFound.Count > 0)
+            {
                 NotFoundPacket resp = new NotFoundPacket
                 {
                     Count = p.Count,
-                    Inventory = new InventoryVector[p.Count],
+                    Inventory = notFound.ToArray(),
                 };
                 
-                for (int i = 0; i < p.Count; i++)
-                {
-                    resp.Inventory[i] = new InventoryVector { Hash = p.Blocks[i], Type = ObjectType.Block };
-                }
-
                 Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.NOTFOUND, resp));
             }
         }
@@ -793,45 +849,78 @@ namespace Discreet.Network
         {
             DB.DataView dataView = DB.DataView.GetView();
 
-            List<Coin.FullTransaction> txs = new List<Coin.FullTransaction>();
+            List<Coin.FullTransaction> txs = new();
+            List<InventoryVector> notFound = new();
 
-            try
+            foreach (var h in p.Transactions)
             {
-                foreach (var h in p.Transactions)
+                if (h.IsLong())
                 {
-                    if (h.IsLong())
+                    bool success = dataView.TryGetTransaction(h.ToUInt64(), out var tx);
+
+                    if (!success || tx == null)
                     {
-                        txs.Add(dataView.GetTransaction(h.ToUInt64()));
+                        success = dataView.TryGetTransaction(h, out tx);
+
+                        if (!success || tx == null)
+                        {
+                            success = Daemon.TXPool.GetTXPool().TryGetTransaction(h, out tx);
+
+                            if (!success || tx == null)
+                            {
+                                notFound.Add(new InventoryVector { Hash = h, Type = ObjectType.Transaction });
+                            }
+                            else
+                            {
+                                txs.Add(tx);
+                            }
+                        }
+                        else
+                        {
+                            txs.Add(tx);
+                        }
                     }
                     else
                     {
-                        try
-                        {
-                            txs.Add(dataView.GetTransaction(h));
-                        }
-                        catch
-                        {
-                            txs.Add(Daemon.TXPool.GetTXPool().GetTransaction(h));
-                        }
+                        txs.Add(tx);
                     }
                 }
+                else
+                {
+                    bool success = dataView.TryGetTransaction(h, out var tx);
 
+                    if (!success || tx == null)
+                    {
+                        success = Daemon.TXPool.GetTXPool().TryGetTransaction(h, out tx);
+
+                        if (!success || tx == null)
+                        {
+                            notFound.Add(new InventoryVector { Hash = h, Type = ObjectType.Transaction });
+                        }
+                        else
+                        {
+                            txs.Add(tx);
+                        }
+                    }
+                    else
+                    {
+                        txs.Add(tx);
+                    }
+                }
+            }
+
+            if (txs.Count > 0)
+            {
                 Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.TXS, new TransactionsPacket { TxsLen = (uint)txs.Count, Txs = txs.ToArray() }));
             }
-            catch (Exception e)
-            {
-                Daemon.Logger.Log(e.Message);
 
+            if (notFound.Count > 0) 
+            {
                 NotFoundPacket resp = new NotFoundPacket
                 {
                     Count = p.Count,
-                    Inventory = new InventoryVector[p.Count],
+                    Inventory = notFound.ToArray(),
                 };
-
-                for (int i = 0; i < p.Count; i++)
-                {
-                    resp.Inventory[i] = new InventoryVector { Hash = p.Transactions[i], Type = ObjectType.Transaction };
-                }
 
                 Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.NOTFOUND, resp));
             }
@@ -1043,7 +1132,7 @@ namespace Discreet.Network
         public async Task HandleBlocks(BlocksPacket p, Peerbloom.Connection conn)
         {
             // check if request was fulfilled
-            bool good = CheckFulfillment(p, conn.Receiver);
+            (bool good, var fulfilled) = CheckFulfillment(p, conn.Receiver);
             if (!good)
             {
                 Daemon.Logger.Error($"Handler.HandleBlocks: received unrequested data from peer {conn.Receiver}; potentially malicious behavior");
@@ -1052,20 +1141,24 @@ namespace Discreet.Network
             if (State == PeerState.Syncing)
             {
                 DB.DataView dataView = DB.DataView.GetView();
+                fulfilled.Sort((x, y) => x.block.Header.Height.CompareTo(y.block.Header.Height));
 
-                foreach (var block in p.Blocks)
+                foreach (var ivref in fulfilled)
                 {
-                    if (!dataView.BlockCacheHas(block.Header.BlockHash))
+                    bool succ = dataView.TryAddBlockToCache(ivref.block);
+
+                    if (!succ)
                     {
-                        dataView.AddBlockToCache(block);
+                        Daemon.Logger.Warn($"Handler.HandleBlocks: block from peer {conn.Receiver} at height {ivref.block.Header.Height} was invalid");
+                        ivref.callback?.Invoke(ivref.peer, ivref.vector, false);
                     }
-                    if (!MessageCache.GetMessageCache().BlockCache.ContainsKey(block.Header.Height))
+                    else
                     {
-                        MessageCache.GetMessageCache().BlockCache.TryAdd(block.Header.Height, block);
+                        LastSeenHeight = Math.Max(LastSeenHeight, ivref.block.Header.Height);
+                        MessageCache.GetMessageCache().BlockCache.TryAdd(ivref.block.Header.Height, ivref.block);
+                        ivref.callback?.Invoke(ivref.peer, ivref.vector, true);
                     }
                 }
-
-                LastSeenHeight = p.Blocks.Select(x => x.Header.Height).Max();
             }
             else
             {
@@ -1126,6 +1219,9 @@ namespace Discreet.Network
 
                     /* recursively accept orphan blocks from message cache */
                     AcceptOrphans(p.Blocks[0].Header.BlockHash);
+
+                    //success
+                    fulfilled.ForEach(x => x.callback?.Invoke(x.peer, x.vector, true));
                 }
             }
         }
@@ -1134,61 +1230,68 @@ namespace Discreet.Network
         {
             DB.DataView dataView = DB.DataView.GetView();
 
-            List<Coin.BlockHeader> headers = new List<Coin.BlockHeader>();
+            List<Coin.BlockHeader> headers = new();
+            List<InventoryVector> notFound = new();
 
-            try
+            if (p.StartingHeight >= 0 && (p.Headers == null || p.Headers.Length == 0))
             {
-                if (p.StartingHeight >= 0 && (p.Headers == null || p.Headers.Length == 0))
+                // retrieve by height
+                for (long i = p.StartingHeight; i < p.StartingHeight + p.Count; i++)
                 {
-                    // retrieve by height
-                    for (long i = p.StartingHeight; i < p.StartingHeight + p.Count; i++)
+                    bool success = dataView.TryGetBlockHeader(i, out var header);
+                    if (!success || header == null)
                     {
-                        headers.Add(dataView.GetBlockHeader(i));
+                        notFound.Add(new InventoryVector { Hash = new Cipher.SHA256(i), Type = ObjectType.BlockHeader });
+                    }
+                    else
+                    {
+                        headers.Add(header);
                     }
                 }
-                else
+            }
+            else
+            {
+                foreach (var h in p.Headers)
                 {
-                    foreach (var h in p.Headers)
+                    if (h.IsLong())
                     {
-                        if (h.IsLong())
+                        bool success = dataView.TryGetBlockHeader(h.ToInt64(), out var header);
+                        if (!success || header == null)
                         {
-                            headers.Add(dataView.GetBlockHeader(h.ToInt64()));
+                            notFound.Add(new InventoryVector { Hash = h, Type = ObjectType.BlockHeader });
                         }
                         else
                         {
-                            headers.Add(dataView.GetBlockHeader(h));
+                            headers.Add(header);
+                        }
+                    }
+                    else
+                    {
+                        bool success = dataView.TryGetBlockHeader(h, out var header);
+                        if (!success || header == null)
+                        {
+                            notFound.Add(new InventoryVector { Hash = h, Type = ObjectType.BlockHeader });
+                        }
+                        else
+                        {
+                            headers.Add(header);
                         }
                     }
                 }
-                
+            }
 
+            if (headers.Count > 0)
+            {
                 Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.HEADERS, new HeadersPacket { Count = (uint)headers.Count, Headers = headers.ToArray() }));
             }
-            catch (Exception e)
-            {
-                Daemon.Logger.Log(e.Message);
 
+            if (notFound.Count > 0)
+            {
                 NotFoundPacket resp = new NotFoundPacket
                 {
                     Count = p.Count,
-                    Inventory = new InventoryVector[p.Count],
-                };
-
-                if (p.StartingHeight >= 0 && (p.Headers == null || p.Headers.Length == 0))
-                {
-                    for (long i = p.StartingHeight; i < p.StartingHeight + p.Count; i++)
-                    {
-                        resp.Inventory[i] = new InventoryVector { Hash = new Cipher.SHA256(i), Type = ObjectType.BlockHeader };
-                    }
-                }
-                else
-                {
-                    for (int i = 0; i < p.Count; i++)
-                    {
-                        resp.Inventory[i] = new InventoryVector { Hash = p.Headers[i], Type = ObjectType.BlockHeader };
-                    }
-                }
-                    
+                    Inventory = notFound.ToArray(),
+                };  
 
                 Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.NOTFOUND, resp));
             }
@@ -1197,7 +1300,7 @@ namespace Discreet.Network
         public async Task HandleHeaders(HeadersPacket p, Peerbloom.Connection conn)
         {
             // check if request was fulfilled
-            bool good = CheckFulfillment(p, conn.Receiver);
+            (bool good, var fulfilled) = CheckFulfillment(p, conn.Receiver);
             if (!good)
             {
                 Daemon.Logger.Error($"Handler.HandleHeaders: received unrequested data from peer {conn.Receiver}; potentially malicious behavior");
@@ -1207,15 +1310,22 @@ namespace Discreet.Network
             {
                 DB.DataView dataView = DB.DataView.GetView();
 
-                foreach (var header in p.Headers)
-                {
-                    if (!MessageCache.GetMessageCache().HeaderCache.ContainsKey(header.Height))
-                    {
-                        MessageCache.GetMessageCache().HeaderCache.TryAdd(header.Height, header);
-                    }
-                }
+                fulfilled.Sort((x,y) => x.header.Height.CompareTo(y.header.Height));
 
-                LastSeenHeight = p.Headers.Select(x => x.Height).Max();
+                foreach (var ivref in fulfilled)
+                {
+                    bool succ = MessageCache.GetMessageCache().AddHeaderToCache(ivref.header);
+                    if (!succ)
+                    {
+                        Daemon.Logger.Warn($"Handler.HandleHeaders: header from peer {conn.Receiver} at height {ivref.header.Height} was invalid");
+                        ivref.callback?.Invoke(ivref.peer, ivref.vector, false);
+                    }
+                    else
+                    {
+                        LastSeenHeight = ivref.header.Height;
+                        ivref.callback?.Invoke(ivref.peer, ivref.vector, true);
+                    }
+                }                
             }
             else
             {
@@ -1223,22 +1333,31 @@ namespace Discreet.Network
             }
         }
 
-        public async Task HandleNotFound(NotFoundPacket p)
+        public async Task HandleNotFound(NotFoundPacket p, Peerbloom.Connection conn)
         {
-            string items = "";
+            (bool good, var items) = CheckFulfillment(p, conn.Receiver);
+            if (!good)
+            {
+                Daemon.Logger.Error($"Handler.HandleNotFound: received unrequested NOTFOUND from peer {conn.Receiver}; potentially malicious behavior");
+                return;
+            }
+
+            string itemsStr = "";
 
             for (int i = 0; i < p.Count; i++)
             {
                 var h = p.Inventory[i];
-                items += (h.Type == ObjectType.Transaction ? "Tx " : "Block ") + (h.Hash.IsLong() ? h.Hash.ToUInt64().ToString() : h.Hash.ToHexShort());
+                itemsStr += (h.Type == ObjectType.Transaction ? "Tx " : (h.Type == ObjectType.Block ? "Block " : "Header ")) + (h.Hash.IsLong() ? h.Hash.ToUInt64().ToString() : h.Hash.ToHexShort());
 
                 if (i < p.Count - 1)
                 {
-                    items += ", ";
+                    itemsStr += ", ";
                 }
             }
 
-            Daemon.Logger.Error($"Could not find objects: {items}");
+            Daemon.Logger.Error($"Could not find objects: {itemsStr}");
+
+            items.ForEach(item => item.callback?.Invoke(item.peer, item.vector, false));
         }
 
         public async Task HandleDisconnect(Core.Packets.Peerbloom.Disconnect p, Peerbloom.Connection conn)
