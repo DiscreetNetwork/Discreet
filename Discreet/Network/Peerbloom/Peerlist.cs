@@ -341,7 +341,7 @@ namespace Discreet.Network.Peerbloom
             return addrs[nID];
         }
 
-        public bool AddNew(IPEndPoint endpoint, IPEndPoint source, long penalty)
+        public bool AddNew(IPEndPoint endpoint, IPEndPoint source, long penalty, long timestamp = -1)
         {
             if (endpoint.Equals(source))
             {
@@ -353,7 +353,14 @@ namespace Discreet.Network.Peerbloom
 
             if (pinfo != null)
             {
-                pinfo.LastSeen = DateTime.UtcNow.Ticks - penalty;
+                if (timestamp < 0)
+                {
+                    pinfo.LastSeen = DateTime.UtcNow.Ticks - penalty;
+                }
+                else
+                {
+                    pinfo.LastSeen = timestamp - penalty;
+                }
 
                 // make it harder to randomly add duplicate
                 int factor = 1;
@@ -370,7 +377,15 @@ namespace Discreet.Network.Peerbloom
             {
                 Daemon.Logger.Debug($"Peerlist.AddNew: adding {endpoint}");
                 pinfo = Create(endpoint, source, out nID);
-                pinfo.LastSeen = DateTime.UtcNow.Ticks - penalty;
+                if (timestamp < 0)
+                {
+                    pinfo.LastSeen = DateTime.UtcNow.Ticks - penalty;
+                }
+                else
+                {
+                    pinfo.LastSeen = timestamp - penalty;
+                }
+                pinfo.FirstSeen = DateTime.UtcNow.Ticks; // we keep track of this internally
                 _newCounter++;
             }
 
@@ -538,6 +553,10 @@ namespace Discreet.Network.Peerbloom
             if (countFailure)
             {
                 peer.NumFailedConnectionAttempts++;
+            }
+            else
+            {
+                peer.LastSuccess = DateTime.UtcNow.Ticks;
             }
         }
 

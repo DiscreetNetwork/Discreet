@@ -496,6 +496,8 @@ namespace Discreet.Network.Peerbloom
                 _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token)).ConfigureAwait(false);
             }
 
+            int connectCount = 0;
+
             foreach (var node in endpoints)
             {
                 if (GetNode(node) != null) continue;
@@ -511,6 +513,45 @@ namespace Discreet.Network.Peerbloom
 
                 peerlist.AddNew(node, bootstrapNode.Receiver, 0);
             }
+
+            // select at least two nodes to connect to
+            if (!Daemon.Daemon.DebugMode)
+            {
+                List<IPEndPoint> checkedPeers = new List<IPEndPoint>();
+                int numConnected = 0;
+
+                foreach (var node in endpoints)
+                {
+                    if (numConnected >= 2)
+                    {
+                        break;
+                    }
+
+                    if (node.Address.Equals(ReflectedAddress))
+                    {
+                        Daemon.Logger.Debug($"Ignoring connection to peer {node}; this one is us");
+                        continue;
+                    }
+
+                    if (checkedPeers.Contains(node)) continue;
+
+                    Connection conn = new Connection(node, this, LocalNode, true);
+
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 5000, 2);
+                    peerlist.Attempt(node, !success);
+
+                    if (success) numConnected++;
+
+                    checkedPeers.Add(node);
+                    if (numConnected == 0 && endpoints.Count == checkedPeers.Count && !success)
+                    {
+                        Daemon.Logger.Warn("Could not find any online/valid peers. Restarting bootstrap.");
+                        await Bootstrap();
+                        return;
+                    }
+                }
+            }
+            
 
             IsBootstrapping = false;
             Daemon.Logger.Info("Bootstrap completed.");
@@ -552,16 +593,37 @@ namespace Discreet.Network.Peerbloom
             return i;
         }
 
-        public bool Send(IPEndPoint endpoint, Core.Packet packet)
+        public bool SendRequest(Connection conn, Core.Packet packet, long durationMilliseconds = 0, Action<IPEndPoint, Core.Packets.InventoryVector, bool> callback = null)
         {
             if (packet.Header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE > Constants.MAX_PEERBLOOM_PACKET_SIZE)
             {
-                Daemon.Logger.Error($"Network.Send: Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
+                Daemon.Logger.Error($"Network.SendRequest: Sent packet was larger than allowed {Constants.MAX_PEERBLOOM_PACKET_SIZE} bytes.");
                 return false;
             }
 
-            Daemon.Logger.Info($"Network.Send: Sending {packet.Header.Command} to {endpoint}");
+            Daemon.Logger.Info($"Network.SendRequest: Sending request {packet.Header.Command} to {conn.Receiver}");
 
+            // hacky; make specific functions for sending packets which call this instead (in the future)
+            if (packet.Header.Command == Core.PacketType.GETBLOCKS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetBlocksPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
+            }
+            else if (packet.Header.Command == Core.PacketType.GETTXS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetTransactionsPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
+            }
+            else if (packet.Header.Command == Core.PacketType.GETHEADERS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetHeadersPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
+            }
+
+            conn.Send(packet);
+
+            return true;
+        }
+
+        public bool Send(IPEndPoint endpoint, Core.Packet packet)
+        {
             bool success = InboundConnectedPeers.TryGetValue(endpoint, out var conn);
 
             if (!success || conn == null)
@@ -575,9 +637,7 @@ namespace Discreet.Network.Peerbloom
                 }
             }
 
-            conn.Send(packet);
-
-            return true;
+            return Send(conn, packet);
         }
 
         public bool Send(Connection conn, Core.Packet packet)
@@ -589,6 +649,20 @@ namespace Discreet.Network.Peerbloom
             }
 
             Daemon.Logger.Info($"Network.Send: Sending {packet.Header.Command} to {conn.Receiver}");
+
+            // hacky; make specific functions for sending packets which call this instead (in the future)
+            if (packet.Header.Command == Core.PacketType.GETBLOCKS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetBlocksPacket)packet.Body, conn.Receiver);
+            }
+            else if (packet.Header.Command == Core.PacketType.GETTXS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetTransactionsPacket)packet.Body, conn.Receiver);
+            }
+            else if (packet.Header.Command == Core.PacketType.GETHEADERS)
+            {
+                handler.RegisterNeeded((Core.Packets.GetHeadersPacket)packet.Body, conn.Receiver);
+            }
 
             conn.Send(packet);
 
@@ -625,7 +699,7 @@ namespace Discreet.Network.Peerbloom
 
                 if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
                 {
-                    (Peer p, _) = peerlist.Select(false);
+                    (Peer p, _) = peerlist.Select(false, true);
                     
                     if (p != null && !_network.OutboundConnectedPeers.ContainsKey(p.Endpoint) && !_network.ConnectingPeers.ContainsKey(p.Endpoint) && !_network.Feelers.ContainsKey(p.Endpoint))
                     {
@@ -633,7 +707,7 @@ namespace Discreet.Network.Peerbloom
                         {
                             if (p.Endpoint.Address.Equals(_network.ReflectedAddress)) return;
 
-                            Connection conn = new Connection(p.Endpoint, this, LocalNode, true);
+                            Connection conn = new Connection(p.Endpoint, this, LocalNode, true, p);
 
                             bool success = await conn.Connect(true, _shutdownTokenSource.Token, false);
 
@@ -652,22 +726,23 @@ namespace Discreet.Network.Peerbloom
                         peerlist.AddNew(conn.Receiver, conn.Receiver, 0);
                         peer = peerlist.FindPeer(conn.Receiver, out _);
                     }
-                    else if (!peer.InTried)
+
+                    if (!peer.InTried)
                     {
                         peerlist.Good(conn.Receiver, false);
                     }
                     
-                    peer.LastSeen = DateTime.UtcNow.Ticks;
+                    //peer.LastSeen = DateTime.UtcNow.Ticks;
                 }
 
-                foreach (var conn in InboundConnectedPeers.Values)
+                /*foreach (var conn in InboundConnectedPeers.Values)
                 {
                     if (conn.ConnectionAcknowledged)
                     {
                         var peer = peerlist.FindPeer(conn.Receiver, out _);
                         if (peer != null) peer.LastSeen = DateTime.UtcNow.Ticks;
                     }
-                }
+                }*/
 
                 foreach (var conn in ConnectingPeers.Values)
                 {

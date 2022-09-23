@@ -30,6 +30,9 @@ namespace Discreet.Network
         public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> Versions;
         public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> BadVersions;
         public ConcurrentDictionary<long, Coin.Block> BlockCache;
+        public ConcurrentDictionary<long, Coin.BlockHeader> HeaderCache;
+        private long _headerMin = -1;
+        private long _headerMax = -1;
 
         public ConcurrentDictionary<Cipher.SHA256, Coin.Block> OrphanBlocks;
 
@@ -42,6 +45,35 @@ namespace Discreet.Network
             BadVersions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BlockCache = new ConcurrentDictionary<long, Coin.Block>();
             OrphanBlocks = new ConcurrentDictionary<Cipher.SHA256, Coin.Block>();
+            HeaderCache = new ConcurrentDictionary<long, Coin.BlockHeader>();
+        }
+
+        public Queue<Coin.BlockHeader> PopHeaders(long max)
+        {
+            if (_headerMin == -1)
+            {
+                _headerMin = HeaderCache.Keys.Min();
+            }
+
+            if (_headerMax == -1)
+            {
+                _headerMax = HeaderCache.Keys.Max();
+            }
+
+            Queue<Coin.BlockHeader> headers = new();
+            for (long i = _headerMin; i < _headerMin + max && i <= _headerMax; i++)
+            {
+                var success = HeaderCache.Remove(i, out var header);
+                if (!success)
+                {
+                    Daemon.Logger.Warn($"MessageCache.PopHeaders: missing header found; error in header syncing");
+                }
+
+                headers.Enqueue(header);
+                _headerMin++;
+            }
+
+            return headers;
         }
     }
 }
