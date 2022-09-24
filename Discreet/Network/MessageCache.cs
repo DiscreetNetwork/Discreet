@@ -58,9 +58,18 @@ namespace Discreet.Network
             if (HeaderCache.IsEmpty)
             {
                 if (header.Height != _curHeight + 1) return false;
-                var prev = dataView.GetBlockHeader(_curHeight);
 
-                if (prev.BlockHash != header.PreviousBlock) return false;
+                if (_curHeight == -1)
+                {
+                    // genesis header rules
+                    if (!header.PreviousBlock.Equals(new Cipher.SHA256(new byte[32], false))) return false;
+                }
+                else
+                {
+                    var prev = dataView.GetBlockHeader(_curHeight);
+
+                    if (prev.BlockHash != header.PreviousBlock) return false;
+                }
             }
             else
             {
@@ -89,6 +98,22 @@ namespace Discreet.Network
             if (!asucc) return false;
 
             return true;
+        }
+
+        public List<Coin.Block> GetAllCachedBlocks(long startingHeight, long endingHeight)
+        {
+            List<Coin.Block> blocks = new();
+
+            for (long i = startingHeight; i <= endingHeight; i++)
+            {
+                bool success = BlockCache.Remove(i, out var block);
+
+                if (!success) Daemon.Logger.Debug($"MessageCache.GetAllCachedBlocks: error in syncer implementation; could not get block at height {i}");
+
+                blocks.Add(block);
+            }
+
+            return blocks;
         }
 
         public Queue<Coin.BlockHeader> PopHeaders(long max)

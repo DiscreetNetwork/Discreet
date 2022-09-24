@@ -27,7 +27,7 @@ namespace Discreet.Network
     {
         public InventoryVector vector;
         public SortedSet<InventoryVectorRef> container;
-        public Action<IPEndPoint, InventoryVector, bool> callback;
+        public Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback;
         public IPEndPoint peer;
         public Coin.FullTransaction tx = null;
         public Coin.Block block = null;
@@ -39,9 +39,9 @@ namespace Discreet.Network
 
         public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container) : this(vector) { this.container = container; }
 
-        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool> callback) : this(vector, container) { this.callback = callback; }
+        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback) : this(vector, container) { this.callback = callback; }
 
-        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool> callback, IPEndPoint peer) : this(vector, container, callback) { this.peer = peer; }
+        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback, IPEndPoint peer) : this(vector, container, callback) { this.peer = peer; }
     }
 
     public class TransactionReceivedEventArgs : EventArgs
@@ -108,13 +108,13 @@ namespace Discreet.Network
                     if (curTimestamp >=  dur + kv.Value.Item1)
                     {
                         kv.Key.container.Remove(kv.Key);
-                        kv.Key.callback?.Invoke(kv.Key.peer, kv.Key.vector, false);
+                        kv.Key.callback?.Invoke(kv.Key.peer, kv.Key.vector, false, RequestCallbackContext.STALE);
                     }
                 }
             }
         }
 
-        public void RegisterNeeded(IPacketBody packet, IPEndPoint req, long durMilliseconds = 0, Action<IPEndPoint, InventoryVector, bool> callback = null)
+        public void RegisterNeeded(IPacketBody packet, IPEndPoint req, long durMilliseconds = 0, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback = null)
         {
             bool success = NeededInventory.TryGetValue(req, out var reqset);
             if (!success || reqset == null)
@@ -797,9 +797,11 @@ namespace Discreet.Network
 
             List<Coin.Block> blocks = new();
             List<InventoryVector> notFound = new();
+            uint totalBlockSize = 0;
 
             foreach (var h in p.Blocks)
             {
+                Coin.Block blockToAdd = null;
                 if (h.IsLong())
                 {
                     bool success = dataView.TryGetBlock(h.ToInt64(), out var block);
@@ -811,6 +813,7 @@ namespace Discreet.Network
                     else
                     {
                         blocks.Add(block);
+                        blockToAdd = block;
                     }
                 }
                 else
@@ -824,7 +827,18 @@ namespace Discreet.Network
                     else
                     {
                         blocks.Add(block);
+                        blockToAdd = block;
                     }
+                }
+
+                totalBlockSize += blockToAdd.Header.BlockSize;
+
+                // break into chunks if request is too large
+                if (totalBlockSize > 15_000_000)
+                {
+                    Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { BlocksLen = (uint)blocks.Count, Blocks = blocks.ToArray() }));
+                    blocks.Clear();
+                    totalBlockSize = 0;
                 }
             }
 
@@ -1028,8 +1042,10 @@ namespace Discreet.Network
                     try
                     {
                         DB.DataView.GetView().AddBlockToCache(p.Block);
+                        MessageCache.GetMessageCache().BlockCache[p.Block.Header.Height] = p.Block;
 
-                        Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
+                        // we don't broadcast blocks while syncing
+                        // Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
                         return;
                     }
                     catch (Exception e)
@@ -1150,13 +1166,13 @@ namespace Discreet.Network
                     if (!succ)
                     {
                         Daemon.Logger.Warn($"Handler.HandleBlocks: block from peer {conn.Receiver} at height {ivref.block.Header.Height} was invalid");
-                        ivref.callback?.Invoke(ivref.peer, ivref.vector, false);
+                        ivref.callback?.Invoke(ivref.peer, ivref.vector, false, RequestCallbackContext.INVALID);
                     }
                     else
                     {
                         LastSeenHeight = Math.Max(LastSeenHeight, ivref.block.Header.Height);
                         MessageCache.GetMessageCache().BlockCache.TryAdd(ivref.block.Header.Height, ivref.block);
-                        ivref.callback?.Invoke(ivref.peer, ivref.vector, true);
+                        ivref.callback?.Invoke(ivref.peer, ivref.vector, true, RequestCallbackContext.SUCCESS);
                     }
                 }
             }
@@ -1221,7 +1237,7 @@ namespace Discreet.Network
                     AcceptOrphans(p.Blocks[0].Header.BlockHash);
 
                     //success
-                    fulfilled.ForEach(x => x.callback?.Invoke(x.peer, x.vector, true));
+                    fulfilled.ForEach(x => x.callback?.Invoke(x.peer, x.vector, true, RequestCallbackContext.SUCCESS));
                 }
             }
         }
@@ -1318,14 +1334,14 @@ namespace Discreet.Network
                     if (!succ)
                     {
                         Daemon.Logger.Warn($"Handler.HandleHeaders: header from peer {conn.Receiver} at height {ivref.header.Height} was invalid");
-                        ivref.callback?.Invoke(ivref.peer, ivref.vector, false);
+                        ivref.callback?.Invoke(ivref.peer, ivref.vector, false, RequestCallbackContext.INVALID);
                     }
                     else
                     {
                         LastSeenHeight = ivref.header.Height;
-                        ivref.callback?.Invoke(ivref.peer, ivref.vector, true);
+                        ivref.callback?.Invoke(ivref.peer, ivref.vector, true, RequestCallbackContext.SUCCESS);
                     }
-                }                
+                }
             }
             else
             {
@@ -1357,7 +1373,7 @@ namespace Discreet.Network
 
             Daemon.Logger.Error($"Could not find objects: {itemsStr}");
 
-            items.ForEach(item => item.callback?.Invoke(item.peer, item.vector, false));
+            items.ForEach(item => item.callback?.Invoke(item.peer, item.vector, false, RequestCallbackContext.NOTFOUND));
         }
 
         public async Task HandleDisconnect(Core.Packets.Peerbloom.Disconnect p, Peerbloom.Connection conn)

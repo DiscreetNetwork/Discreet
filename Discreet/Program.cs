@@ -1122,14 +1122,14 @@ namespace Discreet
 
 			if (config.BootstrapNode == null)
             {
-				bool success = false;
+				bool validIP = false;
 				do
 				{
 					Console.Write("Boostrap IP: ");
-					success = IPAddress.TryParse(Console.ReadLine(), out IPAddress bootstrapIP);
+					validIP = IPAddress.TryParse(Console.ReadLine(), out IPAddress bootstrapIP);
 					config.BootstrapNode = bootstrapIP;
 				} 
-				while (!success);
+				while (!validIP);
             }
 
 			Daemon.DaemonConfig.SetConfig(config);
@@ -1151,8 +1151,14 @@ namespace Discreet
 
 			//w.Decrypt(passphrase);
 
-			await daemon.Start();
+			bool success = await daemon.Start();
 
+			while (!success)
+            {
+				success = await daemon.Restart();
+            }
+
+			await daemon.MainLoop();
 		}
 	}
 }
