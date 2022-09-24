@@ -593,7 +593,7 @@ namespace Discreet.Network.Peerbloom
             return i;
         }
 
-        public bool SendRequest(Connection conn, Core.Packet packet, long durationMilliseconds = 0, Action<IPEndPoint, Core.Packets.InventoryVector, bool> callback = null)
+        public bool SendRequest(Connection conn, Core.Packet packet, long durationMilliseconds = 0, Action<IPEndPoint, Core.Packets.InventoryVector, bool, RequestCallbackContext> callback = null)
         {
             if (packet.Header.Length + Constants.PEERBLOOM_PACKET_HEADER_SIZE > Constants.MAX_PEERBLOOM_PACKET_SIZE)
             {

@@ -48,6 +48,74 @@ namespace Discreet.Network
             HeaderCache = new ConcurrentDictionary<long, Coin.BlockHeader>();
         }
 
+        public bool AddHeaderToCache(Coin.BlockHeader header)
+        {
+            var dataView = DB.DataView.GetView();
+            var _curHeight = dataView.GetChainHeight();
+
+            if (header == null) return false;
+
+            if (HeaderCache.IsEmpty)
+            {
+                if (header.Height != _curHeight + 1) return false;
+
+                if (_curHeight == -1)
+                {
+                    // genesis header rules
+                    if (!header.PreviousBlock.Equals(new Cipher.SHA256(new byte[32], false))) return false;
+                }
+                else
+                {
+                    var prev = dataView.GetBlockHeader(_curHeight);
+
+                    if (prev.BlockHash != header.PreviousBlock) return false;
+                }
+            }
+            else
+            {
+                bool succ = HeaderCache.TryGetValue(_headerMax, out var prev);
+                if (!succ || prev == null) return false;
+
+                if (prev.BlockHash != header.PreviousBlock) return false;
+            }
+
+            if ((long)header.Timestamp > DateTime.UtcNow.AddHours(2).Ticks) return false;
+            if (header.NumTXs == 0 || header.BlockSize == 0) return false;
+            if (!header.CheckSignature()) return false;
+
+            if (HeaderCache.IsEmpty)
+            {
+                _headerMax = _headerMin = header.Height;
+            }
+            else
+            {
+                _headerMax = header.Height;
+            }
+
+            if (HeaderCache.ContainsKey(header.Height)) return false;
+
+            bool asucc = HeaderCache.TryAdd(header.Height, header);
+            if (!asucc) return false;
+
+            return true;
+        }
+
+        public List<Coin.Block> GetAllCachedBlocks(long startingHeight, long endingHeight)
+        {
+            List<Coin.Block> blocks = new();
+
+            for (long i = startingHeight; i <= endingHeight; i++)
+            {
+                bool success = BlockCache.Remove(i, out var block);
+
+                if (!success) Daemon.Logger.Debug($"MessageCache.GetAllCachedBlocks: error in syncer implementation; could not get block at height {i}");
+
+                blocks.Add(block);
+            }
+
+            return blocks;
+        }
+
         public Queue<Coin.BlockHeader> PopHeaders(long max)
         {
             if (_headerMin == -1)

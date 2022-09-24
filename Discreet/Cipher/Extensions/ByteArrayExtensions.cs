@@ -43,4 +43,16 @@ namespace Discreet.Cipher.Extensions
 
         public static bool BEquals(this byte[] a, byte[] b) => Compare(a, b) == 0;
     }
+
+    public class ByteArrayComparer: IComparer<byte[]>
+    {
+        public int Compare(byte[] a, byte[] b) => a.Compare(b);
+    }
+
+    public class ByteArrayEqualityComparer: IEqualityComparer<byte[]>
+    {
+        public bool Equals(byte[] a, byte[] b) => a.BEquals(b);
+
+        public int GetHashCode(byte[] a) => a.GetHashCode();
+    }
 }

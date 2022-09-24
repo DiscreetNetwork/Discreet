@@ -521,7 +521,7 @@ namespace Discreet.Coin
 
         public bool CheckSignature()
         {
-            if (Header.Extra == null || Header.Extra.Length != 96) return true;
+            if (Header.Extra == null || Header.Extra.Length != 96) return false;
 
             var sig = new Signature(Header.Extra);
             return sig.Verify(Header.BlockHash) && IsMasternode(sig.y);

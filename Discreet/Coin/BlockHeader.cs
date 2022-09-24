@@ -168,5 +168,13 @@ namespace Discreet.Coin
         {
             return 137 + ExtraLen;
         }
+
+        public bool CheckSignature()
+        {
+            if (Extra == null || Extra.Length != 96) return false;
+
+            var sig = new Signature(Extra);
+            return sig.Verify(BlockHash) && Block.IsMasternode(sig.y);
+        }
     }
 }
