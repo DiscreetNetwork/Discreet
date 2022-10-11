@@ -575,9 +575,12 @@ namespace Discreet.Network.Peerbloom
             {
                 foreach (var conn in InboundConnectedPeers.Values)
                 {
-                    Daemon.Logger.Debug($"Network.Broadcast: broadcasting to peer {conn.Receiver}");
-                    conn.Send(packet);
-                    i++;
+                    if (conn.ConnectionAcknowledged)
+                    {
+                        Daemon.Logger.Debug($"Network.Broadcast: broadcasting to peer {conn.Receiver}");
+                        conn.Send(packet);
+                        i++;
+                    }
                 }
             }
 

@@ -541,6 +541,12 @@ namespace Discreet.Network.Peerbloom
                 /* receive RequestPeersResp */
                 Core.Packet resp = await ReadAsync(token);
 
+                while (resp != null && resp.Header.Command != Core.PacketType.REQUESTPEERSRESP)
+                {
+                    Daemon.Logger.Error($"Connection.RequestPeers: Received packet of type {resp.Header.Command}; skipping this and waiting for correct packet");
+                    resp = await ReadAsync(token);
+                }
+
                 if (resp == null)
                 {
                     throw new Exception("response was null");
