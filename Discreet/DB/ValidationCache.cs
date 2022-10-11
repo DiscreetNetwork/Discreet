@@ -83,7 +83,7 @@ namespace Discreet.DB
                 }
 
                 /* coinbase tx has special verification logic */
-                var minerexc = coinbase.Verify();
+                var minerexc = coinbase.Verify(inBlock: true);
 
                 if (minerexc != null)
                 {

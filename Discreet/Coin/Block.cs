@@ -213,6 +213,9 @@ namespace Discreet.Coin
                 txs.Insert(0, minertx.ToFull());
 
                 block.Header.BlockSize += minertx.Size();
+
+                block.Header.NumTXs += 1;
+                block.Header.NumOutputs += 1;
             }
 
             if (signingKey != default)
