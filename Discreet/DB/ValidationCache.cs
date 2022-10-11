@@ -217,10 +217,20 @@ namespace Discreet.DB
                 /* check orphan data */
                 if (many)
                 {
-                    var pbsucc = blocksCache.TryGetValue(block.Header.PreviousBlock, out var prevBlock);
-                    if (!pbsucc || prevBlock == null) return new VerifyException("Block", "Could not get previous block");
-                    if (prevBlock.Header.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
-                    if (previousHeight + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
+                    if (blocksCache.Count == 0)
+                    {
+                        var pbsucc = dataView.TryGetBlockHeader(block.Header.PreviousBlock, out var prevBlockHeader);
+                        if (prevBlockHeader == null) return new VerifyException("Block", "Could not get previous block");
+                        if (prevBlockHeader.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
+                        if (previousHeight + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
+                    }
+                    else
+                    {
+                        var pbsucc = blocksCache.TryGetValue(block.Header.PreviousBlock, out var prevBlock);
+                        if (!pbsucc || prevBlock == null) return new VerifyException("Block", "Could not get previous block");
+                        if (prevBlock.Header.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
+                        if (previousHeight + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
+                    }
                 }
                 else
                 {
