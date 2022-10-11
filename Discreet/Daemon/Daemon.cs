@@ -429,14 +429,16 @@ namespace Discreet.Daemon
         {
             while (!_cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(1000, _cancellationToken);
+                await Task.Delay(5000, _cancellationToken);
 
-                if (txpool.GetTransactionsForBlock().Count > 0)
-                {
-                    Logger.Log($"Discreet.Daemon: Minting new block...");
+                //if (txpool.GetTransactionsForBlock().Count > 0)
+                //{
+                //    Logger.Log($"Discreet.Daemon: Minting new block...");
+                //
+                //    Mint();
+                //}
 
-                    Mint();
-                }
+                _ = Task.Run(async () => await MintTestnet()).ConfigureAwait(false);
             }
         }
 
@@ -472,6 +474,40 @@ namespace Discreet.Daemon
                 }
 
                 ProcessBlock(blk);
+            }
+            catch (Exception e)
+            {
+                Logger.Error("Minting block failed: " + e.Message, e);
+            }
+        }
+
+        public async Task MintTestnet()
+        {
+            try
+            {
+                Logger.Info($"Discreet.Daemon: Minting new block...");
+
+                var txs = txpool.GetTransactionsForBlock();
+                var blk = Block.Build(txs, (StealthAddress)wallets.First().Addresses[0].GetAddress(), signingKey);
+
+                try
+                {
+                    DB.ValidationCache vCache = new(blk);
+                    var vErr = vCache.Validate();
+                    if (vErr != null)
+                    {
+                        Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
+                    }
+                    vCache.Flush();
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message, e);
+                }
+
+                ProcessBlock(blk);
+
+                network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
             }
             catch (Exception e)
             {

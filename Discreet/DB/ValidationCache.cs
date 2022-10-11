@@ -93,7 +93,7 @@ namespace Discreet.DB
                 /* now verify output amount matches commitment */
                 Cipher.Key feeComm = new(new byte[32]);
                 Cipher.Key _I = Cipher.Key.Copy(Cipher.Key.I);
-                Cipher.KeyOps.GenCommitment(ref feeComm, ref _I, block.Header.Fee);
+                Cipher.KeyOps.GenCommitment(ref feeComm, ref _I, block.Header.Fee + Config.STANDARD_BLOCK_REWARD);
 
                 if (!feeComm.Equals(coinbase.Outputs[0].Commitment))
                 {
