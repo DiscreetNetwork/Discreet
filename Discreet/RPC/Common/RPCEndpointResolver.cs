@@ -36,6 +36,12 @@ namespace Discreet.RPC
             Daemon.Logger.Log($"{endpoints.Count} RPC endpoints loaded successfully.");
         }
 
+        public static void ClearEndpoints()
+        {
+            endpoints.Clear();
+            sets.Clear();
+        }
+
         public static Delegate GetEndpoint(string endpoint)
         {
             return endpoints[endpoint];

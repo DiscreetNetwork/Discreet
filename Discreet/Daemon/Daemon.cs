@@ -99,6 +99,7 @@ namespace Discreet.Daemon
             syncerQueues = new ConcurrentDictionary<object, ConcurrentQueue<SHA256>>();
 
             _cancellationToken = _tokenSource.Token;
+            RPC.RPCEndpointResolver.ClearEndpoints();
 
             Logger.Info("Restarting Daemon...");
             bool success = await Start();
