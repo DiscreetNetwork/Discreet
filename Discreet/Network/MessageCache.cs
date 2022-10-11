@@ -35,6 +35,7 @@ namespace Discreet.Network
         private long _headerMax = -1;
 
         public ConcurrentDictionary<Cipher.SHA256, Coin.Block> OrphanBlocks;
+        public ConcurrentDictionary<Cipher.SHA256, int> OrphanBlockParents = new();
 
         public MessageCache()
         {
