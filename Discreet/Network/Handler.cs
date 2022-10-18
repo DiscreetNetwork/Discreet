@@ -107,7 +107,7 @@ namespace Discreet.Network
                     }
                     if (curTimestamp >=  dur + kv.Value.Item1)
                     {
-                        kv.Key.container.Remove(kv.Key);
+                        kv.Key.container?.Remove(kv.Key);
                         kv.Key.callback?.Invoke(kv.Key.peer, kv.Key.vector, false, RequestCallbackContext.STALE);
                     }
                 }
