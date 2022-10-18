@@ -95,7 +95,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public static void Log(string msg, string lvl)
+        public static void Log(string msg, string lvl, bool save = true)
         {
             lock (writer_lock)
             {
@@ -103,40 +103,43 @@ namespace Discreet.Daemon
 
                 Logger logger = GetLogger();
 
-                logger.openLog.WriteLine(msg);
-                logger.openLog.Flush();
+                if (save)
+                {
+                    logger.openLog.WriteLine(msg);
+                    logger.openLog.Flush();
+                }
 
                 Console.WriteLine(msg);
             }
         }
 
-        public static void Info(string msg)
+        public static void Info(string msg, bool save = true)
         {
-            Log(msg, "INFO");
+            Log(msg, "INFO", save);
         }
 
-        public static void Warn(string msg)
+        public static void Warn(string msg, bool save = true)
         {
-            Log(msg, "WARN");
+            Log(msg, "WARN", save);
         }
 
-        public static void Error(string msg, Exception exc = null)
+        public static void Error(string msg, Exception exc = null, bool save = true)
         {
             if (exc != null && DaemonConfig.GetConfig().PrintStackTraces.Value)
-                Log($"{msg}\nStack Trace:\n{exc.StackTrace}", "ERROR");
+                Log($"{msg}\nStack Trace:\n{exc.StackTrace}", "ERROR", save);
             else
-                Log(msg, "ERROR");
+                Log(msg, "ERROR", save);
         }
 
-        public static void Fatal(string msg)
+        public static void Fatal(string msg, bool save = true)
         {
-            Log(msg, "FATAL");
+            Log(msg, "FATAL", save);
         }
 
-        public static void Debug(string msg)
+        public static void Debug(string msg, bool save = true)
         {
             if (Daemon.DebugMode)
-                Log(msg, "DEBUG");
+                Log(msg, "DEBUG", save);
         }
     }
 }

@@ -1105,9 +1105,10 @@ namespace Discreet
 				w.Decrypt(passphrase);
 			}*/
 
-			Daemon.Daemon.DebugMode = true;
+			//Daemon.Daemon.DebugMode = true;
 
 			var config = Daemon.DaemonConfig.GetConfig();
+			Daemon.Daemon.DebugMode = config.DbgConfig.DebugMode.Value;
 
 			//Console.Write("Bootstrap IP: ");
 			//IPAddress bootstrapIP = IPAddress.Parse(Console.ReadLine());

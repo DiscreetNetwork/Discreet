@@ -154,8 +154,9 @@ namespace Discreet.Daemon
             handler.SetState(Network.PeerState.Startup);
             RPCLive = true;
 
-            if (!IsMasternode)
+            if (!IsMasternode && !(DaemonConfig.GetConfig().DbgConfig.DebugMode.Value && DaemonConfig.GetConfig().DbgConfig.SkipSyncing.Value))
             {
+
                 /* get height of chain */
                 long bestHeight = dataView.GetChainHeight();
                 IPEndPoint bestPeer = null;
@@ -545,7 +546,7 @@ namespace Discreet.Daemon
                     beginningHeight++;
                 }
             }
-            else
+            else if (IsMasternode)
             {
                 Logger.Log($"Starting minter...");
                 _ = Minter();
@@ -560,6 +561,8 @@ namespace Discreet.Daemon
                 }
 
                 _ = Task.Run(() => WalletSyncer(wallets.First(), true)).ConfigureAwait(false);
+
+                await Task.Delay(500);
             }
 
             Logger.Log($"Starting handler...");
@@ -571,6 +574,27 @@ namespace Discreet.Daemon
 
             Logger.Log($"Starting heartbeater...");
             network.StartHeartbeater();
+
+            if (DaemonConfig.GetConfig().DbgConfig.CheckBlockchain.Value)
+            {
+                Logger.Debug("Checking for missing blocks...");
+                var blockchainHeight = dataView.GetChainHeight();
+                List<long> missingBlocks = new();
+                for (long i = 0; i < blockchainHeight; i++)
+                {
+                    bool success = dataView.TryGetBlock(i, out _);
+                    if (!success)
+                    {
+                        missingBlocks.Add(i);
+                    }
+                }
+
+                if (missingBlocks.Count > 0)
+                {
+                    string heights = missingBlocks.Select(x => x.ToString()).Aggregate(string.Empty, (s, x) => s + x + ", ");
+                    Logger.Debug($"Missing blocks at the following heights: {heights}");
+                }
+            }
 
             Logger.Log($"Daemon startup complete.");
 
