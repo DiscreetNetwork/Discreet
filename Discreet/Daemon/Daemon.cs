@@ -240,7 +240,7 @@ namespace Discreet.Daemon
                             curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                         }
 
-                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = _hheight + 1, Count = (uint)(_newHheight - _hheight) }), durationMilliseconds: 60000, callback: callback);
+                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = _hheight + 1, Count = (uint)(_newHheight - _hheight) }), durationMilliseconds: 600000, callback: callback);
 
                         while (handler.LastSeenHeight < _newHheight && missedItems.Count == 0)
                         {
@@ -258,7 +258,7 @@ namespace Discreet.Daemon
                                         curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                     }
 
-                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = -1, Count = (uint)missedItems.Count, Headers = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 60000, callback: callback);
+                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = -1, Count = (uint)missedItems.Count, Headers = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 600000, callback: callback);
                                     missedItems.Clear();
                                 }
                             }
@@ -337,7 +337,7 @@ namespace Discreet.Daemon
                             }
 
                             var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
-                            network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 60000, callback: callback);
+                            network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
 
                             while (handler.LastSeenHeight < _nextHeight && missedItems.Count == 0)
                             {
@@ -355,7 +355,7 @@ namespace Discreet.Daemon
                                             curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                         }
 
-                                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 60000, callback: callback);
+                                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                         missedItems.Clear();
                                     }
                                 }
@@ -424,7 +424,7 @@ namespace Discreet.Daemon
                                                 curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                             }
 
-                                            network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 60000, callback: callback);
+                                            network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                             missedItems.Clear();
                                         }
                                     }
