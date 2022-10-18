@@ -35,7 +35,7 @@ namespace Discreet.Network
         private long _headerMax = -1;
 
         public ConcurrentDictionary<Cipher.SHA256, Coin.Block> OrphanBlocks;
-        public ConcurrentDictionary<Cipher.SHA256, int> OrphanBlockParents = new();
+        public ConcurrentDictionary<Cipher.SHA256, int> OrphanBlockParents = new(new Cipher.SHA256EqualityComparer());
 
         public MessageCache()
         {
@@ -130,8 +130,11 @@ namespace Discreet.Network
             }
 
             Queue<Coin.BlockHeader> headers = new();
-            for (long i = _headerMin; i < _headerMin + max && i <= _headerMax; i++)
+            var maxHeight = _headerMin + max;
+            for (long i = _headerMin; i < maxHeight; i++)
             {
+                if (i > _headerMax) break;
+
                 var success = HeaderCache.Remove(i, out var header);
                 if (!success)
                 {

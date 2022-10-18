@@ -854,7 +854,7 @@ namespace Discreet.Network
                     Count = p.Count,
                     Inventory = notFound.ToArray(),
                 };
-                
+
                 Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.NOTFOUND, resp));
             }
         }
@@ -1089,7 +1089,6 @@ namespace Discreet.Network
                         if (!MessageCache.GetMessageCache().OrphanBlockParents.ContainsKey(p.Block.Header.PreviousBlock))
                         {
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added; querying {conn.Receiver} for previous block");
-
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = 0;
                             Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Block.Header.PreviousBlock }, Count = 1 }), durationMilliseconds: 60000);
@@ -1098,7 +1097,9 @@ namespace Discreet.Network
                         else
                         {
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added");
-
+                            MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = 0;
+                            return;
                         }
                     }
                     else if (err != null)
@@ -1217,6 +1218,9 @@ namespace Discreet.Network
                         else
                         {
                             Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added");
+                            MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = 0;
+                            return;
                         }
                     }
                     else if (err != null)

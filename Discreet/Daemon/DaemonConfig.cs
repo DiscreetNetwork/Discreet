@@ -192,6 +192,11 @@ namespace Discreet.Daemon
                 NetConfig = new NetworkConfig();
             }
 
+            if (DbgConfig == null)
+            {
+                DbgConfig = new DebugConfig();
+            }
+
             if (APISets == null)
             {
                 APISets = new List<string>(new string[]
@@ -248,6 +253,7 @@ namespace Discreet.Daemon
 
         public NetworkConfig NetConfig { get; set; }
 
+        public DebugConfig DbgConfig { get; set; }
         public List<string> APISets { get; set; }
 
         public DaemonConfig()
@@ -297,6 +303,7 @@ namespace Discreet.Daemon
             SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
 
             NetConfig = new NetworkConfig();
+            DbgConfig = new DebugConfig();
 
             APISets = new List<string>(new string[]
             {

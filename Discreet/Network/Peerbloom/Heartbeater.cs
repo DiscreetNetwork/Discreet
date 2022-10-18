@@ -18,6 +18,11 @@ namespace Discreet.Network.Peerbloom
 
         public async Task Heartbeat(CancellationToken token)
         {
+            while (!token.IsCancellationRequested && (Handler.GetHandler() == null || Handler.GetHandler().State != PeerState.Normal))
+            {
+                await Task.Delay(500, token);
+            }
+
             while (!token.IsCancellationRequested)
             {
                 var timer = DateTime.UtcNow.AddSeconds(Constants.PEERBLOOM_HEARTBEATER).Ticks;
