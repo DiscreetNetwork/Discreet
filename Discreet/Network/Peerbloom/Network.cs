@@ -372,7 +372,7 @@ namespace Discreet.Network.Peerbloom
             _shutdownTokenSource.Cancel();
         }
 
-        public async Task Bootstrap()
+        public async Task Bootstrap(int numFailures = 0)
         {
             IsBootstrapping = true;
             Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetConfig().BootstrapNode, 5555), this, LocalNode, true);
@@ -407,7 +407,7 @@ namespace Discreet.Network.Peerbloom
 
             int NumberConnections = (Daemon.Daemon.DebugMode ? 1 : 2);
 
-            if (peerlist.NumNew + peerlist.NumTried > 0)
+            if (peerlist.NumTried > 0)
             {
                 Daemon.Logger.Info("Attempting to connect to known peers...");
 
@@ -434,6 +434,12 @@ namespace Discreet.Network.Peerbloom
                         numAttempts++;
                         checkedPeers.Clear();
                     }
+
+                    if (numAttempts > 10)
+                    {
+                        Daemon.Logger.Critical("Reached limit for number of attempts on current peerlist. Performing bootstrap.");
+                        break;
+                    }
                 }
                 while (peer != null && OutboundConnectedPeers.Count < NumberConnections && checkedPeers.Count < peerlist.NumTried + peerlist.NumNew);
             }
@@ -456,7 +462,7 @@ namespace Discreet.Network.Peerbloom
                 Daemon.Logger.Warn($"Retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                 //Console.Clear();
-                await Bootstrap();
+                await Bootstrap(numFailures + 1);
                 return;
             }
 
@@ -468,7 +474,7 @@ namespace Discreet.Network.Peerbloom
                 Daemon.Logger.Warn($"Failed to contact the bootstrap node with a `RequestPeers` command, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                 //Console.Clear();
-                await Bootstrap();
+                await Bootstrap(numFailures + 1);
                 return;
             }
 
@@ -480,7 +486,7 @@ namespace Discreet.Network.Peerbloom
                     Daemon.Logger.Warn($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                     await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                     //Console.Clear();
-                    await Bootstrap();
+                    await Bootstrap(numFailures + 1);
                     return;
                 }
             }
@@ -489,8 +495,9 @@ namespace Discreet.Network.Peerbloom
 
             HashSet<IPEndPoint> endpoints = new HashSet<IPEndPoint>(fetchedNodes);
 
-            if (Daemon.Daemon.DebugMode)
+            if (Daemon.Daemon.DebugMode || numFailures >= 10)
             {
+                if (numFailures >= 10) Daemon.Logger.Critical("Reached maximum number of bootstrap/start failures. Defaulting to bootstrap peer.");
                 peerlist.Create(bootstrapNode.Receiver, bootstrapNode.Receiver, out _);
                 peerlist.Good(bootstrapNode.Receiver, false);
                 _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token)).ConfigureAwait(false);
@@ -546,7 +553,7 @@ namespace Discreet.Network.Peerbloom
                     if (numConnected == 0 && endpoints.Count == checkedPeers.Count && !success)
                     {
                         Daemon.Logger.Warn("Could not find any online/valid peers. Restarting bootstrap.");
-                        await Bootstrap();
+                        await Bootstrap(numFailures + 1);
                         return;
                     }
                 }

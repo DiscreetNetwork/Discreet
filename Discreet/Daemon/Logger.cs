@@ -120,26 +120,41 @@ namespace Discreet.Daemon
 
         public static void Warn(string msg, bool save = true)
         {
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Log(msg, "WARN", save);
+            Console.ResetColor();
+        }
+
+        public static void Critical(string msg, bool save = true)
+        {
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Log(msg, "CRITICAL", save);
+            Console.ResetColor();
         }
 
         public static void Error(string msg, Exception exc = null, bool save = true)
         {
+            Console.ForegroundColor = ConsoleColor.Red;
             if (exc != null && DaemonConfig.GetConfig().PrintStackTraces.Value)
                 Log($"{msg}\nStack Trace:\n{exc.StackTrace}", "ERROR", save);
             else
                 Log(msg, "ERROR", save);
+            Console.ResetColor();
         }
 
         public static void Fatal(string msg, bool save = true)
         {
+            Console.ForegroundColor = ConsoleColor.DarkRed;
             Log(msg, "FATAL", save);
+            Console.ResetColor();
         }
 
         public static void Debug(string msg, bool save = true)
         {
+            Console.ForegroundColor = ConsoleColor.Green;
             if (Daemon.DebugMode)
                 Log(msg, "DEBUG", save);
+            Console.ResetColor();
         }
     }
 }
