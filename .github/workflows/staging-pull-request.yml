@@ -151,7 +151,7 @@ jobs:
       if: ${{ github.event.pull_request.merged == true }}
     
     - name: Echo csproj
-      run: cat Discreet-GUI/WPF/WPF.csproj
+      run: cat Discreet/Discreet.csproj
       shell: bash
       if: ${{ github.event.pull_request.merged == true }}
       
