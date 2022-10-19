@@ -29,6 +29,11 @@ jobs:
       if: ${{ github.event.pull_request.merged == true }} 
     
     - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        ref: staging
+        token: ${{ secrets.GDAT }}
+    
     - name: Setup .NET
       uses: actions/setup-dotnet@v2
       with:
@@ -136,3 +141,36 @@ jobs:
         asset_name: linux-x64.tar.bz2
         asset_content_type: application/bzip2
       if: ${{ github.event.pull_request.merged == true }}
+    
+    
+    
+      
+    - name: Edit version in csproj
+      run: sed -i 's/<Version>.*<\/Version>/<Version>${{ steps.create_tag_name.outputs.TAG_NAME }}<\/Version>/g' Discreet/Discreet.csproj
+      shell: bash
+      if: ${{ github.event.pull_request.merged == true }}
+    
+    - name: Echo csproj
+      run: cat Discreet-GUI/WPF/WPF.csproj
+      shell: bash
+      if: ${{ github.event.pull_request.merged == true }}
+      
+    - name: Push csproj changes
+      run: |
+        git config user.name github-actions
+        git config user.email github-actions@github.com
+        git add Discreet/Discreet.csproj
+        git commit -m "🖉 Edited version in Discreet.csproj"
+        git push
+      shell: bash
+      if: ${{ github.event.pull_request.merged == true }}
+      
+      
+    
+    
+    - name: Schedule new package builds
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: 'https://releases.discreet.net/build/daemon/preview'
+        method: 'POST'
+        customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}", "x-syk": "${{ secrets.SYK }}" }'
