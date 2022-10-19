@@ -101,3 +101,11 @@ jobs:
         url: 'https://releases.discreet.net/versions/daemon/build/finished'
         method: 'POST'
         customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}" }'
+        
+        
+    - name: Schedule new package builds
+      uses: fjogeleit/http-request-action@v1
+      with:
+        url: 'https://releases.discreet.net/build/daemon/release'
+        method: 'POST'
+        customHeaders: '{ "x-daemon-version-key": "${{ secrets.DAEMON_VERSION_KEY }}", "x-syk": "${{ secrets.SYK }}" }'
