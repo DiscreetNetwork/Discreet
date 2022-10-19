@@ -1186,6 +1186,17 @@ namespace Discreet.Network
                     }
                 }
             }
+            else if (State == PeerState.Processing)
+            {
+                fulfilled.Sort((x, y) => x.block.Header.Height.CompareTo(y.block.Header.Height));
+
+                foreach (var ivref in fulfilled)
+                {
+                    LastSeenHeight = Math.Max(LastSeenHeight, ivref.block.Header.Height);
+                    MessageCache.GetMessageCache().BlockCache.TryAdd(ivref.block.Header.Height, ivref.block);
+                    ivref.callback?.Invoke(ivref.peer, ivref.vector, true, RequestCallbackContext.SUCCESS);
+                }
+            }
             else
             {
                 /* we asked for this block due to orphan */

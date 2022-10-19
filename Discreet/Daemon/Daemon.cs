@@ -519,6 +519,61 @@ namespace Discreet.Daemon
                     Block block;
                     messageCache.BlockCache.Remove(beginningHeight, out block);
 
+                    if (block == null)
+                    {
+                        // this means we are missing a recently published block
+                        // re-request all blocks up to current minimum height
+                        var minheight = messageCache.BlockCache.Keys.Min();
+
+                        handler.LastSeenHeight = dataView.GetChainHeight();
+                        toBeFulfilled = 0;
+                        missedItems.Clear();
+                        usablePeers.Clear();
+                        usablePeers.AddRange(baseUsablePeers);
+
+                        List<SHA256> blocksToGet = new();
+
+                        for (long biter = beginningHeight; biter < minheight; biter++)
+                        {
+                            blocksToGet.Add(new SHA256(biter));
+                        }
+
+                        Network.Peerbloom.Connection curConn;
+                        lock (usablePeers)
+                        {
+                            curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
+                        }
+
+                        var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
+                        network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
+
+                        while (handler.LastSeenHeight < (minheight - 1) && missedItems.Count == 0)
+                        {
+                            await Task.Delay(100);
+                        }
+
+                        while (Interlocked.Read(ref toBeFulfilled) > 0)
+                        {
+                            lock (missedItems)
+                            {
+                                if (missedItems.Count > 0)
+                                {
+                                    lock (usablePeers)
+                                    {
+                                        curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
+                                    }
+
+                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                    missedItems.Clear();
+                                }
+                            }
+
+                            await Task.Delay(100);
+                        }
+
+                        messageCache.BlockCache.Remove(beginningHeight, out block);
+                    }
+
                     Logger.Log($"Processing block at height {beginningHeight}...");
 
                     DB.ValidationCache vCache = new DB.ValidationCache(block);
