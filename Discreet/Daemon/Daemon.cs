@@ -547,7 +547,7 @@ namespace Discreet.Daemon
                         var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
                         network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
 
-                        while (handler.LastSeenHeight < minheight && missedItems.Count == 0)
+                        while (handler.LastSeenHeight < (minheight - 1) && missedItems.Count == 0)
                         {
                             await Task.Delay(100);
                         }
@@ -570,6 +570,8 @@ namespace Discreet.Daemon
 
                             await Task.Delay(100);
                         }
+
+                        messageCache.BlockCache.Remove(beginningHeight, out block);
                     }
 
                     Logger.Log($"Processing block at height {beginningHeight}...");
