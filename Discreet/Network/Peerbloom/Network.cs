@@ -372,7 +372,7 @@ namespace Discreet.Network.Peerbloom
             _shutdownTokenSource.Cancel();
         }
 
-        public async Task Bootstrap(int numFailures = 0)
+        public async Task Bootstrap()
         {
             IsBootstrapping = true;
             Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetConfig().BootstrapNode, 5555), this, LocalNode, true);
@@ -441,7 +441,7 @@ namespace Discreet.Network.Peerbloom
                         break;
                     }
                 }
-                while (peer != null && OutboundConnectedPeers.Count < NumberConnections && checkedPeers.Count < peerlist.NumTried + peerlist.NumNew);
+                while (peer != null && OutboundConnectedPeers.Count < NumberConnections && checkedPeers.Count < peerlist.NumTried);
             }
 
             if (OutboundConnectedPeers.Count > 0)
@@ -452,7 +452,7 @@ namespace Discreet.Network.Peerbloom
                 return;
             }
 
-            Daemon.Logger.Info("Bootstrapping the node...");
+            Daemon.Logger.Info("Connecting to the bootstrap node...");
 
             /* this must be awaited to ensure our reflected Address is set. This is used to prevent self-connections. */
             await bootstrapNode.Connect();
@@ -462,108 +462,112 @@ namespace Discreet.Network.Peerbloom
                 Daemon.Logger.Warn($"Retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                 await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                 //Console.Clear();
-                await Bootstrap(numFailures + 1);
+                await Bootstrap();
                 return;
             }
 
-            var fetchedNodes = await bootstrapNode.RequestPeers(LocalNode.Endpoint); // Perform a self-lookup
+            int numBootstrapFailures = 0;
 
-            // We failed at establishing a connection to the bootstrap node
-            if(fetchedNodes == null)
+            do
             {
-                Daemon.Logger.Warn($"Failed to contact the bootstrap node with a `RequestPeers` command, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
-                await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
-                //Console.Clear();
-                await Bootstrap(numFailures + 1);
-                return;
-            }
+                Daemon.Logger.Info("Bootstrapping the node...");
 
-            // If we didnt get any peers, dont consider the bootstrap a success
-            if(fetchedNodes.Count == 0)
-            {
-                if (!Daemon.Daemon.DebugMode)
+                var fetchedNodes = await bootstrapNode.RequestPeers(LocalNode.Endpoint); // Perform a self-lookup
+
+                // We failed at establishing a connection to the bootstrap node
+                if (fetchedNodes == null && numBootstrapFailures < Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES)
                 {
-                    Daemon.Logger.Warn($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                    Daemon.Logger.Warn($"Failed to contact the bootstrap node with a `RequestPeers` command, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                     await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                     //Console.Clear();
-                    await Bootstrap(numFailures + 1);
-                    return;
-                }
-            }
-
-            Daemon.Logger.Info("Connecting to peers...");
-
-            HashSet<IPEndPoint> endpoints = new HashSet<IPEndPoint>(fetchedNodes);
-
-            if (Daemon.Daemon.DebugMode || numFailures >= 10)
-            {
-                if (numFailures >= 10) Daemon.Logger.Critical("Reached maximum number of bootstrap/start failures. Defaulting to bootstrap peer.");
-                peerlist.Create(bootstrapNode.Receiver, bootstrapNode.Receiver, out _);
-                peerlist.Good(bootstrapNode.Receiver, false);
-                _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token)).ConfigureAwait(false);
-            }
-
-            int connectCount = 0;
-
-            foreach (var node in endpoints)
-            {
-                if (GetNode(node) != null) continue;
-
-                Daemon.Logger.Debug($"Connecting to peer {node}");
-
-                /* prevents self connections */
-                if (node.Address.Equals(ReflectedAddress))
-                {
-                    Daemon.Logger.Debug($"Ignoring connection to peer {node}; this one is us");
+                    numBootstrapFailures++;
                     continue;
                 }
 
-                peerlist.AddNew(node, bootstrapNode.Receiver, 0);
-            }
+                // If we didnt get any peers, dont consider the bootstrap a success
+                if (fetchedNodes.Count == 0 && numBootstrapFailures < Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES)
+                {
+                    if (!Daemon.Daemon.DebugMode)
+                    {
+                        Daemon.Logger.Warn($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                        await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
+                        //Console.Clear();
+                        numBootstrapFailures++;
+                        continue;
+                    }
+                }
 
-            // select at least two nodes to connect to
-            if (!Daemon.Daemon.DebugMode)
-            {
-                List<IPEndPoint> checkedPeers = new List<IPEndPoint>();
-                int numConnected = 0;
+                Daemon.Logger.Info("Connecting to peers...");
+
+                HashSet<IPEndPoint> endpoints = new HashSet<IPEndPoint>(fetchedNodes);
 
                 foreach (var node in endpoints)
                 {
-                    if (numConnected >= 2)
-                    {
-                        break;
-                    }
+                    if (GetNode(node) != null) continue;
 
+                    Daemon.Logger.Debug($"Connecting to peer {node}");
+
+                    /* prevents self connections */
                     if (node.Address.Equals(ReflectedAddress))
                     {
                         Daemon.Logger.Debug($"Ignoring connection to peer {node}; this one is us");
                         continue;
                     }
 
-                    if (checkedPeers.Contains(node)) continue;
+                    peerlist.AddNew(node, bootstrapNode.Receiver, 0);
+                }
 
-                    Connection conn = new Connection(node, this, LocalNode, true);
+                // select at least two nodes to connect to
+                if (!Daemon.Daemon.DebugMode)
+                {
+                    List<IPEndPoint> checkedPeers = new List<IPEndPoint>();
+                    int numConnected = 0;
 
-                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 5000, 2);
-                    peerlist.Attempt(node, !success);
-
-                    if (success) numConnected++;
-
-                    checkedPeers.Add(node);
-                    if (numConnected == 0 && endpoints.Count == checkedPeers.Count && !success)
+                    foreach (var node in endpoints)
                     {
-                        Daemon.Logger.Warn("Could not find any online/valid peers. Restarting bootstrap.");
-                        await Bootstrap(numFailures + 1);
-                        return;
+                        if (numConnected >= 2)
+                        {
+                            break;
+                        }
+
+                        if (node.Address.Equals(ReflectedAddress))
+                        {
+                            Daemon.Logger.Debug($"Ignoring connection to peer {node}; this one is us");
+                            continue;
+                        }
+
+                        if (checkedPeers.Contains(node)) continue;
+
+                        Connection conn = new Connection(node, this, LocalNode, true);
+
+                        bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 5000, 2);
+                        peerlist.Attempt(node, !success);
+
+                        if (success) numConnected++;
+
+                        checkedPeers.Add(node);
+                        if (numConnected == 0 && endpoints.Count == checkedPeers.Count && !success && numBootstrapFailures < Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES)
+                        {
+                            Daemon.Logger.Warn("Could not find any online/valid peers. Restarting bootstrap.");
+                            numBootstrapFailures++;
+                            continue;
+                        }
                     }
                 }
             }
-            
+            while (numBootstrapFailures < Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES);
+
+            if (Daemon.Daemon.DebugMode || numBootstrapFailures >= Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES)
+            {
+                if (numBootstrapFailures >= Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES) Daemon.Logger.Critical("Reached maximum number of bootstrap/start failures. Defaulting to bootstrap peer.");
+                peerlist.Create(bootstrapNode.Receiver, bootstrapNode.Receiver, out _);
+                peerlist.Good(bootstrapNode.Receiver, false);
+                _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token)).ConfigureAwait(false);
+            }
 
             IsBootstrapping = false;
             Daemon.Logger.Info("Bootstrap completed.");
             _ = Task.Run(() => RunNetwork()).ConfigureAwait(false);
-
         }
 
         public int Broadcast(Core.Packet packet)

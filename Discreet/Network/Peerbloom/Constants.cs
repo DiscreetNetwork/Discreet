@@ -177,5 +177,10 @@ namespace Discreet.Network.Peerbloom
         /// How often, in seconds, to save the peerlist to disk.
         /// </summary>
         public const int PEERLIST_SAVE_INTERVAL = 600;
+
+        /// <summary>
+        /// How many failures are allowed before defaulting to default peers in bootstrap.
+        /// </summary>
+        public const int NUM_BOOTSTRAP_ALLOWED_FAILURES = 10;
     }
 }
