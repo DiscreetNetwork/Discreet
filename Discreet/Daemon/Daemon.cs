@@ -10,6 +10,7 @@ using Discreet.Cipher;
 using System.Net;
 using System.Threading;
 using System.Collections.Concurrent;
+using System.Reflection;
 
 namespace Discreet.Daemon
 {
@@ -35,6 +36,8 @@ namespace Discreet.Daemon
         DaemonConfig config;
 
         RPC.RPCServer _rpcServer;
+        Version.VersionBackgroundPoller _versionBackgroundPoller;
+
         CancellationToken _cancellationToken;
         CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
@@ -60,7 +63,13 @@ namespace Discreet.Daemon
             dataView = DB.DataView.GetView();
 
             config = DaemonConfig.GetConfig();
-            
+
+            _versionBackgroundPoller = new Version.VersionBackgroundPoller();
+            _versionBackgroundPoller.UpdateAvailable += (localVersion, newVersion) =>
+            {
+                Logger.Warn($"New version available: {newVersion.ToString(3)} - currently running on version: {localVersion.ToString(3)}");
+            };
+
             signingKey = Key.FromHex(config.SigningKey);
 
             if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d")))
@@ -78,6 +87,7 @@ namespace Discreet.Daemon
             Logger.Fatal("Daemon could not complete initialization and requires restart.");
             Shutdown();
             await Task.Delay(5000);
+            _ = _versionBackgroundPoller.StartBackgroundPoller();
 
             // re-create everything
             wallets = new ConcurrentBag<Wallet>();
@@ -122,7 +132,7 @@ namespace Discreet.Daemon
         public void Shutdown()
         {
             network.Shutdown();
-
+            _versionBackgroundPoller.Stop();
             _rpcServer.Stop();
             ZMQ.Publisher.Instance.Stop();
             _tokenSource.Cancel();
@@ -132,6 +142,10 @@ namespace Discreet.Daemon
         {
             AppDomain.CurrentDomain.UnhandledException += (sender, e) => Logger.CrashLog(sender, e);
             Logger.Debug("Attached global exception handler.");
+
+            Logger.Info($"Running on version: {Assembly.GetExecutingAssembly().GetName().Version.ToString(3)}");
+            _ = _versionBackgroundPoller.StartBackgroundPoller();
+
 
             Uptime = DateTime.Now.Ticks;
 
