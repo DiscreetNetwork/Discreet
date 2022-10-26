@@ -126,6 +126,11 @@ namespace Discreet.DB
             }
         }
 
+        /// <summary>
+        /// <warn>DEPRACATED</warn>
+        /// </summary>
+        /// <param name="blk"></param>
+        /// <exception cref="Exception"></exception>
         public void AddBlockToCache(Block blk)
         {
             lock (block_cache_lock)

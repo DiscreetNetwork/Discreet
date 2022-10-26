@@ -23,10 +23,17 @@ namespace Discreet.Network
         public int GetHashCode(InventoryVectorRef obj) => obj.vector.GetHashCode();
     }
 
+    internal class InventoryPureEqualityComparer : IEqualityComparer<InventoryVectorRef>
+    {
+        public bool Equals(InventoryVectorRef x, InventoryVectorRef y) => x.vector == y.vector;
+
+        public int GetHashCode(InventoryVectorRef obj) => obj.vector.GetHashCode();
+    }
+
     internal class InventoryVectorRef
     {
         public InventoryVector vector;
-        public SortedSet<InventoryVectorRef> container;
+        public HashSet<InventoryVectorRef> container;
         public Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback;
         public IPEndPoint peer;
         public Coin.FullTransaction tx = null;
@@ -37,11 +44,11 @@ namespace Discreet.Network
 
         public InventoryVectorRef(InventoryVector vector) { this.vector = vector; }
 
-        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container) : this(vector) { this.container = container; }
+        public InventoryVectorRef(InventoryVector vector, HashSet<InventoryVectorRef> container) : this(vector) { this.container = container; }
 
-        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback) : this(vector, container) { this.callback = callback; }
+        public InventoryVectorRef(InventoryVector vector, HashSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback) : this(vector, container) { this.callback = callback; }
 
-        public InventoryVectorRef(InventoryVector vector, SortedSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback, IPEndPoint peer) : this(vector, container, callback) { this.peer = peer; }
+        public InventoryVectorRef(InventoryVector vector, HashSet<InventoryVectorRef> container, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback, IPEndPoint peer) : this(vector, container, callback) { this.peer = peer; }
     }
 
     public class TransactionReceivedEventArgs : EventArgs
@@ -85,14 +92,14 @@ namespace Discreet.Network
         public event BlockSuccessEventHandler OnBlockSuccess;
 
         // used for unorganized inventory requests
-        private ConcurrentDictionary<IPEndPoint, SortedSet<InventoryVectorRef>> NeededInventory = new();
+        private ConcurrentDictionary<IPEndPoint, HashSet<InventoryVectorRef>> NeededInventory = new();
         private ConcurrentDictionary<InventoryVectorRef, (long, long)> InventoryTimeouts = new(new InventoryEqualityComparer());
 
         public async Task NeededInventoryStart(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
-                await Task.Delay(5000, token);
+                await Task.Delay(30000, token);
 
                 var curTimestamp = DateTime.UtcNow.Ticks;
 
@@ -119,7 +126,7 @@ namespace Discreet.Network
             bool success = NeededInventory.TryGetValue(req, out var reqset);
             if (!success || reqset == null)
             {
-                reqset = new(new InventoryComparer());
+                reqset = new(new InventoryPureEqualityComparer());
                 NeededInventory.TryAdd(req, reqset);
             }
 
@@ -216,7 +223,7 @@ namespace Discreet.Network
                         binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, new Cipher.SHA256(block.Header.Height))) { block = block };
                         remsuccess = reqset.TryGetValue(binv, out trueinv);
 
-                        if (!success || trueinv == null) return (false, null);
+                        if (!remsuccess || trueinv == null) return (false, null);
                         fulfilled.Add(trueinv);
                         trueinv.block = block;
                     }
@@ -248,7 +255,7 @@ namespace Discreet.Network
                         hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(header.Height))) { header = header };
                         remsuccess = reqset.TryGetValue(hinv, out trueinv);
 
-                        if (!success || trueinv == null) return (false, null);
+                        if (!remsuccess || trueinv == null) return (false, null);
                         fulfilled.Add(trueinv);
                         trueinv.header = header;
                     }
@@ -952,6 +959,11 @@ namespace Discreet.Network
 
         public async Task HandleSendTx(SendTransactionPacket p, IPEndPoint senderEndpoint)
         {
+            if (State == PeerState.Startup)
+            {
+                return;
+            }
+
             if (p.Error != null && p.Error != "")
             {
                 RejectPacket resp = new RejectPacket
@@ -1017,6 +1029,11 @@ namespace Discreet.Network
 
         public async Task HandleSendBlock(SendBlockPacket p, Peerbloom.Connection conn)
         {
+            if (State == PeerState.Startup)
+            {
+                return;
+            }
+
             if (p.Error != null && p.Error != "")
             {
                 RejectPacket resp = new RejectPacket
@@ -1037,37 +1054,30 @@ namespace Discreet.Network
 
             if (State == PeerState.Syncing)
             {
-                if (!DB.DataView.GetView().BlockCacheHas(p.Block.Header.BlockHash))
+                (bool succ, string reason) = MessageCache.GetMessageCache().AddBlockToCache(p.Block);
+                if (!succ)
                 {
-                    try
+                    RejectPacket resp = new RejectPacket
                     {
-                        DB.DataView.GetView().AddBlockToCache(p.Block);
-                        MessageCache.GetMessageCache().BlockCache[p.Block.Header.Height] = p.Block;
+                        RejectedType = PacketType.SENDBLOCK,
+                        Reason = reason,
+                        ReasonLen = (uint)Encoding.UTF8.GetBytes(reason).Length,
+                        DataLen = 32,
+                        Data = p.Block.Header.BlockHash.Bytes,
+                        Code = RejectionCode.INVALID,
+                    };
 
-                        // we don't broadcast blocks while syncing
-                        // Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
-                        return;
-                    }
-                    catch (Exception e)
-                    {
-                        RejectPacket resp = new RejectPacket
-                        {
-                            RejectedType = PacketType.SENDBLOCK,
-                            Reason = e.Message,
-                            ReasonLen = (uint)Encoding.UTF8.GetBytes(e.Message).Length,
-                            DataLen = 32,
-                            Data = p.Block.Header.BlockHash.Bytes,
-                            Code = RejectionCode.INVALID,
-                        };
+                    Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {reason}");
+                    Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.REJECT, resp));
 
-                        Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {e.Message}", e);
-
-                        Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.REJECT, resp));
-                        return;
-                    }
+                    return;
                 }
 
                 LastSeenHeight = p.Block.Header.Height;
+
+                // we don't broadcast blocks while syncing
+                // Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
+                return;
             }
             else if (State == PeerState.Processing)
             {
@@ -1171,7 +1181,7 @@ namespace Discreet.Network
 
                 foreach (var ivref in fulfilled)
                 {
-                    bool succ = dataView.TryAddBlockToCache(ivref.block);
+                    (bool succ, _) = MessageCache.GetMessageCache().AddBlockToCache(ivref.block);
 
                     if (!succ)
                     {
@@ -1181,7 +1191,6 @@ namespace Discreet.Network
                     else
                     {
                         LastSeenHeight = Math.Max(LastSeenHeight, ivref.block.Header.Height);
-                        MessageCache.GetMessageCache().BlockCache.TryAdd(ivref.block.Header.Height, ivref.block);
                         ivref.callback?.Invoke(ivref.peer, ivref.vector, true, RequestCallbackContext.SUCCESS);
                     }
                 }

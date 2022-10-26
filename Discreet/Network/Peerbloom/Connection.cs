@@ -379,7 +379,7 @@ namespace Discreet.Network.Peerbloom
                                 return false;
                             }
 
-                            IsPersistent = !feeler;
+                            IsPersistent = feeler ? false : persist;
                             ConnectionAcknowledged = true;
                             LastValidReceive = DateTime.UtcNow.Ticks;
                             LastValidSend = DateTime.UtcNow.Ticks;
@@ -413,7 +413,7 @@ namespace Discreet.Network.Peerbloom
                         return false;
                     }
 
-                    if (!feeler)
+                    if (!feeler && persist)
                     {
                         _network.AddOutboundConnection(this);
                     }

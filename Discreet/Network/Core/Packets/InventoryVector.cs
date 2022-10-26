@@ -37,25 +37,19 @@ namespace Discreet.Network.Core.Packets
             return tcmp;
         }
 
+        public override bool Equals([NotNullWhen(true)] object obj)
+        {
+            if (obj == null) return false;
+            if (obj is InventoryVector b) return Type == b.Type && Hash.Bytes.BEquals(b.Hash.Bytes);
+            return false;
+        }
+
         public static bool operator ==(InventoryVector x, InventoryVector y) => x.Type == y.Type && x.Hash.Bytes.BEquals(y.Hash.Bytes);
         public static bool operator !=(InventoryVector x, InventoryVector y) => !(x == y);
-    }
 
-    public class InventoryVectorComparer : IComparer<InventoryVector>
-    {
-        public int Compare(InventoryVector x, InventoryVector y)
+        public override int GetHashCode()
         {
-            return x.Compare(y);
-        }
-
-        public bool Equals(InventoryVector x, InventoryVector y)
-        {
-            return x == y;
-        }
-
-        public int GetHashCode([DisallowNull] InventoryVector obj)
-        {
-            return Coin.Serialization.GetInt32(Cipher.SHA256.HashData(obj.Serialize()).Bytes, 0);
+            return Coin.Serialization.GetInt32(Hash.Bytes, 28);
         }
     }
 }

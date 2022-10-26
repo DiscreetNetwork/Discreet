@@ -101,6 +101,53 @@ namespace Discreet.Network
             return true;
         }
 
+        public (bool, string) AddBlockToCache(Coin.Block blk)
+        {
+            if (BlockCache.ContainsKey(blk.Header.Height))
+            {
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!");
+                return (true, "");
+            }
+
+            if (blk.Transactions == null || blk.Transactions.Length == 0 || blk.Header.NumTXs == 0)
+            {
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has no transactions!");
+                return (false, "block has no transactions");
+            }
+
+            if ((long)blk.Header.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
+            {
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} from too far in the future!");
+                return (false, "block too far from future");
+            }
+
+            /* unfortunately, we can't check the transactions yet, since some output indices might not be present. We check a few things though. */
+            foreach (Coin.FullTransaction tx in blk.Transactions)
+            {
+                if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
+                {
+                    Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
+                    return (false, "invalid transactions");
+                }
+            }
+
+            if (blk.GetMerkleRoot() != blk.Header.MerkleRoot)
+            {
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has invalid Merkle root");
+                return (false, "invalid merkle root");
+            }
+
+            if (!blk.CheckSignature())
+            {
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has missing or invalid signature!");
+                return (false, "missing or invalid signature");
+            }
+
+            BlockCache[blk.Header.Height] = blk;
+
+            return (true, "");
+        }
+
         public List<Coin.Block> GetAllCachedBlocks(long startingHeight, long endingHeight)
         {
             List<Coin.Block> blocks = new();
