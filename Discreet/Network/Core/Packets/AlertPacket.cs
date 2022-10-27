@@ -7,6 +7,19 @@ using System.Threading.Tasks;
 
 namespace Discreet.Network.Core.Packets
 {
+    public class AlertEqualityComparer : IEqualityComparer<AlertPacket>
+    {
+        bool IEqualityComparer<AlertPacket>.Equals(AlertPacket x, AlertPacket y)
+        {
+            return x.Checksum == y.Checksum;
+        }
+
+        int IEqualityComparer<AlertPacket>.GetHashCode(AlertPacket obj)
+        {
+            return obj.Checksum.GetHashCode();
+        }
+    }
+
     public class AlertPacket: IPacketBody
     {
         public Cipher.SHA256 Checksum { get; set; }

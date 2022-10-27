@@ -346,13 +346,13 @@ namespace Discreet.Network.Peerbloom
             while (!token.IsCancellationRequested)
             {
                 var client = await listener.AcceptTcpClientAsync(token);
-                Daemon.Logger.Info($"TcpReceiver found a connection to client {client.Client.RemoteEndPoint}");
+                Daemon.Logger.Info($"TcpReceiver found a connection to client {client.Client.RemoteEndPoint}", verbose: 1);
                 if (!IsBootstrapping)
                 {
                     // check if we're already connected to a node at this endpoint
                     if (GetPeer((IPEndPoint)client.Client.RemoteEndPoint) != null)
                     {
-                        Daemon.Logger.Warn($"Network.TcpListener: already connected to a peer at this endpoint ({client.Client.RemoteEndPoint}); dropping connection");
+                        Daemon.Logger.Warn($"Network.TcpListener: already connected to a peer at this endpoint ({client.Client.RemoteEndPoint}); dropping connection", verbose: 1);
                         client.Dispose();
                     }
                     else
@@ -429,7 +429,7 @@ namespace Discreet.Network.Peerbloom
                     checkedPeers.Add(peer);
                     if (peerlist.NumTried == checkedPeers.Count && !success)
                     {
-                        Daemon.Logger.Warn("Could not find any online/valid peers. Increasing timeout length and allowed attempts.");
+                        Daemon.Logger.Warn("Could not find any online/valid peers. Increasing timeout length and allowed attempts.", verbose: 1);
                         timeoutLength += 5000;
                         numAttempts++;
                         checkedPeers.Clear();
@@ -584,7 +584,7 @@ namespace Discreet.Network.Peerbloom
                 return 0;
             }
 
-            Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Broadcast: Broadcasting {packet.Header.Command}");
+            Daemon.Logger.Info($"Discreet.Network.Peerbloom.Network.Broadcast: Broadcasting {packet.Header.Command}", verbose: 2);
 
             int i = 0;
 
@@ -594,7 +594,7 @@ namespace Discreet.Network.Peerbloom
                 {
                     if (conn.ConnectionAcknowledged)
                     {
-                        Daemon.Logger.Debug($"Network.Broadcast: broadcasting to peer {conn.Receiver}");
+                        Daemon.Logger.Debug($"Network.Broadcast: broadcasting to peer {conn.Receiver}", verbose: 2);
                         conn.Send(packet);
                         i++;
                     }
@@ -603,12 +603,12 @@ namespace Discreet.Network.Peerbloom
 
             foreach (var conn in OutboundConnectedPeers.Values)
             {
-                Daemon.Logger.Debug($"Network.Broadcast: broadcasting to peer {conn.Receiver}");
+                Daemon.Logger.Debug($"Network.Broadcast: broadcasting to peer {conn.Receiver}", verbose: 2);
                 conn.Send(packet);
                 i++;
             }
 
-            Daemon.Logger.Debug($"Network.Broadcast: sent to {i} peers.");
+            Daemon.Logger.Debug($"Network.Broadcast: sent to {i} peers.", verbose: 2);
 
             return i;
         }
@@ -621,7 +621,7 @@ namespace Discreet.Network.Peerbloom
                 return false;
             }
 
-            Daemon.Logger.Info($"Network.SendRequest: Sending request {packet.Header.Command} to {conn.Receiver}");
+            Daemon.Logger.Info($"Network.SendRequest: Sending request {packet.Header.Command} to {conn.Receiver}", verbose: 2);
 
             // hacky; make specific functions for sending packets which call this instead (in the future)
             if (packet.Header.Command == Core.PacketType.GETBLOCKS)
@@ -668,7 +668,7 @@ namespace Discreet.Network.Peerbloom
                 return false;
             }
 
-            Daemon.Logger.Info($"Network.Send: Sending {packet.Header.Command} to {conn.Receiver}");
+            Daemon.Logger.Info($"Network.Send: Sending {packet.Header.Command} to {conn.Receiver}", verbose: 2);
 
             // hacky; make specific functions for sending packets which call this instead (in the future)
             if (packet.Header.Command == Core.PacketType.GETBLOCKS)

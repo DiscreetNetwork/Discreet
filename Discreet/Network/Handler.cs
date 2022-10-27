@@ -499,10 +499,10 @@ namespace Discreet.Network
 
                 if (State == PeerState.Startup && p.Header.Command != PacketType.VERSION)
                 {
-                    Daemon.Logger.Warn($"Ignoring message from {conn.Receiver} during startup");
+                    Daemon.Logger.Warn($"Ignoring message from {conn.Receiver} during startup", verbose: 1);
                 }
 
-                Daemon.Logger.Info($"Discreet.Network.Handler.Handle: received packet {p.Header.Command} from {conn.Receiver}");
+                Daemon.Logger.Info($"Discreet.Network.Handler.Handle: received packet {p.Header.Command} from {conn.Receiver}", verbose: 1);
 
                 /* Packet header and structure is already verified prior to this function. */
                 switch (p.Header.Command)
@@ -611,7 +611,7 @@ namespace Discreet.Network
             var start = new DateTime(conn.PingStart).ToLocalTime().ToString("hh:mm:ss.fff tt");
             var end = DateTime.Now.ToString("hh:mm:ss.fff tt");
             var latency = conn.PingLatency / 10000;
-            Daemon.Logger.Info($"Peer {conn.Receiver} pinged at {start} responded at {end} with latency {latency} ms");
+            Daemon.Logger.Info($"Peer {conn.Receiver} pinged at {start} responded at {end} with latency {latency} ms", verbose: 2);
 
             // reset ping status
             conn.WasPinged = false;
@@ -620,7 +620,7 @@ namespace Discreet.Network
 
         public async Task HandleRequestPeers(Core.Packets.Peerbloom.RequestPeers p, IPEndPoint endpoint)
         {
-            Daemon.Logger.Info($"Received `RequestPeers` from: {endpoint}");
+            Daemon.Logger.Info($"Received `RequestPeers` from: {endpoint}", verbose: 2);
 
             var nodes = _network.GetPeers(p.MaxPeers);
             Core.Packets.Peerbloom.RequestPeersResp respBody = new Core.Packets.Peerbloom.RequestPeersResp { Length = nodes.Count, Elems = new Core.Packets.Peerbloom.FindNodeRespElem[nodes.Count] };
@@ -648,6 +648,11 @@ namespace Discreet.Network
 
         public async Task HandleAlert(AlertPacket p)
         {
+            if (MessageCache.GetMessageCache().Alerts.Contains(p))
+            {
+                return;
+            }
+
             var _checksum = Cipher.SHA256.HashData(Cipher.SHA256.HashData(Encoding.UTF8.GetBytes(p.Message)).Bytes);
             if (_checksum != p.Checksum)
             {
@@ -661,9 +666,11 @@ namespace Discreet.Network
                 return;
             }
 
-            Daemon.Logger.Info($"Alert received from {p.Sig.y.ToHexShort()}: {p.Message}");
+            Daemon.Logger.Critical($"Alert received from {p.Sig.y.ToHexShort()}: {p.Message}");
 
-            MessageCache.GetMessageCache().Alerts.Add(p);
+            MessageCache.GetMessageCache().AddAlert(p);
+
+            _network.Broadcast(new Packet(PacketType.ALERT, p));
         }
 
         public async Task HandleReject(RejectPacket p)
@@ -951,7 +958,7 @@ namespace Discreet.Network
         {
             if (!MessageCache.GetMessageCache().Messages.Contains(p.Message))
             {
-                Daemon.Logger.Info($"Message received from {senderEndpoint}: {p.Message}");
+                Daemon.Logger.Info($"Message received from {senderEndpoint}: {p.Message}", verbose: 2);
 
                 MessageCache.GetMessageCache().Messages.Add(p.Message);
             }
@@ -1160,7 +1167,7 @@ namespace Discreet.Network
                 }
                 else
                 {
-                    Daemon.Logger.Info($"HandleSendBlock: already have block at height {p.Block.Header.Height} ({p.Block.Header.BlockHash.ToHexShort()}, prev block {p.Block.Header.PreviousBlock.ToHexShort()})");
+                    Daemon.Logger.Info($"HandleSendBlock: already have block at height {p.Block.Header.Height} ({p.Block.Header.BlockHash.ToHexShort()}, prev block {p.Block.Header.PreviousBlock.ToHexShort()})", verbose: 3);
                 }
             }
         }
@@ -1171,7 +1178,7 @@ namespace Discreet.Network
             (bool good, var fulfilled) = CheckFulfillment(p, conn.Receiver);
             if (!good)
             {
-                Daemon.Logger.Error($"Handler.HandleBlocks: received unrequested data from peer {conn.Receiver}; potentially malicious behavior");
+                Daemon.Logger.Warn($"Handler.HandleBlocks: received unrequested data from peer {conn.Receiver}; potentially malicious behavior");
                 return;
             }
             if (State == PeerState.Syncing)
@@ -1220,7 +1227,7 @@ namespace Discreet.Network
                 }
                 else
                 {
-                    Daemon.Logger.Info($"HandleBlocks: received missing block at height {p.Blocks[0].Header.Height}");
+                    Daemon.Logger.Info($"HandleBlocks: received missing block at height {p.Blocks[0].Header.Height}", verbose: 2);
 
                     DB.ValidationCache vCache = new DB.ValidationCache(p.Blocks[0]);
                     var err = vCache.Validate();
@@ -1228,7 +1235,7 @@ namespace Discreet.Network
                     {
                         if (!MessageCache.GetMessageCache().OrphanBlockParents.ContainsKey(p.Blocks[0].Header.PreviousBlock))
                         {
-                            Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added; querying {conn.Receiver} for previous block");
+                            Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 1);
 
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = 0;
@@ -1237,7 +1244,7 @@ namespace Discreet.Network
                         }
                         else
                         {
-                            Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added");
+                            Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added", verbose: 1);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = 0;
                             return;
@@ -1253,7 +1260,7 @@ namespace Discreet.Network
                     }
 
                     /* orphan data is valid; validate branch and publish changes */
-                    Daemon.Logger.Info($"HandleBlocks: Root found for orphan branch beginning with block {p.Blocks[0].Header.BlockHash.ToHexShort()}");
+                    Daemon.Logger.Info($"HandleBlocks: Root found for orphan branch beginning with block {p.Blocks[0].Header.BlockHash.ToHexShort()}", verbose: 1);
                     try
                     {
                         vCache.Flush();
@@ -1419,13 +1426,13 @@ namespace Discreet.Network
 
         public async Task HandleDisconnect(Core.Packets.Peerbloom.Disconnect p, Peerbloom.Connection conn)
         {
-            Daemon.Logger.Info($"Handler.HandleDisconnect: Peer at {conn.Receiver} disconnected with the following reason: {p.Code}");
+            Daemon.Logger.Info($"Handler.HandleDisconnect: Peer at {conn.Receiver} disconnected with the following reason: {p.Code}", verbose: 1);
             await conn.Disconnect(false);
         }
 
         public void Handle(string s)
         {
-            Daemon.Logger.Log(s);
+            Daemon.Logger.Info(s);
         }
 
         /// <summary>

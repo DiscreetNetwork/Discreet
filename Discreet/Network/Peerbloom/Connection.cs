@@ -125,7 +125,7 @@ namespace Discreet.Network.Peerbloom
 
                 if (!result.IsCompleted)
                 {
-                    Daemon.Logger.Warn($"Connection.ConnectTest: Could not connect to peer {Receiver} due to timeout");
+                    Daemon.Logger.Warn($"Connection.ConnectTest: Could not connect to peer {Receiver} due to timeout", verbose: 1);
                     _tcpClient.Dispose();
                     return false;
                 }
@@ -182,7 +182,7 @@ namespace Discreet.Network.Peerbloom
                     {
                         if (numConnectionAttempts > 0)
                         {
-                            Daemon.Logger.Info($"Connection.Connect: retrying connection attempt and authentication for peer {Receiver}");
+                            Daemon.Logger.Info($"Connection.Connect: retrying connection attempt and authentication for peer {Receiver}", verbose: 2);
                         }
 
                         /* set timeout for this connect attempt */
@@ -200,7 +200,7 @@ namespace Discreet.Network.Peerbloom
 
                             if (!result.IsCompleted)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: Could not connect to peer {Receiver} due to timeout");
+                                Daemon.Logger.Warn($"Connection.Connect: Could not connect to peer {Receiver} due to timeout", verbose: 1);
                                 _tcpClient.EndConnect(result);
                                 numConnectionAttempts++;
                                 continue;
@@ -240,7 +240,7 @@ namespace Discreet.Network.Peerbloom
 
                             if (_timeout <= DateTime.UtcNow.Ticks)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: failed to send Version packet to {Receiver} due to timeout");
+                                Daemon.Logger.Warn($"Connection.Connect: failed to send Version packet to {Receiver} due to timeout", verbose: 1);
                                 numConnectionAttempts++;
                                 continue;
                             }
@@ -271,14 +271,14 @@ namespace Discreet.Network.Peerbloom
 
                             if (_timeout <= DateTime.UtcNow.Ticks)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: failed to read version packet from {Receiver} due to timeout");
+                                Daemon.Logger.Warn($"Connection.Connect: failed to read version packet from {Receiver} due to timeout", verbose: 1);
                                 numConnectionAttempts++;
                                 continue;
                             }
 
                             if (numReadBytes < _remoteVersion.Length)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: failed to fully receive version packet from {Receiver}");
+                                Daemon.Logger.Warn($"Connection.Connect: failed to fully receive version packet from {Receiver}", verbose: 1);
                                 numConnectionAttempts++;
                                 continue;
                             }
@@ -296,21 +296,21 @@ namespace Discreet.Network.Peerbloom
 
                             if (remoteVersionBody.Version != Daemon.DaemonConfig.GetConfig().NetworkVersion)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: Bad network version for peer {Receiver}; expected {Daemon.DaemonConfig.GetConfig().NetworkVersion}, but got {remoteVersionBody.Version}");
+                                Daemon.Logger.Warn($"Connection.Connect: Bad network version for peer {Receiver}; expected {Daemon.DaemonConfig.GetConfig().NetworkVersion}, but got {remoteVersionBody.Version}", verbose: 1);
                                 numConnectionAttempts++;
                                 continue;
                             }
 
                             if (remoteVersionBody.Timestamp > DateTime.UtcNow.Add(TimeSpan.FromHours(2)).Ticks || remoteVersionBody.Timestamp < DateTime.UtcNow.Subtract(TimeSpan.FromHours(2)).Ticks)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: version packet timestamp for peer {Receiver} is either too old or too far in the future!");
+                                Daemon.Logger.Warn($"Connection.Connect: version packet timestamp for peer {Receiver} is either too old or too far in the future!", verbose: 1);
                                 numConnectionAttempts++;
                                 continue;
                             }
 
                             if (remoteVersionBody.Port < 0 || remoteVersionBody.Port > 65535)
                             {
-                                Daemon.Logger.Warn($"Connection.Connect: version packet for peer {Receiver} specified an invalid port ({remoteVersionBody.Port})");
+                                Daemon.Logger.Warn($"Connection.Connect: version packet for peer {Receiver} specified an invalid port ({remoteVersionBody.Port})", verbose: 1);
                                 numConnectionAttempts++;
                                 continue;
                             }
@@ -339,7 +339,7 @@ namespace Discreet.Network.Peerbloom
                             if (!feeler && _dupe != null)
                             {
                                 // duplicate connection; end
-                                Daemon.Logger.Warn($"Connection.Connect: duplicate peer connection found for {Receiver} (currently at {_dupe.Receiver}); ending connection");
+                                Daemon.Logger.Warn($"Connection.Connect: duplicate peer connection found for {Receiver} (currently at {_dupe.Receiver}); ending connection", verbose: 1);
                                 await Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.CLEAN);
                                 return false;
                             }
@@ -670,7 +670,7 @@ namespace Discreet.Network.Peerbloom
 
         public async Task<bool> SendAll(CancellationToken token = default)
         {
-            Daemon.Logger.Debug("Connection.SendAll: beginning to send packets in WriteQueue");
+            Daemon.Logger.Debug("Connection.SendAll: beginning to send packets in WriteQueue", verbose: 1);
 
             while (!WriteQueue.IsEmpty)
             {
@@ -710,7 +710,7 @@ namespace Discreet.Network.Peerbloom
 
         public async Task<Core.Packet> ReadAsync(CancellationToken token = default)
         {
-            Daemon.Logger.Debug($"Connection.ReadAsync: beginning to receive packet from peer {Receiver}");
+            Daemon.Logger.Debug($"Connection.ReadAsync: beginning to receive packet from peer {Receiver}", verbose: 1);
 
             Core.Packet p = null;
 
@@ -858,7 +858,7 @@ namespace Discreet.Network.Peerbloom
                 await _tcpClient.GetStream().FlushAsync(token);
                 if (!ConnectionAcknowledged)
                 {
-                    Daemon.Logger.Info($"Connection.ReadAsync: failed to read from unacknowledged peer {Receiver}; ending connection");
+                    Daemon.Logger.Error($"Connection.ReadAsync: failed to read from unacknowledged peer {Receiver}; ending connection", verbose: 1);
                     _network.RemoveNodeFromPool(this);
                 }
             }
@@ -908,7 +908,7 @@ namespace Discreet.Network.Peerbloom
                         }
                         else
                         {
-                            Daemon.Logger.Debug("Connection.Persistent: queueing data");
+                            Daemon.Logger.Debug("Connection.Persistent: queueing data", verbose: 2);
 
                             _network.AddPacketToQueue(p, this);
                         }

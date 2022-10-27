@@ -66,7 +66,7 @@ namespace Discreet.RPC
             catch (HttpListenerException ex)
             {
 
-                Daemon.Logger.Log($"Discreet.RPC: {ex.Message}");
+                Daemon.Logger.Error($"Discreet.RPC: {ex.Message}", ex);
 
                 if(ex.ErrorCode == 5)
                     Daemon.Logger.Info($"Discreet.RPC: RPC was unable to start due to insufficient privileges. Please start as administrator and open port {_port}. Continuing without RPC.");

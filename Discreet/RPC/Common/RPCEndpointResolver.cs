@@ -33,7 +33,7 @@ namespace Discreet.RPC
                 sets.Add(RPCMethodName.endpoint_name, RPCMethodName.set);
             }
 
-            Daemon.Logger.Log($"{endpoints.Count} RPC endpoints loaded successfully.");
+            Daemon.Logger.Info($"{endpoints.Count} RPC endpoints loaded successfully.");
         }
 
         public static void ClearEndpoints()

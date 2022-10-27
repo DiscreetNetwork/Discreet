@@ -26,7 +26,7 @@ namespace Discreet.Network
 
         public ConcurrentBag<string> Messages;
         public ConcurrentBag<RejectPacket> Rejections;
-        public ConcurrentBag<AlertPacket> Alerts;
+        public HashSet<AlertPacket> Alerts;
         public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> Versions;
         public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> BadVersions;
         public ConcurrentDictionary<long, Coin.Block> BlockCache;
@@ -41,7 +41,7 @@ namespace Discreet.Network
         {
             Messages = new ConcurrentBag<string>();
             Rejections = new ConcurrentBag<RejectPacket>();
-            Alerts = new ConcurrentBag<AlertPacket>();
+            Alerts = new HashSet<AlertPacket>(new AlertEqualityComparer());
             Versions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BadVersions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BlockCache = new ConcurrentDictionary<long, Coin.Block>();
@@ -193,6 +193,14 @@ namespace Discreet.Network
             }
 
             return headers;
+        }
+
+        public void AddAlert(AlertPacket p)
+        {
+            lock (Alerts)
+            {
+                Alerts.Add(p);
+            }
         }
     }
 }
