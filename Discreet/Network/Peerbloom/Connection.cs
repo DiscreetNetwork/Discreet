@@ -543,7 +543,7 @@ namespace Discreet.Network.Peerbloom
 
                 while (resp != null && resp.Header.Command != Core.PacketType.REQUESTPEERSRESP)
                 {
-                    Daemon.Logger.Error($"Connection.RequestPeers: Received packet of type {resp.Header.Command}; skipping this and waiting for correct packet");
+                    Daemon.Logger.Error($"Connection.RequestPeers: Received packet of type {resp.Header.Command}; skipping this and waiting for correct packet", verbose: 1);
                     resp = await ReadAsync(token);
                 }
 

@@ -98,6 +98,8 @@ namespace Discreet.Daemon
 
         public static void Log(string msg, string lvl, bool save = true, int verbose = 0)
         {
+            if (DaemonConfig.GetConfig().VerboseLevel.Value < verbose) return;
+
             lock (writer_lock)
             {
                 msg = $"[{DateTime.Now.Hour.ToString().PadLeft(2, '0')}:{DateTime.Now.Minute.ToString().PadLeft(2, '0')}:{DateTime.Now.Second.ToString().PadLeft(2, '0')}] [{lvl}] - " + msg;
