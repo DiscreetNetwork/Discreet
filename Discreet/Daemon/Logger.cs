@@ -155,7 +155,7 @@ namespace Discreet.Daemon
         public static void Debug(string msg, bool save = true, int verbose = 0)
         {
             Console.ForegroundColor = ConsoleColor.Green;
-            if (Daemon.DebugMode)
+            if (Daemon.DebugMode || DaemonConfig.GetConfig().DbgConfig.DebugPrints.Value)
                 Log(msg, "DEBUG", save, verbose);
             Console.ResetColor();
         }

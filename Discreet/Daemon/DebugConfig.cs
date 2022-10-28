@@ -11,12 +11,14 @@ namespace Discreet.Daemon
         public bool? DebugMode { get; set; }
         public bool? SkipSyncing {  get; set; }
         public bool? CheckBlockchain { get; set; }
+        public bool? DebugPrints { get; set; }
 
         public DebugConfig()
         {
             DebugMode = false;
             SkipSyncing = false;
             CheckBlockchain = false;
+            DebugPrints = false;
         }
     }
 }

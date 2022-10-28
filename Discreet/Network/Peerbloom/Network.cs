@@ -554,6 +554,10 @@ namespace Discreet.Network.Peerbloom
                         }
                     }
                 }
+                else
+                {
+                    break;
+                }
             }
             while (numBootstrapFailures < Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES && OutboundConnectedPeers.Count == 0);
 
