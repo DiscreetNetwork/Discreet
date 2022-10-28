@@ -163,6 +163,8 @@ namespace Discreet.Network.Peerbloom
             /* there is a chance AddConnecting disposes this connection if maximum pending connections is reached. */
             if (disposed)
             {
+                Daemon.Logger.Debug($"Connection.Connect: cannon connect to {Receiver}; object is disposed");
+
                 _network.RemoveNodeFromPool(this);
                 if (feeler)
                 {
