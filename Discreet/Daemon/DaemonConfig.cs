@@ -157,6 +157,11 @@ namespace Discreet.Daemon
                 PrintStackTraces = false;
             }
 
+            if (VerboseLevel == null)
+            {
+                VerboseLevel = 0;
+            }
+
             if(ZMQPort == null)
             {
                 ZMQPort = 26833;
@@ -237,6 +242,7 @@ namespace Discreet.Daemon
         public bool? RPCUseTabs { get; set; }
 
         public bool? PrintStackTraces { get; set; }
+        public int? VerboseLevel { get; set; }
 
         public int? ZMQPort { get; set; }
 
@@ -295,6 +301,7 @@ namespace Discreet.Daemon
             RPCUseTabs = false;
 
             PrintStackTraces = false;
+            VerboseLevel = 0;
 
             ZMQPort = 26833;
 

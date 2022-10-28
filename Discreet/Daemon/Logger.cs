@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using System.Diagnostics;
 
 namespace Discreet.Daemon
 {
@@ -95,8 +96,10 @@ namespace Discreet.Daemon
             }
         }
 
-        public static void Log(string msg, string lvl, bool save = true)
+        public static void Log(string msg, string lvl, bool save = true, int verbose = 0)
         {
+            if (DaemonConfig.GetConfig().VerboseLevel.Value < verbose) return;
+
             lock (writer_lock)
             {
                 msg = $"[{DateTime.Now.Hour.ToString().PadLeft(2, '0')}:{DateTime.Now.Minute.ToString().PadLeft(2, '0')}:{DateTime.Now.Second.ToString().PadLeft(2, '0')}] [{lvl}] - " + msg;
@@ -113,47 +116,47 @@ namespace Discreet.Daemon
             }
         }
 
-        public static void Info(string msg, bool save = true)
+        public static void Info(string msg, bool save = true, int verbose = 0)
         {
-            Log(msg, "INFO", save);
+            Log(msg, "INFO", save, verbose);
         }
 
-        public static void Warn(string msg, bool save = true)
+        public static void Warn(string msg, bool save = true, int verbose = 0)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Log(msg, "WARN", save);
+            Log(msg, "WARN", save, verbose);
             Console.ResetColor();
         }
 
-        public static void Critical(string msg, bool save = true)
+        public static void Critical(string msg, bool save = true, int verbose = 0)
         {
             Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Log(msg, "CRITICAL", save);
+            Log(msg, "CRITICAL", save, verbose);
             Console.ResetColor();
         }
 
-        public static void Error(string msg, Exception exc = null, bool save = true)
+        public static void Error(string msg, Exception exc = null, bool save = true, int verbose = 0)
         {
             Console.ForegroundColor = ConsoleColor.Red;
             if (exc != null && DaemonConfig.GetConfig().PrintStackTraces.Value)
                 Log($"{msg}\nStack Trace:\n{exc.StackTrace}", "ERROR", save);
             else
-                Log(msg, "ERROR", save);
+                Log(msg, "ERROR", save, verbose);
             Console.ResetColor();
         }
 
-        public static void Fatal(string msg, bool save = true)
+        public static void Fatal(string msg, bool save = true, int verbose = 0)
         {
             Console.ForegroundColor = ConsoleColor.DarkRed;
-            Log(msg, "FATAL", save);
+            Log(msg, "FATAL", save, verbose);
             Console.ResetColor();
         }
 
-        public static void Debug(string msg, bool save = true)
+        public static void Debug(string msg, bool save = true, int verbose = 0)
         {
             Console.ForegroundColor = ConsoleColor.Green;
             if (Daemon.DebugMode)
-                Log(msg, "DEBUG", save);
+                Log(msg, "DEBUG", save, verbose);
             Console.ResetColor();
         }
     }

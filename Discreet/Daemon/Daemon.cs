@@ -155,7 +155,7 @@ namespace Discreet.Daemon
             }
 
             RPCLive = false;
-            Logger.Log($"Starting RPC server...");
+            Logger.Info($"Starting RPC server...");
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
             _ = Task.Factory.StartNew(async () => await ZMQ.Publisher.Instance.Start(DaemonConfig.GetConfig().ZMQPort.Value));
@@ -588,13 +588,13 @@ namespace Discreet.Daemon
                         messageCache.BlockCache.Remove(beginningHeight, out block);
                     }
 
-                    Logger.Log($"Processing block at height {beginningHeight}...");
+                    Logger.Info($"Processing block at height {beginningHeight}...", verbose: 2);
 
                     DB.ValidationCache vCache = new DB.ValidationCache(block);
                     var err = vCache.Validate();
                     if (err != null)
                     {
-                        Logger.Log($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}");
+                        Logger.Error($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}", err);
                         network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
                     }
 
@@ -604,7 +604,7 @@ namespace Discreet.Daemon
                     }
                     catch (Exception e)
                     {
-                        Logger.Log(e.Message);
+                        Logger.Error(e.Message, e);
                     }
 
                     foreach (var toq in syncerQueues)
@@ -617,7 +617,7 @@ namespace Discreet.Daemon
             }
             else if (IsMasternode)
             {
-                Logger.Log($"Starting minter...");
+                Logger.Info($"Starting minter...");
                 _ = Minter();
 
                 if (wallets.IsEmpty)
@@ -634,14 +634,14 @@ namespace Discreet.Daemon
                 await Task.Delay(500);
             }
 
-            Logger.Log($"Starting handler...");
+            Logger.Info($"Starting handler...");
             handler.SetState(Network.PeerState.Normal);
             ZMQ.Publisher.Instance.Publish("daemonstatechanged", "ready");
 
-            Logger.Log($"Starting peer exchanger...");
+            Logger.Info($"Starting peer exchanger...");
             network.StartPeerExchanger();
 
-            Logger.Log($"Starting heartbeater...");
+            Logger.Info($"Starting heartbeater...");
             network.StartHeartbeater();
 
             if (DaemonConfig.GetConfig().DbgConfig.CheckBlockchain.Value)
@@ -665,7 +665,7 @@ namespace Discreet.Daemon
                 }
             }
 
-            Logger.Log($"Daemon startup complete.");
+            Logger.Info($"Daemon startup complete.");
 
             return true;
         }
@@ -895,7 +895,7 @@ namespace Discreet.Daemon
         {
             try
             {
-                Logger.Info($"Discreet.Daemon: Minting new block...");
+                Logger.Info($"Discreet.Daemon: Minting new block...", verbose: 1);
 
                 var txs = txpool.GetTransactionsForBlock();
                 var blk = Block.Build(txs, (StealthAddress)wallets.First().Addresses[0].GetAddress(), signingKey);
@@ -961,13 +961,13 @@ namespace Discreet.Daemon
             addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
             coins.Add(50000000000000000);
 
-            Logger.Log("Creating genesis block...");
+            Logger.Info("Creating genesis block...");
 
             var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
             DB.ValidationCache vCache = new DB.ValidationCache(block);
             var exc = vCache.Validate();
             if (exc == null)
-                Logger.Log("Genesis block successfully created.");
+                Logger.Info("Genesis block successfully created.");
             else
                 throw new Exception($"Could not create genesis block: {exc}");
 
@@ -977,12 +977,37 @@ namespace Discreet.Daemon
             }
             catch (Exception e)
             {
-                Logger.Log(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message);
+                Logger.Error(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message, e);
             }
 
             ProcessBlock(block);
 
-            Logger.Log("Successfully created the genesis block.");
+            Logger.Info("Successfully created the genesis block.");
+        }
+
+        public static Daemon Init()
+        {
+            var config = DaemonConfig.GetConfig();
+            DebugMode = config.DbgConfig.DebugMode.Value;
+
+            if (config.BootstrapNode == null)
+            {
+                bool validIP = false;
+                do
+                {
+                    Console.Write("Boostrap IP: ");
+                    validIP = IPAddress.TryParse(Console.ReadLine(), out IPAddress bootstrapIP);
+                    config.BootstrapNode = bootstrapIP;
+                }
+                while (!validIP);
+            }
+
+            DaemonConfig.SetConfig(config);
+
+            config.Save();
+
+            var daemon = new Daemon();
+            return daemon;
         }
     }
 }

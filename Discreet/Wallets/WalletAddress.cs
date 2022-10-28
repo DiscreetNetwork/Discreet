@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Discreet.Cipher;
 using Discreet.Coin;
+using Discreet.Daemon;
 
 namespace Discreet.Wallets
 {
@@ -1104,7 +1105,7 @@ namespace Discreet.Wallets
 
                     if (KeyOps.CheckForBalance(ref cscalar, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
                     {
-                        Daemon.Logger.Log($"You received some Discreet!");
+                        Daemon.Logger.Info($"You received some Discreet!", save: DaemonConfig.GetConfig().DbgConfig.DebugMode.Value);
                         var utxo = ProcessOutput(transaction, i, false, isCoinbase: tToP);
                         changed = true;
 
@@ -1126,7 +1127,7 @@ namespace Discreet.Wallets
 
                     if (Address == address)
                     {
-                        Daemon.Logger.Log("You received some Discreet!");
+                        Daemon.Logger.Info("You received some Discreet!");
                         var utxo = ProcessOutput(transaction, i, true);
                         changed = true;
                     }
