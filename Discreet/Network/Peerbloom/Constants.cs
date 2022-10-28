@@ -46,7 +46,7 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// The time in milliseconds to timeout a single read operation.
         /// </summary>
-        public const int CONNECTION_READ_TIMEOUT = 10000;
+        public const int CONNECTION_READ_TIMEOUT = 30000;
 
         /// <summary>
         /// The maximum number of outbound connections allowed by the network.

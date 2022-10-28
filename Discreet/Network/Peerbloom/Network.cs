@@ -555,7 +555,7 @@ namespace Discreet.Network.Peerbloom
                     }
                 }
             }
-            while (numBootstrapFailures < Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES);
+            while (numBootstrapFailures < Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES && OutboundConnectedPeers.Count == 0);
 
             if (Daemon.Daemon.DebugMode || numBootstrapFailures >= Constants.NUM_BOOTSTRAP_ALLOWED_FAILURES)
             {
@@ -563,6 +563,12 @@ namespace Discreet.Network.Peerbloom
                 peerlist.Create(bootstrapNode.Receiver, bootstrapNode.Receiver, out _);
                 peerlist.Good(bootstrapNode.Receiver, false);
                 _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token)).ConfigureAwait(false);
+            }
+            
+            // if we are connected to at least two other nodes, then the bootstrap was successful and we can disconnect.
+            if (OutboundConnectedPeers.Count >= 2)
+            {
+                await bootstrapNode.Disconnect(true, Core.Packets.Peerbloom.DisconnectCode.CLEAN);
             }
 
             IsBootstrapping = false;
