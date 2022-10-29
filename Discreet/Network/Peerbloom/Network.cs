@@ -489,7 +489,7 @@ namespace Discreet.Network.Peerbloom
                 {
                     if (!Daemon.Daemon.DebugMode)
                     {
-                        Daemon.Logger.Warn($"Received no nodes, retrying bootsrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
+                        Daemon.Logger.Warn($"Received no nodes, retrying bootstrap process in {Constants.BOOTSTRAP_RETRY_MILLISECONDS / 1000} seconds..");
                         await Task.Delay(Constants.BOOTSTRAP_RETRY_MILLISECONDS);
                         //Console.Clear();
                         numBootstrapFailures++;
@@ -567,6 +567,7 @@ namespace Discreet.Network.Peerbloom
                 peerlist.Create(bootstrapNode.Receiver, bootstrapNode.Receiver, out _);
                 peerlist.Good(bootstrapNode.Receiver, false);
                 _ = Task.Run(() => bootstrapNode.Persistent(_shutdownTokenSource.Token)).ConfigureAwait(false);
+                if (!OutboundConnectedPeers.ContainsKey(bootstrapNode.Receiver)) OutboundConnectedPeers.TryAdd(bootstrapNode.Receiver, bootstrapNode);
             }
             
             // if we are connected to at least two other nodes, then the bootstrap was successful and we can disconnect.
