@@ -16,6 +16,14 @@ namespace Discreet.Network.Peerbloom
     /// The root / entrypoint of the network, which hold references to all the required classes, 
     /// that makes the network operate
     /// </summary>
+    /// 
+    public class IPEndPointEqualityComparer : IEqualityComparer<IPEndPoint>
+    {
+        bool IEqualityComparer<IPEndPoint>.Equals(IPEndPoint x, IPEndPoint y) => x.Equals(y);
+
+        int IEqualityComparer<IPEndPoint>.GetHashCode(IPEndPoint obj) => obj.GetHashCode();
+    }
+
     public class Network
     {
         private static Network _network;
@@ -56,17 +64,17 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// Peers that initiated the connection with this node. Contains zero peers for private nodes.
         /// </summary>
-        public ConcurrentDictionary<IPEndPoint, Connection> InboundConnectedPeers { get; set; } = new();
+        public ConcurrentDictionary<IPEndPoint, Connection> InboundConnectedPeers { get; set; } = new(new IPEndPointEqualityComparer());
 
         /// <summary>
         /// Peers that this node initiated a connection with.
         /// </summary>
-        public ConcurrentDictionary<IPEndPoint, Connection> OutboundConnectedPeers = new();
+        public ConcurrentDictionary<IPEndPoint, Connection> OutboundConnectedPeers = new(new IPEndPointEqualityComparer());
 
         /// <summary>
         /// Peers currently in the process of being connected.
         /// </summary>
-        public ConcurrentDictionary<IPEndPoint, Connection> ConnectingPeers = new();
+        public ConcurrentDictionary<IPEndPoint, Connection> ConnectingPeers = new(new IPEndPointEqualityComparer());
 
         /// <summary>
         /// Peers that are known by this node and aren't currently connected to or by this peer.

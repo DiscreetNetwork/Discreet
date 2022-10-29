@@ -328,9 +328,9 @@ namespace Discreet.Wallets
                 Array.Clear(SecSpendKey.bytes, 0, 32);
                 Array.Clear(SecViewKey.bytes, 0, 32);
 
-                for (int i = 0; i < UTXOs.Count; i++)
+                foreach (var utxo in UTXOs)
                 {
-                    UTXOs[i].Encrypt();
+                    utxo.Encrypt();
                 }
 
                 Balance = 0;
@@ -343,9 +343,9 @@ namespace Discreet.Wallets
 
                 Array.Clear(SecKey.bytes, 0, 32);
 
-                for (int i = 0; i < UTXOs.Count; i++)
+                foreach (var utxo in UTXOs)
                 {
-                    UTXOs[i].Encrypt();
+                    utxo.Encrypt();
                 }
 
                 Balance = 0;
@@ -469,11 +469,11 @@ namespace Discreet.Wallets
                 SecViewKey = new(new byte[32]);
                 Array.Copy(unencryptedViewKey, SecViewKey.bytes, 32);
 
-                for (int i = 0; i < UTXOs.Count; i++)
+                foreach (var utxo in UTXOs)
                 {
-                    UTXOs[i].Decrypt(this);
+                    utxo.Decrypt(this);
 
-                    Balance += UTXOs[i].DecodedAmount;
+                    Balance += utxo.DecodedAmount;
                 }
 
                 Array.Clear(unencryptedSpendKey, 0, unencryptedSpendKey.Length);
@@ -488,11 +488,11 @@ namespace Discreet.Wallets
 
                 Array.Clear(unencryptedSecKey, 0, unencryptedSecKey.Length);
 
-                for (int i = 0; i < UTXOs.Count; i++)
+                foreach (var utxo in UTXOs)
                 {
-                    UTXOs[i].Decrypt(this);
+                    utxo.Decrypt(this);
 
-                    Balance += UTXOs[i].Amount;
+                    Balance += utxo.Amount;
                 }
             }
             else
@@ -715,7 +715,7 @@ namespace Discreet.Wallets
             {
                 while (neededAmount < totalAmount)
                 {
-                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
+                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).Last();
                     neededAmount += utxo.DecodedAmount;
                     inputs.Add(utxo);
                 }
@@ -774,7 +774,7 @@ namespace Discreet.Wallets
             {
                 while (neededAmount < totalAmount)
                 {
-                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
+                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).Last();
                     neededAmount += utxo.DecodedAmount;
                     inputs.Add(utxo);
                 }
@@ -922,7 +922,7 @@ namespace Discreet.Wallets
             ulong neededAmount = 0;
             while (neededAmount < totalAmount)
             {
-                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
+                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).Last();
                 neededAmount += utxo.DecodedAmount;
                 inputs.Add(utxo);
             }
@@ -1053,12 +1053,12 @@ namespace Discreet.Wallets
             {
                 for (int i = 0; i < transaction.NumPInputs; i++)
                 {
-                    for (int k = 0; k < UTXOs.Count; k++)
+                    foreach (var utxo in UTXOs)
                     {
-                        if (UTXOs[k].LinkingTag == transaction.PInputs[i].KeyImage)
+                        if (utxo.LinkingTag == transaction.PInputs[i].KeyImage)
                         {
-                            UTXOs[k].Decrypt(this);
-                            Balance -= UTXOs[k].DecodedAmount;
+                            utxo.Decrypt(this);
+                            Balance -= utxo.DecodedAmount;
                             changed = true;
                             
                             if (spents == null)
@@ -1066,8 +1066,8 @@ namespace Discreet.Wallets
                                 spents = new();
                             }
 
-                            spents.Add(UTXOs[k]);
-                            UTXOs.RemoveAt(k);
+                            spents.Add(utxo);
+                            UTXOs.Remove(utxo);
                         }
                     }
                 }
@@ -1077,12 +1077,12 @@ namespace Discreet.Wallets
             {
                 for (int i = 0; i < transaction.NumTInputs; i++)
                 {
-                    for (int k = 0; k < UTXOs.Count; k++)
+                    foreach (var utxo in UTXOs)
                     {
-                        if (UTXOs[k].TransactionSrc == transaction.TInputs[i].TxSrc && UTXOs[k].Index == transaction.TInputs[i].Offset)
+                        if (utxo.TransactionSrc == transaction.TInputs[i].TxSrc && utxo.Index == transaction.TInputs[i].Offset)
                         {
-                            Balance -= UTXOs[k].Amount;
-                            UTXOs.RemoveAt(k);
+                            Balance -= utxo.Amount;
+                            UTXOs.Remove(utxo);
                             changed = true;
                         }
                     }
@@ -1095,9 +1095,9 @@ namespace Discreet.Wallets
 
                 for (int i = 0; i < numPOutputs; i++)
                 {
-                    for (int k = 0; k < UTXOs.Count; k++)
+                    foreach (var utxo in UTXOs)
                     {
-                        if (UTXOs[k].UXKey.Equals(transaction.POutputs[i].UXKey))
+                        if (utxo.UXKey.Equals(transaction.POutputs[i].UXKey))
                         {
                             throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
                         }
@@ -1341,7 +1341,7 @@ namespace Discreet.Wallets
             while (neededAmount < totalAmount)
             {
                 // search for the highest value utxo first
-                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
+                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).Last();
                 neededAmount += utxo.DecodedAmount;
                 inputs.Add(utxo);
                 i++;
