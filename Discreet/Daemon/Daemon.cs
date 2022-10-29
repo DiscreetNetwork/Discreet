@@ -656,17 +656,20 @@ namespace Discreet.Daemon
             return true;
         }
 
-        public void ProcessBlock(Block block)
+        public void ProcessBlock(Block block, bool failed = false)
         {
             txpool.UpdatePool(block.Transactions);
 
-            foreach (var toq in syncerQueues)
+            if (!failed)
             {
-                toq.Value.Enqueue(block.Header.BlockHash);
+                foreach (var toq in syncerQueues)
+                {
+                    toq.Value.Enqueue(block.Header.BlockHash);
+                }
+
+                ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
+                ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
             }
-            
-            ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
-            ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
         }
 
         public async Task WalletSyncer(Wallet wallet, bool scanForFunds)
@@ -899,6 +902,8 @@ namespace Discreet.Daemon
                 catch (Exception e)
                 {
                     Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message, e);
+                    ProcessBlock(blk, true);
+                    return;
                 }
 
                 ProcessBlock(blk);

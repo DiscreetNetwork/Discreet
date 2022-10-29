@@ -75,10 +75,10 @@ namespace Discreet.Daemon
 
         public static void CrashLog(object sender, UnhandledExceptionEventArgs args)
         {
-           Exception e = (Exception)args.ExceptionObject;
+            Exception e = (Exception)args.ExceptionObject;
 
-           Fatal($"CRASH: Unhandled exception in program: {e}. Consider creating an issue on Github.");
-           Environment.Exit(-1); // -1 = fatal crash
+            Fatal($"CRASH: Unhandled exception in program: {e}. Consider creating an issue on Github.");
+            Environment.Exit(-1); // -1 = fatal crash
         }
 
         public static void Log(string msg)
@@ -96,12 +96,14 @@ namespace Discreet.Daemon
             }
         }
 
-        public static void Log(string msg, string lvl, bool save = true, int verbose = 0)
+        public static void Log(string msg, string lvl, bool save = true, int verbose = 0, ConsoleColor color = ConsoleColor.White)
         {
             if (DaemonConfig.GetConfig().VerboseLevel.Value < verbose) return;
 
             lock (writer_lock)
             {
+                Console.ForegroundColor = color;
+
                 msg = $"[{DateTime.Now.Hour.ToString().PadLeft(2, '0')}:{DateTime.Now.Minute.ToString().PadLeft(2, '0')}:{DateTime.Now.Second.ToString().PadLeft(2, '0')}] [{lvl}] - " + msg;
 
                 Logger logger = GetLogger();
@@ -113,51 +115,43 @@ namespace Discreet.Daemon
                 }
 
                 Console.WriteLine(msg);
+
+                Console.ResetColor();
             }
         }
 
         public static void Info(string msg, bool save = true, int verbose = 0)
         {
-            Log(msg, "INFO", save, verbose);
+            Log(msg, "INFO", save, verbose, ConsoleColor.White);
         }
 
         public static void Warn(string msg, bool save = true, int verbose = 0)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
-            Log(msg, "WARN", save, verbose);
-            Console.ResetColor();
+            Log(msg, "WARN", save, verbose, ConsoleColor.Yellow);
         }
 
         public static void Critical(string msg, bool save = true, int verbose = 0)
         {
-            Console.ForegroundColor = ConsoleColor.DarkYellow;
-            Log(msg, "CRITICAL", save, verbose);
-            Console.ResetColor();
+            Log(msg, "CRITICAL", save, verbose, ConsoleColor.DarkYellow);
         }
 
         public static void Error(string msg, Exception exc = null, bool save = true, int verbose = 0)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
             if (exc != null && DaemonConfig.GetConfig().PrintStackTraces.Value)
-                Log($"{msg}\nStack Trace:\n{exc.StackTrace}", "ERROR", save);
+                Log($"{msg}\nStack Trace:\n{exc.StackTrace}", "ERROR", save, verbose, ConsoleColor.Red);
             else
-                Log(msg, "ERROR", save, verbose);
-            Console.ResetColor();
+                Log(msg, "ERROR", save, verbose, ConsoleColor.Red);
         }
 
         public static void Fatal(string msg, bool save = true, int verbose = 0)
         {
-            Console.ForegroundColor = ConsoleColor.DarkRed;
-            Log(msg, "FATAL", save, verbose);
-            Console.ResetColor();
+            Log(msg, "FATAL", save, verbose, ConsoleColor.DarkRed);
         }
 
         public static void Debug(string msg, bool save = true, int verbose = 0)
         {
-            Console.ForegroundColor = ConsoleColor.Green;
             if (Daemon.DebugMode || DaemonConfig.GetConfig().DbgConfig.DebugPrints.Value)
-                Log(msg, "DEBUG", save, verbose);
-            Console.ResetColor();
+                Log(msg, "DEBUG", save, verbose, ConsoleColor.DarkGreen);
         }
     }
 }
