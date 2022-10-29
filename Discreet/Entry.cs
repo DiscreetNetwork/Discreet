@@ -15,6 +15,7 @@ using Discreet.RPC;
 using Discreet.Common;
 using Discreet.RPC.Common;
 using System.Net;
+using System.Reflection;
 
 namespace Discreet
 {
@@ -24,6 +25,7 @@ namespace Discreet
 
 		public static async Task Main(string[] args)
         {
+            Console.Title = $"Discreet Daemon (v{Assembly.GetExecutingAssembly().GetName().Version.ToString(3)})";
             // daemon initialization and start
             daemon = Daemon.Daemon.Init();
             bool success = await daemon.Start();
