@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Discreet.Cipher;
 using Discreet.Coin;
 using Discreet.Daemon;
-using Discreet.Readable;
 
 namespace Discreet.Wallets
 {
