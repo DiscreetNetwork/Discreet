@@ -50,6 +50,8 @@ namespace Discreet.Daemon
 
         public bool RPCLive { get; set; }
 
+        private object MintLocker = new();
+
         public Daemon()
         {
             wallets = new ConcurrentBag<Wallet>();
@@ -836,8 +838,10 @@ namespace Discreet.Daemon
                 //
                 //    Mint();
                 //}
-
-                _ = Task.Run(async () => await MintTestnet()).ConfigureAwait(false);
+                lock (MintLocker)
+                {
+                    MintTestnet();
+                }
             }
         }
 
@@ -880,7 +884,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public async Task MintTestnet()
+        public void MintTestnet()
         {
             try
             {
