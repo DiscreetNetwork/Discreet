@@ -383,7 +383,15 @@ namespace Discreet.Network.Peerbloom
         public async Task Bootstrap()
         {
             IsBootstrapping = true;
-            Connection bootstrapNode = new Connection(new IPEndPoint(Daemon.DaemonConfig.GetConfig().BootstrapNode, 5555), this, LocalNode, true);
+
+            bool parseSuccess = IPAddress.TryParse(Daemon.DaemonConfig.GetConfig().BootstrapNode, out var bootstrap);
+            if (!parseSuccess)
+            {
+                bootstrap = Dns.GetHostAddresses(Daemon.DaemonConfig.GetConfig().BootstrapNode).FirstOrDefault();
+                if (bootstrap == null) throw new Exception("Network.Bootstrap: Failed to resolve bootstrap IP/host from config");
+            }
+
+            Connection bootstrapNode = new Connection(new IPEndPoint(bootstrap, 5555), this, LocalNode, true);
 
             handler = Handler.Initialize(this);
 
