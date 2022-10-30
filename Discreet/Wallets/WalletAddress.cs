@@ -1086,23 +1086,23 @@ namespace Discreet.Wallets
             {
                 for (int i = 0; i < transaction.NumPInputs; i++)
                 {
-                    foreach (var utxo in UTXOs)
+                    lock (UTXOs)
                     {
-                        if (utxo.LinkingTag == transaction.PInputs[i].KeyImage)
+                        foreach (var utxo in UTXOs)
                         {
-                            utxo.Decrypt(this);
-                            Balance -= utxo.DecodedAmount;
-                            changed = true;
-                            
-                            if (spents == null)
+                            if (utxo.LinkingTag == transaction.PInputs[i].KeyImage)
                             {
-                                spents = new();
-                            }
+                                utxo.Decrypt(this);
+                                Balance -= utxo.DecodedAmount;
+                                changed = true;
 
-                            spents.Add(utxo);
+                                if (spents == null)
+                                {
+                                    spents = new();
+                                }
 
-                            lock (UTXOs)
-                            {
+                                spents.Add(utxo);
+
                                 UTXOs.Remove(utxo);
                             }
                         }
@@ -1114,16 +1114,18 @@ namespace Discreet.Wallets
             {
                 for (int i = 0; i < transaction.NumTInputs; i++)
                 {
-                    foreach (var utxo in UTXOs)
+                    lock (UTXOs)
                     {
-                        if (utxo.TransactionSrc == transaction.TInputs[i].TxSrc && utxo.Index == transaction.TInputs[i].Offset)
+                        foreach (var utxo in UTXOs)
                         {
-                            Balance -= utxo.Amount;
-                            lock (UTXOs)
+                            if (utxo.TransactionSrc == transaction.TInputs[i].TxSrc && utxo.Index == transaction.TInputs[i].Offset)
                             {
+                                Balance -= utxo.Amount;
+
                                 UTXOs.Remove(utxo);
+
+                                changed = true;
                             }
-                            changed = true;
                         }
                     }
                 }
@@ -1135,11 +1137,14 @@ namespace Discreet.Wallets
 
                 for (int i = 0; i < numPOutputs; i++)
                 {
-                    foreach (var utxo in UTXOs)
+                    lock (UTXOs)
                     {
-                        if (utxo.UXKey.Equals(transaction.POutputs[i].UXKey))
+                        foreach (var utxo in UTXOs)
                         {
-                            throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
+                            if (utxo.UXKey.Equals(transaction.POutputs[i].UXKey))
+                            {
+                                throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
+                            }
                         }
                     }
 
