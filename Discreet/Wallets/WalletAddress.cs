@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Discreet.Cipher;
 using Discreet.Coin;
 using Discreet.Daemon;
+using Discreet.Readable;
 
 namespace Discreet.Wallets
 {
@@ -1102,9 +1103,12 @@ namespace Discreet.Wallets
                                 }
 
                                 spents.Add(utxo);
-
-                                UTXOs.Remove(utxo);
                             }
+                        }
+
+                        foreach (var spent in spents)
+                        {
+                            UTXOs.Remove(spent);
                         }
                     }
                 }
@@ -1116,16 +1120,23 @@ namespace Discreet.Wallets
                 {
                     lock (UTXOs)
                     {
+                        List<UTXO> toRemove = new();
+
                         foreach (var utxo in UTXOs)
                         {
                             if (utxo.TransactionSrc == transaction.TInputs[i].TxSrc && utxo.Index == transaction.TInputs[i].Offset)
                             {
                                 Balance -= utxo.Amount;
 
-                                UTXOs.Remove(utxo);
+                                toRemove.Add(utxo);
 
                                 changed = true;
                             }
+                        }
+
+                        foreach (var remove in toRemove)
+                        {
+                            UTXOs.Remove(remove);
                         }
                     }
                 }
