@@ -1001,14 +1001,24 @@ namespace Discreet.Daemon
 
             if (config.BootstrapNode == null)
             {
-                bool validIP = false;
-                do
+
+                bool didResolve = false;
+
+                while (!didResolve)
                 {
-                    Console.Write("Boostrap IP: ");
-                    validIP = IPAddress.TryParse(Console.ReadLine(), out IPAddress bootstrapIP);
-                    config.BootstrapNode = bootstrapIP;
-                }
-                while (!validIP);
+                    try
+                    {
+                        Console.Write("Boostrap node: ");
+                        IPAddress[] resolvedDNS = Dns.GetHostAddresses(Console.ReadLine());
+
+                        config.BootstrapNode = resolvedDNS[0].ToString();
+                        didResolve = true;
+                    }
+                    catch (Exception)
+                    {
+                        Logger.Error("Not a valid bootstrap node. Network might be temporarily down for maintenance.");
+                    }
+                } 
             }
 
             DaemonConfig.SetConfig(config);
