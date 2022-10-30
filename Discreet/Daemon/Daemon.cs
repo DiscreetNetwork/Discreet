@@ -968,7 +968,7 @@ namespace Discreet.Daemon
             }*/
 
             addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
-            coins.Add(50000000000000000);
+            coins.Add(900_000_000_0_000_000_000UL);
 
             Logger.Info("Creating genesis block...");
 
