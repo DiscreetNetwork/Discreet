@@ -10,9 +10,19 @@ using Discreet.Cipher;
 using System.Net;
 using System.Threading;
 using System.Collections.Concurrent;
+using System.Reflection;
 
 namespace Discreet.Daemon
 {
+    // utility things
+    internal class IPEndPointComparer: IComparer<IPEndPoint>
+    {
+        public int Compare(IPEndPoint a, IPEndPoint b)
+        {
+            return a.ToString().CompareTo(b.ToString());
+        }
+    }
+
     /* Manages all blockchain operations. Contains the wallet manager, logger, Network manager, RPC manager, DB manager and TXPool manager. */
     public class Daemon
     {
@@ -26,6 +36,8 @@ namespace Discreet.Daemon
         DaemonConfig config;
 
         RPC.RPCServer _rpcServer;
+        Version.VersionBackgroundPoller _versionBackgroundPoller;
+
         CancellationToken _cancellationToken;
         CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
@@ -41,6 +53,8 @@ namespace Discreet.Daemon
 
         public bool RPCLive { get; set; }
 
+        private object MintLocker = new();
+
         public Daemon()
         {
             wallets = new ConcurrentBag<Wallet>();
@@ -51,7 +65,13 @@ namespace Discreet.Daemon
             dataView = DB.DataView.GetView();
 
             config = DaemonConfig.GetConfig();
-            
+
+            _versionBackgroundPoller = new Version.VersionBackgroundPoller();
+            _versionBackgroundPoller.UpdateAvailable += (localVersion, newVersion) =>
+            {
+                Logger.Warn($"New version available: {newVersion.ToString(3)} - currently running on version: {localVersion.ToString(3)}");
+            };
+
             signingKey = Key.FromHex(config.SigningKey);
 
             if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d")))
@@ -64,6 +84,48 @@ namespace Discreet.Daemon
             _cancellationToken = _tokenSource.Token;
         }
 
+        public async Task<bool> Restart()
+        {
+            Logger.Fatal("Daemon could not complete initialization and requires restart.");
+            Shutdown();
+            await Task.Delay(5000);
+            _ = _versionBackgroundPoller.StartBackgroundPoller();
+
+            // re-create everything
+            wallets = new ConcurrentBag<Wallet>();
+
+            txpool = TXPool.GetTXPool();
+            network = Network.Peerbloom.Network.GetNetwork();
+            messageCache = Network.MessageCache.GetMessageCache();
+            dataView = DB.DataView.GetView();
+
+            config = DaemonConfig.GetConfig();
+
+            signingKey = Key.FromHex(config.SigningKey);
+
+            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d")))
+            {
+                IsMasternode = true;
+            }
+
+            syncerQueues = new ConcurrentDictionary<object, ConcurrentQueue<SHA256>>();
+
+            _cancellationToken = _tokenSource.Token;
+            RPC.RPCEndpointResolver.ClearEndpoints();
+
+            Logger.Info("Restarting Daemon...");
+            bool success = await Start();
+            return success;
+        }
+
+        public async Task MainLoop()
+        {
+            while (!_cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(1000000, _cancellationToken);
+            }
+        }
+
         public Network.Handler GetHandler()
         {
             return handler;
@@ -72,19 +134,19 @@ namespace Discreet.Daemon
         public void Shutdown()
         {
             network.Shutdown();
-
+            _versionBackgroundPoller.Stop();
             _rpcServer.Stop();
             ZMQ.Publisher.Instance.Stop();
             _tokenSource.Cancel();
         }
 
-        public async Task Start()
+        public async Task<bool> Start()
         {
-
-
             AppDomain.CurrentDomain.UnhandledException += (sender, e) => Logger.CrashLog(sender, e);
             Logger.Debug("Attached global exception handler.");
 
+            Logger.Info($"Running on version: {Assembly.GetExecutingAssembly().GetName().Version.ToString(3)}");
+            _ = _versionBackgroundPoller.StartBackgroundPoller();
 
 
             Uptime = DateTime.Now.Ticks;
@@ -95,7 +157,7 @@ namespace Discreet.Daemon
             }
 
             RPCLive = false;
-            Logger.Log($"Starting RPC server...");
+            Logger.Info($"Starting RPC server...");
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
             _ = Task.Factory.StartNew(async () => await ZMQ.Publisher.Instance.Start(DaemonConfig.GetConfig().ZMQPort.Value));
@@ -108,8 +170,9 @@ namespace Discreet.Daemon
             handler.SetState(Network.PeerState.Startup);
             RPCLive = true;
 
-            if (!IsMasternode)
+            if (!IsMasternode && !(DaemonConfig.GetConfig().DbgConfig.DebugMode.Value && DaemonConfig.GetConfig().DbgConfig.SkipSyncing.Value))
             {
+
                 /* get height of chain */
                 long bestHeight = dataView.GetChainHeight();
                 IPEndPoint bestPeer = null;
@@ -123,10 +186,283 @@ namespace Discreet.Daemon
                     }
                 }
 
+                /* among peers, find each of their associated heights */
+                List<(IPEndPoint, long)> peersAndHeights = new();
+                foreach (var ver in messageCache.Versions)
+                {
+                    if (ver.Value.Height > dataView.GetChainHeight())
+                    {
+                        peersAndHeights.Add((ver.Key, ver.Value.Height));
+                    }
+                }
+
                 handler.SetState(Network.PeerState.Syncing);
 
-                long beginningHeight = -1;
+                long beginningHeight = dataView.GetChainHeight();
 
+                List<Network.Core.Packets.InventoryVector> missedItems = new();
+                long toBeFulfilled = 0;
+                var baseUsablePeers = peersAndHeights.Where(x => x.Item2 >= bestHeight).Select(x => x.Item1).ToList();
+                var usablePeers = new List<IPEndPoint>(baseUsablePeers);
+                long numTotalFailures = 0;
+                var callback = (IPEndPoint peer, Network.Core.Packets.InventoryVector missedItem, bool success, Network.RequestCallbackContext ctx) => 
+                {
+                    if (!success)
+                    {
+                        lock (missedItems)
+                        {
+                            missedItems.Add(missedItem);
+                        }
+
+                        lock (usablePeers)
+                        {
+                            usablePeers.Remove(peer);
+
+                            if (usablePeers.Count == 0)
+                            {
+                                Interlocked.Increment(ref numTotalFailures);
+                                usablePeers.Clear();
+                                usablePeers.AddRange(baseUsablePeers);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Interlocked.Decrement(ref toBeFulfilled);
+                    }
+                };
+                /**
+                 * A note on how Header-First Syncing works:
+                 *  - node finds best node to query with longest chain and requests as many headers as possible
+                 *  - node caches the headers (we use in-memory caching for now, since the chain is small and well within memory limits)
+                 *  - node then queries among many peers to sync the blocks themselves
+                 */
+                // perform header-first syncing
+                if (bestPeer != null)
+                {
+                    long _hheight = dataView.GetChainHeight();
+                    beginningHeight = _hheight;
+                    //var bestConn = network.GetPeer(bestPeer);
+
+                    while (_hheight < bestHeight)
+                    {
+                        var _newHheight = (_hheight + 25000) <= bestHeight ? _hheight + 25000 : bestHeight;
+                        Logger.Info($"Fetching block headers {_hheight + 1} to {_newHheight}");
+
+                        toBeFulfilled = _newHheight - _hheight;
+                        Network.Peerbloom.Connection curConn;
+                        lock (usablePeers)
+                        {
+                            curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
+                        }
+
+                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = _hheight + 1, Count = (uint)(_newHheight - _hheight) }), durationMilliseconds: 600000, callback: callback);
+
+                        while (handler.LastSeenHeight < _newHheight && missedItems.Count == 0)
+                        {
+                            await Task.Delay(100);
+                        }
+
+                        while (Interlocked.Read(ref toBeFulfilled) > 0 && Interlocked.Read(ref numTotalFailures) < 10)
+                        {
+                            lock (missedItems)
+                            {
+                                if (missedItems.Count > 0)
+                                {
+                                    lock (usablePeers)
+                                    {
+                                        curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
+                                    }
+
+                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETHEADERS, new Network.Core.Packets.GetHeadersPacket { StartingHeight = -1, Count = (uint)missedItems.Count, Headers = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 600000, callback: callback);
+                                    missedItems.Clear();
+                                }
+                            }
+                            
+                            await Task.Delay(100);
+                        }
+
+                        if (Interlocked.Read(ref numTotalFailures) >= 10)
+                        {
+                            Logger.Fatal($"Daemon.Start: During header syncing, received too many invalid header responses from all connected peers.");
+                            return false;
+                        }
+
+                        _hheight = _newHheight;
+                    }
+                }
+
+                Logger.Info($"Grabbed headers; grabbing blocks");
+
+                // restart all data
+                handler.LastSeenHeight = dataView.GetChainHeight();
+                toBeFulfilled = 0;
+                missedItems.Clear();
+                numTotalFailures = 0;
+                usablePeers.Clear();
+                usablePeers.AddRange(baseUsablePeers);
+                // block syncing
+                /**
+                 * Rationale for syncing is as follows:
+                 *  - split block grabbing into chunks of 1024
+                 *  - grab next 1024 blocks in 15 block steps from peers; track missing blocks
+                 *  - if any blocks are missing or invalid ask another peer, tracking invalid blocks
+                 *  - if no blocks are valid, wait on that set until valid blocks are found (network will try to discover valid peers)
+                 *  - disconnect from peers which serve any invalid blocks
+                 */
+                if (bestPeer != null)
+                {
+                    //var bestConn = network.GetPeer(bestPeer);
+
+                    for (long chunk = beginningHeight; chunk < bestHeight; chunk = ((chunk + 1024) <= bestHeight ? chunk + 1024 : bestHeight))
+                    {
+                        var _height = chunk;
+                        var _newHeight = ((chunk + 1024) <= bestHeight ? chunk + 1024 : bestHeight);
+                        Logger.Info($"Fetching blocks {chunk + 1} to {_newHeight}");
+
+                        Network.Peerbloom.Connection curConn;
+                        lock (usablePeers)
+                        {
+                            curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
+                        }
+
+                        var headers = messageCache.PopHeaders(_newHeight - chunk);
+                        toBeFulfilled = _newHeight - chunk;
+
+                        while (_height < _newHeight)
+                        {
+                            List<SHA256> blocksToGet = new();
+
+                            var totBytes = 0;
+                            long _nextHeight = 0;
+                            while (totBytes < 15_000_000 && _nextHeight < _newHeight && headers.Count > 0)
+                            {
+                                var header = headers.Dequeue();
+                                totBytes += (int)header.BlockSize;
+                                blocksToGet.Add(header.BlockHash);
+                                _nextHeight = header.Height;
+                            }
+
+                            if (_nextHeight == _newHeight || headers.Count == 0)
+                            {
+                                _height = _newHeight;
+                            }
+                            else
+                            {
+                                _height = _nextHeight;
+                            }
+
+                            var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
+                            network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
+
+                            while (handler.LastSeenHeight < _nextHeight && missedItems.Count == 0)
+                            {
+                                await Task.Delay(100);
+                            }
+
+                            while (Interlocked.Read(ref toBeFulfilled) > 0 && Interlocked.Read(ref numTotalFailures) < 10)
+                            {
+                                lock (missedItems)
+                                {
+                                    if (missedItems.Count > 0)
+                                    {
+                                        lock (usablePeers)
+                                        {
+                                            curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
+                                        }
+
+                                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                        missedItems.Clear();
+                                    }
+                                }
+
+                                await Task.Delay(100);
+                            }
+
+                            if (Interlocked.Read(ref numTotalFailures) >= 10)
+                            {
+                                Logger.Fatal($"Daemon.Start: During block syncing, received too many invalid block responses from all connected peers.");
+                                return false;
+                            }
+                        }
+
+                        // process dem blocks
+
+                        Exception exc = null;
+                        var _beginHeight = chunk + 1;
+                        do
+                        {
+                            var vcache = new DB.ValidationCache(messageCache.GetAllCachedBlocks(_beginHeight, _newHeight));
+                            (exc, _beginHeight, var goodBlocks, var reget) = vcache.ValidateReturnFailures();
+
+                            if (exc != null && reget != null)
+                            {
+                                // first, flush valid blocks
+                                Logger.Error(exc.Message, exc);
+                                Logger.Error($"An invalid block was found during syncing (height {_beginHeight}). Re-requesting all future blocks (up to height {_newHeight}) and flushing valid blocks to disk");
+                                vcache.Flush();
+
+                                // publish to ZMQ and syncer queues 
+                                if (goodBlocks != null && goodBlocks.Count > 0)
+                                {
+                                    foreach (var block in goodBlocks)
+                                    {
+                                        foreach (var toq in syncerQueues)
+                                        {
+                                            toq.Value.Enqueue(block.Header.BlockHash);
+                                        }
+
+                                        ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
+                                        ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
+                                    }
+                                }
+                                
+                                // begin re-sending requests for blocks
+                                toBeFulfilled = reget.Count;
+
+                                var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = reget.ToArray(), Count = (uint)reget.Count });
+                                network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 600000, callback: callback);
+
+                                var _nextHeight = reget.Select(x => x.ToInt64()).Max();
+                                while (handler.LastSeenHeight < _nextHeight && missedItems.Count == 0)
+                                {
+                                    await Task.Delay(100);
+                                }
+
+                                while (Interlocked.Read(ref toBeFulfilled) > 0 && Interlocked.Read(ref numTotalFailures) < 10)
+                                {
+                                    lock (missedItems)
+                                    {
+                                        if (missedItems.Count > 0)
+                                        {
+                                            lock (usablePeers)
+                                            {
+                                                curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
+                                            }
+
+                                            network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                            missedItems.Clear();
+                                        }
+                                    }
+
+                                    await Task.Delay(100);
+                                }
+
+                                if (Interlocked.Read(ref numTotalFailures) >= 10)
+                                {
+                                    Logger.Fatal($"Daemon.Start: During block syncing, received too many invalid block responses from all connected peers.");
+                                    return false;
+                                }
+                            }
+                            else
+                            {
+                                vcache.Flush();
+                            }
+                        } while (exc != null);
+                    }
+                }
+                
+                /*
                 if (bestPeer != null)
                 {
                     long _height = dataView.GetChainHeight();
@@ -154,8 +490,9 @@ namespace Discreet.Daemon
                             //network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(_height) } }));
                         }
                     }
-                }
+                }*/
 
+                // process any new blocks minted during startup
                 handler.SetState(Network.PeerState.Processing);
 
                 //var blocks = db.GetBlockCache();
@@ -191,20 +528,75 @@ namespace Discreet.Daemon
                     beginningHeight++;
                 }*/
 
-                beginningHeight += 1;
+                beginningHeight = dataView.GetChainHeight() + 1;
 
                 while (!messageCache.BlockCache.IsEmpty)
                 {
                     Block block;
                     messageCache.BlockCache.Remove(beginningHeight, out block);
 
-                    Logger.Log($"Processing block at height {beginningHeight}...");
+                    if (block == null)
+                    {
+                        // this means we are missing a recently published block
+                        // re-request all blocks up to current minimum height
+                        var minheight = messageCache.BlockCache.Keys.Min();
+
+                        handler.LastSeenHeight = dataView.GetChainHeight();
+                        toBeFulfilled = 0;
+                        missedItems.Clear();
+                        usablePeers.Clear();
+                        usablePeers.AddRange(baseUsablePeers);
+
+                        List<SHA256> blocksToGet = new();
+
+                        for (long biter = beginningHeight; biter < minheight; biter++)
+                        {
+                            blocksToGet.Add(new SHA256(biter));
+                        }
+
+                        Network.Peerbloom.Connection curConn;
+                        lock (usablePeers)
+                        {
+                            curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
+                        }
+
+                        var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
+                        network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
+
+                        while (handler.LastSeenHeight < (minheight - 1) && missedItems.Count == 0)
+                        {
+                            await Task.Delay(100);
+                        }
+
+                        while (Interlocked.Read(ref toBeFulfilled) > 0)
+                        {
+                            lock (missedItems)
+                            {
+                                if (missedItems.Count > 0)
+                                {
+                                    lock (usablePeers)
+                                    {
+                                        curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
+                                    }
+
+                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                    missedItems.Clear();
+                                }
+                            }
+
+                            await Task.Delay(100);
+                        }
+
+                        messageCache.BlockCache.Remove(beginningHeight, out block);
+                    }
+
+                    Logger.Info($"Processing block at height {beginningHeight}...", verbose: 2);
 
                     DB.ValidationCache vCache = new DB.ValidationCache(block);
                     var err = vCache.Validate();
                     if (err != null)
                     {
-                        Logger.Log($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}");
+                        Logger.Error($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}", err);
                         network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
                     }
 
@@ -214,7 +606,7 @@ namespace Discreet.Daemon
                     }
                     catch (Exception e)
                     {
-                        Logger.Log(e.Message);
+                        Logger.Error(e.Message, e);
                     }
 
                     foreach (var toq in syncerQueues)
@@ -225,9 +617,9 @@ namespace Discreet.Daemon
                     beginningHeight++;
                 }
             }
-            else
+            else if (IsMasternode)
             {
-                Logger.Log($"Starting minter...");
+                Logger.Info($"Starting minter...");
                 _ = Minter();
 
                 if (wallets.IsEmpty)
@@ -240,37 +632,60 @@ namespace Discreet.Daemon
                 }
 
                 _ = Task.Run(() => WalletSyncer(wallets.First(), true)).ConfigureAwait(false);
+
+                await Task.Delay(500);
             }
 
-            Logger.Log($"Starting handler...");
+            Logger.Info($"Starting handler...");
             handler.SetState(Network.PeerState.Normal);
             ZMQ.Publisher.Instance.Publish("daemonstatechanged", "ready");
 
-            Logger.Log($"Starting peer exchanger...");
+            Logger.Info($"Starting peer exchanger...");
             network.StartPeerExchanger();
 
-            Logger.Log($"Starting heartbeater...");
+            Logger.Info($"Starting heartbeater...");
             network.StartHeartbeater();
 
-            Logger.Log($"Daemon startup complete.");
-
-            while (!_cancellationToken.IsCancellationRequested)
+            if (DaemonConfig.GetConfig().DbgConfig.CheckBlockchain.Value)
             {
-                await Task.Delay(1000000, _cancellationToken);
+                Logger.Debug("Checking for missing blocks...");
+                var blockchainHeight = dataView.GetChainHeight();
+                List<long> missingBlocks = new();
+                for (long i = 0; i < blockchainHeight; i++)
+                {
+                    bool success = dataView.TryGetBlock(i, out _);
+                    if (!success)
+                    {
+                        missingBlocks.Add(i);
+                    }
+                }
+
+                if (missingBlocks.Count > 0)
+                {
+                    string heights = missingBlocks.Select(x => x.ToString()).Aggregate(string.Empty, (s, x) => s + x + ", ");
+                    Logger.Debug($"Missing blocks at the following heights: {heights}");
+                }
             }
+
+            Logger.Info($"Daemon startup complete.");
+
+            return true;
         }
 
-        public void ProcessBlock(Block block)
+        public void ProcessBlock(Block block, bool failed = false)
         {
             txpool.UpdatePool(block.Transactions);
 
-            foreach (var toq in syncerQueues)
+            if (!failed)
             {
-                toq.Value.Enqueue(block.Header.BlockHash);
+                foreach (var toq in syncerQueues)
+                {
+                    toq.Value.Enqueue(block.Header.BlockHash);
+                }
+
+                ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
+                ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
             }
-            
-            ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
-            ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
         }
 
         public async Task WalletSyncer(Wallet wallet, bool scanForFunds)
@@ -429,13 +844,17 @@ namespace Discreet.Daemon
         {
             while (!_cancellationToken.IsCancellationRequested)
             {
-                await Task.Delay(1000, _cancellationToken);
+                await Task.Delay(5000, _cancellationToken);
 
-                if (txpool.GetTransactionsForBlock().Count > 0)
+                //if (txpool.GetTransactionsForBlock().Count > 0)
+                //{
+                //    Logger.Log($"Discreet.Daemon: Minting new block...");
+                //
+                //    Mint();
+                //}
+                lock (MintLocker)
                 {
-                    Logger.Log($"Discreet.Daemon: Minting new block...");
-
-                    Mint();
+                    MintTestnet();
                 }
             }
         }
@@ -479,6 +898,42 @@ namespace Discreet.Daemon
             }
         }
 
+        public void MintTestnet()
+        {
+            try
+            {
+                Logger.Info($"Discreet.Daemon: Minting new block...", verbose: 1);
+
+                var txs = txpool.GetTransactionsForBlock();
+                var blk = Block.Build(txs, (StealthAddress)wallets.First().Addresses[0].GetAddress(), signingKey);
+
+                try
+                {
+                    DB.ValidationCache vCache = new(blk);
+                    var vErr = vCache.Validate();
+                    if (vErr != null)
+                    {
+                        Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
+                    }
+                    vCache.Flush();
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message, e);
+                    ProcessBlock(blk, true);
+                    return;
+                }
+
+                ProcessBlock(blk);
+
+                network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
+            }
+            catch (Exception e)
+            {
+                Logger.Error("Minting block failed: " + e.Message, e);
+            }
+        }
+
         public void BuildGenesis()
         {
             /* time to build the megablock */
@@ -515,13 +970,13 @@ namespace Discreet.Daemon
             addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
             coins.Add(50000000000000000);
 
-            Logger.Log("Creating genesis block...");
+            Logger.Info("Creating genesis block...");
 
             var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
             DB.ValidationCache vCache = new DB.ValidationCache(block);
             var exc = vCache.Validate();
             if (exc == null)
-                Logger.Log("Genesis block successfully created.");
+                Logger.Info("Genesis block successfully created.");
             else
                 throw new Exception($"Could not create genesis block: {exc}");
 
@@ -531,12 +986,37 @@ namespace Discreet.Daemon
             }
             catch (Exception e)
             {
-                Logger.Log(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message);
+                Logger.Error(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message, e);
             }
 
             ProcessBlock(block);
 
-            Logger.Log("Successfully created the genesis block.");
+            Logger.Info("Successfully created the genesis block.");
+        }
+
+        public static Daemon Init()
+        {
+            var config = DaemonConfig.GetConfig();
+            DebugMode = config.DbgConfig.DebugMode.Value;
+
+            if (config.BootstrapNode == null)
+            {
+                bool validIP = false;
+                do
+                {
+                    Console.Write("Boostrap IP: ");
+                    validIP = IPAddress.TryParse(Console.ReadLine(), out IPAddress bootstrapIP);
+                    config.BootstrapNode = bootstrapIP;
+                }
+                while (!validIP);
+            }
+
+            DaemonConfig.SetConfig(config);
+
+            config.Save();
+
+            var daemon = new Daemon();
+            return daemon;
         }
     }
 }

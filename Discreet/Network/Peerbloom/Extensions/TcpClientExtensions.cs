@@ -32,7 +32,7 @@ namespace Discreet.Network.Peerbloom.Extensions
                 }
                 catch (Exception e)
                 {
-                    Daemon.Logger.Log("ReadBytesAsync error: " + e.Message);
+                    Daemon.Logger.Error("ReadBytesAsync error: " + e.Message, e);
                 }
                 _ms.Write(buf, 0, bytesRead);
             } while (bytesRead == buf.Length);

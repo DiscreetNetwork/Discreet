@@ -1,10 +1,12 @@
 ﻿using Discreet.Coin;
+using Discreet.Daemon;
 using Discreet.Network;
 using Discreet.RPC.Common;
 using Discreet.Wallets;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -243,6 +245,14 @@ namespace Discreet.RPC.Endpoints
 
                 return new RPCError($"Could not fulfill request");
             }
+        }
+
+        [RPCEndpoint(endpoint_name: "dbg_send_message")]
+        public static object SendMessage(string message)
+        {
+            _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDMSG, new Network.Core.Packets.SendMessagePacket { MessageLen = (uint)Encoding.UTF8.GetBytes(message).Length, Message = message }));
+
+            return true;
         }
     }
 }

@@ -157,6 +157,11 @@ namespace Discreet.Daemon
                 PrintStackTraces = false;
             }
 
+            if (VerboseLevel == null)
+            {
+                VerboseLevel = 0;
+            }
+
             if(ZMQPort == null)
             {
                 ZMQPort = 26833;
@@ -190,6 +195,11 @@ namespace Discreet.Daemon
             if (NetConfig == null)
             {
                 NetConfig = new NetworkConfig();
+            }
+
+            if (DbgConfig == null)
+            {
+                DbgConfig = new DebugConfig();
             }
 
             if (APISets == null)
@@ -232,6 +242,7 @@ namespace Discreet.Daemon
         public bool? RPCUseTabs { get; set; }
 
         public bool? PrintStackTraces { get; set; }
+        public int? VerboseLevel { get; set; }
 
         public int? ZMQPort { get; set; }
 
@@ -248,6 +259,7 @@ namespace Discreet.Daemon
 
         public NetworkConfig NetConfig { get; set; }
 
+        public DebugConfig DbgConfig { get; set; }
         public List<string> APISets { get; set; }
 
         public DaemonConfig()
@@ -289,6 +301,7 @@ namespace Discreet.Daemon
             RPCUseTabs = false;
 
             PrintStackTraces = false;
+            VerboseLevel = 0;
 
             ZMQPort = 26833;
 
@@ -297,6 +310,7 @@ namespace Discreet.Daemon
             SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
 
             NetConfig = new NetworkConfig();
+            DbgConfig = new DebugConfig();
 
             APISets = new List<string>(new string[]
             {

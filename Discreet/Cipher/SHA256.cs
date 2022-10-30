@@ -217,4 +217,11 @@ namespace Discreet.Cipher
         public static bool operator <=(SHA256 a, SHA256 b) => SHA256.Compare(a, b) <= 0;
 
     }
+
+    public class SHA256EqualityComparer: IEqualityComparer<SHA256>
+    {
+        public bool Equals(SHA256 x, SHA256 y) => x.Equals(y);
+
+        public int GetHashCode(SHA256 obj) => obj.GetHashCode();
+    }
 }

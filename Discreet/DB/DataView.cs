@@ -30,11 +30,24 @@ namespace Discreet.DB
 
         public void AddBlockToCache(Block blk) => curView.AddBlockToCache(blk);
 
+        public bool TryAddBlockToCache(Block blk)
+        {
+            try
+            {
+                AddBlockToCache(blk);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error(ex.Message, ex);
+                return false;
+            }
+        }
+
         public bool BlockCacheHas(Cipher.SHA256 block) => curView.BlockCacheHas(block);
 
         public void AddBlock(Block blk)
         {
-            curView.AddBlock(blk);
             curView.AddBlock(blk);
         }
 
@@ -60,15 +73,105 @@ namespace Discreet.DB
 
         public FullTransaction GetTransaction(ulong txid) => curView.GetTransaction(txid);
 
+        public bool TryGetTransaction(ulong txid, out FullTransaction tx)
+        {
+            try
+            {
+                tx = GetTransaction(txid);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error(ex.Message, ex);
+                tx = null;
+                return false;
+            }
+        }
+
         public FullTransaction GetTransaction(Cipher.SHA256 txhash) => curView.GetTransaction(txhash);
+
+        public bool TryGetTransaction(Cipher.SHA256 txhash, out FullTransaction tx)
+        {
+            try
+            {
+                tx = GetTransaction(txhash);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error(ex.Message, ex);
+                tx = null;
+                return false;
+            }
+        }
 
         public Block GetBlock(long height) => curView.GetBlock(height);
 
+        public bool TryGetBlock(long height, out Block block)
+        {
+            try
+            {
+                block = GetBlock(height);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error(ex.Message, ex);
+                block = null;
+                return false;
+            }
+        }
+
         public Block GetBlock(Cipher.SHA256 blockHash) => curView.GetBlock(blockHash);
+
+        public bool TryGetBlock(Cipher.SHA256 blockHash, out Block block)
+        {
+            try
+            {
+                block = GetBlock(blockHash);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error(ex.Message, ex);
+                block = null;
+                return false;
+            }
+        }
 
         public BlockHeader GetBlockHeader(Cipher.SHA256 blockHash) => curView.GetBlockHeader(blockHash);
 
+        public bool TryGetBlockHeader(Cipher.SHA256 blockHash, out BlockHeader header)
+        {
+            try
+            {
+                header = GetBlockHeader(blockHash);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error(ex.Message, ex);
+                header = null;
+                return false;
+            }
+        }
+
         public BlockHeader GetBlockHeader(long height) => curView.GetBlockHeader(height);
+
+        public bool TryGetBlockHeader(long height, out BlockHeader header)
+        {
+            try
+            {
+                header = GetBlockHeader(height);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error(ex.Message, ex);
+                header = null;
+                return false;
+            }
+        }
 
         public uint GetOutputIndex() => curView.GetOutputIndex();
 

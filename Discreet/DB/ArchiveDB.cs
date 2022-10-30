@@ -126,6 +126,11 @@ namespace Discreet.DB
             }
         }
 
+        /// <summary>
+        /// <warn>DEPRACATED</warn>
+        /// </summary>
+        /// <param name="blk"></param>
+        /// <exception cref="Exception"></exception>
         public void AddBlockToCache(Block blk)
         {
             lock (block_cache_lock)
@@ -444,12 +449,10 @@ namespace Discreet.DB
                 switch (update.type)
                 {
                     case UpdateType.TXINDEXER:
-                        txUpdate = new U64(Serialization.GetUInt64(update.value, 0));
-                        batch.Put(update.key, update.value, cf: Meta);
+                        txUpdate = new U64(Math.Max(Serialization.GetUInt64(update.value, 0), (txUpdate == null) ? 0 : txUpdate.Value));
                         break;
                     case UpdateType.HEIGHT:
-                        heightUpdate = new L64(Serialization.GetInt64(update.value, 0));
-                        batch.Put(update.key, update.value, cf: Meta);
+                        heightUpdate = new L64(Math.Max(Serialization.GetInt64(update.value, 0), (heightUpdate == null) ? 0 : heightUpdate.Value));
                         break;
                     case UpdateType.TX:
                         batch.Put(update.key, update.value, cf: Txs);
@@ -473,6 +476,7 @@ namespace Discreet.DB
 
             if (txUpdate != null)
             {
+                batch.Put(Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(txUpdate.Value), cf: Meta);
                 lock (indexer_tx)
                 {
                     indexer_tx.Value = txUpdate.Value;
@@ -481,6 +485,7 @@ namespace Discreet.DB
 
             if (heightUpdate != null)
             {
+                batch.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(heightUpdate.Value), cf: Meta);
                 lock (height)
                 {
                     height.Value = heightUpdate.Value;

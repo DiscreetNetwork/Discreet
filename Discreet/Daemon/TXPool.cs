@@ -394,6 +394,21 @@ namespace Discreet.Daemon
             return memtx.Tx;
         }
 
+        public bool TryGetTransaction(Cipher.SHA256 txhash, out FullTransaction tx)
+        {
+            try
+            {
+                tx = GetTransaction(txhash);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex.Message, ex);
+                tx = null;
+                return false;
+            }
+        }
+
         public Exception CheckTx(FullTransaction tx)
         {
             var npin = (tx.PInputs == null) ? 0 : tx.PInputs.Length;

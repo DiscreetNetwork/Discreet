@@ -77,8 +77,8 @@ namespace Discreet.RPC
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Log($"Discreet.RPC.ProcessRemoteCall: parsing RPC request failed: {ex.Message}");
-                Daemon.Logger.Debug($"Discreet.RPC.ProcessRemoteCall: malformed RPC call received {rpcJsonRequest}");
+                Daemon.Logger.Error($"Discreet.RPC.ProcessRemoteCall: parsing RPC request failed: {ex.Message}", ex);
+                Daemon.Logger.Debug($"Discreet.RPC.ProcessRemoteCall: malformed RPC call received: {rpcJsonRequest}");
             }
 
             return null;

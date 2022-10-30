@@ -48,12 +48,15 @@ namespace Discreet.Network.Peerbloom
 
         public async Task Feel(Peer p, CancellationToken token = default)
         {
-            Connection conn = new Connection(p.Endpoint, _network, _network.LocalNode);
+            Daemon.Logger.Debug($"Feeler.Feel: testing peer {p.Endpoint}...");
+            
+            Connection conn = new Connection(p.Endpoint, _network, _network.LocalNode, _peer: p);
 
             bool success = await conn.Connect(false, token, true);
 
             if (!success)
             {
+                Daemon.Logger.Debug($"Feeler.Feel: peer {p.Endpoint} failed feel attempt");
                 if (p.InTried)
                 {
                     _peerlist.Attempt(p.Endpoint, true);
@@ -72,6 +75,7 @@ namespace Discreet.Network.Peerbloom
             }
             else
             {
+                Daemon.Logger.Debug($"Feeler.Feel: peer {p.Endpoint} succeeded feel attempt; adding to tried");
                 _peerlist.Good(p.Endpoint, true);
             }
         }
@@ -100,20 +104,25 @@ namespace Discreet.Network.Peerbloom
 
         public async Task Start(CancellationToken token)
         {
+            while (!token.IsCancellationRequested && (Handler.GetHandler() == null || Handler.GetHandler().State != PeerState.Normal))
+            {
+                await Task.Delay(500, token);
+            }
+
             while (!token.IsCancellationRequested)
             {
                 var timer = DateTime.UtcNow.AddSeconds(Constants.PEERBLOOM_FEELER_INTERVAL).Ticks;
 
                 while (timer > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(500, token);
                 }
 
                 if (token.IsCancellationRequested) return;
 
                 Daemon.Logger.Debug($"Feeler: beginning feelers...");
 
-                int newFeelers = Constants.PEERBLOOM_MAX_PEERS - _network.Feelers.Count;
+                int newFeelers = Constants.PEERBLOOM_MAX_FEELERS - _network.Feelers.Count;
                 List<Peer> selected = new List<Peer>();
                 int tried = 0; // used to prevent infinite loops, happens in the case of too few peers in tried or new
 
@@ -130,9 +139,9 @@ namespace Discreet.Network.Peerbloom
                     if ((peer.LastAttempt + 10_000_000L * 3600L) > DateTime.UtcNow.Ticks) { tried++; continue; }
 
                     selected.Add(peer);
-                    _ = Task.Run(() => Feel(peer, token)).ConfigureAwait(false);
+                    _ = Task.Run(() => Feel(peer, token), token).ConfigureAwait(false);
 
-                    await Task.Delay(100);
+                    await Task.Delay(100, token);
                 }
             }
         }

@@ -109,6 +109,10 @@ namespace Discreet.Network.Core
                     return new Packets.GetBlocksPacket(data, offset);
                 case PacketType.BLOCKS:
                     return new Packets.BlocksPacket(data, offset);
+                case PacketType.GETHEADERS:
+                    return new Packets.GetHeadersPacket(data, offset);
+                case PacketType.HEADERS:
+                    return new Packets.HeadersPacket(data, offset);
                 case PacketType.GETTXS:
                     return new Packets.GetTransactionsPacket(data, offset);
                 case PacketType.TXS:
@@ -158,6 +162,10 @@ namespace Discreet.Network.Core
                     return new Packets.GetBlocksPacket(s);
                 case PacketType.BLOCKS:
                     return new Packets.BlocksPacket(s);
+                case PacketType.GETHEADERS:
+                    return new Packets.GetHeadersPacket(s);
+                case PacketType.HEADERS:
+                    return new Packets.HeadersPacket(s);
                 case PacketType.GETTXS:
                     return new Packets.GetTransactionsPacket(s);
                 case PacketType.TXS:

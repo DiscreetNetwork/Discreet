@@ -25,5 +25,7 @@ namespace Discreet.Coin
 
         public static uint PRIVATE_MAX_NUM_INPUTS = 64;
         public static uint PRIVATE_MAX_NUM_OUTPUTS = 16;
+
+        public static ulong STANDARD_BLOCK_REWARD = 1_000_000_000_0;
     }
 }

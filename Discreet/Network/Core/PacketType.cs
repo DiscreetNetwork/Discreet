@@ -20,10 +20,11 @@ namespace Discreet.Network.Core
         BLOCKS = 5,
         GETTXS = 6,
         TXS = 7,
+        GETHEADERS = 9,
+        HEADERS = 10,
 
         /* currently unused for testnet */
-        //GETHEADERS = 9,
-        //HEADERS = 10,
+
         //GETTXSINBLOCK = 11, 
 
         NOTFOUND = 12,

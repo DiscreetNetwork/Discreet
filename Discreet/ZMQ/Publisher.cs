@@ -52,7 +52,7 @@ namespace Discreet.ZMQ
 
         public void Publish(string topic, byte[] messageData)
         {
-            Daemon.Logger.Info($"ZMQ.Publisher: Publishing message to topic [{topic}]");
+            Daemon.Logger.Info($"ZMQ.Publisher: Publishing message to topic [{topic}]", verbose: 2);
             _messageQueue.Enqueue(new Tuple<string, byte[]>(topic, messageData));
         }
 

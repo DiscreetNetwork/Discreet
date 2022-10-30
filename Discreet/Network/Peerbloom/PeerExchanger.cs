@@ -24,7 +24,7 @@ namespace Discreet.Network.Peerbloom
 
                 while (timer > DateTime.UtcNow.Ticks && !token.IsCancellationRequested)
                 {
-                    await Task.Delay(500);
+                    await Task.Delay(500, token);
                 }
 
                 if (token.IsCancellationRequested) return;

@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Discreet.Cipher;
 using Discreet.Coin;
+using Discreet.Daemon;
 
 namespace Discreet.Wallets
 {
@@ -309,9 +310,12 @@ namespace Discreet.Wallets
         {
             if (Encrypted) return;
 
-            foreach (var wtx in TxHistory)
+            lock (TxHistory)
             {
-                wtx.Encrypt(true);
+                foreach (var wtx in TxHistory)
+                {
+                    wtx.Encrypt(true);
+                }
             }
 
             if (Type == 0)
@@ -327,9 +331,12 @@ namespace Discreet.Wallets
                 Array.Clear(SecSpendKey.bytes, 0, 32);
                 Array.Clear(SecViewKey.bytes, 0, 32);
 
-                for (int i = 0; i < UTXOs.Count; i++)
+                lock (UTXOs)
                 {
-                    UTXOs[i].Encrypt();
+                    foreach (var utxo in UTXOs)
+                    {
+                        utxo.Encrypt();
+                    }
                 }
 
                 Balance = 0;
@@ -342,9 +349,12 @@ namespace Discreet.Wallets
 
                 Array.Clear(SecKey.bytes, 0, 32);
 
-                for (int i = 0; i < UTXOs.Count; i++)
+                lock (UTXOs)
                 {
-                    UTXOs[i].Encrypt();
+                    foreach (var utxo in UTXOs)
+                    {
+                        utxo.Encrypt();
+                    }
                 }
 
                 Balance = 0;
@@ -468,11 +478,14 @@ namespace Discreet.Wallets
                 SecViewKey = new(new byte[32]);
                 Array.Copy(unencryptedViewKey, SecViewKey.bytes, 32);
 
-                for (int i = 0; i < UTXOs.Count; i++)
+                lock (UTXOs)
                 {
-                    UTXOs[i].Decrypt(this);
+                    foreach (var utxo in UTXOs)
+                    {
+                        utxo.Decrypt(this);
 
-                    Balance += UTXOs[i].DecodedAmount;
+                        Balance += utxo.DecodedAmount;
+                    }
                 }
 
                 Array.Clear(unencryptedSpendKey, 0, unencryptedSpendKey.Length);
@@ -487,11 +500,14 @@ namespace Discreet.Wallets
 
                 Array.Clear(unencryptedSecKey, 0, unencryptedSecKey.Length);
 
-                for (int i = 0; i < UTXOs.Count; i++)
+                lock (UTXOs)
                 {
-                    UTXOs[i].Decrypt(this);
+                    foreach (var utxo in UTXOs)
+                    {
+                        utxo.Decrypt(this);
 
-                    Balance += UTXOs[i].Amount;
+                        Balance += utxo.Amount;
+                    }
                 }
             }
             else
@@ -501,9 +517,12 @@ namespace Discreet.Wallets
 
             Encrypted = false;
 
-            foreach (var wtx in TxHistory)
+            lock (TxHistory)
             {
-                wtx.Decrypt();
+                foreach (var wtx in TxHistory)
+                {
+                    wtx.Decrypt();
+                }
             }
         }
 
@@ -712,11 +731,14 @@ namespace Discreet.Wallets
 
             if (Type == (byte)WalletType.PRIVATE)
             {
-                while (neededAmount < totalAmount)
+                lock (UTXOs)
                 {
-                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
-                    neededAmount += utxo.DecodedAmount;
-                    inputs.Add(utxo);
+                    while (neededAmount < totalAmount)
+                    {
+                        var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).Last();
+                        neededAmount += utxo.DecodedAmount;
+                        inputs.Add(utxo);
+                    }
                 }
 
                 utx.NumInputs = (byte)inputs.Count;
@@ -771,11 +793,14 @@ namespace Discreet.Wallets
             }
             else if (Type == (byte)WalletType.TRANSPARENT)
             {
-                while (neededAmount < totalAmount)
+                lock (UTXOs)
                 {
-                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
-                    neededAmount += utxo.DecodedAmount;
-                    inputs.Add(utxo);
+                    while (neededAmount < totalAmount)
+                    {
+                        var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).Last();
+                        neededAmount += utxo.DecodedAmount;
+                        inputs.Add(utxo);
+                    }
                 }
 
                 utx.NumInputs = (byte)inputs.Count;
@@ -919,11 +944,15 @@ namespace Discreet.Wallets
 
             List<UTXO> inputs = new List<UTXO>();
             ulong neededAmount = 0;
-            while (neededAmount < totalAmount)
+
+            lock (UTXOs)
             {
-                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
-                neededAmount += utxo.DecodedAmount;
-                inputs.Add(utxo);
+                while (neededAmount < totalAmount)
+                {
+                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).Last();
+                    neededAmount += utxo.DecodedAmount;
+                    inputs.Add(utxo);
+                }
             }
 
             tx.Version = (byte)Config.TransactionVersions.TRANSPARENT;
@@ -1000,7 +1029,12 @@ namespace Discreet.Wallets
                             }
 
                             utxo.OwnedIndex = index;
-                            UTXOs.Add(utxo);
+
+                            lock (UTXOs)
+                            {
+                                UTXOs.Add(utxo);
+                            }
+
                             changed = true;
 
                             WalletTx wtx = new WalletTx(
@@ -1052,21 +1086,31 @@ namespace Discreet.Wallets
             {
                 for (int i = 0; i < transaction.NumPInputs; i++)
                 {
-                    for (int k = 0; k < UTXOs.Count; k++)
+                    lock (UTXOs)
                     {
-                        if (UTXOs[k].LinkingTag == transaction.PInputs[i].KeyImage)
+                        foreach (var utxo in UTXOs)
                         {
-                            UTXOs[k].Decrypt(this);
-                            Balance -= UTXOs[k].DecodedAmount;
-                            changed = true;
-                            
-                            if (spents == null)
+                            if (utxo.LinkingTag == transaction.PInputs[i].KeyImage)
                             {
-                                spents = new();
-                            }
+                                utxo.Decrypt(this);
+                                Balance -= utxo.DecodedAmount;
+                                changed = true;
 
-                            spents.Add(UTXOs[k]);
-                            UTXOs.RemoveAt(k);
+                                if (spents == null)
+                                {
+                                    spents = new();
+                                }
+
+                                spents.Add(utxo);
+                            }
+                        }
+
+                        if (spents != null)
+                        {
+                            foreach (var spent in spents)
+                            {
+                                UTXOs.Remove(spent);
+                            }
                         }
                     }
                 }
@@ -1076,13 +1120,25 @@ namespace Discreet.Wallets
             {
                 for (int i = 0; i < transaction.NumTInputs; i++)
                 {
-                    for (int k = 0; k < UTXOs.Count; k++)
+                    lock (UTXOs)
                     {
-                        if (UTXOs[k].TransactionSrc == transaction.TInputs[i].TxSrc && UTXOs[k].Index == transaction.TInputs[i].Offset)
+                        List<UTXO> toRemove = new();
+
+                        foreach (var utxo in UTXOs)
                         {
-                            Balance -= UTXOs[k].Amount;
-                            UTXOs.RemoveAt(k);
-                            changed = true;
+                            if (utxo.TransactionSrc == transaction.TInputs[i].TxSrc && utxo.Index == transaction.TInputs[i].Offset)
+                            {
+                                Balance -= utxo.Amount;
+
+                                toRemove.Add(utxo);
+
+                                changed = true;
+                            }
+                        }
+
+                        foreach (var remove in toRemove)
+                        {
+                            UTXOs.Remove(remove);
                         }
                     }
                 }
@@ -1094,17 +1150,20 @@ namespace Discreet.Wallets
 
                 for (int i = 0; i < numPOutputs; i++)
                 {
-                    for (int k = 0; k < UTXOs.Count; k++)
+                    lock (UTXOs)
                     {
-                        if (UTXOs[k].UXKey.Equals(transaction.POutputs[i].UXKey))
+                        foreach (var utxo in UTXOs)
                         {
-                            throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
+                            if (utxo.UXKey.Equals(transaction.POutputs[i].UXKey))
+                            {
+                                throw new Exception("Discreet.Wallets.Wallet.ProcessTransaction: duplicate UTXO being processed!");
+                            }
                         }
                     }
 
                     if (KeyOps.CheckForBalance(ref cscalar, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
                     {
-                        Daemon.Logger.Log($"You received some Discreet!");
+                        Daemon.Logger.Info($"You received some Discreet!", save: DaemonConfig.GetConfig().DbgConfig.DebugMode.Value);
                         var utxo = ProcessOutput(transaction, i, false, isCoinbase: tToP);
                         changed = true;
 
@@ -1126,7 +1185,7 @@ namespace Discreet.Wallets
 
                     if (Address == address)
                     {
-                        Daemon.Logger.Log("You received some Discreet!");
+                        Daemon.Logger.Info("You received some Discreet!");
                         var utxo = ProcessOutput(transaction, i, true);
                         changed = true;
                     }
@@ -1157,7 +1216,10 @@ namespace Discreet.Wallets
 
         public bool TxHistoryContains(Cipher.SHA256 txhash)
         {
-            return TxHistory.Any(x => x.TxID == txhash);
+            lock (TxHistory)
+            {
+                return TxHistory.Any(x => x.TxID == txhash);
+            }
         }
 
         public void AddTransactionToHistory(WalletTx tx)
@@ -1167,7 +1229,10 @@ namespace Discreet.Wallets
                 WalletDB.GetDB().AddTxToHistory(tx);
             }
 
-            TxHistory.Add(tx);
+            lock (TxHistory)
+            {
+                TxHistory.Add(tx);
+            }
         }
 
         public void AddTransactionToHistory(FullTransaction tx, List<UTXO> spents, List<(UTXO, int)> unspents, long timestamp)
@@ -1268,7 +1333,7 @@ namespace Discreet.Wallets
             {
                 (int index, utxo) = db.AddWalletOutput(this, transaction, i, transparent, isCoinbase);
                 utxo.OwnedIndex = index;
-                UTXOs.Add(utxo);
+
                 if (transparent)
                 {
                     Balance += utxo.Amount;
@@ -1279,6 +1344,11 @@ namespace Discreet.Wallets
                 }
                 
                 Daemon.Logger.Debug($"Wallet output index is {index}");
+            }
+
+            lock (UTXOs)
+            {
+                UTXOs.Add(utxo);
             }
 
             return utxo;
@@ -1337,13 +1407,16 @@ namespace Discreet.Wallets
 
             List<UTXO> inputs = new List<UTXO>();
             ulong neededAmount = 0;
-            while (neededAmount < totalAmount)
+            lock (UTXOs)
             {
-                // search for the highest value utxo first
-                var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).First();
-                neededAmount += utxo.DecodedAmount;
-                inputs.Add(utxo);
-                i++;
+                while (neededAmount < totalAmount)
+                {
+                    // search for the highest value utxo first
+                    var utxo = UTXOs.OrderBy(x => x.DecodedAmount).Where(x => !inputs.Contains(x)).Last();
+                    neededAmount += utxo.DecodedAmount;
+                    inputs.Add(utxo);
+                    i++;
+                }
             }
 
             tx.Version = version;
@@ -1558,17 +1631,22 @@ namespace Discreet.Wallets
 
             Serialization.CopyData(_ms, DBIndex);
 
-            Serialization.CopyData(_ms, UTXOs.Count);
-
-            foreach (var utxo in UTXOs)
+            lock (UTXOs)
             {
-                Serialization.CopyData(_ms, utxo.OwnedIndex);
+                Serialization.CopyData(_ms, UTXOs.Count);
+                foreach (var utxo in UTXOs)
+                {
+                    Serialization.CopyData(_ms, utxo.OwnedIndex);
+                }
             }
 
-            Serialization.CopyData(_ms, TxHistory.Count);
-            foreach (var tx in TxHistory)
+            lock (TxHistory)
             {
-                Serialization.CopyData(_ms, tx.Index);
+                Serialization.CopyData(_ms, TxHistory.Count);
+                foreach (var tx in TxHistory)
+                {
+                    Serialization.CopyData(_ms, tx.Index);
+                }
             }
 
             return _ms.ToArray();
@@ -1604,28 +1682,36 @@ namespace Discreet.Wallets
             DBIndex = Serialization.GetInt32(s);
 
             UTXOs = new List<UTXO>();
+            TxHistory = new List<WalletTx>();
 
             WalletDB db = WalletDB.GetDB();
 
             var utxoCount = Serialization.GetInt32(s);
 
-            for (int i = 0; i < utxoCount; i++)
+            lock (UTXOs)
             {
-                int idx = Serialization.GetInt32(s);
-                var utxo = db.GetWalletOutput(idx);
+                for (int i = 0; i < utxoCount; i++)
+                {
+                    int idx = Serialization.GetInt32(s);
+                    var utxo = db.GetWalletOutput(idx);
 
-                utxo.OwnedIndex = idx;
-                UTXOs.Add(utxo);
+                    utxo.OwnedIndex = idx;
+                    UTXOs.Add(utxo);
+                }
             }
 
             var txhistoryCount = Serialization.GetInt32(s);
-            for (int i = 0; i < txhistoryCount; i++)
-            {
-                int idx = Serialization.GetInt32(s);
-                var wtx = db.GetTxFromHistory(this, idx);
-                wtx.Index = idx;
 
-                TxHistory.Add(wtx);
+            lock (TxHistory)
+            {
+                for (int i = 0; i < txhistoryCount; i++)
+                {
+                    int idx = Serialization.GetInt32(s);
+                    var wtx = db.GetTxFromHistory(this, idx);
+                    wtx.Index = idx;
+
+                    TxHistory.Add(wtx);
+                }
             }
         }
     }

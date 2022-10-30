@@ -11,7 +11,8 @@ namespace Discreet.DB
     {
         /* raw data and db access */
         private DataView dataView;
-        private Block block;
+        private Block block; // for validating single block
+        private List<Block> blocks; // for validating multiple blocks
         
         /* validation and update data */
         public bool valid;
@@ -25,6 +26,10 @@ namespace Discreet.DB
         private SortedSet<Cipher.Key> spentKeys;
         private SortedSet<Cipher.Key> txs;
 
+        private long previousHeight;
+        private Dictionary<Cipher.SHA256, Coin.Block> blocksCache;
+        private Dictionary<uint, Coin.TXOutput> outputsCache;
+
         public ValidationCache(Block blk)
         {
             dataView = DataView.GetView();
@@ -37,9 +42,83 @@ namespace Discreet.DB
             spentKeys = new(new Cipher.KeyComparer());
             txs = new(new Cipher.KeyComparer());
             newOutputs = new();
+            blocksCache = new(new Cipher.SHA256EqualityComparer());
+            previousHeight = dataView.GetChainHeight();
+            outputsCache = new();
+        }
+
+        public ValidationCache(List<Block> blks)
+        {
+            dataView = DataView.GetView();
+            blocks = blks;
+            pIndex = dataView.GetOutputIndex();
+            tIndex = dataView.GetTransactionIndexer();
+            updates = new List<UpdateEntry>();
+
+            spentPubs = new();
+            spentKeys = new(new Cipher.KeyComparer());
+            txs = new(new Cipher.KeyComparer());
+            newOutputs = new();
+            blocksCache = new(new Cipher.SHA256EqualityComparer());
+            previousHeight = dataView.GetChainHeight();
+            outputsCache = new();
         }
 
         public Exception Validate()
+        {
+            if (blocks != null) return validateMany();
+            else return validate();
+        }
+
+        private Exception validateMany()
+        {
+            blocks.Sort((x, y) => x.Header.Height.CompareTo(y.Header.Height));
+
+            foreach (var block in blocks)
+            {
+                this.block = block;
+                Exception exc = validate(true);
+
+                if (exc != null) return exc;
+            }
+
+            return null;
+        }
+
+        public (Exception, long, List<Block>, List<Cipher.SHA256>) ValidateReturnFailures()
+        {
+            // assume if one block fails, all proceeding blocks fail
+            // first sort according to order (by height)
+            blocks.Sort((x, y) => x.Header.Height.CompareTo(y.Header.Height));
+            List<Block> valid = new();
+
+            for (int i = 0; i < blocks.Count; i++)
+            {
+                // Daemon.Logger.Debug($"Validating block at height {blocks[i].Header.Height}");
+                block = blocks[i];
+                Exception exc = validate(true);
+
+                if (exc != null)
+                {
+                    List<Cipher.SHA256> vecs = new();
+                    for (int j = i; j < blocks.Count; j++)
+                    {
+                        // do it by height; safer
+                        vecs.Add(new Cipher.SHA256(blocks[j].Header.Height));
+                    }
+
+                    return (exc, block.Header.Height, valid, vecs);
+                }
+                else
+                {
+                    valid.Add(block);
+                }
+            }
+
+            return (null, block.Header.Height, valid, null);
+        }
+
+        private Exception validate(bool many = false)
         {
             /* validate basic data */
             if (block.Header.Version != 1 && block.Header.Version != 2) return new VerifyException("Block", $"Unsupported version (blocks are either version 1 or 2); got version {block.Header.Version}");
@@ -83,7 +162,7 @@ namespace Discreet.DB
                 }
 
                 /* coinbase tx has special verification logic */
-                var minerexc = coinbase.Verify();
+                var minerexc = coinbase.Verify(inBlock: true);
 
                 if (minerexc != null)
                 {
@@ -93,7 +172,7 @@ namespace Discreet.DB
                 /* now verify output amount matches commitment */
                 Cipher.Key feeComm = new(new byte[32]);
                 Cipher.Key _I = Cipher.Key.Copy(Cipher.Key.I);
-                Cipher.KeyOps.GenCommitment(ref feeComm, ref _I, block.Header.Fee);
+                Cipher.KeyOps.GenCommitment(ref feeComm, ref _I, block.Header.Fee + Config.STANDARD_BLOCK_REWARD);
 
                 if (!feeComm.Equals(coinbase.Outputs[0].Commitment))
                 {
@@ -136,16 +215,37 @@ namespace Discreet.DB
             else
             {
                 /* check orphan data */
-                if (!dataView.BlockExists(block.Header.PreviousBlock))
+                if (many)
                 {
-                    return new OrphanBlockException("Orphan block detected", dataView.GetChainHeight(), block.Header.Height, block);
+                    if (blocksCache.Count == 0)
+                    {
+                        var pbsucc = dataView.TryGetBlockHeader(block.Header.PreviousBlock, out var prevBlockHeader);
+                        if (prevBlockHeader == null) return new VerifyException("Block", "Could not get previous block");
+                        if (prevBlockHeader.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
+                        if (previousHeight + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
+                    }
+                    else
+                    {
+                        var pbsucc = blocksCache.TryGetValue(block.Header.PreviousBlock, out var prevBlock);
+                        if (!pbsucc || prevBlock == null) return new VerifyException("Block", "Could not get previous block");
+                        if (prevBlock.Header.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
+                        if (previousHeight + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
+                    }
                 }
                 else
                 {
-                    var prevHeader = dataView.GetBlockHeader(block.Header.PreviousBlock);
-                    if (prevHeader.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
-                    if (dataView.GetChainHeight() + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
+                    if (!dataView.BlockExists(block.Header.PreviousBlock))
+                    {
+                        return new OrphanBlockException("Orphan block detected", dataView.GetChainHeight(), block.Header.Height, block);
+                    }
+                    else
+                    {
+                        var prevHeader = dataView.GetBlockHeader(block.Header.PreviousBlock);
+                        if (prevHeader.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
+                        if (dataView.GetChainHeight() + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
+                    }
                 }
+                
 
                 for (int i = block.Header.Version == 1 ? 0 : 1; i < block.Transactions.Length; i++)
                 {
@@ -228,13 +328,35 @@ namespace Discreet.DB
                             if (!dataView.CheckSpentKey(tx.PInputs[j].KeyImage) || spentKeys.Contains(tx.PInputs[j].KeyImage)) return new VerifyException("Block", $"Private input's key image ({tx.PInputs[j].KeyImage.ToHexShort()}) already spent");
 
                             /* verify existence of all mixins */
-                            try
+                            if (many)
                             {
-                                mixins[j] = dataView.GetMixins(tx.PInputs[j].Offsets);
+                                mixins[j] = new TXOutput[64];
+                                for (int k = 0; k < 64; k++)
+                                {
+                                    bool mixinSuccess = outputsCache.TryGetValue(tx.PInputs[j].Offsets[k], out mixins[j][k]);
+                                    if (!mixinSuccess)
+                                    {
+                                        try
+                                        {
+                                            mixins[j][k] = dataView.GetOutput(tx.PInputs[j].Offsets[k]);
+                                        }
+                                        catch
+                                        {
+                                            return new VerifyException("Block", $"Private input at index {j} has invalid or missing mixin data");
+                                        }
+                                    }
+                                }
                             }
-                            catch
+                            else
                             {
-                                return new VerifyException("Block", $"Private input at index {j} has invalid or missing mixin data");
+                                try
+                                {
+                                    mixins[j] = dataView.GetMixins(tx.PInputs[j].Offsets);
+                                }
+                                catch
+                                {
+                                    return new VerifyException("Block", $"Private input at index {j} has invalid or missing mixin data");
+                                }
                             }
                         }
                     }
@@ -394,6 +516,12 @@ namespace Discreet.DB
             updates.Add(new UpdateEntry { key = Serialization.Int64(block.Header.Height), value = block.Serialize(), rule = UpdateRule.ADD, type = UpdateType.BLOCK });
             updates.Add(new UpdateEntry { key = Serialization.Int64(block.Header.Height), value = block.Header.Serialize(), rule = UpdateRule.ADD, type = UpdateType.BLOCKHEADER });
 
+            if (many)
+            {
+                blocksCache.Add(block.Header.BlockHash, block);
+                previousHeight = block.Header.Height;
+            }
+
             Dictionary<Coin.Transparent.TXInput, Coin.Transparent.TXOutput> pubUpdates = new();
 
             /* txs */
@@ -411,6 +539,11 @@ namespace Discreet.DB
                     tx.POutputs[i].TransactionSrc = tx.TxID;
                     updates.Add(new UpdateEntry { key = Serialization.UInt32(pIndex), value = tx.POutputs[i].Serialize(), rule = UpdateRule.ADD, type = UpdateType.OUTPUT });
                     uintArr[i] = pIndex;
+
+                    if (many)
+                    {
+                        outputsCache.Add(pIndex, tx.POutputs[i]);
+                    }
                 }
 
                 updates.Add(new UpdateEntry { key = tx.TxID.Bytes, value = Serialization.UInt32Array(uintArr), rule = UpdateRule.ADD, type = UpdateType.OUTPUTINDICES });
@@ -459,7 +592,17 @@ namespace Discreet.DB
         public void Flush()
         {
             dataView.Flush(updates);
-            Daemon.TXPool.GetTXPool().UpdatePool(block.Transactions);
+            if (blocks != null)
+            {
+                foreach (var block in blocks)
+                {
+                    Daemon.TXPool.GetTXPool().UpdatePool(block.Transactions);
+                }
+            }
+            else
+            {
+                Daemon.TXPool.GetTXPool().UpdatePool(block.Transactions);
+            }
         }
 
         public static void Process(Block block)

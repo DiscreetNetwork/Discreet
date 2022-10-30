@@ -5,7 +5,8 @@
     <TargetFramework>net6.0</TargetFramework>
     <Platforms>AnyCPU;x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
-    <Version>1.0.0</Version>
+    <Version>0.0.26</Version>
+    <ApplicationIcon>Daemon_icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -23,6 +24,10 @@
     <EmbeddedResource Remove="Network\Tests\**" />
     <None Remove="API\**" />
     <None Remove="Network\Tests\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Daemon_icon.ico" />
   </ItemGroup>
 
   <ItemGroup>

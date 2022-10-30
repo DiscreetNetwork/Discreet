@@ -380,13 +380,36 @@ namespace Discreet.DB
             WriteBatch batch = new WriteBatch();
             U32 outputUpdate = null;
 
+            // iterate once to remove matching adds/removes
+            Dictionary<byte[], UpdateEntry> pubMatches = new(new Cipher.Extensions.ByteArrayEqualityComparer());
+            foreach (var update in updates)
+            {
+                switch (update.type)
+                {
+                    case UpdateType.PUBOUTPUT:
+                        if (update.rule == UpdateRule.ADD)
+                        {
+                            pubMatches[update.key] = update;
+                        }
+                        else if (update.rule == UpdateRule.DEL)
+                        {
+                            if (pubMatches.ContainsKey(update.key))
+                            {
+                                pubMatches.Remove(update.key);
+                            }
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+
             foreach (var update in updates)
             {
                 switch (update.type)
                 {
                     case UpdateType.OUTPUTINDEXER:
-                        outputUpdate = new U32(Serialization.GetUInt32(update.value, 0));
-                        batch.Put(update.key, update.value, cf: Meta);
+                        outputUpdate = new U32(Math.Max(Serialization.GetUInt32(update.value, 0), (outputUpdate == null) ? 0 : outputUpdate.Value));
                         break;
                     case UpdateType.OUTPUT:
                         batch.Put(update.key, update.value, cf: Outputs);
@@ -398,16 +421,21 @@ namespace Discreet.DB
                         batch.Put(update.key, update.value, cf: SpentKeys);
                         break;
                     case UpdateType.PUBOUTPUT:
-                        if (update.rule == UpdateRule.ADD) batch.Put(update.key, update.value, cf: PubOutputs);
-                        else batch.Delete(update.key, cf: PubOutputs);
+                        if (update.rule == UpdateRule.DEL) batch.Delete(update.key, cf: PubOutputs);
                         break;
                     default:
                         throw new ArgumentException("unknown or invalid type given");
                 }
             }
 
+            foreach (var kv in pubMatches)
+            {
+                batch.Put(kv.Key, kv.Value.value, cf: PubOutputs);
+            }
+
             if (outputUpdate != null)
             {
+                batch.Put(Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(outputUpdate.Value), cf: Meta);
                 lock (indexer_output)
                 {
                     indexer_output.Value = outputUpdate.Value;

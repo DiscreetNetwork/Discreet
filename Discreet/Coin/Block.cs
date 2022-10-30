@@ -183,7 +183,7 @@ namespace Discreet.Coin
                 block.Header.PreviousBlock = new SHA256(new byte[32], false);
             }
 
-            if (block.Header.Fee > 0 && miner != null)
+            if ((block.Header.Fee > 0 || Config.STANDARD_BLOCK_REWARD > 0) && miner != null)
             {
                 /* Construct miner TX */
                 Transaction minertx = new();
@@ -199,12 +199,12 @@ namespace Discreet.Coin
                 TXOutput minerOutput = new();
                 minerOutput.Commitment = new Key(new byte[32]);
 
-                /* the mask is always the identity (scalar identity is zero) for miner tx */
-                Key mask = Key.Z;
-                KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, block.Header.Fee);
+                /* the mask is always 1 for miner tx */
+                Key mask = Key.I;
+                KeyOps.GenCommitment(ref minerOutput.Commitment, ref mask, block.Header.Fee + Config.STANDARD_BLOCK_REWARD);
 
                 minerOutput.UXKey = KeyOps.DKSAP(ref r, miner.view, miner.spend, 0);
-                minerOutput.Amount = block.Header.Fee;
+                minerOutput.Amount = block.Header.Fee + Config.STANDARD_BLOCK_REWARD;
 
                 minertx.Outputs = new TXOutput[1] { minerOutput };
 
@@ -213,11 +213,14 @@ namespace Discreet.Coin
                 txs.Insert(0, minertx.ToFull());
 
                 block.Header.BlockSize += minertx.Size();
+
+                block.Header.NumTXs += 1;
+                block.Header.NumOutputs += 1;
             }
 
             if (signingKey != default)
             {
-                if (block.Header.Fee > 0 && miner != null)
+                if ((block.Header.Fee > 0 || Config.STANDARD_BLOCK_REWARD > 0) && miner != null)
                 {
                     block.Header.Version = 2;
                 }
@@ -521,7 +524,7 @@ namespace Discreet.Coin
 
         public bool CheckSignature()
         {
-            if (Header.Extra == null || Header.Extra.Length != 96) return true;
+            if (Header.Extra == null || Header.Extra.Length != 96) return false;
 
             var sig = new Signature(Header.Extra);
             return sig.Verify(Header.BlockHash) && IsMasternode(sig.y);

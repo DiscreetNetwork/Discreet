@@ -1,4 +1,5 @@
-﻿using Discreet.RPC;
+﻿using Discreet.Daemon;
+using Discreet.RPC;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,7 +16,7 @@ namespace Discreet.HTTP
 
         public HttpServer(int portNumber)
         {
-            Console.WriteLine("Server running...");
+            Logger.Info("Server running...");
             RPCEndpointResolver.ReflectEndpoints();
             _listener = new HttpListener();
             _listener.Prefixes.Add($"http://localhost:{portNumber}/");
@@ -30,7 +31,7 @@ namespace Discreet.HTTP
             catch (HttpListenerException ex)
             {
 
-                Daemon.Logger.Log($"Discreet.RPC: {ex.Message}");
+                Daemon.Logger.Error($"Discreet.RPC: {ex.Message}", ex);
             }
 
 
