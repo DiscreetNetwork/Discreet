@@ -248,7 +248,7 @@ namespace Discreet.Daemon
 
         public int? HTTPPort { get; set; }
         public IPEndPoint Endpoint { get; set; }
-        public IPAddress BootstrapNode { get; set; }
+        public string BootstrapNode { get; set; }
 
         public byte? NetworkID { get; set; }
         public uint? NetworkVersion { get; set; }
