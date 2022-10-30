@@ -1105,9 +1105,12 @@ namespace Discreet.Wallets
                             }
                         }
 
-                        foreach (var spent in spents)
+                        if (spents != null)
                         {
-                            UTXOs.Remove(spent);
+                            foreach (var spent in spents)
+                            {
+                                UTXOs.Remove(spent);
+                            }
                         }
                     }
                 }
