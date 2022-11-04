@@ -428,7 +428,7 @@ namespace Discreet.Network.Peerbloom
             }
             catch (SocketException e)
             {
-                Daemon.Logger.Error($"Connection.Connect: a socket exception was encountered with peer {Receiver}: {e.Message}", e);
+                Daemon.Logger.Error($"Connection.Connect: a socket exception was encountered with peer {Receiver}: {e.Message}", e, verbose: 1);
                 Dispose();
                 if (feeler)
                 {
@@ -439,7 +439,7 @@ namespace Discreet.Network.Peerbloom
             }
             catch (InvalidOperationException)
             {
-                Daemon.Logger.Error($"Connection.Connect: socket with peer {Receiver} was unexpectedly closed.");
+                Daemon.Logger.Error($"Connection.Connect: socket with peer {Receiver} was unexpectedly closed.", verbose: 1);
                 Dispose();
                 if (feeler)
                 {
@@ -450,7 +450,7 @@ namespace Discreet.Network.Peerbloom
             }
             catch (IOException e)
             {
-                Daemon.Logger.Error($"Connection.Connect: an IO exception was encountered with peer {Receiver}: {e.Message}", e);
+                Daemon.Logger.Error($"Connection.Connect: an IO exception was encountered with peer {Receiver}: {e.Message}", e, verbose: 1);
                 Dispose();
                 if (feeler)
                 {
@@ -461,7 +461,7 @@ namespace Discreet.Network.Peerbloom
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"Connection.Connect: an exception was encountered with peer {Receiver}: {ex.Message}", ex);
+                Daemon.Logger.Error($"Connection.Connect: an exception was encountered with peer {Receiver}: {ex.Message}", ex, verbose: 1);
                 Dispose();
                 if (feeler)
                 {
@@ -568,7 +568,7 @@ namespace Discreet.Network.Peerbloom
             }
             catch (SocketException e)
             {
-                Daemon.Logger.Error($"Connection.RequestPeers: a socket exception was encountered with peer {Receiver}: {e.Message}", e);
+                Daemon.Logger.Error($"Connection.RequestPeers: a socket exception was encountered with peer {Receiver}: {e.Message}", e, verbose: 1);
             }
             catch (InvalidOperationException)
             {
@@ -577,11 +577,11 @@ namespace Discreet.Network.Peerbloom
             }
             catch (IOException e)
             {
-                Daemon.Logger.Error($"Connection.RequestPeers: an IO exception was encountered with peer {Receiver}: {e.Message}", e);
+                Daemon.Logger.Error($"Connection.RequestPeers: an IO exception was encountered with peer {Receiver}: {e.Message}", e, verbose: 1);
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"Connection.RequestPeers: an exception was encountered with peer {Receiver}: {ex.Message}", ex);
+                Daemon.Logger.Error($"Connection.RequestPeers: an exception was encountered with peer {Receiver}: {ex.Message}", ex, verbose: 1);
             }
 
             return null;
@@ -642,20 +642,20 @@ namespace Discreet.Network.Peerbloom
             }
             catch (SocketException e)
             {
-                Daemon.Logger.Error($"Connection.SendAsync: a socket exception was encountered with peer {Receiver}: {e.Message}", e);
+                Daemon.Logger.Error($"Connection.SendAsync: a socket exception was encountered with peer {Receiver}: {e.Message}", e, verbose: 1);
             }
             catch (InvalidOperationException)
             {
-                Daemon.Logger.Error($"Connection.SendAsync: socket with peer {Receiver} was unexpectedly closed.");
+                Daemon.Logger.Error($"Connection.SendAsync: socket with peer {Receiver} was unexpectedly closed.", verbose: 1);
                 _network.RemoveNodeFromPool(this);
             }
             catch (IOException e)
             {
-                Daemon.Logger.Error($"Connection.SendAsync: an IO exception was encountered with peer {Receiver}: {e.Message}", e);
+                Daemon.Logger.Error($"Connection.SendAsync: an IO exception was encountered with peer {Receiver}: {e.Message}", e, verbose: 1);
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"Connection.SendAsync: an exception was encountered with peer {Receiver}: {ex.Message}", ex);
+                Daemon.Logger.Error($"Connection.SendAsync: an exception was encountered with peer {Receiver}: {ex.Message}", ex, verbose: 1);
             }
 
             if (!disposed)
@@ -824,20 +824,20 @@ namespace Discreet.Network.Peerbloom
             }
             catch (SocketException e)
             {
-                Daemon.Logger.Error($"Connection.ReadAsync: a socket exception was encountered with peer {Receiver}: {e.Message}", e);
+                Daemon.Logger.Error($"Connection.ReadAsync: a socket exception was encountered with peer {Receiver}: {e.Message}", e, verbose: 1);
             }
             catch (InvalidOperationException)
             {
-                Daemon.Logger.Error($"Connection.ReadAsync: socket with peer {Receiver} was unexpectedly closed.");
+                Daemon.Logger.Error($"Connection.ReadAsync: socket with peer {Receiver} was unexpectedly closed.", verbose: 1);
                 _network.RemoveNodeFromPool(this);
             }
             catch (IOException e)
             {
-                Daemon.Logger.Error($"Connection.ReadAsync: an IO exception was encountered with peer {Receiver}: {e.Message}", e);
+                Daemon.Logger.Error($"Connection.ReadAsync: an IO exception was encountered with peer {Receiver}: {e.Message}", e, verbose: 1);
             }
             catch (Exception ex)
             {
-                Daemon.Logger.Error($"Connection.ReadAsync: {ex.Message}", ex);
+                Daemon.Logger.Error($"Connection.ReadAsync: {ex.Message}", ex, verbose: 1);
             }
 
             if (p != null)
@@ -897,13 +897,13 @@ namespace Discreet.Network.Peerbloom
                         {
                             if (!_network.OutboundConnectedPeers.ContainsKey(Receiver) && !_network.InboundConnectedPeers.ContainsKey(Receiver) && !_network.ConnectingPeers.ContainsKey(Receiver))
                             {
-                                Daemon.Logger.Error($"Connection.Persistent: An error was encountered during read from peer {Receiver}; ending connection");
+                                Daemon.Logger.Error($"Connection.Persistent: An error was encountered during read from peer {Receiver}; ending connection", verbose: 1);
                                 Dispose();
                                 return;
                             }
                             else if (!ConnectionAcknowledged && !IsOutbound)
                             {
-                                Daemon.Logger.Error($"Connection.Persistent: malformed packet received from non-acknowledged inbound peer {Receiver}; ending connection");
+                                Daemon.Logger.Error($"Connection.Persistent: malformed packet received from non-acknowledged inbound peer {Receiver}; ending connection", verbose: 1);
                                 Dispose();
                                 return;
                             }
@@ -921,7 +921,7 @@ namespace Discreet.Network.Peerbloom
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"Connection.Persistent: {ex.Message}; ending connection", ex);
+                    Daemon.Logger.Error($"Connection.Persistent: {ex.Message}; ending connection", ex, verbose: 1);
                     Dispose();
                     break;
                 }
@@ -940,7 +940,7 @@ namespace Discreet.Network.Peerbloom
 
                         if (!res)
                         {
-                            Daemon.Logger.Error($"Connection.Persistent: An error was encountered during write to peer {Receiver}; ending connection");
+                            Daemon.Logger.Error($"Connection.Persistent: An error was encountered during write to peer {Receiver}; ending connection", verbose: 1);
                             _tcpClient.Dispose();
                             return;
                         }
@@ -951,7 +951,7 @@ namespace Discreet.Network.Peerbloom
                 }
                 catch (Exception ex)
                 {
-                    Daemon.Logger.Error($"Connection.Persistent: {ex.Message}; ending connection", ex);
+                    Daemon.Logger.Error($"Connection.Persistent: {ex.Message}; ending connection", ex, verbose: 1);
                     _tcpClient.Dispose();
                     break;
                 }
