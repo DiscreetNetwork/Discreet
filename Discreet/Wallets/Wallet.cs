@@ -45,7 +45,8 @@ namespace Discreet.Wallets
 
         public ulong EntropyChecksum;
 
-        public long LastSeenHeight = -1;
+        public long _lastSeenHeight = -1;
+        public long LastSeenHeight { get { return _lastSeenHeight; } set { _lastSeenHeight = value; } }
         public bool Synced = false;
 
         public WalletAddress[] Addresses;
@@ -531,6 +532,12 @@ namespace Discreet.Wallets
             if (LastSeenHeight >= block.Header.Height)
             {
                 Daemon.Logger.Error($"Wallet.ProcessBlock: already processed block ({block.Header.BlockHash.ToHexShort()}) at height {block.Header.Height}");
+                return;
+            }
+
+            if (LastSeenHeight + 1 != block.Header.Height)
+            {
+                Daemon.Logger.Error($"Block being processed out of order (height {block.Header.Height}, hash {block.Header.BlockHash}) (last seen height is {LastSeenHeight})");
             }
 
             try
