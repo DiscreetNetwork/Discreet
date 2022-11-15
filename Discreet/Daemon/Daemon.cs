@@ -37,6 +37,7 @@ namespace Discreet.Daemon
 
         RPC.RPCServer _rpcServer;
         Version.VersionBackgroundPoller _versionBackgroundPoller;
+        public const string ZMQ_DAEMON_SYNC = "daemonsync";
 
         CancellationToken _cancellationToken;
         CancellationTokenSource _tokenSource = new CancellationTokenSource();
@@ -169,6 +170,7 @@ namespace Discreet.Daemon
 
             handler.SetState(Network.PeerState.Startup);
             RPCLive = true;
+            ZMQ.Publisher.Instance.Publish("daemonstatechanged", "ready");
 
             if (!IsMasternode && !(DaemonConfig.GetConfig().DbgConfig.DebugMode.Value && DaemonConfig.GetConfig().DbgConfig.SkipSyncing.Value))
             {
@@ -249,6 +251,12 @@ namespace Discreet.Daemon
                         var _newHheight = (_hheight + 25000) <= bestHeight ? _hheight + 25000 : bestHeight;
                         Logger.Info($"Fetching block headers {_hheight + 1} to {_newHheight}");
 
+                        byte[] zmqSync = new byte[12];
+                        Coin.Serialization.CopyData(zmqSync, 0, (int)(_hheight + 1));
+                        Coin.Serialization.CopyData(zmqSync, 4, (int)(_newHheight));
+                        Coin.Serialization.CopyData(zmqSync, 8, 0.25f * ((float)(_hheight + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
+                        ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSync);
+
                         toBeFulfilled = _newHheight - _hheight;
                         Network.Peerbloom.Connection curConn;
                         lock (usablePeers)
@@ -294,6 +302,12 @@ namespace Discreet.Daemon
 
                 Logger.Info($"Grabbed headers; grabbing blocks");
 
+                byte[] zmqSyncH = new byte[12];
+                Coin.Serialization.CopyData(zmqSyncH, 0, (int)(bestHeight));
+                Coin.Serialization.CopyData(zmqSyncH, 4, (int)(bestHeight));
+                Coin.Serialization.CopyData(zmqSyncH, 8, 0.25f);
+                ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncH);
+
                 // restart all data
                 handler.LastSeenHeight = dataView.GetChainHeight();
                 toBeFulfilled = 0;
@@ -319,6 +333,12 @@ namespace Discreet.Daemon
                         var _height = chunk;
                         var _newHeight = ((chunk + 1024) <= bestHeight ? chunk + 1024 : bestHeight);
                         Logger.Info($"Fetching blocks {chunk + 1} to {_newHeight}");
+
+                        byte[] zmqSync = new byte[12];
+                        Coin.Serialization.CopyData(zmqSync, 0, (int)(chunk + 1));
+                        Coin.Serialization.CopyData(zmqSync, 4, (int)(_newHeight));
+                        Coin.Serialization.CopyData(zmqSync, 8, 0.25f + 0.74f * ((float)(chunk + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
+                        ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSync);
 
                         Network.Peerbloom.Connection curConn;
                         lock (usablePeers)
@@ -495,6 +515,12 @@ namespace Discreet.Daemon
                 // process any new blocks minted during startup
                 handler.SetState(Network.PeerState.Processing);
 
+                byte[] zmqSyncB = new byte[12];
+                Coin.Serialization.CopyData(zmqSyncB, 0, (int)(bestHeight));
+                Coin.Serialization.CopyData(zmqSyncB, 4, (int)(bestHeight));
+                Coin.Serialization.CopyData(zmqSyncB, 8, 0.99f);
+                ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncB);
+
                 //var blocks = db.GetBlockCache();
 
                 /*while (blocks.Count > 0)
@@ -616,6 +642,12 @@ namespace Discreet.Daemon
 
                     beginningHeight++;
                 }
+
+                byte[] zmqSyncF = new byte[12];
+                Coin.Serialization.CopyData(zmqSyncF, 0, (int)(bestHeight));
+                Coin.Serialization.CopyData(zmqSyncF, 4, (int)(bestHeight));
+                Coin.Serialization.CopyData(zmqSyncF, 8, 1.0f);
+                ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncF);
             }
             else if (IsMasternode)
             {
