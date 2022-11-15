@@ -10,7 +10,7 @@ namespace Discreet.DB
 {
     public class CurView
     {
-        private ArchiveDB archiveDB;
+        /*private ArchiveDB archiveDB;
         private StateDB stateDB;
 
         public CurView()
@@ -79,7 +79,7 @@ namespace Discreet.DB
 
         public void Flush(IEnumerable<UpdateEntry> updates)
         {
-            /* split the updates into state and archive */
+            // split the updates into state and archive
             List<UpdateEntry> stateUpdates = new();
             List<UpdateEntry> archiveUpdates = new();
 
@@ -112,6 +112,75 @@ namespace Discreet.DB
 
             stateDB.Flush(stateUpdates);
             archiveDB.Flush(archiveUpdates);
+        }*/
+
+        private ChainDB chainDB;
+
+        public CurView()
+        {
+            chainDB = new ChainDB(Path.Join(Daemon.DaemonConfig.GetConfig().DBPath, "chain"));
+        }
+
+        public void AddBlockToCache(Block blk) => chainDB.AddBlockToCache(blk);
+
+        public bool BlockCacheHas(Cipher.SHA256 block) => chainDB.BlockCacheHas(block);
+
+        public void AddBlock(Block blk)
+        {
+            chainDB.AddBlock(blk);
+        }
+
+        public Dictionary<long, Block> GetBlockCache() => chainDB.GetBlockCache();
+
+        public void ClearBlockCache() => chainDB.ClearBlockCache();
+
+        public bool CheckSpentKey(Cipher.Key j) => chainDB.CheckSpentKey(j);
+
+        public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input) => chainDB.GetPubOutput(_input);
+
+        public void RemovePubOutput(Coin.Transparent.TXInput _input) => chainDB.RemovePubOutput(_input);
+
+        public uint[] GetOutputIndices(Cipher.SHA256 tx) => chainDB.GetOutputIndices(tx);
+
+        public TXOutput GetOutput(uint index) => chainDB.GetOutput(index);
+
+        public TXOutput[] GetMixins(uint[] index) => chainDB.GetMixins(index);
+
+        public (TXOutput[], int) GetMixins(uint index) => chainDB.GetMixins(index);
+
+        public (TXOutput[], int) GetMixinsUniform(uint index) => chainDB.GetMixins(index);
+
+        public FullTransaction GetTransaction(ulong txid) => chainDB.GetTransaction(txid);
+
+        public FullTransaction GetTransaction(Cipher.SHA256 txhash) => chainDB.GetTransaction(txhash);
+
+        public Block GetBlock(long height) => chainDB.GetBlock(height);
+
+        public Block GetBlock(Cipher.SHA256 blockHash) => chainDB.GetBlock(blockHash);
+
+        public BlockHeader GetBlockHeader(Cipher.SHA256 blockHash) => chainDB.GetBlockHeader(blockHash);
+
+        public BlockHeader GetBlockHeader(long height) => chainDB.GetBlockHeader(height);
+
+        public uint GetOutputIndex() => chainDB.GetOutputIndex();
+
+        public long GetChainHeight() => chainDB.GetChainHeight();
+
+        public ulong GetTransactionIndexer() => chainDB.GetTransactionIndexer();
+
+        public ulong GetTransactionIndex(Cipher.SHA256 txhash) => chainDB.GetTransactionIndex(txhash);
+
+        public bool ContainsTransaction(Cipher.SHA256 txhash) => chainDB.ContainsTransaction(txhash);
+
+        public long GetBlockHeight(Cipher.SHA256 blockHash) => chainDB.GetBlockHeight(blockHash);
+
+        public bool BlockExists(Cipher.SHA256 blockHash) => chainDB.BlockExists(blockHash);
+
+        public bool BlockHeightExists(long height) => chainDB.BlockHeightExists(height);
+
+        public void Flush(IEnumerable<UpdateEntry> updates)
+        {
+            chainDB.Flush(updates);
         }
     }
 }

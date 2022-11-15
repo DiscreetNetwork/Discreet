@@ -63,6 +63,17 @@ namespace Discreet.Coin
             FromMixed(tx);
         }
 
+        public override bool Equals(object obj)
+        {
+            if (obj == null) return false;
+            if (obj is FullTransaction tx)
+            {
+                return Cipher.Extensions.ByteArrayExtensions.BEquals(tx.Serialize(), Serialize());
+            }
+
+            return false;
+        }
+
         public void FromCoinbase(byte[] bytes) { FromCoinbase(bytes, 0); }
         public void FromPrivate(byte[] bytes) { FromPrivate(bytes, 0); }
         public void FromTransparent(byte[] bytes) { FromTransparent(bytes, 0); }

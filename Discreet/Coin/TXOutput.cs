@@ -23,6 +23,28 @@ namespace Discreet.Coin
         [MarshalAs(UnmanagedType.U4), JsonIgnore]
         public uint Index; /* unused mostly except for CreateTransaction() */
 
+        public override bool Equals(object obj)
+        {
+            if (obj == null) return false;
+            if (obj is TXOutput tout)
+            {
+                if (tout.UXKey == default || !tout.UXKey.Equals(UXKey)) return false;
+                if (tout.Commitment == default || !tout.Commitment.Equals(Commitment)) return false;
+                if (tout.Amount != Amount) return false;
+
+                if (TransactionSrc != default && tout.TransactionSrc != default)
+                {
+                    if (TransactionSrc.Equals(tout.TransactionSrc)) return true;
+                }
+                else
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public TXOutput()
         {
             TransactionSrc = new SHA256(new byte[32], false);

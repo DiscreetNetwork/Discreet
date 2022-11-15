@@ -386,6 +386,27 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
+        [RPCEndpoint("get_private_outputs", APISet.READ)]
+        public static object GetPrivateOutputs(List<uint> indices)
+        {
+            var rv = new List<object>();
+            foreach (var index in indices)
+            {
+                try
+                {
+                    rv.Add(DB.DataView.GetView().GetOutput(index).ToReadable());
+                }
+                catch (Exception ex)
+                {
+                    Daemon.Logger.Error($"RPC call to GetOutput failed: {ex.Message}", ex);
+
+                    return new RPCError($"Could not get output at index {index}");
+                }
+            }
+
+            return rv;
+        }
+
         [RPCEndpoint("get_transactions")]
         public static object GetTransactions(object[] idxs)
         {
