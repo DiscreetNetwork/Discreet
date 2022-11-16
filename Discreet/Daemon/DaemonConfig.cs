@@ -201,6 +201,10 @@ namespace Discreet.Daemon
             {
                 DbgConfig = new DebugConfig();
             }
+            else
+            {
+                DbgConfig.ConfigureDefaults();
+            }
 
             if (APISets == null)
             {

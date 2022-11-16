@@ -609,7 +609,7 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_WRITE_TIMEOUT).Ticks;
+                var _timeout = DateTime.UtcNow.AddMilliseconds(Daemon.DaemonConfig.GetConfig().NetConfig.ConnectionWriteTimeout.Value).Ticks;
 
                 byte[] _data = p.Serialize();
 
@@ -733,7 +733,7 @@ namespace Discreet.Network.Peerbloom
 
             try
             {
-                var _timeout = DateTime.UtcNow.AddMilliseconds(Constants.CONNECTION_READ_TIMEOUT).Ticks;
+                var _timeout = DateTime.UtcNow.AddMilliseconds(Daemon.DaemonConfig.GetConfig().NetConfig.ConnectionReadTimeout.Value).Ticks;
 
                 byte[] _header = new byte[Constants.PEERBLOOM_PACKET_HEADER_SIZE];
                 int numReadBytes = 0;

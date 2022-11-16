@@ -156,7 +156,7 @@ namespace Discreet.Network.Peerbloom
 
             ConnectingPeers.Remove(conn.Receiver, out _);
 
-            if (InboundConnectedPeers.Count == Constants.PEERBLOOM_MAX_INBOUND_CONNECTIONS)
+            if (InboundConnectedPeers.Count == Daemon.DaemonConfig.GetConfig().NetConfig.MaxInboundConnections.Value)
             {
                 Daemon.Logger.Warn($"Network.AddInboundConnection: Currently connected to max inbound peers; dropping new connection with peer {conn.Receiver}");
 
@@ -193,7 +193,7 @@ namespace Discreet.Network.Peerbloom
 
             ConnectingPeers.Remove(conn.Receiver, out _);
 
-            if (OutboundConnectedPeers.Count == Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
+            if (OutboundConnectedPeers.Count == Daemon.DaemonConfig.GetConfig().NetConfig.MaxOutboundConnections.Value)
             {
                 Daemon.Logger.Warn($"Network.AddOutboundConnection: Currently connected to max outbound peers; dropping new connection with peer {conn.Receiver}");
                 
@@ -738,7 +738,7 @@ namespace Discreet.Network.Peerbloom
 
                 if (_shutdownTokenSource.IsCancellationRequested) return;
 
-                if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
+                if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Daemon.DaemonConfig.GetConfig().NetConfig.MaxOutboundConnections.Value)
                 {
                     (Peer p, _) = peerlist.Select(false, true);
                     
