@@ -175,6 +175,8 @@ namespace Discreet.Network.Peerbloom
             {
                 Daemon.Logger.Error($"Network.AddInboundConnection failed for connection {conn.Receiver}");
             }
+
+            ZMQ.Publisher.Instance.Publish("connectionschanged", BitConverter.GetBytes(InboundConnectedPeers.Count + OutboundConnectedPeers.Count));
         }
 
         public void AddOutboundConnection(Connection conn)
@@ -213,6 +215,8 @@ namespace Discreet.Network.Peerbloom
             {
                 Daemon.Logger.Error($"Network.AddOutboundConnection failed for connection {conn.Receiver}");
             }
+
+            ZMQ.Publisher.Instance.Publish("connectionschanged", BitConverter.GetBytes(InboundConnectedPeers.Count + OutboundConnectedPeers.Count));
         }
 
         public List<IPEndPoint> GetPeers(int maxPeers)
@@ -289,6 +293,7 @@ namespace Discreet.Network.Peerbloom
             if (res)
             {
                 node.Dispose();
+                ZMQ.Publisher.Instance.Publish("connectionschanged", BitConverter.GetBytes(InboundConnectedPeers.Count + OutboundConnectedPeers.Count));
             }
         }
 
