@@ -81,7 +81,8 @@ namespace Discreet.Network
 
         private CancellationToken _token;
 
-        public long LastSeenHeight { get; set; }
+        private long _lastSeenHeight;
+        public long LastSeenHeight { get { return _lastSeenHeight; } set { _lastSeenHeight = value; } }
 
         public ConcurrentQueue<(Core.Packet, Peerbloom.Connection)> InboundPacketQueue = new();
 

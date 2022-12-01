@@ -13,7 +13,9 @@ namespace Discreet.DB
         private DataView dataView;
         private Block block; // for validating single block
         private List<Block> blocks; // for validating multiple blocks
-        
+
+        public Block CurBlock { get { return block; } }
+
         /* validation and update data */
         public bool valid;
         public List<UpdateEntry> updates;

@@ -11,11 +11,11 @@ namespace Discreet.DB
 {
     public class StateDB
     {
-        public static ColumnFamilyHandle SpentKeys;
-        public static ColumnFamilyHandle Outputs;
-        public static ColumnFamilyHandle OutputIndices;
-        public static ColumnFamilyHandle PubOutputs;
-        public static ColumnFamilyHandle Meta;
+        public ColumnFamilyHandle SpentKeys;
+        public ColumnFamilyHandle Outputs;
+        public ColumnFamilyHandle OutputIndices;
+        public ColumnFamilyHandle PubOutputs;
+        public ColumnFamilyHandle Meta;
 
         public const string SPENT_KEYS = "spent_keys";
         public const string OUTPUTS = "outputs";

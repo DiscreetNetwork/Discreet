@@ -80,6 +80,13 @@ namespace Discreet.Coin
             Array.Copy(data, 0, bytes, offset, sizeof(ulong));
         }
 
+        public static void CopyData(byte[] bytes, uint offset, float value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            Array.Copy(data, 0, bytes, offset, sizeof(float));
+        }
+
         public static byte[] Int32(int value)
         {
             byte[] data = BitConverter.GetBytes(value);

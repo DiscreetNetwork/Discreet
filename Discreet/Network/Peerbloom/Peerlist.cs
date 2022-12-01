@@ -445,7 +445,12 @@ namespace Discreet.Network.Peerbloom
             if (New[bucket,pos] != 0)
             {
                 uint nIDClear = New[bucket,pos];
-                var pinfoClear = addrs[nIDClear];
+                var success = addrs.TryGetValue(nIDClear, out var pinfoClear);
+                if (!success)
+                {
+                    New[bucket, pos] = 0;
+                    return;
+                }
                 Daemon.Logger.Debug($"Peerlist.ClearNew: removing {pinfoClear.Endpoint}, refcount is {pinfoClear.RefCount}");
                 pinfoClear.RefCount = Math.Min(pinfoClear.RefCount - 1, 0);
                 New[bucket, pos] = 0;
@@ -650,7 +655,12 @@ namespace Discreet.Network.Peerbloom
             List<uint> nIDs = addrs.Keys.ToList();
             for (int i = 0; i < numNodes; i++)
             {
-                addrs.TryGetValue(nIDs[r.Next(0, nIDs.Count)], out var peer);
+                var nid = nIDs.ElementAtOrDefault(r.Next(0, nIDs.Count));
+                if (nid != default(uint))
+                {
+                    continue;
+                }
+                addrs.TryGetValue(nid, out var peer);
 
                 if (peer != null)
                 {

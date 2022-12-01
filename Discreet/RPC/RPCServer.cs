@@ -85,6 +85,8 @@ namespace Discreet.RPC
                     RPCProcess processor = new();
                     object result = processor.ProcessRemoteCall(this, reader.ReadToEnd(), _daemon.RPCLive);
 
+                    ctx.Response.Headers.Add("Content-Type: application/json");
+
                     using var sw = new StreamWriter(ctx.Response.OutputStream);
                     await sw.WriteAsync((string)result);
                     await sw.FlushAsync();
