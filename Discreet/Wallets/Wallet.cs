@@ -61,6 +61,11 @@ namespace Discreet.Wallets
         /* default constructor */
         public Wallet() { }
 
+        /* fields used to ensure safety */
+        public bool IsLockRequested = false;
+        public bool IsUnloadRequested = false;
+        public bool IsSyncing = false;
+
         /* WIP */
         public Wallet(string label, string passphrase, uint bip39 = 24, bool encrypted = true, bool deterministic = true, uint numStealthAddresses = 1, uint numTransparentAddresses = 0, List<string> stealthAddressNames = null, List<string> transparentAddressNames = null)
         {
@@ -394,6 +399,16 @@ namespace Discreet.Wallets
             }
         }
 
+        public void RequestLock()
+        {
+            IsLockRequested = true;
+        }
+
+        public void RequestUnload()
+        {
+            IsUnloadRequested = true;
+        }
+
         public bool TryDecrypt(string passphrase = null)
         {
             if (!IsEncrypted) return true;
@@ -546,6 +561,10 @@ namespace Discreet.Wallets
 
                 foreach (WalletAddress address in Addresses)
                 {
+                    if (!address.Synced && address.Syncer)
+                    {
+                        continue;
+                    }
                     changed = address.ProcessBlock(block) || changed;
                 }
 
