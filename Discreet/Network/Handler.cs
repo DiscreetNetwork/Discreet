@@ -515,7 +515,7 @@ namespace Discreet.Network
                         Daemon.Logger.Error($"Discreet.Network.Handler.Handle: invalid packet with type NONE found");
                         break;
                     case PacketType.REJECT:
-                        await HandleReject((RejectPacket)p.Body);
+                        await HandleReject((RejectPacket)p.Body, conn);
                         break;
                     case PacketType.VERSION:
                         await HandleVersion((Core.Packets.Peerbloom.VersionPacket)p.Body, conn);
@@ -674,7 +674,7 @@ namespace Discreet.Network
             _network.Broadcast(new Packet(PacketType.ALERT, p));
         }
 
-        public async Task HandleReject(RejectPacket p)
+        public async Task HandleReject(RejectPacket p, Peerbloom.Connection conn)
         {
             var mCache = MessageCache.GetMessageCache();
 
@@ -693,7 +693,7 @@ namespace Discreet.Network
                 }
             }
 
-            Daemon.Logger.Error($"Packet {p.RejectedType} {(valueString == null ? "" : $"(data { valueString})")} was rejected with code {p.Code} {(p.Reason == null || p.Reason.Length == 0 ? "" : ": " + p.Reason)}");
+            Daemon.Logger.Error($"Packet {p.RejectedType} {(valueString == null ? "" : $"(data { valueString})")} was rejected by peer {conn.Receiver} with code {p.Code} {(p.Reason == null || p.Reason.Length == 0 ? "" : ": " + p.Reason)}");
         }
 
         public Core.Packets.Peerbloom.VersionPacket MakeVersionPacket()

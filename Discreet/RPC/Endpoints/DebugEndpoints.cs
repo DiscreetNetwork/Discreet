@@ -21,7 +21,7 @@ namespace Discreet.RPC.Endpoints
 
                 if (_daemon.IsMasternode)
                 {
-                    var wallet = _daemon.wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
+                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
 
                     if (wallet == null) return new RPCError("fatal error occurred. Masternode does not have a faucet.");
 
@@ -75,7 +75,7 @@ namespace Discreet.RPC.Endpoints
             {
                 var _daemon = Handler.GetHandler().daemon;
 
-                var wal = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+                var wal = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wal == null)
                 {
@@ -103,7 +103,7 @@ namespace Discreet.RPC.Endpoints
             {
                 var _daemon = Handler.GetHandler().daemon;
 
-                var wal = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+                var wal = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wal == null)
                 {
@@ -141,7 +141,7 @@ namespace Discreet.RPC.Endpoints
 
                 if (_daemon.IsMasternode)
                 {
-                    var wallet = _daemon.wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
+                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
 
                     if (wallet == null) return new RPCError("fatal error occurred. Masternode does not have a faucet.");
 

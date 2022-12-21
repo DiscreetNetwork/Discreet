@@ -132,7 +132,7 @@ namespace Discreet.RPC.Endpoints
                 if (_params.Address == null || _params.Address == "")
                     return new RPCError("one of the following must be set: Address, Label");
 
-                var wallet = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == _params.Address).FirstOrDefault() != null).FirstOrDefault();
+                var wallet = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == _params.Address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"could not find address {_params.Address}");
 
