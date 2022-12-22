@@ -147,7 +147,6 @@ namespace Discreet.Common
         /// Prettify adds indentation and newlines to a stringified JSON object.
         /// Four spaces are used as a default indentation.
         /// </summary>
-        /// <overloads>Prettify</overloads>
         /// <param name="s">The string containing the JSON object.</param>
         /// <returns>The prettified JSON object.</returns>
         public static string Prettify(string s)
