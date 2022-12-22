@@ -26,7 +26,6 @@ namespace Discreet.Daemon
     /* Manages all blockchain operations. Contains the wallet manager, logger, Network manager, RPC manager, DB manager and TXPool manager. */
     public class Daemon
     {
-        public ConcurrentBag<Wallet> wallets;
         TXPool txpool;
 
         Network.Handler handler;
@@ -34,6 +33,7 @@ namespace Discreet.Daemon
         Network.MessageCache messageCache;
         DB.DataView dataView;
         DaemonConfig config;
+        Wallet masternodeWallet;
 
         RPC.RPCServer _rpcServer;
         Version.VersionBackgroundPoller _versionBackgroundPoller;
@@ -41,8 +41,6 @@ namespace Discreet.Daemon
 
         CancellationToken _cancellationToken;
         CancellationTokenSource _tokenSource = new CancellationTokenSource();
-
-        ConcurrentDictionary<object, ConcurrentQueue<SHA256>> syncerQueues;
 
         public static bool DebugMode { get; set; } = false;
 
@@ -58,8 +56,6 @@ namespace Discreet.Daemon
 
         public Daemon()
         {
-            wallets = new ConcurrentBag<Wallet>();
-
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
@@ -80,8 +76,6 @@ namespace Discreet.Daemon
                 IsMasternode = true;
             }
 
-            syncerQueues = new ConcurrentDictionary<object, ConcurrentQueue<SHA256>>();
-
             _cancellationToken = _tokenSource.Token;
         }
 
@@ -93,8 +87,6 @@ namespace Discreet.Daemon
             _ = _versionBackgroundPoller.StartBackgroundPoller();
 
             // re-create everything
-            wallets = new ConcurrentBag<Wallet>();
-
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
@@ -108,8 +100,6 @@ namespace Discreet.Daemon
             {
                 IsMasternode = true;
             }
-
-            syncerQueues = new ConcurrentDictionary<object, ConcurrentQueue<SHA256>>();
 
             _cancellationToken = _tokenSource.Token;
             RPC.RPCEndpointResolver.ClearEndpoints();
@@ -167,6 +157,9 @@ namespace Discreet.Daemon
             await network.Bootstrap();
             handler = network.handler;
             handler.daemon = this;
+
+            Logger.Info($"Starting wallet manager...");
+            _ = Task.Run(() => WalletManager.Instance.Start(_cancellationToken)).ConfigureAwait(false);
 
             handler.SetState(Network.PeerState.Startup);
             RPCLive = true;
@@ -406,7 +399,7 @@ namespace Discreet.Daemon
                             }
                         }
 
-                        // process dem blocks
+                        // process blocks
 
                         Exception exc = null;
                         var _beginHeight = chunk + 1;
@@ -427,11 +420,6 @@ namespace Discreet.Daemon
                                 {
                                     foreach (var block in goodBlocks)
                                     {
-                                        foreach (var toq in syncerQueues)
-                                        {
-                                            toq.Value.Enqueue(block.Header.BlockHash);
-                                        }
-
                                         ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
                                         ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
                                     }
@@ -635,11 +623,6 @@ namespace Discreet.Daemon
                         Logger.Error(e.Message, e);
                     }
 
-                    foreach (var toq in syncerQueues)
-                    {
-                        toq.Value.Enqueue(block.Header.BlockHash);
-                    }
-
                     beginningHeight++;
                 }
 
@@ -654,16 +637,16 @@ namespace Discreet.Daemon
                 Logger.Info($"Starting minter...");
                 _ = Minter();
 
-                if (wallets.IsEmpty)
+                if (masternodeWallet == null)
                 {
                     Wallet wallet = WalletDB.GetDB().TryGetWallet("DBG_MASTERNODE");
 
                     wallet.Decrypt("password");
 
-                    wallets.Add(wallet);
+                    masternodeWallet = wallet;
                 }
 
-                _ = Task.Run(() => WalletSyncer(wallets.First(), true)).ConfigureAwait(false);
+                Wallets.WalletManager.Instance.Wallets.Add(masternodeWallet);
 
                 await Task.Delay(500);
             }
@@ -710,166 +693,9 @@ namespace Discreet.Daemon
 
             if (!failed)
             {
-                foreach (var toq in syncerQueues)
-                {
-                    toq.Value.Enqueue(block.Header.BlockHash);
-                }
-
                 ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
                 ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
             }
-        }
-
-        public async Task WalletSyncer(Wallet wallet, bool scanForFunds)
-        {
-            CancellationTokenSource _tokenSource = new CancellationTokenSource();
-            wallet.syncer = _tokenSource;
-
-            ConcurrentQueue<SHA256> queue = new ConcurrentQueue<SHA256>();
-
-            syncerQueues[wallet] = queue;
-
-            if (scanForFunds)
-            {
-                wallet.Synced = false;
-
-                var initialChainHeight = dataView.GetChainHeight();
-
-                while (wallet.LastSeenHeight < initialChainHeight && !_tokenSource.IsCancellationRequested)
-                {
-                    wallet.ProcessBlock(dataView.GetBlock(wallet.LastSeenHeight + 1));
-                }
-
-                while ((!queue.IsEmpty || handler.State != Network.PeerState.Normal) && !_tokenSource.IsCancellationRequested)
-                {
-                    SHA256 blockHash;
-                    bool success = queue.TryDequeue(out blockHash);
-
-                    if (!success)
-                    {
-                        await Task.Delay(100, _tokenSource.Token);
-                        continue;
-                    }
-
-                    wallet.ProcessBlock(dataView.GetBlock(blockHash));
-                }
-            }
-
-            wallet.Synced = !_tokenSource.IsCancellationRequested;
-
-            while (!_tokenSource.IsCancellationRequested)
-            {
-                long _height = dataView.GetChainHeight();
-
-                if (_height > wallet.LastSeenHeight)
-                {
-                    wallet.Synced = false;
-
-                    for (long k = wallet.LastSeenHeight + 1; k <= _height; k++)
-                    {
-                        wallet.ProcessBlock(dataView.GetBlock(k));
-                    }
-
-                    wallet.Synced = true;
-                }
-
-                await Task.Delay(100, _tokenSource.Token);
-            }
-
-            syncerQueues.TryRemove(wallet, out _);
-        }
-
-        public async Task AddressSyncer(WalletAddress address)
-        {
-            CancellationTokenSource _tokenSource = new CancellationTokenSource();
-            address.syncerSource = _tokenSource;
-
-            ConcurrentQueue<SHA256> queue = new ConcurrentQueue<SHA256>();
-
-            syncerQueues[address] = queue;
-
-            address.Synced = false;
-            address.Syncer = true;
-
-            var initialChainHeight = dataView.GetChainHeight();
-
-            while (address.LastSeenHeight < initialChainHeight && address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
-            {
-                address.ProcessBlock(dataView.GetBlock(address.LastSeenHeight + 1));
-            }
-
-            if (address.LastSeenHeight == address.wallet.LastSeenHeight)
-            {
-                syncerQueues.Remove(address, out _);
-
-                address.Synced = true;
-                address.Syncer = false;
-                ZMQ.Publisher.Instance.Publish("addresssynced", address.Address);
-                return;
-            }
-            else if (_tokenSource.IsCancellationRequested)
-            {
-                return;
-            }
-
-            while ((!queue.IsEmpty || handler.State != Network.PeerState.Normal) && address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
-            {
-                SHA256 blockHash;
-                bool success = queue.TryDequeue(out blockHash);
-
-                if (!success)
-                {
-                    await Task.Delay(100, _tokenSource.Token);
-                    continue;
-                }
-
-                address.ProcessBlock(dataView.GetBlock(blockHash));
-            }
-
-            if (address.LastSeenHeight == address.wallet.LastSeenHeight)
-            {
-                syncerQueues.Remove(address, out _);
-
-                address.Synced = true;
-                address.Syncer = false;
-                ZMQ.Publisher.Instance.Publish("addresssynced", address.Address);
-                return;
-            }
-            else if (_tokenSource.IsCancellationRequested)
-            {
-                return;
-            }
-
-            while (address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
-            {
-                while (!queue.IsEmpty && !_tokenSource.IsCancellationRequested && address.LastSeenHeight < address.wallet.LastSeenHeight)
-                {
-                    SHA256 blockHash;
-                    bool success = queue.TryDequeue(out blockHash);
-
-                    if (!success)
-                    {
-                        await Task.Delay(100, _tokenSource.Token);
-                        continue;
-                    }
-
-                    address.ProcessBlock(dataView.GetBlock(blockHash));
-                }
-
-                await Task.Delay(100, _tokenSource.Token);
-            }
-
-            if (_tokenSource.IsCancellationRequested)
-            {
-                return;
-            }
-
-            syncerQueues.Remove(address, out _);
-
-            address.Synced = true;
-            address.Syncer = false;
-            ZMQ.Publisher.Instance.Publish("addresssynced", address.Address);
-            return;
         }
 
         public async Task Minter()
@@ -937,7 +763,7 @@ namespace Discreet.Daemon
                 Logger.Info($"Discreet.Daemon: Minting new block...", verbose: 1);
 
                 var txs = txpool.GetTransactionsForBlock();
-                var blk = Block.Build(txs, (StealthAddress)wallets.First().Addresses[0].GetAddress(), signingKey);
+                var blk = Block.Build(txs, (StealthAddress)WalletManager.Instance.Wallets.First().Addresses[0].GetAddress(), signingKey);
 
                 try
                 {
@@ -980,7 +806,7 @@ namespace Discreet.Daemon
 
             wallet.Save(true);
 
-            wallets.Add(wallet);
+            WalletManager.Instance.Wallets.Add(wallet);
 
             /*while (_input != "EXIT")
             {
