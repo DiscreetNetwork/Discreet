@@ -68,7 +68,7 @@ namespace Discreet.Coin
         }
 
         /// <summary>
-        /// Readable encodes this block to string containing a JSON.
+        /// Readable encodes this block to a string containing a JSON.
         /// </summary>
         public string Readable()
         {
@@ -86,7 +86,8 @@ namespace Discreet.Coin
         }
 
         /// <summary>
-        /// FromReadable returns a Block that is created from a readable block.
+        /// FromReadable returns a Block that is created from a stringified
+        /// readable block.
         /// </summary>
         /// <returns>A Block.</returns>
         public static Block FromReadable(string json)

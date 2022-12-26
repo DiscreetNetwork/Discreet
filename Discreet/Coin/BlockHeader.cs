@@ -14,25 +14,42 @@ namespace Discreet.Coin
 
         public ulong Timestamp;
         public long Height;
-        public ulong Fee;      // 25
+        public ulong Fee;                 // 25
 
         public SHA256 PreviousBlock;
-        public SHA256 BlockHash;          //  89
+        public SHA256 BlockHash;          // 89
 
-        public SHA256 MerkleRoot;        // 121
+        public SHA256 MerkleRoot;         // 121
 
         public uint NumTXs;
-        public uint BlockSize;              // 129
-        public uint NumOutputs;             // 133
+        public uint BlockSize;            // 129
+        public uint NumOutputs;           // 133
 
         public uint ExtraLen;
         public byte[] Extra;
 
+        /// <summary>
+        /// Deserialize initializes the block instance from the deserialization
+        /// of a byte array contaning the data of a block header.
+        /// </summary>
+        /// <param name="bytes">A byte array that will hold a copy of the block
+        /// header serialization.</param>
         public void Deserialize(byte[] bytes)
         {
             Deserialize(bytes, 0);
         }
 
+        /// <summary>
+        /// Deserialize initializes the block header instance from the
+        /// deserialization of a byte array, starting from an offset, which
+        /// contains the data of a block header.
+        /// </summary>
+        /// <param name="bytes">A byte array that will hold a copy of the block
+        /// header serialization.</param>
+        /// <param name="offset">An offset that works as the starting index for
+        /// the byte array to start the deserialization.</param>
+        /// <returns>An offset equal to the original offset, plus the length of
+        /// the deserialized block header.</returns>
         public uint Deserialize(byte[] bytes, uint offset)
         {
             Version = bytes[offset];
@@ -56,6 +73,12 @@ namespace Discreet.Coin
             return offset + Size();
         }
 
+        /// <summary>
+        /// Deserialize initializes the block header instance from the
+        /// deserialization of bytes contained in a stream, which represent the
+        /// data of a block header.
+        /// </summary>
+        /// <param name="s">A byte stream.</param>
         public void Deserialize(Stream s)
         {
             Version = (byte)s.ReadByte();
@@ -77,6 +100,10 @@ namespace Discreet.Coin
             s.Read(Extra);
         }
 
+        /// <summary>
+        /// Hash hashes the block's header.
+        /// </summary>
+        /// <returns>The hash of the block's header.</returns>
         public SHA256 Hash()
         {
             byte[] bytes = new byte[93];
@@ -93,21 +120,39 @@ namespace Discreet.Coin
             return SHA256.HashData(bytes);
         }
 
+        /// <summary>
+        /// Readable encodes this block header to a string containing a JSON.
+        /// </summary>
         public string Readable()
         {
             return Discreet.Readable.BlockHeader.ToReadable(this);
         }
 
+        /// <summary>
+        /// ToReadable converts the block header to an object containing the
+        /// block header in JSON format.
+        /// </summary>
+        /// <returns>A readable block header.</returns>
         public object ToReadable()
         {
             return new Discreet.Readable.BlockHeader(this);
         }
 
+        /// <summary>
+        /// FromReadable returns a BlockHeader that is created from a
+        /// stringified readable block header.
+        /// </summary>
+        /// <returns>A BlockHeader.</returns>
         public static BlockHeader FromReadable(string json)
         {
             return Discreet.Readable.BlockHeader.FromReadable(json);
         }
 
+        /// <summary>
+        /// Serialize returns an array that contains all the data in a
+        /// BlockHeader transformed to bytes.
+        /// </summary>
+        /// <returns>The byte array containing the BlockHeader data.</returns>
         public byte[] Serialize()
         {
             byte[] bytes = new byte[Size()];
@@ -132,6 +177,14 @@ namespace Discreet.Coin
             return bytes;
         }
 
+        /// <summary>
+        /// Serialize copies this BlockHeader's serialized representation to a given
+        /// byte array, starting at an offset.
+        /// </summary>
+        /// <param name="bytes">A byte array that will hold a copy of the block
+        /// header serialization.</param>
+        /// <param name="offset">The offset at which we will copy the block
+        /// header serialization.</param>
         public void Serialize(byte[] bytes, uint offset)
         {
             byte[] _header = Serialize();
@@ -139,6 +192,10 @@ namespace Discreet.Coin
             Array.Copy(_header, 0, bytes, offset, _header.Length);
         }
 
+        /// <summary> Serialize populates a byte stream that contains all the
+        /// data in a BlockHeader transformed to bytes.
+        /// </summary>
+        /// <param name="s">A byte stream.</param>
         public void Serialize(Stream s)
         {
             s.WriteByte(Version);
@@ -159,16 +216,30 @@ namespace Discreet.Coin
             s.Write(Extra ?? Array.Empty<byte>());
         }
 
+        /// <summary>
+        /// Verify does the following:
+        /// -
+        /// </summary>
+        /// <returns>An exception, in case of an error, null otherwise.</returns>
         public VerifyException Verify()
         {
             return null;
         }
 
+        /// <summary>
+        /// Size calculates the size of the block header.
+        /// </summary>
+        /// <returns>The size of the block header.</returns>
         public uint Size()
         {
             return 137 + ExtraLen;
         }
 
+        /// <summary>
+        /// CheckSignature checks that the block header signature is valid and
+        /// that it's coming from a master node.
+        /// </summary>
+        /// <returns>True if the block signature is valid, false otherwise.</returns>
         public bool CheckSignature()
         {
             if (Extra == null || Extra.Length != 96) return false;
