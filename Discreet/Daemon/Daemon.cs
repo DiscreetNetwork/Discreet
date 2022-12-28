@@ -852,6 +852,30 @@ namespace Discreet.Daemon
             Logger.Info("Successfully created the genesis block.");
         }
 
+        /// <summary>
+        /// AskBootstrapNode repeatedly asks the user for a valid bootstrap node
+        /// address, until the user provides a valid address.
+        /// </summary>
+        /// <param name="config">An object holding the node's configuration.</param>
+        /// <returns>A validated address.</returns>
+        private static string AskBootstrapNode(DaemonConfig config)
+        {
+            while (true)
+            {
+                try
+                {
+                    Console.Write("Boostrap node: ");
+                    IPAddress[] resolvedDNS = Dns.GetHostAddresses(Console.ReadLine());
+
+                    return resolvedDNS[0].ToString();
+                }
+                catch (Exception)
+                {
+                    Logger.Error("Not a valid bootstrap node. Network might be temporarily down for maintenance.");
+                }
+            }
+        }
+
         public static Daemon Init()
         {
             var config = DaemonConfig.GetConfig();
@@ -859,24 +883,7 @@ namespace Discreet.Daemon
 
             if (config.BootstrapNode == null)
             {
-
-                bool didResolve = false;
-
-                while (!didResolve)
-                {
-                    try
-                    {
-                        Console.Write("Boostrap node: ");
-                        IPAddress[] resolvedDNS = Dns.GetHostAddresses(Console.ReadLine());
-
-                        config.BootstrapNode = resolvedDNS[0].ToString();
-                        didResolve = true;
-                    }
-                    catch (Exception)
-                    {
-                        Logger.Error("Not a valid bootstrap node. Network might be temporarily down for maintenance.");
-                    }
-                } 
+                config.BootstrapNode = AskBootstrapNode(config);
             }
 
             DaemonConfig.SetConfig(config);
