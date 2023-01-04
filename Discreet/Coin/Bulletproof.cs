@@ -134,8 +134,8 @@ namespace Discreet.Coin
         }
 
         /// <summary>
-        /// FromReadable returns a BlockHeader that is created from a
-        /// stringified readable block header.
+        /// FromReadable returns a Bulletproof that is created from a
+        /// stringified readable bulletproof.
         /// </summary>
         /// <returns>A Bulletproof instance equivalent to the provided
         /// JSON.</returns>

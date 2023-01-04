@@ -121,7 +121,8 @@ namespace Discreet.Coin
         }
 
         /// <summary>
-        /// Readable encodes this block header to a string containing a JSON.
+        /// Readable encodes this block header to a string containing an
+        /// equivalent JSON.
         /// </summary>
         public string Readable()
         {
@@ -142,7 +143,8 @@ namespace Discreet.Coin
         /// FromReadable returns a BlockHeader that is created from a
         /// stringified readable block header.
         /// </summary>
-        /// <returns>A BlockHeader.</returns>
+        /// <returns>A BlockHeader instance equivalent to the provided
+        /// JSON.</returns>
         public static BlockHeader FromReadable(string json)
         {
             return Discreet.Readable.BlockHeader.FromReadable(json);
