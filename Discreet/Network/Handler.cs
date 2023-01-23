@@ -463,6 +463,8 @@ namespace Discreet.Network
                 case PacketType.BLOCKS:
                 case PacketType.GETHEADERS:
                 case PacketType.HEADERS:
+                case PacketType.GETPOOL:
+                case PacketType.POOL:
                     return true;
                 case PacketType.SENDBLOCK:
                 case PacketType.ALERT:
@@ -540,6 +542,12 @@ namespace Discreet.Network
                         break;
                     case PacketType.SENDBLOCK:
                         await HandleSendBlock((SendBlockPacket)p.Body, conn);
+                        break;
+                    case PacketType.GETPOOL:
+                        await HandleGetPool((GetPoolPacket)p.Body, conn);
+                        break;
+                    case PacketType.POOL:
+                        await HandlePool((PoolPacket)p.Body, conn);
                         break;
                     case PacketType.INVENTORY:
                         /* currently unused */
@@ -953,6 +961,35 @@ namespace Discreet.Network
 
                 Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.NOTFOUND, resp));
             }
+        }
+
+        public async Task HandleGetPool(Core.Packets.GetPoolPacket p, Peerbloom.Connection conn)
+        {
+            var txpool = Daemon.TXPool.GetTXPool();
+            var txs = txpool.GetTransactions();
+            Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.TXS, new TransactionsPacket { TxsLen = (uint)txs.Count, Txs = txs.ToArray() }));
+        }
+
+        public async Task HandlePool(Core.Packets.PoolPacket p, Peerbloom.Connection conn)
+        {
+            var txpool = Daemon.TXPool.GetTXPool();
+
+            if (p.TxsLen > 0)
+            {
+                foreach (var tx in p.Txs)
+                {
+                    var exc = txpool.ProcessTx(tx);
+                    if (exc != null)
+                    {
+                        Daemon.Logger.Error($"HandlePool: Processing transaction resulted in error: {exc.Message}", exc);
+                    }
+                }
+            }
+        }
+
+        public void Handle(string s)
+        {
+            Daemon.Logger.Info(s);
         }
 
         public async Task HandleMessage(SendMessagePacket p, IPEndPoint senderEndpoint)
@@ -1429,11 +1466,6 @@ namespace Discreet.Network
         {
             Daemon.Logger.Info($"Handler.HandleDisconnect: Peer at {conn.Receiver} disconnected with the following reason: {p.Code}", verbose: 1);
             await conn.Disconnect(false);
-        }
-
-        public void Handle(string s)
-        {
-            Daemon.Logger.Info(s);
         }
 
         /// <summary>

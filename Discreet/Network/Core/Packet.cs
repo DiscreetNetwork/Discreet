@@ -129,6 +129,10 @@ namespace Discreet.Network.Core
                     return new Packets.SendBlockPacket(data, offset);
                 case PacketType.SENDMSG:
                     return new Packets.SendMessagePacket(data, offset);
+                case PacketType.GETPOOL:
+                    return new Packets.GetPoolPacket(data, offset);
+                case PacketType.POOL:
+                    return new Packets.PoolPacket(data, offset);
                 case PacketType.REQUESTPEERS:
                     return new Packets.Peerbloom.RequestPeers(data, offset);
                 case PacketType.REQUESTPEERSRESP:
@@ -182,6 +186,10 @@ namespace Discreet.Network.Core
                     return new Packets.SendBlockPacket(s);
                 case PacketType.SENDMSG:
                     return new Packets.SendMessagePacket(s);
+                case PacketType.GETPOOL:
+                    return new Packets.GetPoolPacket(s);
+                case PacketType.POOL:
+                    return new Packets.PoolPacket(s);
                 case PacketType.REQUESTPEERS:
                     return new Packets.Peerbloom.RequestPeers(s);
                 case PacketType.REQUESTPEERSRESP:
