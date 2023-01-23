@@ -141,10 +141,19 @@ namespace Discreet.Daemon
 
 
             Uptime = DateTime.Now.Ticks;
+            bool syncFromPeers = !IsMasternode;
 
             if (IsMasternode && dataView.GetChainHeight() < 0)
             {
-                BuildGenesis();
+                if (!config.MintGenesis.Value)
+                {
+                    Logger.Critical("Cannot find any data on chain for masternode. Begin syncing from peers.");
+                    syncFromPeers = true;
+                }
+                else
+                {
+                    BuildGenesis();
+                }
             }
 
             RPCLive = false;
@@ -165,22 +174,26 @@ namespace Discreet.Daemon
             RPCLive = true;
             ZMQ.Publisher.Instance.Publish("daemonstatechanged", "ready");
 
-            if (!IsMasternode && !(DaemonConfig.GetConfig().DbgConfig.DebugMode.Value && DaemonConfig.GetConfig().DbgConfig.SkipSyncing.Value))
+            /* get height of chain */
+            long bestHeight = dataView.GetChainHeight();
+            IPEndPoint bestPeer = null;
+            foreach (var ver in messageCache.Versions)
             {
-
-                /* get height of chain */
-                long bestHeight = dataView.GetChainHeight();
-                IPEndPoint bestPeer = null;
-
-                foreach (var ver in messageCache.Versions)
+                if (ver.Value.Height > bestHeight)
                 {
-                    if (ver.Value.Height > bestHeight)
-                    {
-                        bestPeer = ver.Key;
-                        bestHeight = ver.Value.Height;
-                    }
+                    bestPeer = ver.Key;
+                    bestHeight = ver.Value.Height;
                 }
+            }
 
+            // needed if a masternode goes offline and blocks are minted/propagated that it doesn't have
+            if (bestHeight > dataView.GetChainHeight())
+            {
+                syncFromPeers = true;
+            }
+
+            if (syncFromPeers && !(DaemonConfig.GetConfig().DbgConfig.DebugMode.Value && DaemonConfig.GetConfig().DbgConfig.SkipSyncing.Value))
+            {
                 /* among peers, find each of their associated heights */
                 List<(IPEndPoint, long)> peersAndHeights = new();
                 foreach (var ver in messageCache.Versions)
@@ -631,8 +644,12 @@ namespace Discreet.Daemon
                 Coin.Serialization.CopyData(zmqSyncF, 4, (int)(bestHeight));
                 Coin.Serialization.CopyData(zmqSyncF, 8, 1.0f);
                 ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncF);
+
+                Logger.Info("Fetching TXPool...");
+                network.Send(messageCache.Versions.Keys.First(), new Network.Core.Packet(Network.Core.PacketType.GETPOOL, new Network.Core.Packets.GetPoolPacket()));
             }
-            else if (IsMasternode)
+            
+            if (IsMasternode)
             {
                 Logger.Info($"Starting minter...");
                 _ = Minter();

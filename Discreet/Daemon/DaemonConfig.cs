@@ -192,6 +192,11 @@ namespace Discreet.Daemon
                 SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
             }
 
+            if (MintGenesis == null)
+            {
+                MintGenesis = false;
+            }
+
             if (NetConfig == null)
             {
                 NetConfig = new NetworkConfig();
@@ -257,6 +262,8 @@ namespace Discreet.Daemon
 
         public string SigningKey { get; set; }
 
+        public bool? MintGenesis { get; set; }
+
         public NetworkConfig NetConfig { get; set; }
 
         public DebugConfig DbgConfig { get; set; }
@@ -308,6 +315,8 @@ namespace Discreet.Daemon
             HTTPPort = 8351;
 
             SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
+
+            MintGenesis = false;
 
             NetConfig = new NetworkConfig();
             DbgConfig = new DebugConfig();
