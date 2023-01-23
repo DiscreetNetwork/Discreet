@@ -385,6 +385,60 @@ namespace Discreet.Network.Peerbloom
             _shutdownTokenSource.Cancel();
         }
 
+        public async Task ConnectToPeers()
+        {
+            int NumberConnections = (Daemon.Daemon.DebugMode ? 1 : 2);
+
+            if (peerlist.NumTried > 0)
+            {
+                Daemon.Logger.Info("Attempting to connect to known peers...");
+
+                List<Peer> checkedPeers = new List<Peer>();
+                Peer peer;
+                int timeoutLength = 5000;
+                int numAttempts = 1;
+                do
+                {
+                    (peer, _) = peerlist.Select(false, true);
+
+                    if (checkedPeers.Contains(peer)) continue;
+
+                    Connection conn = new Connection(peer.Endpoint, this, LocalNode, true);
+
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, timeoutLength, numAttempts);
+                    peerlist.Attempt(peer.Endpoint, !success);
+
+                    checkedPeers.Add(peer);
+                    if (peerlist.NumTried == checkedPeers.Count && !success)
+                    {
+                        Daemon.Logger.Warn("Could not find any online/valid peers. Increasing timeout length and allowed attempts.", verbose: 1);
+                        timeoutLength += 5000;
+                        numAttempts++;
+                        checkedPeers.Clear();
+                    }
+
+                    if (numAttempts > 10)
+                    {
+                        Daemon.Logger.Critical("Reached limit for number of attempts on current peerlist. If masternode, network is offline.");
+                        break;
+                    }
+                }
+                while (peer != null && OutboundConnectedPeers.Count < NumberConnections && checkedPeers.Count < peerlist.NumTried);
+            }
+
+            if (OutboundConnectedPeers.Count > 0)
+            {
+                Daemon.Logger.Info($"Successfully connected to {OutboundConnectedPeers.Count} peers");
+                _ = Task.Run(() => RunNetwork()).ConfigureAwait(false);
+                IsBootstrapping = false;
+                return;
+            }
+            else
+            {
+                throw new Exception("Network is offline.");
+            }
+        }
+
         public async Task Bootstrap()
         {
             IsBootstrapping = true;

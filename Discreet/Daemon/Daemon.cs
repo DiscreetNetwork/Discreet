@@ -148,6 +148,8 @@ namespace Discreet.Daemon
                 if (!config.MintGenesis.Value)
                 {
                     Logger.Critical("Cannot find any data on chain for masternode. Begin syncing from peers.");
+                    Logger.Info("Masternode beginning connecting to peers.");
+                    await network.ConnectToPeers();
                     syncFromPeers = true;
                 }
                 else
