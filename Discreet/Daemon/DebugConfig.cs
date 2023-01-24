@@ -20,5 +20,13 @@ namespace Discreet.Daemon
             CheckBlockchain = false;
             DebugPrints = false;
         }
+
+        public void ConfigureDefaults()
+        {
+            if (DebugMode == null) DebugMode = false;
+            if (SkipSyncing == null) SkipSyncing = false;
+            if (CheckBlockchain == null) CheckBlockchain = false;
+            if (DebugPrints == null) DebugPrints = false;
+        }
     }
 }

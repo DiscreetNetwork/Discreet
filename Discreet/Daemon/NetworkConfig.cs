@@ -8,13 +8,29 @@ namespace Discreet.Daemon
 {
     public class NetworkConfig
     {
+        public int? MaxInboundConnections { get; set; }
+        public int? MaxOutboundConnections { get; set; }
+        public int? ConnectionReadTimeout { get; set; }
+        public int? ConnectionWriteTimeout { get; set; }
+
+        // DEPRECATED. Present only for backwards-compatibility.
         public int? MinDesiredConnections { get; set; }
         public int? MaxDesiredConnections { get; set; }
 
         public NetworkConfig()
         {
-            MinDesiredConnections = 10;
-            MaxDesiredConnections = MinDesiredConnections * 4;
+            MaxInboundConnections = Network.Peerbloom.Constants.PEERBLOOM_MAX_INBOUND_CONNECTIONS;
+            MaxOutboundConnections = Network.Peerbloom.Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS;
+            ConnectionReadTimeout = Network.Peerbloom.Constants.CONNECTION_READ_TIMEOUT;
+            ConnectionWriteTimeout = Network.Peerbloom.Constants.CONNECTION_WRITE_TIMEOUT;
+        }
+
+        public void ConfigureDefaults()
+        {
+            MaxInboundConnections ??= Network.Peerbloom.Constants.PEERBLOOM_MAX_INBOUND_CONNECTIONS;
+            MaxOutboundConnections ??= Network.Peerbloom.Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS;
+            ConnectionReadTimeout ??= Network.Peerbloom.Constants.CONNECTION_READ_TIMEOUT;
+            ConnectionWriteTimeout ??= Network.Peerbloom.Constants.CONNECTION_WRITE_TIMEOUT;
         }
     }
 }
