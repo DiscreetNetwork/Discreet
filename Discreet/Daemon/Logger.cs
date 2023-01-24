@@ -45,6 +45,7 @@ namespace Discreet.Daemon
         private DateTime openLogTime;
         private StreamWriter openLog;
         private string openLogPath;
+        private long bytesWritten = 0;
 
         public Logger(string logpath)
         {
@@ -57,6 +58,11 @@ namespace Discreet.Daemon
                 Directory.CreateDirectory(path);
             }
 
+            CreateLogfile();
+        }
+
+        private void CreateLogfile()
+        {
             openLogTime = DateTime.Now;
 
             openLogPath = Path.Combine(path, "log_" + $"{openLogTime.Date.Day.ToString().PadLeft(2, '0')}{openLogTime.Date.Month.ToString().PadLeft(2, '0')}{openLogTime.Date.Year.ToString().PadLeft(4, '0')}_{openLogTime.Hour.ToString().PadLeft(2, '0')}{openLogTime.Minute.ToString().PadLeft(2, '0')}{openLogTime.Second.ToString().PadLeft(2, '0')}" + ".txt");
@@ -70,6 +76,38 @@ namespace Discreet.Daemon
             }
 
             openLog = File.CreateText(openLogPath);
+        }
+
+        private void WriteToFile(string msg)
+        {
+            logger.bytesWritten += msg.Length;
+            logger.openLog.WriteLine(msg);
+            logger.openLog.Flush();
+
+            if (DaemonConfig.GetConfig().MaxLogfileSize == 0) return;
+
+            if (logger.bytesWritten > DaemonConfig.GetConfig().MaxLogfileSize)
+            {
+                logger.openLog.Close();
+
+                CreateLogfile();
+                logger.bytesWritten = 0;
+
+                if (DaemonConfig.GetConfig().MaxNumLogfiles > 0)
+                {
+                    //check whether or not to delete old logfiles
+                    var sortedFiles = new DirectoryInfo(path).GetFiles()
+                                                      .OrderByDescending(f => f.LastWriteTime)
+                                                      .ToList();
+
+                    sortedFiles.RemoveRange(0, DaemonConfig.GetConfig().MaxNumLogfiles.Value);
+
+                    foreach (var file in sortedFiles)
+                    {
+                        file.Delete();
+                    }
+                }
+            }
         }
 
 
@@ -89,8 +127,7 @@ namespace Discreet.Daemon
 
                 Logger logger = GetLogger();
 
-                logger.openLog.WriteLine(msg);
-                logger.openLog.Flush();
+                logger.WriteToFile(msg);
 
                 Console.WriteLine(msg);
             }
@@ -110,8 +147,7 @@ namespace Discreet.Daemon
 
                 if (save)
                 {
-                    logger.openLog.WriteLine(msg);
-                    logger.openLog.Flush();
+                    logger.WriteToFile(msg);
                 }
 
                 Console.WriteLine(msg);

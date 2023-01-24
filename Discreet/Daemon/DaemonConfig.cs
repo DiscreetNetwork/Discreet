@@ -197,6 +197,16 @@ namespace Discreet.Daemon
                 MintGenesis = false;
             }
 
+            if (MaxLogfileSize == null)
+            {
+                MaxLogfileSize = 10 * 1024 * 1024;
+            }
+
+            if (MaxNumLogfiles == null)
+            {
+                MaxNumLogfiles = 0;
+            }
+
             if (NetConfig == null)
             {
                 NetConfig = new NetworkConfig();
@@ -264,6 +274,9 @@ namespace Discreet.Daemon
 
         public bool? MintGenesis { get; set; }
 
+        public long? MaxLogfileSize { get; set; }
+        public int? MaxNumLogfiles { get; set; }
+
         public NetworkConfig NetConfig { get; set; }
 
         public DebugConfig DbgConfig { get; set; }
@@ -317,6 +330,9 @@ namespace Discreet.Daemon
             SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
 
             MintGenesis = false;
+
+            MaxLogfileSize = 10 * 1024 * 1024;
+            MaxNumLogfiles = 0;
 
             NetConfig = new NetworkConfig();
             DbgConfig = new DebugConfig();
