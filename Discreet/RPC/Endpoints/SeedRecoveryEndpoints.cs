@@ -25,7 +25,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _wallet = Wallets.WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
+                var _wallet = WalletsLegacy.WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (_wallet == null)
                 {
@@ -104,7 +104,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _wallet = Wallets.WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
+                var _wallet = WalletsLegacy.WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
 
                 if (_wallet == null)
                 {

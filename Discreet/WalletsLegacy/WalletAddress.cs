@@ -9,7 +9,7 @@ using Discreet.Cipher;
 using Discreet.Coin;
 using Discreet.Daemon;
 
-namespace Discreet.Wallets
+namespace Discreet.WalletsLegacy
 {
     public enum WalletType : byte
     {

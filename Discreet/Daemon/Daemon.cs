@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Coin;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 using Discreet.Common.Exceptions;
 using Discreet.Cipher;
 using System.Net;
@@ -656,8 +656,7 @@ namespace Discreet.Daemon
             
             if (IsMasternode)
             {
-                Logger.Info($"Starting minter...");
-                _ = Minter();
+                Logger.Info("Loading Master Wallet...");
 
                 if (masternodeWallet == null)
                 {
@@ -668,7 +667,9 @@ namespace Discreet.Daemon
                     masternodeWallet = wallet;
                 }
 
-                Wallets.WalletManager.Instance.Wallets.Add(masternodeWallet);
+                WalletsLegacy.WalletManager.Instance.Wallets.Add(masternodeWallet);
+                Logger.Info($"Starting minter...");
+                _ = Minter();
 
                 await Task.Delay(500);
             }

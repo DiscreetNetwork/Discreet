@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static NetMQ.NetMQSelector;
 
 namespace Discreet.DB
 {
@@ -76,7 +77,7 @@ namespace Discreet.DB
                     Directory.CreateDirectory(path);
                 }
 
-                var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies().SetKeepLogFileNum(5);
+                var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies().SetKeepLogFileNum(5).SetKeepLogFileNum(5).SetMaxTotalWalSize(5UL * 1048576000UL);
 
                 var _colFamilies = new ColumnFamilies
                 {
@@ -151,6 +152,23 @@ namespace Discreet.DB
             {
                 Daemon.Logger.Fatal($"ArchiveDB: failed to create the database: {ex}");
             }
+        }
+
+        public IEnumerable<Block> GetBlocks(long startHeight, long limit)
+        {
+            if (limit <= 0) limit = long.MaxValue;
+
+            var iter = rdb.NewIterator(cf: Blocks);
+            while (iter.Valid() && limit > 0)
+            {
+                Block block = new();
+                block.Deserialize(iter.Value());
+                iter = iter.Next();
+                limit--;
+                yield return block;
+            }
+
+            if (!iter.Valid()) iter.Dispose();
         }
 
         /// <summary>

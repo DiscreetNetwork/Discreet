@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Discreet.Coin;
 using RocksDbSharp;
 
-namespace Discreet.Wallets
+namespace Discreet.WalletsLegacy
 {
     public class WalletDB
     {
@@ -94,7 +94,7 @@ namespace Discreet.Wallets
                 Directory.CreateDirectory(path);
             }
 
-            var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies().SetKeepLogFileNum(5);
+            var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies().SetKeepLogFileNum(1).SetMaxTotalWalSize(5UL * 1048576000UL);
 
             var _colFamilies = new ColumnFamilies
                 {

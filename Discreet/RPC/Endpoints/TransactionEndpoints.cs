@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.RPC.Common;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 using Discreet.Common;
 using Discreet.Coin;
 

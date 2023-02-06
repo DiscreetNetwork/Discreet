@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Discreet.Cipher;
 
-namespace Discreet.Wallets
+namespace Discreet.WalletsLegacy
 {
     public enum UTXOType: byte
     {

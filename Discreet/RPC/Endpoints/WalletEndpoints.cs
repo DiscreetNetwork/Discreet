@@ -3,7 +3,7 @@ using Discreet.Cipher.Mnemonics;
 using Discreet.Coin;
 using Discreet.Common;
 using Discreet.RPC.Common;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -424,7 +424,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                foreach (Wallet wallet in Wallets.WalletManager.Instance.Wallets)
+                foreach (Wallet wallet in WalletsLegacy.WalletManager.Instance.Wallets)
                 {
                     wallet.RequestLock();
                 }

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Discreet.Wallets
+namespace Discreet.WalletsLegacy
 {
     public class UnsignedTX
     {

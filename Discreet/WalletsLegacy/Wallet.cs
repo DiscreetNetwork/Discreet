@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using Discreet.ZMQ;
 
-namespace Discreet.Wallets
+namespace Discreet.WalletsLegacy
 {
     /**
      * <summary>

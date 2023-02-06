@@ -121,6 +121,7 @@ namespace Discreet.DB
             chainDB = new ChainDB(Path.Join(Daemon.DaemonConfig.GetConfig().DBPath, "chain"));
         }
 
+        public IEnumerable<Block> GetBlocks(long startHeight, long limit) => chainDB.GetBlocks(startHeight, limit);
         public void AddBlockToCache(Block blk) => chainDB.AddBlockToCache(blk);
 
         public bool BlockCacheHas(Cipher.SHA256 block) => chainDB.BlockCacheHas(block);

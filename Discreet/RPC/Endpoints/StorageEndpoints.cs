@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Discreet.RPC.Common;
 using Discreet.Common;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 
 namespace Discreet.RPC.Endpoints
 {

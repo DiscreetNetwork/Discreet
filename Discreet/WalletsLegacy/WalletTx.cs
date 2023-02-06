@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using Discreet.Coin;
 using Discreet.Network;
 
-namespace Discreet.Wallets
+namespace Discreet.WalletsLegacy
 {
     public class WalletTxOutput
     {

@@ -8,6 +8,16 @@ namespace Discreet.Cipher
     public static class KeyOps
     {
         public static void GenerateKeypair(ref Key sk, ref Key pk) => Native.Native.Instance.GenerateKeypair(ref sk, ref pk);
+        public static (Key, Key) GenerateKeypair()
+        {
+            Key sk = new(new byte[32]);
+            Key pk = new(new byte[32]);
+
+            GenerateKeypair(ref sk, ref pk);
+
+            return (sk, pk);
+        }
+
         public static void ScalarmultKey(ref Key ap, ref Key p, ref Key a) => Native.Native.Instance.ScalarmultKey(ref ap, ref p, ref a);
         public static void DKSAP(ref Key R, ref Key T, ref Key pv, ref Key ps, int index) => Native.Native.Instance.DKSAP(ref R, ref T, ref pv, ref ps, index);
         public static void DKSAPRecover(ref Key t, ref Key R, ref Key sv, ref Key ss, int index) => Native.Native.Instance.DKSAPRecover(ref t, ref R, ref sv, ref ss, index);
