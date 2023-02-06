@@ -11,12 +11,12 @@ namespace Discreet.Wallets.Services
 {
     public class CreatePrivateTx : CreateTx
     {
-        public override FullTransaction CreateTransaction(Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts)
+        public override (IEnumerable<UTXO>, FullTransaction) CreateTransaction(Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts)
         {
             return CreateTransaction(false, account, addresses, amounts);
         }
 
-        private FullTransaction CreateTransaction(bool useLegacy, Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts)
+        private (IEnumerable<UTXO>, FullTransaction) CreateTransaction(bool useLegacy, Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts)
         {
             if (useLegacy) throw new Exception("legacy bulletproofs are depracated");
 
@@ -51,7 +51,7 @@ namespace Discreet.Wallets.Services
             tx.PseudoOutputs = pseudos.ToArray();
             tx.Signatures = BuildPrivateSignatures(account, utxos, inputs, pseudos, blindingFactors, signingHash).ToArray();
 
-            return tx.ToFull();
+            return (utxos, tx.ToFull());
         }
     }
 }

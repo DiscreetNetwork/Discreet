@@ -13,7 +13,7 @@ namespace Discreet.Wallets.Services
 {
     public abstract class CreateTx
     {
-        public abstract FullTransaction CreateTransaction(Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts);
+        public abstract (IEnumerable<UTXO>, FullTransaction) CreateTransaction(Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts);
 
         public static byte GetTransactionType(byte walletType, IEnumerable<IAddress> addresses)
         {

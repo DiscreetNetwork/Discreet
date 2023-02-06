@@ -11,7 +11,7 @@ namespace Discreet.Wallets.Services
 {
     public class CreateMixedTx : CreateTx
     {
-        public override FullTransaction CreateTransaction(Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts)
+        public override (IEnumerable<UTXO>, FullTransaction) CreateTransaction(Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts)
         {
             var paddrs = addresses.Zip(amounts)
                 .Where(x => x.First.Type() == (byte)AddressType.STEALTH)
@@ -29,8 +29,8 @@ namespace Discreet.Wallets.Services
 
             var utxos = GetUTXOsForTransaction(account, amounts);
 
-            if (account.Type == 0) return CreatePtoTTransaction(account, paddrs, pamounts, taddrs, tamounts, utxos);
-            else if (account.Type == 1) return CreateTtoPTransaction(account, paddrs, pamounts, taddrs, tamounts, utxos);
+            if (account.Type == 0) return (utxos, CreatePtoTTransaction(account, paddrs, pamounts, taddrs, tamounts, utxos));
+            else if (account.Type == 1) return (utxos, CreateTtoPTransaction(account, paddrs, pamounts, taddrs, tamounts, utxos));
             else throw new Exception("unknown account type");
         }
 

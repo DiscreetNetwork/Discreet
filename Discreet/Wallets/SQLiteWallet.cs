@@ -644,7 +644,7 @@ namespace Discreet.Wallets
                     {
                         lock (account.UTXOs)
                         {
-                            spents.ToList().ForEach(x => account.UTXOs.Remove(x));
+                            spents.ToList().ForEach(x => { account.UTXOs.Remove(x); account.Balance -= x.DecodedAmount; });
                         }
                         if (account.SortedUTXOs != null)
                         {
@@ -661,6 +661,7 @@ namespace Discreet.Wallets
                         lock (account.UTXOs)
                         {
                             account.UTXOs.UnionWith(utxos);
+                            utxos.ToList().ForEach(x => account.Balance += x.DecodedAmount);
                         }
                         if (account.SortedUTXOs != null)
                         {
@@ -674,6 +675,8 @@ namespace Discreet.Wallets
 
                     if (txs != null)
                     {
+
+                        txs = txs.Where(tx => !account.TxHistory.Contains(tx));
                         lock (account.TxHistory)
                         {
                             account.TxHistory.UnionWith(txs);

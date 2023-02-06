@@ -10,7 +10,7 @@ namespace Discreet.Wallets.Services
 {
     public class CreateTransparentTx : CreateTx
     {
-        public override FullTransaction CreateTransaction(Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts)
+        public override (IEnumerable<UTXO>, FullTransaction) CreateTransaction(Account account, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts)
         {
             var utxos = GetUTXOsForTransaction(account, amounts).ToArray();
             var inputs = BuildTransparentInputs(utxos).ToArray();
@@ -33,7 +33,7 @@ namespace Discreet.Wallets.Services
             tx.InnerHash = tx.SigningHash();
             tx.Signatures = BuildTransparentSignatures(account, utxos, inputs, tx.InnerHash).ToArray();
 
-            return tx.ToFull();
+            return (utxos, tx.ToFull());
         }
     }
 }
