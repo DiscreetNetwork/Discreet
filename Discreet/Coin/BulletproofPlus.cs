@@ -21,6 +21,12 @@ namespace Discreet.Coin
 
         public BulletproofPlus() { }
 
+        /// <summary>
+        /// Bulletproof creates a Coin.BulletproofPlus instance that copies the
+        /// values of the fields of a Cipher.BulletproofPlus instance. This
+        /// instance is better suited to be used in the Coin namespace.
+        /// </summary>
+        /// <param name="bp">An instance of Cipher.BulletproofPlus.</param>
         public BulletproofPlus(Cipher.BulletproofPlus bp)
         {
             A = bp.A;
@@ -42,11 +48,21 @@ namespace Discreet.Coin
             size = (uint)bp.Size();
         }
 
+        /// <summary>
+        /// Hash creates a SHA-256 hash of the serialization of the bulletproof+.
+        /// </summary>
+        /// <returns>The hash of the bulletproof+.</returns>
         public SHA256 Hash()
         {
             return SHA256.HashData(Serialize());
         }
 
+        /// <summary>
+        /// Serialize creates a byte array equivalent of the bulletproof+
+        /// instance.
+        /// </summary>
+        /// <returns>A byte array representing the serialized
+        /// bulletproof+.</returns>
         public byte[] Serialize()
         {
             byte[] bytes = new byte[L.Length * 64 + 6 * 32 + 4];
@@ -72,32 +88,72 @@ namespace Discreet.Coin
             return bytes;
         }
 
+        /// <summary>
+        /// Serialize copies this BulletproofPlus's serialized representation to
+        /// a given byte array, starting at an offset.
+        /// </summary>
+        /// <param name="bytes">A byte array that will hold a copy of the
+        /// bulletproof+ serialization.</param>
+        /// <param name="offset">The offset at which we will copy the
+        /// bulletproof+ serialization.</param>
         public void Serialize(byte[] bytes, uint offset)
         {
             byte[] _bytes = Serialize();
             Array.Copy(_bytes, 0, bytes, offset, _bytes.Length);
         }
 
+        /// <summary>
+        /// Readable encodes the bulletproof+ to a string containing an
+        /// equivalent JSON.
+        /// </summary>
         public string Readable()
         {
             return Discreet.Readable.BulletproofPlus.ToReadable(this);
         }
 
+        /// <summary>
+        /// ToReadable converts the bulletproof+ to an object containing the
+        /// bulletproof+ in JSON format.
+        /// </summary>
+        /// <returns>A readable bulletproof+.</returns>
         public object ToReadable()
         {
             return new Discreet.Readable.BulletproofPlus(this);
         }
 
+        /// <summary>
+        /// FromReadable returns a BulletproofPlus that is created from a
+        /// stringified readable bulletproof.
+        /// </summary>
+        /// <returns>A BulletproofPlus instance equivalent to the provided
+        /// JSON.</returns>
         public static BulletproofPlus FromReadable(string json)
         {
             return Discreet.Readable.BulletproofPlus.FromReadable(json);
         }
 
+        /// <summary>
+        /// Deserialize initializes the bulletproof+ from the deserialization of
+        /// a byte array contaning the data of a bulletproof+.
+        /// </summary>
+        /// <param name="bytes">A byte array that will hold a copy of the
+        /// bulletproof+ serialization.</param>
         public void Deserialize(byte[] bytes)
         {
             Deserialize(bytes, 0);
         }
 
+        /// <summary>
+        /// Deserialize initializes the bulletproof+ instance from the
+        /// deserialization of a byte array, starting from an offset, which
+        /// contains the data of a bulletproof+.
+        /// </summary>
+        /// <param name="bytes">A byte array that will hold a copy of the
+        /// bulletproof+ serialization.</param>
+        /// <param name="offset">An offset that works as the starting index for
+        /// the byte array to start the deserialization.</param>
+        /// <returns>An offset equal to the original offset, plus the length of
+        /// the deserialized bulletproof+.</returns>
         public uint Deserialize(byte[] bytes, uint offset)
         {
             size = Serialization.GetUInt32(bytes, offset);
@@ -127,6 +183,10 @@ namespace Discreet.Coin
             return offset + Size();
         }
 
+        /// <summary> Serialize populates a byte stream that contains all the
+        /// data in a BulletproofPlus transformed to bytes.
+        /// </summary>
+        /// <param name="s">A byte stream.</param>
         public void Serialize(Stream s)
         {
             Serialization.CopyData(s, size);
@@ -149,6 +209,12 @@ namespace Discreet.Coin
             }
         }
 
+        /// <summary>
+        /// Deserialize initializes the bulletproof+ instance from the
+        /// deserialization of bytes contained in a stream, which represent the
+        /// data of a bulletproof+.
+        /// </summary>
+        /// <param name="s">A byte stream.</param>
         public void Deserialize(Stream s)
         {
             size = Serialization.GetUInt32(s);
@@ -176,12 +242,21 @@ namespace Discreet.Coin
             }
         }
 
+        /// <summary>
+        /// Size calculates the size of the bulletproof+.
+        /// </summary>
+        /// <returns>The size of the bulletproof+.</returns>
         public uint Size()
         {
             return (uint)L.Length * 64 + 6 * 32 + 4;
         }
 
         /* needs to recover the commitments from tx's outputs */
+        /// <summary>
+        /// Verify verifies that a Transaction is valid by using a bulletproof+.
+        /// </summary>
+        /// <param name="tx">The transaction on which we will apply the bulletproof+.</param>
+        /// <returns>An exception, in case of an error, null otherwise.</returns>
         public VerifyException Verify(Transaction tx)
         {
             Cipher.BulletproofPlus bp = new Cipher.BulletproofPlus(this, tx.GetCommitments());
@@ -194,6 +269,11 @@ namespace Discreet.Coin
             return null;
         }
 
+        /// <summary>
+        /// Verify verifies that a FullTransaction is valid by using a bulletproof+.
+        /// </summary>
+        /// <param name="tx">The transaction on which we will apply the bulletproof+.</param>
+        /// <returns>An exception, in case of an error, null otherwise.</returns>
         public VerifyException Verify(FullTransaction tx)
         {
             Cipher.BulletproofPlus bp = new Cipher.BulletproofPlus(this, tx.GetCommitments());
@@ -206,6 +286,11 @@ namespace Discreet.Coin
             return null;
         }
 
+        /// <summary>
+        /// Verify verifies that a MixedTransaction is valid by using a bulletproof+.
+        /// </summary>
+        /// <param name="tx">The transaction on which we will apply the bulletproof+.</param>
+        /// <returns>An exception, in case of an error, null otherwise.</returns>
         public VerifyException Verify(MixedTransaction tx)
         {
             Cipher.BulletproofPlus bp = new Cipher.BulletproofPlus(this, tx.GetCommitments());

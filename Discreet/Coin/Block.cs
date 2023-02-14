@@ -6,23 +6,32 @@ using Discreet.Cipher;
 using System.IO;
 using System.Linq;
 
+/// <summary>
+/// Discreet.Coin defines the components of the Discreet blockchain.
+/// </summary>
 namespace Discreet.Coin
 {
-    /**
-     * This block class is intended for use in testnet.
-     * Blocks will, in the future, also specify position in the DAG.
-     * Global indices will be deterministically generated for the sake of DAG consistency.
-     * The current consensus among developers for amount_output_index and tx_index is generation during the addition of the head block in the DAG.
-     * All transactions in blocks in a round of consensus are added in order of timestamp, ensuring all blocks are processed.
-     * For a blockchain this simplifies to a single block addition.
-     */
-
+    /// <summary>
+    /// This block class is intended for use in testnet. Blocks will, in the
+    /// future, also specify position in the DAG. Global indices will be
+    /// deterministically generated for the sake of DAG consistency. The current
+    /// consensus among developers for amount_output_index and tx_index is
+    /// generation during the addition of the head block in the DAG. All
+    /// transactions in blocks in a round of consensus are added in order of
+    /// timestamp, ensuring all blocks are processed. For a blockchain this
+    /// simplifies to a single block addition.
+    /// </summary>
     public class Block: ICoin
     {
         public BlockHeader Header;
 
         public FullTransaction[] Transactions;
 
+        /// <summary>
+        /// Serialize returns an array that contains all the data in a Block
+        /// transformed to bytes.
+        /// </summary>
+        /// <returns>The byte array containing the Block data.</returns>
         public byte[] Serialize()
         {
             using MemoryStream _ms = new MemoryStream();
@@ -32,6 +41,11 @@ namespace Discreet.Coin
             return _ms.ToArray();
         }
 
+        /// <summary>
+        /// Serialize populates a byte stream that contains all the data in a Block
+        /// transformed to bytes.
+        /// </summary>
+        /// <param name="s">A byte stream.</param>
         public void Serialize(Stream s)
         {
             Header.Serialize(s);
@@ -42,31 +56,67 @@ namespace Discreet.Coin
             }
         }
 
+        /// <summary>
+        /// Serialize copies this Block's serialized representation to a given
+        /// byte array, starting at an offset.
+        /// </summary>
+        /// <param name="bytes">A byte array that will hold a copy of the block serialization.</param>
+        /// <param name="offset">The offset at which we will copy the block serialization.</param>
         public void Serialize(byte[] bytes, uint offset)
         {
             Array.Copy(Serialize(), 0, bytes, offset, Size());
         }
 
+        /// <summary>
+        /// Readable encodes this block to a string containing a JSON.
+        /// </summary>
         public string Readable()
         {
             return Discreet.Readable.Block.ToReadable(this);
         }
 
+        /// <summary>
+        /// ToReadable converts the block to an object containing the block
+        /// header and transactions in JSON format.
+        /// </summary>
+        /// <returns>A readable block.</returns>
         public object ToReadable()
         {
             return new Discreet.Readable.Block(this);
         }
 
+        /// <summary>
+        /// FromReadable returns a Block that is created from a stringified
+        /// readable block.
+        /// </summary>
+        /// <returns>A Block.</returns>
         public static Block FromReadable(string json)
         {
             return Discreet.Readable.Block.FromReadable(json);
         }
 
+        /// <summary>
+        /// Deserialize initializes the block instance from the deserialization
+        /// of a byte array contaning the data of a block.
+        /// </summary>
+        /// <param name="bytes">A byte array that will hold a copy of the block
+        /// serialization.</param>
         public void Deserialize(byte[] bytes)
         {
             Deserialize(bytes, 0);
         }
 
+        /// <summary>
+        /// Deserialize initializes the block instance from the deserialization
+        /// of a byte array, starting from an offset, which contains the data of
+        /// a block.
+        /// </summary>
+        /// <param name="bytes">A byte array that will hold a copy of the block
+        /// serialization.</param>
+        /// <param name="offset">An offset that works as the starting index for
+        /// the byte array to start the deserialization.</param>
+        /// <returns>An offset equal to the original offset, plus the length of
+        /// the deserialized block.</returns>
         public uint Deserialize(byte[] bytes, uint offset)
         {
             Header = new BlockHeader();
@@ -82,6 +132,11 @@ namespace Discreet.Coin
             return offset;
         }
 
+        /// <summary>
+        /// Deserialize initializes the block instance from the deserialization
+        /// of bytes contained in a stream, which represent the data of a block.
+        /// </summary>
+        /// <param name="s">A byte stream.</param>
         public void Deserialize(Stream s)
         {
             Header = new BlockHeader();
@@ -95,6 +150,11 @@ namespace Discreet.Coin
             }
         }
 
+        /// <summary>
+        /// Size calculates the size of the block, which considers the block's
+        /// header and its transactions sizes.
+        /// </summary>
+        /// <returns>The size of the block.</returns>
         public uint Size()
         {
             uint size = Header.Size();
@@ -107,7 +167,13 @@ namespace Discreet.Coin
             return size;
         }
 
-        /* for testing purposes only */
+        /// <summary>
+        /// BuildRandom creates a block with randomly created transactions. It's
+        /// intended for testing purposes only.
+        /// </summary>
+        /// <param name="addresses">An array of stealth addresses to use for creating the transactions.</param>
+        /// <param name="numOutputs">How many random transactions to add per stealth address.</param>
+        /// <returns>A block with random transactions.</returns>
         public static Block BuildRandom(StealthAddress[] addresses, int[] numOutputs)
         {
             List<FullTransaction> txs = new();
@@ -128,6 +194,18 @@ namespace Discreet.Coin
             return Build(txs, null, default);
         }
 
+        /// <summary>
+        /// BuildRandomPlus creates a block with randomly created transactions,
+        /// plus some already created transactions. It's intended for testing
+        /// purposes only.
+        /// </summary>
+        /// <param name="addresses">An array of stealth addresses to use for
+        /// creating the transactions.</param>
+        /// <param name="numOutputs">How many random transactions to add per
+        /// stealth address.</param>
+        /// <param name="txExtras">A list of initial transactions for the
+        /// block.</param>
+        /// <returns>A block with random transactions.</returns>
         public static Block BuildRandomPlus(StealthAddress[] addresses, int[] numOutputs, List<FullTransaction> txExtras)
         {
             List<FullTransaction> txs = txExtras;
@@ -148,6 +226,14 @@ namespace Discreet.Coin
             return Build(txs, null, default);
         }
 
+        /// <summary>
+        /// Build mints a new block, given a list of transactions, a miner and a
+        /// signing key.
+        /// </summary>
+        /// <param name="txs">A list of transactions to be added to the block.</param>
+        /// <param name="miner">The address responsible for minting the new block.</param>
+        /// <param name="signingKey">A key used for signing the new block.</param>
+        /// <returns>A new block.</returns>
         public static Block Build(List<FullTransaction> txs, StealthAddress miner, Key signingKey)
         {
             Block block = new Block
@@ -248,6 +334,14 @@ namespace Discreet.Coin
             return block;
         }
 
+        /// <summary>
+        /// BuildGenesis mints the genesis block of the blockchain.
+        /// </summary>
+        /// <param name="addresses">An array of stealth addresses that will hold the initial coins.</param>
+        /// <param name="values">The amount of coins to set for each address.</param>
+        /// <param name="numDummy">Number of dummy outputs created for obfuscating real outputs.</param>
+        /// <param name="signingKey">The genesis block signing key.</param>
+        /// <returns>The genesis block.</returns>
         public static Block BuildGenesis(StealthAddress[] addresses, ulong[] values, int numDummy, Key signingKey)
         {
             List<FullTransaction> txs = new();
@@ -299,6 +393,13 @@ namespace Discreet.Coin
             return Build(txs, null, signingKey);
         }
 
+        /// <summary>
+        /// GetMerkleRoot constructs a Merkle root using a list of transactions
+        /// for the leafs of the Merkle tree.
+        /// </summary>
+        /// <param name="txs">A list of transactions to be hashed to construct
+        /// the Merkle tree.</param>
+        /// <returns>The Merkle root of the transactions given.</returns>
         public static SHA256 GetMerkleRoot(List<FullTransaction> txs)
         {
             List<SHA256> hashes = new();
@@ -316,6 +417,11 @@ namespace Discreet.Coin
             return hashes[0];
         }
 
+        /// <summary>
+        /// GetMerkleRoot constructs a Merkle root using the block's
+        /// transactions for the leafs of the Merkle tree.
+        /// </summary>
+        /// <returns>The Merkle root of the block's transactions.</returns>
         public SHA256 GetMerkleRoot()
         {
 
@@ -336,6 +442,11 @@ namespace Discreet.Coin
             return hashes[0];
         }
 
+        /// <summary>
+        /// GetMerkleRoot constructs a Merkle root using a list of hashes as the
+        /// leafs of the Merkle tree.
+        /// </summary>
+        /// <returns>The Merkle root of the given hashes.</returns>
         private static List<SHA256> GetMerkleRoot(List<SHA256> hashes)
         {
             List<SHA256> newHashes = new();
@@ -356,25 +467,30 @@ namespace Discreet.Coin
             return newHashes;
         }
 
+        /// <summary>
+        /// Hash hashes the block's header.
+        /// </summary>
+        /// <returns>The hash of the block's header.</returns>
         public SHA256 Hash()
         {
             return Header.Hash();
         }
 
+        /// <summary>
+        /// Verify does the following:
+        /// - ensures Height is equal to db.GetChainHeight() + 1
+        /// - ensures MerkleRoot is proper
+        /// - ensures PreviousBlock is the result of db.GetBlock(block.Height - 1).BlockHash
+        /// - ensures BlockHash is proper
+        /// - ensures BlockSize, NumOutputs, NumTXs, and Fee are proper
+        /// - verifies all transactions in the block
+        ///
+        /// Verify() should be used for full blocks only. Validating previous blocks
+        /// is not needed, as blocks are always processed in order.
+        /// </summary>
+        /// <returns>An exception, in case of an error, null otherwise.</returns>
         public VerifyException Verify()
         {
-            /* Verify does the following:
-             *   - ensures Height is equal to db.GetChainHeight() + 1
-             *   - ensures MerkleRoot is proper
-             *   - ensures PreviousBlock is the result of db.GetBlock(block.Height - 1).BlockHash
-             *   - ensures BlockHash is proper
-             *   - ensures BlockSize, NumOutputs, NumTXs, and Fee are proper
-             *   - verifies all transactions in the block
-             *   
-             * Verify() should be used for full blocks only. Validating previous blocks 
-             * is not needed, as blocks are always processed in order.
-             */
-
             DB.DataView dataView = DB.DataView.GetView();
 
             if (Header.Version != 1 && Header.Version != 2)
@@ -522,6 +638,11 @@ namespace Discreet.Coin
             return null;
         }
 
+        /// <summary>
+        /// CheckSignature checks that the block signature is valid and that
+        /// it's coming from a master node.
+        /// </summary>
+        /// <returns>True if the block signature is valid, false otherwise.</returns>
         public bool CheckSignature()
         {
             if (Header.Extra == null || Header.Extra.Length != 96) return false;
@@ -530,6 +651,13 @@ namespace Discreet.Coin
             return sig.Verify(Header.BlockHash) && IsMasternode(sig.y);
         }
 
+        /// <summary>
+        /// IsMasternode checks if the provided signing key belongs to the
+        /// masternode or not.
+        /// </summary>
+        /// <param name="k">The signing key to check.</param>
+        /// <returns>True if the signing key is from the master node, false
+        /// otherwise.</returns>
         public static bool IsMasternode(Key k)
         {
             //TODO: Implement hardcoded masternode IDs
