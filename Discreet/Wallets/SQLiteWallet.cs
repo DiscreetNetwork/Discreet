@@ -1131,7 +1131,7 @@ namespace Discreet.Wallets
                     acc.EncryptAccountPrivateKeys(newWallet.Entropy);
                     acc.DecryptAccountPrivateKeys(newWallet.Entropy);
 
-                    acc.Balance = lacc.Balance;
+                    acc.Balance = resync ? 0 : lacc.Balance;
                     acc.UTXOs = new();
                     acc.TxHistory = new();
 

@@ -13,6 +13,7 @@ using Discreet.DB;
 using System.Security.Principal;
 using Discreet.Wallets.Comparers;
 using System.Drawing;
+using System.Collections.Concurrent;
 
 namespace Discreet.Wallets.Extensions
 {
@@ -388,7 +389,7 @@ namespace Discreet.Wallets.Extensions
         {
             HashSet<UTXO> unspents = null;
             Dictionary<SHA256, HistoryTx> htxs = null;
-            Queue<HistoryTx> newHtxs = new Queue<HistoryTx>();
+            ConcurrentQueue<HistoryTx> newHtxs = new();
 
             if (unspentsAndHtxs.Any())
             {
