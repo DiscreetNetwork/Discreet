@@ -29,7 +29,7 @@ namespace Discreet.Network.Core.Packets
 
         public void Deserialize(byte[] b, uint offset)
         {
-            Count = Coin.Serialization.GetUInt32(b, offset);
+            Count = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
             Inventory = new InventoryVector[Count];
@@ -38,7 +38,7 @@ namespace Discreet.Network.Core.Packets
             {
                 Inventory[i] = new InventoryVector
                 {
-                    Type = (ObjectType)Coin.Serialization.GetUInt32(b, offset),
+                    Type = (ObjectType)Common.Serialization.GetUInt32(b, offset),
                     Hash = new Cipher.SHA256(b, offset + 4)
                 };
                 offset += 36;
@@ -50,7 +50,7 @@ namespace Discreet.Network.Core.Packets
             byte[] uintbuf = new byte[4];
 
             s.Read(uintbuf);
-            Count = Coin.Serialization.GetUInt32(uintbuf, 0);
+            Count = Common.Serialization.GetUInt32(uintbuf, 0);
 
             Inventory = new InventoryVector[Count];
 
@@ -62,7 +62,7 @@ namespace Discreet.Network.Core.Packets
                 s.Read(hashbuf);
                 Inventory[i] = new InventoryVector
                 {
-                    Type = (ObjectType)Coin.Serialization.GetUInt32(uintbuf, 0),
+                    Type = (ObjectType)Common.Serialization.GetUInt32(uintbuf, 0),
                     Hash = new Cipher.SHA256(hashbuf, false),
                 };
             }
@@ -70,12 +70,12 @@ namespace Discreet.Network.Core.Packets
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Coin.Serialization.CopyData(b, offset, Count);
+            Common.Serialization.CopyData(b, offset, Count);
             offset += 4;
 
             foreach (InventoryVector v in Inventory)
             {
-                Coin.Serialization.CopyData(b, offset, (uint)v.Type);
+                Common.Serialization.CopyData(b, offset, (uint)v.Type);
                 Array.Copy(v.Hash.Bytes, 0, b, offset + 4, 32);
                 offset += 36;
             }
@@ -85,11 +85,11 @@ namespace Discreet.Network.Core.Packets
 
         public void Serialize(Stream s)
         {
-            s.Write(Coin.Serialization.UInt32(Count));
+            s.Write(Common.Serialization.UInt32(Count));
 
             foreach (InventoryVector v in Inventory)
             {
-                s.Write(Coin.Serialization.UInt32((uint)v.Type));
+                s.Write(Common.Serialization.UInt32((uint)v.Type));
                 s.Write(v.Hash.Bytes);
             }
         }

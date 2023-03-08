@@ -15,6 +15,7 @@ namespace Discreet.Wallets.Extensions
         {
             UTXO toTest = new UTXO
             {
+                Type = 0,
                 LinkingTag = input.KeyImage,
             };
 
@@ -25,6 +26,7 @@ namespace Discreet.Wallets.Extensions
         {
             UTXO toTest = new UTXO
             {
+                Type = 0,
                 LinkingTag = input.KeyImage,
             };
 
@@ -35,6 +37,7 @@ namespace Discreet.Wallets.Extensions
         {
             UTXO toTest = new UTXO
             {
+                Type = 1,
                 TransactionSrc = input.TxSrc,
                 Index = input.Offset
             };
@@ -46,6 +49,7 @@ namespace Discreet.Wallets.Extensions
         {
             UTXO toTest = new UTXO
             {
+                Type = 1,
                 TransactionSrc = input.TxSrc,
                 Index = input.Offset
             };

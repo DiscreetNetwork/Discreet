@@ -19,10 +19,10 @@ namespace Discreet.Wallets.Models
         [JsonIgnore]
         public HashSet<HistoryTx> TxHistory { get; set; }
 
-        public Key PubKey { get; set; }
+        public Key? PubKey { get; set; }
 
-        public Key PubSpendKey { get; set; }
-        public Key PubViewKey { get; set; }
+        public Key? PubSpendKey { get; set; }
+        public Key? PubViewKey { get; set; }
 
         public byte Type { get; set; }
         public bool Deterministic { get; set; }
@@ -33,14 +33,14 @@ namespace Discreet.Wallets.Models
 
         public SQLiteWallet Wallet;
 
-        public ulong Balance;
+        public ulong Balance = 0;
 
         public Key SecKey;
 
         public Key SecSpendKey;
         public Key SecViewKey;
 
-        public bool Encrypted;
-        public bool Syncing;
+        public bool Encrypted = false;
+        public bool Syncing = false;
     }
 }

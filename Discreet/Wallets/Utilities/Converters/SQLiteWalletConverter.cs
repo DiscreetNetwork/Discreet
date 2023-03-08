@@ -41,6 +41,15 @@ namespace Discreet.Wallets.Utilities.Converters
                         case "LastSeenHeight":
                             wallet.SetLastSeenHeight(reader.GetInt64());
                             break;
+                        case "Encrypted":
+                            wallet.Encrypted = reader.GetBoolean();
+                            break;
+                        case "Locked":
+                            wallet.IsEncrypted = reader.GetBoolean();
+                            break;
+                        case "EntropyChecksum":
+                            wallet.EntropyChecksum = new Cipher.SHA256(Common.Printable.Byteify(reader.GetString()), false);
+                            break;
                         case "Accounts":
                             if (reader.TokenType != JsonTokenType.StartArray) throw new JsonException();
                             while (reader.Read())
@@ -66,8 +75,12 @@ namespace Discreet.Wallets.Utilities.Converters
             writer.WriteString("Label", value.Label);
             writer.WriteString("CoinName", value.CoinName);
             writer.WriteString("Version", value.Version);
-            writer.WriteString("Timestamp", new DateTime((long)value.Timestamp).ToString());
+            writer.WriteBoolean("Encrypted", value.Encrypted);
+            writer.WriteBoolean("Locked", value.IsEncrypted);
+            writer.WriteString("EntropyChecksum", value.EntropyChecksum.ToHex());
+            writer.WriteNumber("Timestamp", value.Timestamp);
             writer.WriteNumber("LastSeenHeight", value.GetLastSeenHeight());
+            writer.WritePropertyName("Accounts");
             writer.WriteStartArray();
             value.Accounts.ForEach(acc => writer.WriteStringValue(acc.Address));
             writer.WriteEndArray();

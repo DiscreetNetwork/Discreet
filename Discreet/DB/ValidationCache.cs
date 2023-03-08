@@ -1,4 +1,6 @@
 ﻿using Discreet.Coin;
+using Discreet.Common;
+using Discreet.Common.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Linq;

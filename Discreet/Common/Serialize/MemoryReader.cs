@@ -2,7 +2,7 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
-namespace Discreet.Common.Serialization
+namespace Discreet.Common.Serialize
 {
     public ref struct MemoryReader
     {

@@ -6,13 +6,34 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Cipher;
-using Discreet.Coin;
+using Discreet.Common;
 using Discreet.Wallets.Models;
 
 namespace Discreet.Wallets.Utilities
 {
     public static class EncryptionUtil
     {
+        public static bool CheckPassword(SHA256 checksum, string passphrase)
+        {
+            byte[] entropyEncryptionKey = new byte[32];
+            byte[] passhash = SHA512.HashData(SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
+            KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
+
+            SHA256 entropyChecksum = SHA256.HashData(SHA256.HashData(entropyEncryptionKey).Bytes);
+            var rv = false;
+
+            if (entropyChecksum == checksum)
+            {
+                rv = true;
+            }
+
+            Array.Clear(entropyEncryptionKey);
+            Array.Clear(entropyChecksum.Bytes);
+            Array.Clear(passhash);
+
+            return rv;
+        }
+
         public static byte[] DecryptEntropy(this byte[] encryptedEntropy, SHA256 checksum, string passphrase)
         {
             byte[] entropyEncryptionKey = new byte[32];
@@ -104,33 +125,59 @@ namespace Discreet.Wallets.Utilities
 
         public static void DecryptAccountPrivateKeys(this Account account, byte[] encryptionKey)
         {
-            (CipherObject cipherObjSecKeyMaterial, byte[] encryptedSecKeyMaterial) = CipherObject.GetFromPrependedArray(encryptionKey, account.EncryptedSecKeyMaterial);
-            byte[] secKeyMaterial = AESCBC.Decrypt(encryptedSecKeyMaterial, cipherObjSecKeyMaterial);
+            (Key spend, Key view, Key sec) = account.DecryptPrivateKeys(encryptionKey);
 
             if (account.Type == 0)
             {
-                account.SecSpendKey = new(new byte[32]);
-                account.SecViewKey = new(new byte[32]);
-                Array.Copy(secKeyMaterial, account.SecSpendKey.bytes, account.SecSpendKey.bytes.Length);
-                Array.Copy(secKeyMaterial, account.SecSpendKey.bytes.Length, account.SecViewKey.bytes, 0, account.SecViewKey.bytes.Length);
+                account.SecSpendKey = spend;
+                account.SecViewKey = view;
             }
             else if (account.Type == 1)
             {
-                account.SecKey = new(new byte[32]);
-                Array.Copy(secKeyMaterial, account.SecKey.bytes, account.SecKey.bytes.Length);
+                account.SecKey = sec;
             }
             else
             {
                 throw new FormatException(nameof(account));
             }
+        }
 
-            Array.Clear(encryptedSecKeyMaterial);
-            Array.Clear(secKeyMaterial);
+        public static (Key Spend, Key View, Key Sec) DecryptPrivateKeys(this Account account, byte[] encryptionKey)
+        {
+            (CipherObject cipherObjSecKeyMaterial, byte[] encryptedSecKeyMaterial) = CipherObject.GetFromPrependedArray(encryptionKey, account.EncryptedSecKeyMaterial);
+            byte[] secKeyMaterial = AESCBC.Decrypt(encryptedSecKeyMaterial, cipherObjSecKeyMaterial);
+
+            if (account.Type == 0)
+            {
+                var spend = new Key(new byte[32]);
+                var view = new Key(new byte[32]);
+                Array.Copy(secKeyMaterial, spend.bytes, view.bytes.Length);
+                Array.Copy(secKeyMaterial, spend.bytes.Length, view.bytes, 0, view.bytes.Length);
+
+                Array.Clear(encryptedSecKeyMaterial);
+                Array.Clear(secKeyMaterial);
+
+                return (spend, view, default);
+            }
+            else if (account.Type == 1)
+            {
+                var sec = new Key(new byte[32]);
+                Array.Copy(secKeyMaterial, sec.bytes, sec.bytes.Length);
+
+                Array.Clear(encryptedSecKeyMaterial);
+                Array.Clear(secKeyMaterial);
+
+                return (default, default, sec);
+            }
+            else
+            {
+                throw new FormatException(nameof(account));
+            }
         }
 
         public static void EncryptUTXOs(this Account account)
         {
-            foreach (var utxo in account.UTXOs)
+            account.UTXOs.AsParallel().AsUnordered().ForAll(utxo =>
             {
                 if (utxo.Type == 0)
                 {
@@ -139,16 +186,16 @@ namespace Discreet.Wallets.Utilities
                 }
 
                 utxo.Encrypted = true;
-            }
+            });
         }
 
         public static void DecryptUTXOs(this Account account)
         {
-            foreach (var utxo in account.UTXOs)
+            account.UTXOs.AsParallel().AsUnordered().ForAll(utxo =>
             {
                 if (utxo.Type == 0)
                 {
-                    Key txk = utxo.TransactionKey;
+                    Key txk = utxo.TransactionKey.Value;
 
                     if (utxo.IsCoinbase)
                     {
@@ -156,7 +203,7 @@ namespace Discreet.Wallets.Utilities
                     }
                     else
                     {
-                        utxo.DecodedAmount = KeyOps.GenAmountMask(ref txk, ref account.SecViewKey, utxo.DecodeIndex ?? 0, utxo.Amount);
+                        utxo.DecodedAmount = KeyOps.GenAmountMaskRecover(ref txk, ref account.SecViewKey, utxo.DecodeIndex ?? 0, utxo.Amount);
                     }
 
                     utxo.UXSecKey = new(new byte[32]);
@@ -178,8 +225,10 @@ namespace Discreet.Wallets.Utilities
                     throw new FormatException();
                 }
 
+                if (utxo.Account == null) utxo.Account = account;
+
                 utxo.Encrypted = false;
-            }
+            });
         }
 
         private static byte[] GetTxHistoryEncryptionKey(this Account account)
@@ -232,7 +281,8 @@ namespace Discreet.Wallets.Utilities
 
                     var txRawDataEncryptionKey = account.GetTxHistoryEncryptionKey();
                     CipherObject cipherObjTxRawData = AESCBC.GenerateCipherObject(txRawDataEncryptionKey);
-                    tx.EncryptedRawData = AESCBC.Encrypt(ms.ToArray(), cipherObjTxRawData);
+                    var txEncryptedRawData = AESCBC.Encrypt(ms.ToArray(), cipherObjTxRawData);
+                    tx.EncryptedRawData = cipherObjTxRawData.PrependIV(txEncryptedRawData);
                     Array.Clear(txRawDataEncryptionKey);
                 }
 
@@ -253,7 +303,7 @@ namespace Discreet.Wallets.Utilities
 
         public static void EncryptHistoryTxs(this Account account, IEnumerable<HistoryTx> txs)
         {
-            txs.ToList().ForEach(tx =>
+            txs.AsParallel().AsUnordered().ForAll(tx =>
             {
                 if (tx.EncryptedRawData == null)
                 {
@@ -275,16 +325,19 @@ namespace Discreet.Wallets.Utilities
 
                     var txRawDataEncryptionKey = account.GetTxHistoryEncryptionKey();
                     CipherObject cipherObjTxRawData = AESCBC.GenerateCipherObject(txRawDataEncryptionKey);
-                    tx.EncryptedRawData = AESCBC.Encrypt(ms.ToArray(), cipherObjTxRawData);
+                    var txEncryptedRawData = AESCBC.Encrypt(ms.ToArray(), cipherObjTxRawData);
+                    tx.EncryptedRawData = cipherObjTxRawData.PrependIV(txEncryptedRawData);
                     Array.Clear(txRawDataEncryptionKey);
                 }
             });
         }
 
-        public static void DecryptHistoryTxs(this Account account)
+        public static void DecryptHistoryTxs(this Account account) => DecryptHistoryTxs(account, account.TxHistory);
+
+        public static void DecryptHistoryTxs(this Account account, IEnumerable<HistoryTx> txs)
         {
             var txRawDataEncryptionKey = account.GetTxHistoryEncryptionKey();
-            foreach (var tx in account.TxHistory)
+            txs.AsParallel().AsUnordered().ForAll(tx =>
             {
                 (var cipherObjTxRawData, var txEncryptedRawData) = CipherObject.GetFromPrependedArray(txRawDataEncryptionKey, tx.EncryptedRawData);
                 var txRawData = AESCBC.Decrypt(txEncryptedRawData, cipherObjTxRawData);
@@ -314,7 +367,7 @@ namespace Discreet.Wallets.Utilities
                 }
 
                 Array.Clear(txEncryptedRawData);
-            }
+            });
 
             Array.Clear(txRawDataEncryptionKey);
         }

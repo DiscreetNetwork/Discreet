@@ -6,6 +6,8 @@ using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
 using System.IO;
+using Discreet.Common;
+using Discreet.Common.Exceptions;
 
 namespace Discreet.Coin.Transparent
 {

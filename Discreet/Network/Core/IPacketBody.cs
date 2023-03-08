@@ -20,7 +20,7 @@ namespace Discreet.Network.Core
             using MemoryStream _ms = new MemoryStream();
             Serialize(_ms);
 
-            uint _checksum = Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(_ms.ToArray())), 0);
+            uint _checksum = Common.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(_ms.ToArray())), 0);
 
             return _checksum;
         }

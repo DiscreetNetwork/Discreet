@@ -10,6 +10,9 @@ using System.Text;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using Discreet.DB;
+using System.Security.Principal;
+using Discreet.Wallets.Comparers;
+using System.Drawing;
 
 namespace Discreet.Wallets.Extensions
 {
@@ -33,7 +36,7 @@ namespace Discreet.Wallets.Extensions
 
                     if (Coinbase.Outputs[0].UXKey.Equals(outputPubKey))
                     {
-                        utxos.Add(new UTXO
+                        var utxo = new UTXO
                         {
                             Address = account.Address,
                             Type = 0,
@@ -49,7 +52,10 @@ namespace Discreet.Wallets.Extensions
                             LinkingTag = KeyOps.GenerateLinkingTag(ref outputSecKey),
                             Encrypted = false,
                             Account = account
-                        });
+                        };
+
+                        utxo.Index = ViewProvider.GetDefaultProvider().GetOutputIndices(Coinbase.TxID)[0];
+                        utxos.Add(utxo);
 
                         txs.Add(new HistoryTx
                         {
@@ -91,6 +97,7 @@ namespace Discreet.Wallets.Extensions
             bool tToP = (transaction.Version == 4 && transaction.NumTInputs > 0 && transaction.NumPOutputs > 0);
             List<UTXO> newSpents = new();
             List<(UTXO, int)> newUtxo = new();
+            List<UTXO> newTutxo = new();
 
             if (account.Type == 0 && transaction.PInputs != null)
             {
@@ -120,7 +127,7 @@ namespace Discreet.Wallets.Extensions
                 Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref transaction.TransactionKey, ref account.SecViewKey) : default;
                 for (int i = 0; i < transaction.POutputs.Length; i++)
                 {
-                    var pubkey = account.PubSpendKey;
+                    var pubkey = account.PubSpendKey.Value;
                     if (KeyOps.CheckForBalance(ref cscalar, ref pubkey, ref transaction.POutputs[i].UXKey, i))
                     {
                         var outputSecKey = KeyOps.DKSAPRecover(ref transaction.TransactionKey, ref account.SecViewKey, ref account.SecSpendKey, i);
@@ -136,7 +143,7 @@ namespace Discreet.Wallets.Extensions
                             Commitment = transaction.POutputs[i].Commitment,
                             DecodeIndex = i,
                             TransactionKey = transaction.TransactionKey,
-                            DecodedAmount = KeyOps.GenAmountMask(ref transaction.TransactionKey, ref account.SecViewKey, i, transaction.POutputs[i].Amount),
+                            DecodedAmount = KeyOps.GenAmountMaskRecover(ref transaction.TransactionKey, ref account.SecViewKey, i, transaction.POutputs[i].Amount),
                             LinkingTag = KeyOps.GenerateLinkingTag(ref outputSecKey),
                             Encrypted = false,
                             Account = account
@@ -162,25 +169,28 @@ namespace Discreet.Wallets.Extensions
                             TransactionSrc = transaction.TxID,
                             Amount = transaction.TOutputs[i].Amount,
                             DecodeIndex = i,
+                            Index = (uint)i,
                             DecodedAmount = transaction.TOutputs[i].Amount,
                             Encrypted = false,
                             Account = account
                         };
 
-                        utxos.Add(utxo);
+                        newTutxo.Add(utxo);
                     }
                 }
             }
 
-            if (!account.TxHistory.Contains(transaction.TxID))
+            if (!account.TxHistory.Contains(transaction.TxID) && (newSpents.Count > 0 || newUtxo.Count > 0 || newTutxo.Count > 0))
             {
                 txs.Add(AddTransactionToHistory(account, transaction, newSpents, newUtxo, new DateTime(timestamp).ToLocalTime().Ticks));
             }
 
-            spents.AddRange(newUtxo.Select(x => x.Item1));
+            utxos.AddRange(newUtxo.Select(x => x.Item1));
+            utxos.AddRange(newTutxo);
+            spents.AddRange(newSpents);
         }
 
-        public static HistoryTx AddTransactionToHistory(this Account account, FullTransaction tx, List<UTXO> spents, List<(UTXO, int)> unspents, long timestamp)
+        public static HistoryTx AddTransactionToHistory(this Account account, FullTransaction tx, IEnumerable<UTXO> spents, IEnumerable<(UTXO, int)> unspents, long timestamp)
         {
             List<ulong> inputAmounts = new List<ulong>();
             List<ulong> outputAmounts = new List<ulong>();
@@ -253,8 +263,8 @@ namespace Discreet.Wallets.Extensions
 
                     if (!_added)
                     {
-                        inputAmounts.Add(0);
-                        inputAddresses.Add("Unknown");
+                        outputAmounts.Add(0);
+                        outputAddresses.Add("Unknown");
                     }
                 }
                 else
@@ -266,6 +276,338 @@ namespace Discreet.Wallets.Extensions
 
             HistoryTx htx = new HistoryTx(account, tx.TxID, inputAmounts.ToArray(), inputAddresses.ToArray(), outputAmounts.ToArray(), outputAddresses.ToArray(), timestamp);
             return htx;
+        }
+
+        public static void ConstructHistoryTxInputs(this HistoryTx htx, Account account, FullTransaction tx, IEnumerable<UTXO> spents)
+        {
+            var numTInputs = tx.TInputs == null ? 0 : tx.TInputs.Length;
+            var numPInputs = tx.PInputs == null ? 0 : tx.PInputs.Length;
+
+            for (int i = 0; i < numPInputs; i++)
+            {
+                if (account.Type == (byte)AddressType.STEALTH)
+                {
+                    foreach (var utxo in spents)
+                    {
+                        if (tx.PInputs[i].KeyImage == utxo.LinkingTag)
+                        {
+                            htx.Inputs[numTInputs + i].Amount = utxo.DecodedAmount;
+                            htx.Inputs[numTInputs + i].Address = account.Address;
+                        }
+                    }
+                }
+            }
+        }
+
+        public static HistoryTx ConstructHistoryTxOutputs(FullTransaction tx, Account account, ulong timestamp, IEnumerable<(UTXO, uint)> unspents)
+        {
+            List<ulong> inputAmounts = new List<ulong>();
+            List<string> inputAddresses = new List<string>();
+            List<ulong> outputAmounts = new List<ulong>();
+            List<string> outputAddresses = new List<string>();
+
+            var numTInputs = tx.TInputs == null ? 0 : tx.TInputs.Length;
+            var numPInputs = tx.PInputs == null ? 0 : tx.PInputs.Length;
+            var numTOutputs = tx.TOutputs == null ? 0 : tx.TOutputs.Length;
+            var numPOutputs = tx.POutputs == null ? 0 : tx.POutputs.Length;
+
+            for (int i = 0; i < numTInputs; i++)
+            {
+                //TODO: remember to unpack transparent.txinputs for SPV (part of refactor)
+                var _input = ViewProvider.GetDefaultProvider().MustGetPubOutput(tx.TInputs[i]);
+                inputAmounts.Add(_input.Amount);
+                inputAddresses.Add(_input.Address.ToString());
+            }
+
+            for (int i = 0; i < numPInputs; i++)
+            {
+                inputAmounts.Add(0);
+                inputAddresses.Add("Unknown");
+            }
+
+            for (int i = 0; i < numTOutputs; i++)
+            {
+                outputAmounts.Add(tx.TOutputs[i].Amount);
+                outputAddresses.Add(tx.TOutputs[i].Address.ToString());
+            }
+
+            for (int i = 0; i < numPOutputs; i++)
+            {
+                if (account.Type == (byte)AddressType.STEALTH)
+                {
+                    bool _added = false;
+
+                    foreach (var utxo in unspents)
+                    {
+                        if (i == utxo.Item2)
+                        {
+                            outputAmounts.Add(utxo.Item1.DecodedAmount);
+                            outputAddresses.Add(account.Address);
+                            _added = true;
+                        }
+                    }
+
+                    if (!_added)
+                    {
+                        outputAmounts.Add(0);
+                        outputAddresses.Add("Unknown");
+                    }
+                }
+                else
+                {
+                    outputAmounts.Add(0);
+                    outputAddresses.Add("Unknown");
+                }
+            }
+
+            return new HistoryTx
+            {
+                Address = account.Address,
+                TxID = tx.TxID,
+                Timestamp = new DateTime((long)timestamp).ToLocalTime().Ticks,
+                Account = account,
+                Inputs = inputAddresses.Zip(inputAmounts).Select(x => new HistoryTxOutput { Address = x.First, Amount = x.Second }).ToList(),
+                Outputs = outputAddresses.Zip(outputAmounts).Select(x => new HistoryTxOutput { Address = x.First, Amount = x.Second}).ToList()
+            };
+        }
+
+        public static (IEnumerable<UTXO>? spents, IEnumerable<UTXO>? utxos, IEnumerable<HistoryTx>? htxs) ProcessBlocks(this Account account, IEnumerable<Block> blocks)
+        {
+            List<UTXO> utxos = new();
+            List<HistoryTx> htxs = new();
+            List<UTXO> spents = new();
+
+            if (account.Encrypted) throw new Exception("account is encrypted");
+
+            IEnumerable<(ulong, FullTransaction)> txs = blocks.SelectMany(x => Enumerable.Repeat(x.Header.Timestamp, (int)x.Header.NumTXs).Zip(x.Transactions));
+            var beginUnspents = ProcessTxsForOutputs(account, txs);
+            return ProcessTxsForInputs(account, txs, beginUnspents);
+        }
+
+        public static (IEnumerable<UTXO>? spents, IEnumerable<UTXO>? utxos, IEnumerable<HistoryTx>? htxs) ProcessTxsForInputs(this Account account, IEnumerable<(ulong, FullTransaction)> txs, IEnumerable<(IEnumerable<UTXO> unspents, HistoryTx htx)> unspentsAndHtxs)
+        {
+            HashSet<UTXO> unspents = null;
+            Dictionary<SHA256, HistoryTx> htxs = null;
+            Queue<HistoryTx> newHtxs = new Queue<HistoryTx>();
+
+            if (unspentsAndHtxs.Any())
+            {
+                unspents = new(unspentsAndHtxs.SelectMany(x => x.unspents), new UTXOEqualityComparer());
+                htxs = unspentsAndHtxs.Select(x => x.htx).ToDictionary(x => x.TxID, new SHA256EqualityComparer());
+            }
+            if (account.Type == 0)
+            {
+                lock (account.UTXOs)
+                {
+                    var spents = txs.AsParallel().AsUnordered().SelectMany(tx =>
+                    {
+                        List<UTXO> spents = null;
+                        bool existingHtx = false;
+                        if (tx.Item2.NumPInputs > 0)
+                        {
+                            foreach (var pin in tx.Item2.PInputs)
+                            {
+                                bool contained = account.UTXOs.TryGetValue(pin, out var utxo);
+                                if (contained)
+                                {
+                                    spents ??= new();
+                                    if (htxs is not null && htxs.ContainsKey(tx.Item2.TxID))
+                                    {
+                                        existingHtx = true;
+                                    }
+                                    spents.Add(utxo);
+                                }
+                                else if (unspents is not null && unspents.TryGetValue(pin, out utxo))
+                                {
+                                    spents ??= new();
+                                    lock (unspents) unspents.Remove(utxo);
+                                    //spents.Add(utxo);
+                                }
+                            }
+
+                            if (spents is not null)
+                            {
+                                if (existingHtx) htxs[tx.Item2.TxID].ConstructHistoryTxInputs(account, tx.Item2, spents);
+                                else
+                                {
+                                    newHtxs.Enqueue(AddTransactionToHistory(account, tx.Item2, spents, Array.Empty<(UTXO, int)>(), new DateTime((long)tx.Item1).ToLocalTime().Ticks));
+                                }
+                            }
+                        }
+
+                        return spents ?? (IEnumerable<UTXO>)Array.Empty<UTXO>();
+                    }).ToList();
+
+                    var htxret = htxs == null ? (newHtxs.Count == 0 ? null : newHtxs) : htxs.Values.Concat(newHtxs);
+                    return (spents.Any() ? spents : null, unspents, htxret);
+                }
+            }
+            else if (account.Type == 1)
+            {
+                lock (account.UTXOs)
+                {
+                    var spents = txs.AsParallel().AsUnordered().SelectMany(tx =>
+                    {
+                        List<UTXO> spents = null;
+                        bool existingHtx = false;
+                        if (tx.Item2.NumTInputs > 0)
+                        {
+                            foreach (var tin in tx.Item2.TInputs)
+                            {
+                                bool contained = account.UTXOs.TryGetValue(tin, out var utxo);
+                                if (contained)
+                                {
+                                    spents ??= new();
+                                    if (htxs is not null && htxs.ContainsKey(tx.Item2.TxID))
+                                    {
+                                        existingHtx = true;
+                                    }
+                                    spents.Add(utxo);
+                                }
+                                else if (unspents is not null && unspents.TryGetValue(tin, out utxo))
+                                {
+                                    spents ??= new();
+                                    lock (unspents) unspents.Remove(utxo);
+                                    //spents.Add(utxo); WE REMOVED ALREADY
+                                }
+                            }
+
+                            if (spents is not null)
+                            {
+                                if (!existingHtx)
+                                {
+                                    newHtxs.Enqueue(AddTransactionToHistory(account, tx.Item2, spents, Array.Empty<(UTXO, int)>(), new DateTime((long)tx.Item1).ToLocalTime().Ticks));
+                                }
+                            }
+                        }
+
+                        return spents ?? (IEnumerable<UTXO>)Array.Empty<UTXO>();
+                    }).ToList();
+
+                    var htxret = htxs == null ? (newHtxs.Count == 0 ? null : newHtxs) : htxs.Values.Concat(newHtxs);
+                    return (spents.Any() ? spents : null, unspents, htxret);
+                }
+            }
+            else throw new FormatException(nameof(account));
+        }
+
+        public static IEnumerable<(IEnumerable<UTXO> unspents, HistoryTx htx)> ProcessTxsForOutputs(this Account account, IEnumerable<(ulong, FullTransaction)> txs)
+        {
+            if (account.Type == 0)
+            {
+                var view = ViewProvider.GetDefaultProvider();
+                return txs.AsParallel().AsUnordered().Select(x => new MarkableFullTransaction(x, account)).Where(tx =>
+                {
+                    var numPOutputs = tx.tx.NumPOutputs;
+                    Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref tx.tx.TransactionKey, ref account.SecViewKey) : default;
+                    bool any = false;
+                    for (int i = 0; i < numPOutputs; i++)
+                    {
+                        var pubkey = account.PubSpendKey.Value;
+                        if (KeyOps.CheckForBalance(ref cscalar, ref pubkey, ref tx.tx.POutputs[i].UXKey, i))
+                        {
+                            tx.markedbalance[i] = true;
+                            any = true;
+                        }
+                    }
+
+                    return any;
+                }).Select(tx =>
+                {
+                    List<(UTXO, uint)> newUtxos = new();
+                    for (int i = 0; i < tx.tx.NumPOutputs; i++)
+                    {
+                        if (tx.markedbalance[i])
+                        {
+                            bool tToP = (tx.tx.Version == 4 && tx.tx.NumTInputs > 0 && tx.tx.NumPOutputs > 0);
+                            var outputSecKey = KeyOps.DKSAPRecover(ref tx.tx.TransactionKey, ref account.SecViewKey, ref account.SecSpendKey, i);
+                            var utxo = new UTXO
+                            {
+                                Address = account.Address,
+                                Type = 0,
+                                IsCoinbase = tx.tx.Version == 0 || tToP,
+                                TransactionSrc = tx.tx.TxID,
+                                Amount = tx.tx.POutputs[i].Amount,
+                                UXKey = tx.tx.POutputs[i].UXKey,
+                                UXSecKey = outputSecKey,
+                                Commitment = tx.tx.POutputs[i].Commitment,
+                                Index = view.GetOutputIndices(tx.tx.TxID)[i],
+                                DecodeIndex = i,
+                                TransactionKey = tx.tx.TransactionKey,
+                                DecodedAmount = (tx.tx.Version == 0 || tToP) ? tx.tx.POutputs[i].Amount : KeyOps.GenAmountMaskRecover(ref tx.tx.TransactionKey, ref account.SecViewKey, i, tx.tx.POutputs[i].Amount),
+                                LinkingTag = KeyOps.GenerateLinkingTag(ref outputSecKey),
+                                Encrypted = false,
+                                Account = account
+                            };
+
+                            newUtxos.Add((utxo, (uint)i));
+                        }
+                    }
+
+                    return (newUtxos.Select(x => x.Item1), ConstructHistoryTxOutputs(tx.tx, account, tx.timestamp, newUtxos));
+                }).ToList();
+            }
+            else if (account.Type == 1)
+            {
+                return txs.AsParallel().AsUnordered().Select(x => new MarkableFullTransaction(x, account)).Where(tx =>
+                {
+                    var numTOutputs = tx.tx.NumTOutputs;
+                    bool any = false;
+                    for (int i = 0; i < numTOutputs; i++)
+                    {
+                        if (account.Address == tx.tx.TOutputs[i].Address.ToString())
+                        {
+                            tx.markedbalance[i] = true;
+                            any = true;
+                        }
+                    }
+
+                    return any;
+                }).Select(tx =>
+                {
+                    List<(UTXO, uint)> newUtxos = new();
+                    for (int i = 0; i < tx.tx.NumTOutputs; i++)
+                    {
+                        if (tx.markedbalance[i])
+                        {
+                            var utxo = new UTXO
+                            {
+                                Address = account.Address,
+                                Type = 1,
+                                IsCoinbase = false,
+                                TransactionSrc = tx.tx.TxID,
+                                Amount = tx.tx.TOutputs[i].Amount,
+                                DecodeIndex = i,
+                                Index = (uint)i,
+                                DecodedAmount = tx.tx.TOutputs[i].Amount,
+                                Encrypted = false,
+                                Account = account
+                            };
+
+                            newUtxos.Add((utxo, (uint)i));
+                        }
+                    }
+
+                    return (newUtxos.Select(x => x.Item1), ConstructHistoryTxOutputs(tx.tx, account, tx.timestamp, Array.Empty<(UTXO, uint)>()));
+                }).ToList();
+            }
+            else throw new FormatException(nameof(account));
+        }
+
+        internal class MarkableFullTransaction
+        {
+            internal FullTransaction tx;
+            internal bool[] markedbalance;
+            internal ulong timestamp;
+
+            internal MarkableFullTransaction((ulong, FullTransaction) tx, Account account)
+            {
+                this.tx = tx.Item2;
+                this.timestamp = tx.Item1;
+                if (account.Type == 0) markedbalance = new bool[tx.Item2.NumPOutputs];
+                else if (account.Type == 1) markedbalance = new bool[tx.Item2.NumTOutputs];
+                else throw new ArgumentException(nameof(account));
+            }
         }
     }
 }

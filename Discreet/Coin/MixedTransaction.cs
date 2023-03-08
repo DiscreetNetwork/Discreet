@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Cipher;
+using Discreet.Common;
+using Discreet.Common.Exceptions;
 
 namespace Discreet.Coin
 {
@@ -43,7 +45,7 @@ namespace Discreet.Coin
         public Key[] PseudoOutputs;
 
         private SHA256 _txid;
-        public SHA256 TxID { get { if (_txid == default) _txid = Hash(); return _txid; } }
+        public SHA256 TxID { get { if (_txid == default || _txid.Bytes == null) _txid = Hash(); return _txid; } }
 
         public MixedTransaction() { }
 

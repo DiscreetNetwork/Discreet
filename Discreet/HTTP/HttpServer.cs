@@ -1,5 +1,5 @@
 ﻿using Discreet.Daemon;
-using Discreet.RPC;
+using Discreet.RPC.Common;
 using System;
 using System.Collections.Generic;
 using System.IO;

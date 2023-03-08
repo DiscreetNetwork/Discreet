@@ -7,8 +7,9 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Discreet.RPC.Converters;
+using Discreet.Common.Converters;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace Discreet.RPC
 {
@@ -64,13 +65,13 @@ namespace Discreet.RPC
         }
 
 
-        public object ProcessRemoteCall(RPCServer server, string rpcJsonRequest, bool isAvailable = true)
+        public async Task<object> ProcessRemoteCall(RPCServer server, string rpcJsonRequest, bool isAvailable = true)
         {
             try
             {
                 //var req = JsonDocument.Parse(Encoding.UTF8.GetBytes(rpcJsonRequest));
                 RPCRequest request = JsonSerializer.Deserialize<RPCRequest>(rpcJsonRequest, defaultOptions);
-                object result = ExecuteInternal(request.method, isAvailable, server.Set, request.@params);
+                object result = await ExecuteInternal(request.method, isAvailable, server.Set, request.@params);
                 RPCResponse response = CreateResponse(request, result);
 
                 return CreateResponseJSON(server, response);
@@ -84,7 +85,37 @@ namespace Discreet.RPC
             return null;
         }
 
-        private object ExecuteInternal(string endpoint, bool isAvailable, APISet enabledSets, params object[] args)
+        //https://github.com/dotnet/runtime/blob/main/src/libraries/System.Private.CoreLib/src/System/Function.cs
+        private static bool IsFunc(Delegate del)
+        {
+            return del.GetType().GetGenericTypeDefinition() == typeof(Func<>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,,,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,,,,,,,,,>)
+                || del.GetType().GetGenericTypeDefinition() == typeof(Func<,,,,,,,,,,,,,,,,>);
+        }
+
+        private static bool IsRPCCallAsync(Delegate del)
+        {
+            return del.GetType().IsGenericType && IsFunc(del)
+                && del.GetType().GenericTypeArguments != null && del.GetType().GenericTypeArguments.Length > 0
+                && del.GetType().GenericTypeArguments[del.GetType().GenericTypeArguments.Length - 1].IsGenericType
+                && del.GetType().GenericTypeArguments[del.GetType().GenericTypeArguments.Length - 1].GetGenericTypeDefinition() == typeof(Task<>);
+        }
+
+        private async Task<object> ExecuteInternal(string endpoint, bool isAvailable, APISet enabledSets, params object[] args)
         {
             // this is a nonstandard endpoint used for checking daemon liveliness. 
             if (endpoint == "daemon_live")
@@ -151,8 +182,19 @@ namespace Discreet.RPC
                 }
             }
 
-            object result = _endpoint.DynamicInvoke(_data);
-            return result;
+            if (IsRPCCallAsync(_endpoint))
+            {
+                // returns AsyncTaskMethodBuilder.AsyncStateMachineBox, inherits Task<TResult>
+                var del = _endpoint.DynamicInvoke(_data);
+                var res = await (del as Task<object>);
+                //Daemon.Logger.Critical($"{res.GetType().FullName}\n{endpoint}");
+                return res;
+            }
+            else
+            {
+                object result = _endpoint.DynamicInvoke(_data);
+                return result;
+            }
         }
 
         public RPCResponse CreateResponse(RPCRequest request, object result)

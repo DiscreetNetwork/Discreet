@@ -28,8 +28,8 @@ namespace Discreet.Daemon
 
                     var _options = new JsonSerializerOptions();
 
-                    _options.Converters.Add(new RPC.Converters.IPAddressConverter());
-                    _options.Converters.Add(new RPC.Converters.IPEndPointConverter());
+                    _options.Converters.Add(new Common.Converters.IPAddressConverter());
+                    _options.Converters.Add(new Common.Converters.IPEndPointConverter());
 
                     if (File.Exists(configPath))
                     {
@@ -72,8 +72,8 @@ namespace Discreet.Daemon
         {
             var _options = new JsonSerializerOptions();
 
-            _options.Converters.Add(new RPC.Converters.IPAddressConverter());
-            _options.Converters.Add(new RPC.Converters.IPEndPointConverter());
+            _options.Converters.Add(new Common.Converters.IPAddressConverter());
+            _options.Converters.Add(new Common.Converters.IPEndPointConverter());
 
             if (!Directory.Exists(DaemonPath)) Directory.CreateDirectory(DaemonPath);
 

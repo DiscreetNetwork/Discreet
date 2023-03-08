@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Coin;
+using Discreet.Common;
 using RocksDbSharp;
 
 namespace Discreet.WalletsLegacy
@@ -394,7 +395,7 @@ namespace Discreet.WalletsLegacy
 
         public WalletTx GetTxFromHistory(WalletAddress address, int index)
         {
-            var result = db.Get(Coin.Serialization.Int32(index), cf: TxHistory);
+            var result = db.Get(Common.Serialization.Int32(index), cf: TxHistory);
 
             if (result == null)
             {

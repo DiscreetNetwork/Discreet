@@ -14,9 +14,9 @@ namespace Discreet.Wallets.Services
         {
             var utxos = GetUTXOsForTransaction(account, amounts).ToArray();
             var inputs = BuildTransparentInputs(utxos).ToArray();
-            var _outputs = BuildTransparentOutputs(account, addresses, amounts);
-            (_, var change) = BuildChangeOutput(account, utxos, amounts, null, out _);
-            if (change != null) _outputs.Append(change);
+            var _outputs = BuildTransparentOutputs(addresses, amounts);
+            (_, var change) = BuildChangeOutput(account, utxos, amounts, null, 0, out _);
+            if (change != null) _outputs = _outputs.Append(change);
             var outputs = _outputs.ToArray();
 
             var tx = new Discreet.Coin.Transparent.Transaction
@@ -31,7 +31,7 @@ namespace Discreet.Wallets.Services
             };
 
             tx.InnerHash = tx.SigningHash();
-            tx.Signatures = BuildTransparentSignatures(account, utxos, inputs, tx.InnerHash).ToArray();
+            tx.Signatures = BuildTransparentSignatures(utxos, inputs, tx.InnerHash).ToArray();
 
             return (utxos, tx.ToFull());
         }

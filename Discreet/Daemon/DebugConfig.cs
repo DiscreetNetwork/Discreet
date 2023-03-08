@@ -12,6 +12,7 @@ namespace Discreet.Daemon
         public bool? SkipSyncing {  get; set; }
         public bool? CheckBlockchain { get; set; }
         public bool? DebugPrints { get; set; }
+        public bool? AlwaysCheckCoinbase { get; set; }
 
         public DebugConfig()
         {
@@ -19,6 +20,7 @@ namespace Discreet.Daemon
             SkipSyncing = false;
             CheckBlockchain = false;
             DebugPrints = false;
+            AlwaysCheckCoinbase = false;
         }
 
         public void ConfigureDefaults()
@@ -27,6 +29,7 @@ namespace Discreet.Daemon
             if (SkipSyncing == null) SkipSyncing = false;
             if (CheckBlockchain == null) CheckBlockchain = false;
             if (DebugPrints == null) DebugPrints = false;
+            if (AlwaysCheckCoinbase == null) AlwaysCheckCoinbase = false;
         }
     }
 }

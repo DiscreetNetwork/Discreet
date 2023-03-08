@@ -29,7 +29,7 @@ namespace Discreet.Network.Core.Packets
 
         public void Deserialize(byte[] b, uint offset)
         {
-            Count = Coin.Serialization.GetUInt32(b, offset);
+            Count = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
             Transactions = new Cipher.SHA256[Count];
@@ -46,7 +46,7 @@ namespace Discreet.Network.Core.Packets
             byte[] uintbuf = new byte[4];
 
             s.Read(uintbuf);
-            Count = Coin.Serialization.GetUInt32(uintbuf, 0);
+            Count = Common.Serialization.GetUInt32(uintbuf, 0);
 
             Transactions = new Cipher.SHA256[Count];
 
@@ -61,7 +61,7 @@ namespace Discreet.Network.Core.Packets
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Coin.Serialization.CopyData(b, offset, Count);
+            Common.Serialization.CopyData(b, offset, Count);
             offset += 4;
 
             foreach (Cipher.SHA256 h in Transactions)
@@ -75,7 +75,7 @@ namespace Discreet.Network.Core.Packets
 
         public void Serialize(Stream s)
         {
-            s.Write(Coin.Serialization.UInt32(Count));
+            s.Write(Common.Serialization.UInt32(Count));
 
             foreach (Cipher.SHA256 h in Transactions)
             {

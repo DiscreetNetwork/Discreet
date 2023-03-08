@@ -58,21 +58,45 @@ namespace Discreet.Cipher
 
         public static ulong XOR8(ref Key g, ulong amount)
         {
-            byte[] amountBytes = Coin.Serialization.UInt64(amount);
+            byte[] amountBytes = Common.Serialization.UInt64(amount);
 
             for (int i = 0; i < 8; i++)
             {
                 amountBytes[i] ^= g.bytes[i];
             }
 
-            return Coin.Serialization.GetUInt64(amountBytes, 0);
+            return Common.Serialization.GetUInt64(amountBytes, 0);
         }
 
         public static ulong GenAmountMask(ref Key r, ref Key pv, int i, ulong amount)
         {
             byte[] cdata = new byte[36];
             Array.Copy(ScalarmultKey(ref pv, ref r).bytes, cdata, 32);
-            Coin.Serialization.CopyData(cdata, 32, i);
+            Common.Serialization.CopyData(cdata, 32, i);
+
+            Key c = new Key(new byte[32]);
+            HashOps.HashToScalar(ref c, cdata, 36);
+
+            byte[] gdata = new byte[38];
+            gdata[0] = (byte)'a';
+            gdata[1] = (byte)'m';
+            gdata[2] = (byte)'o';
+            gdata[3] = (byte)'u';
+            gdata[4] = (byte)'n';
+            gdata[5] = (byte)'t';
+            Array.Copy(c.bytes, 0, gdata, 6, 32);
+
+            Key g = new Key(new byte[32]);
+            HashOps.HashData(ref g, gdata, 38);
+
+            return XOR8(ref g, amount);
+        }
+
+        public static ulong GenAmountMaskRecover(ref Key R, ref Key sv, int i, ulong amount)
+        {
+            byte[] cdata = new byte[36];
+            Array.Copy(ScalarmultKey(ref R, ref sv).bytes, cdata, 32);
+            Common.Serialization.CopyData(cdata, 32, i);
 
             Key c = new Key(new byte[32]);
             HashOps.HashToScalar(ref c, cdata, 36);
@@ -110,7 +134,7 @@ namespace Discreet.Cipher
         {
             byte[] cdata = new byte[36];
             Array.Copy(ScalarmultKey(ref pv, ref r).bytes, cdata, 32);
-            Coin.Serialization.CopyData(cdata, 32, i);
+            Common.Serialization.CopyData(cdata, 32, i);
 
             Key c = new Key(new byte[32]);
             HashOps.HashToScalar(ref c, cdata, 36);
@@ -126,7 +150,7 @@ namespace Discreet.Cipher
         {
             byte[] cdata = new byte[36];
             Array.Copy(ScalarmultKey(ref R, ref sv).bytes, cdata, 32);
-            Coin.Serialization.CopyData(cdata, 32, i);
+            Common.Serialization.CopyData(cdata, 32, i);
 
             Key c = new Key(new byte[32]);
             HashOps.HashToScalar(ref c, cdata, 36);

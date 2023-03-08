@@ -49,8 +49,8 @@ namespace Discreet.Network.Core
         {
             s.WriteByte(NetworkID);
             s.WriteByte((byte)Command);
-            s.Write(Coin.Serialization.UInt32(Length));
-            s.Write(Coin.Serialization.UInt32(Checksum));
+            s.Write(Common.Serialization.UInt32(Length));
+            s.Write(Common.Serialization.UInt32(Checksum));
         }
 
         public void Encode(byte[] buf, uint offset)
@@ -58,8 +58,8 @@ namespace Discreet.Network.Core
             buf[offset] = NetworkID;
             buf[offset + 1] = (byte)Command;
 
-            Coin.Serialization.CopyData(buf, offset + 2, Length);
-            Coin.Serialization.CopyData(buf, offset + 6, Checksum);
+            Common.Serialization.CopyData(buf, offset + 2, Length);
+            Common.Serialization.CopyData(buf, offset + 6, Checksum);
         }
 
         public void Decode(Stream s)
@@ -70,10 +70,10 @@ namespace Discreet.Network.Core
             byte[] uintbuf = new byte[4];
 
             s.Read(uintbuf);
-            Length = Coin.Serialization.GetUInt32(uintbuf, 0);
+            Length = Common.Serialization.GetUInt32(uintbuf, 0);
 
             s.Read(uintbuf);
-            Checksum = Coin.Serialization.GetUInt32(uintbuf, 0);
+            Checksum = Common.Serialization.GetUInt32(uintbuf, 0);
         }
 
         public void Decode(byte[] buf, uint offset)
@@ -81,8 +81,8 @@ namespace Discreet.Network.Core
             NetworkID = buf[offset];
             Command = (PacketType)buf[offset + 1];
 
-            Length = Coin.Serialization.GetUInt32(buf, offset + 2);
-            Checksum = Coin.Serialization.GetUInt32(buf, offset + 6);
+            Length = Common.Serialization.GetUInt32(buf, offset + 2);
+            Checksum = Common.Serialization.GetUInt32(buf, offset + 6);
         }
     }
 }

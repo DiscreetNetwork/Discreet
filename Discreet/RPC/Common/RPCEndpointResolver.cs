@@ -1,6 +1,5 @@
 ﻿using Discreet.Cipher;
 using Discreet.Coin;
-using Discreet.RPC.Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,20 +7,20 @@ using System.Text;
 using System.Reflection;
 using System.Linq.Expressions;
 
-namespace Discreet.RPC
+namespace Discreet.RPC.Common
 {
-   public class RPCEndpointResolver
+    public class RPCEndpointResolver
     {
         private static Dictionary<string, Delegate> endpoints = new Dictionary<string, Delegate> { };
         private static Dictionary<string, APISet> sets = new Dictionary<string, APISet> { };
 
         public static void ReflectEndpoints()
         {
-             var methods = AppDomain.CurrentDomain.GetAssemblies()
-            .SelectMany(x => x.GetTypes())
-            .Where(x => x.IsClass)
-            .SelectMany(x => x.GetMethods())
-            .Where(x => x.GetCustomAttributes(typeof(RPCEndpoint), false).FirstOrDefault() != null);
+            var methods = AppDomain.CurrentDomain.GetAssemblies()
+           .SelectMany(x => x.GetTypes())
+           .Where(x => x.IsClass)
+           .SelectMany(x => x.GetMethods())
+           .Where(x => x.GetCustomAttributes(typeof(RPCEndpoint), false).FirstOrDefault() != null);
 
 
             foreach (MethodInfo method in methods)

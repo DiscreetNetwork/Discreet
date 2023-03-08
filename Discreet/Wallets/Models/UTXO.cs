@@ -26,14 +26,14 @@ namespace Discreet.Wallets.Models
         public uint Index { get; set; }
 
         // stealth UTXO only
-        public Key UXKey { get; set; }
+        public Key? UXKey { get; set; }
         public Key UXSecKey;
-        public Key Commitment { get; set; }
+        public Key? Commitment { get; set; }
         public int? DecodeIndex { get; set; }
-        public Key TransactionKey { get; set; }
+        public Key? TransactionKey { get; set; }
         [JsonIgnore]
         public ulong DecodedAmount { get; set; } = 0;
-        public Key LinkingTag { get; set; }
+        public Key? LinkingTag { get; set; }
 
         [JsonIgnore]
         public bool Encrypted { get; set; }

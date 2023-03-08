@@ -2,7 +2,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection.Emit;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -11,8 +10,7 @@ using System.Xml.Linq;
 using Discreet.Cipher;
 using Discreet.Coin;
 using Discreet.Daemon;
-using Discreet.RPC.Common;
-using Discreet.RPC.Converters;
+using Discreet.Common.Converters;
 using Discreet.Wallets.Comparers;
 using Discreet.DB;
 using Discreet.Wallets.Models;
@@ -21,6 +19,11 @@ using Discreet.Wallets.Utilities;
 using Discreet.Wallets.Utilities.Converters;
 using System.Threading;
 using System.IO;
+using Discreet.ZMQ;
+using Discreet.Common;
+using Microsoft.EntityFrameworkCore;
+using Discreet.Cipher.Mnemonics;
+using System.Reflection.Emit;
 
 namespace Discreet.Wallets
 {
@@ -31,7 +34,7 @@ namespace Discreet.Wallets
 
         public static ConcurrentDictionary<string, SQLiteWallet> Wallets = new();
         private static readonly string directory;
-        private static CancellationTokenSource cancellationTokenSource = new();
+        private CancellationTokenSource cancellationTokenSource = new();
         private static List<JsonConverter> converters = new List<JsonConverter>(new JsonConverter[]
                 {
                     new BytesConverter(),
@@ -59,7 +62,6 @@ namespace Discreet.Wallets
         private readonly object db_lock = new();
         private byte[] EncryptedEntropy;
         private uint EntropyLen;
-        private SHA256 EntropyChecksum;
         private long lastSeenHeight = -1;
         private readonly object req_lock = new();
         private bool lockRequested = false;
@@ -73,6 +75,7 @@ namespace Discreet.Wallets
         public bool IsEncrypted { get; set; }
         public List<Account> Accounts { get; set; }
         public ulong Timestamp { get; set; }
+        public SHA256 EntropyChecksum { get; set; }
 
         private List<IWalletService> services = new();
         private SemaphoreSlim requestSemaphore = new(1, 1);
@@ -164,24 +167,24 @@ namespace Discreet.Wallets
             {
                 parameters.StealthAddressNames.ForEach(name =>
                 {
-                    CreateAccount(
+                    Accounts.Add(CreateAccount(
                         new CreateAccountParameters(name)
                         .SetDeterministic()
                         .Stealth()
                         .SkipScan()
-                        .NoSave());
+                        .NoSave()));
                 });
             }
             else
             {
                 for(int i = 0; i < parameters.NumStealthAddresses; i++)
                 {
-                    CreateAccount(
+                    Accounts.Add(CreateAccount(
                         new CreateAccountParameters(parameters.NumStealthAddresses == 1 ? $"Stealth" : $"Stealth {i+1}")
                         .SetDeterministic()
                         .Stealth()
                         .SkipScan()
-                        .NoSave());
+                        .NoSave()));
                 }
             }
 
@@ -189,24 +192,24 @@ namespace Discreet.Wallets
             {
                 parameters.TransparentAddressNames.ForEach(name =>
                 {
-                    CreateAccount(
+                    Accounts.Add(CreateAccount(
                         new CreateAccountParameters(name)
                         .SetDeterministic()
                         .Transparent()
                         .SkipScan()
-                        .NoSave());
+                        .NoSave()));
                 });
             }
             else
             {
                 for (int i = 0; i < parameters.NumTransparentAddresses; i++)
                 {
-                    CreateAccount(
+                    Accounts.Add(CreateAccount(
                         new CreateAccountParameters(parameters.NumTransparentAddresses == 1 ? $"Transparent" : $"Transparent {i + 1}")
                         .SetDeterministic()
                         .Transparent()
                         .SkipScan()
-                        .NoSave());
+                        .NoSave()));
                 }
             }
 
@@ -236,14 +239,15 @@ namespace Discreet.Wallets
                 }
             }
 
-            syncingService = new WalletFundsService(this, ViewProvider.GetDefaultProvider());
+            syncingService = new ParallelWalletFundsService(this, ViewProvider.GetDefaultProvider());
             RegisterService(syncingService);
-            _ = Task.Run(() => syncingService.StartFundsScan()).ConfigureAwait(false);
+            _ = Task.Run(() => syncingService.StartFundsScanAsync(cancellationTokenSource.Token)).ConfigureAwait(false);
         }
 
         private SQLiteWallet(string path, string passphrase)
         {
             Path = path;
+            Label = System.IO.Path.GetFileNameWithoutExtension(Path);
             var entropyChecksum = LoadKey("EntropyChecksum");
             EntropyChecksum = new(entropyChecksum, false);
 
@@ -263,11 +267,11 @@ namespace Discreet.Wallets
             EntropyLen = (uint)Entropy.Length;
             lastSeenHeight = Serialization.GetInt64(LoadKey("LastSeenHeight"), 0);
 
-            syncingService = new WalletFundsService(this, ViewProvider.GetDefaultProvider());
-            RegisterService(syncingService);
-            _ = Task.Run(() => syncingService.StartFundsScan()).ConfigureAwait(false);
-
             Accounts = LoadAccounts();
+
+            syncingService = new ParallelWalletFundsService(this, ViewProvider.GetDefaultProvider());
+            RegisterService(syncingService);
+            _ = Task.Run(() => syncingService.StartFundsScanAsync(cancellationTokenSource.Token)).ConfigureAwait(false);
         }
 
         public SQLiteWallet()
@@ -284,6 +288,13 @@ namespace Discreet.Wallets
         internal byte[] LoadKey(string name)
         {
             using var ctx = new WalletDBContext(Path);
+            return ctx.KVPairs.FirstOrDefault(p => p.Name == name)?.Value;
+        }
+
+        private static byte[] LoadKey(string label, string name)
+        {
+            var path = System.IO.Path.Combine(directory, $"{label}.db");
+            using var ctx = new WalletDBContext(path);
             return ctx.KVPairs.FirstOrDefault(p => p.Name == name)?.Value;
         }
 
@@ -334,10 +345,9 @@ namespace Discreet.Wallets
 
         public static SQLiteWallet CreateWallet(CreateWalletParameters parameters)
         {
+            Console.WriteLine(JsonSerializer.Serialize(parameters));
             // first check if wallet with label already exists
-            var labels = Directory.GetFiles(directory).ToList()
-                .Select(path => System.IO.Path.GetFileName(path))
-                .Where(file => System.IO.Path.HasExtension(".db"))
+            var labels = Directory.GetFiles(directory, "*.db")
                 .Select(file => System.IO.Path.GetFileNameWithoutExtension(file));
             if (labels.Any(lbl => lbl == parameters.Label)) throw new ArgumentException($"{nameof(parameters.Label)} shares name with existing wallet");
 
@@ -358,11 +368,112 @@ namespace Discreet.Wallets
                 path = pathOrLabel;
             }
 
+            if (!File.Exists(path)) throw new Exception($"could not find wallet at \"{path}\"");
+
             if (Wallets.Keys.Any(x => x == label)) throw new Exception("wallet already loaded");
 
             var wallet = new SQLiteWallet(path, passphrase);
             wallet.Register();
             return wallet;
+        }
+
+        public static (string, Mnemonic) GetMnemonic(string label, string password)
+        {
+            switch (GetWalletStatus(label))
+            {
+                case 0:
+                    {
+                        var wallet = Wallets[label];
+                        var success = EncryptionUtil.CheckPassword(wallet.EntropyChecksum, password);
+                        if (!success) return (null, null);
+                        return (Printable.Hexify(wallet.Entropy), new Mnemonic(wallet.Entropy));
+                    }
+                case 1:
+                    {
+                        var wallet = Wallets[label];
+                        var success = EncryptionUtil.CheckPassword(wallet.EntropyChecksum, password);
+                        if (!success) return (null, null);
+                        var entropy = wallet.EncryptedEntropy.DecryptEntropy(wallet.EntropyChecksum, password);
+                        return (Printable.Hexify(entropy), new Mnemonic(entropy));
+                    }
+                case 2:
+                    {
+                        var checksum = new SHA256(LoadKey(label, "EntropyChecksum"), false);
+                        var encryptedEntropy = LoadKey(label, "EncryptedEntropy");
+                        var success = EncryptionUtil.CheckPassword(checksum, password);
+                        if (!success) return (null, null);
+                        var entropy = encryptedEntropy.DecryptEntropy(checksum, password);
+                        return (Printable.Hexify(entropy), new Mnemonic(entropy));
+                    }
+                default:
+                    throw new FormatException(nameof(GetWalletStatus));
+            }
+        }
+
+        public static (Mnemonic Spend, Mnemonic View, Mnemonic Sec) GetAccountPrivateKeys(string label, string address, string password)
+        {
+            if (Wallets.Values.Where(x => x.Accounts.Where(y => y.Address.Equals(address)).Any()).Any())
+            {
+                var wallet = Wallets.Values.Where(x => x.Accounts.Where(y => y.Address.Equals(address)).Any()).First();
+                if (GetWalletStatus(wallet.Label) == 0)
+                {
+                    var success = EncryptionUtil.CheckPassword(wallet.EntropyChecksum, password);
+                    if (!success) return (null, null, null);
+                    var account = wallet.Accounts.Where(x => x.Address.Equals(address)).First();
+                    if (account.Type == 1)
+                    {
+                        return (null, null, new Mnemonic(Key.Clone(account.SecKey).bytes));
+                    }
+                    else
+                    {
+                        return (new Mnemonic(Key.Clone(account.SecSpendKey).bytes), new Mnemonic(Key.Clone(account.SecViewKey).bytes), null);
+                    }
+                }
+                else
+                {
+                    var success = EncryptionUtil.CheckPassword(wallet.EntropyChecksum, password);
+                    if (!success) return (null, null, null);
+                    var account = wallet.Accounts.Where(x => x.Address.Equals(address)).First();
+                    var entropy = wallet.EncryptedEntropy.DecryptEntropy(wallet.EntropyChecksum, password);
+                    (var spend, var view, var sec) = account.DecryptPrivateKeys(entropy);
+                    Array.Clear(entropy);
+
+                    if (account.Type == 1)
+                    {
+                        return (null, null, new Mnemonic(sec.bytes));
+                    }
+                    else
+                    {
+                        return (new Mnemonic(spend.bytes), new Mnemonic(view.bytes), null);
+                    }
+                }
+            }
+
+            {
+                var checksum = new SHA256(LoadKey(label, "EntropyChecksum"), false);
+                var encryptedEntropy = LoadKey(label, "EncryptedEntropy");
+                var success = EncryptionUtil.CheckPassword(checksum, password);
+                if (!success) return (null, null, null);
+                var entropy = encryptedEntropy.DecryptEntropy(checksum, password);
+
+                var path = System.IO.Path.Combine(directory, $"{label}.db");
+                using var ctx = new WalletDBContext(path);
+
+                var account = ctx.Accounts.Where(x => x.Address == address).FirstOrDefault();
+                if (account == null) return (null, null, null);
+
+                (var spend, var view, var sec) = account.DecryptPrivateKeys(entropy);
+                Array.Clear(entropy);
+
+                if (account.Type == 1)
+                {
+                    return (null, null, new Mnemonic(sec.bytes));
+                }
+                else
+                {
+                    return (new Mnemonic(spend.bytes), new Mnemonic(view.bytes), null);
+                }
+            }
         }
 
         public void SetLastSeenHeight(long height)
@@ -372,6 +483,50 @@ namespace Discreet.Wallets
         }
 
         public long GetLastSeenHeight() => Interlocked.Read(ref lastSeenHeight);
+
+        public async Task<(bool, long)> DoGetHeight()
+        {
+            await requestSemaphore.WaitAsync();
+
+            try
+            {
+                var height = Math.Max(GetLastSeenHeight(), syncingService.GetLastSeenHeight());
+                var synced = syncingService.State == ServiceState.SYNCED;
+                return (synced, height);
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
+        }
+
+        public async Task<(bool, bool, long)> DoGetAccountHeight(string address)
+        {
+            await requestSemaphore.WaitAsync();
+
+            try
+            {
+                var accountSyncer = services.Where(x => x.GetType() == typeof(AccountFundsService))
+                .Select(x => (AccountFundsService)x)
+                .Where(x => x.Account.Address == address)
+                .FirstOrDefault();
+                var height = Math.Max(GetLastSeenHeight(), syncingService.GetLastSeenHeight());
+                var synced = syncingService.State == ServiceState.SYNCED;
+                var syncer = false;
+                if (accountSyncer != null)
+                {
+                    height = accountSyncer.GetLastSeenHeight();
+                    synced = false;
+                    syncer = true;
+                }
+
+                return (synced, syncer, height);
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
+        }
 
         private Account CreateAccount(CreateAccountParameters parameters)
         {
@@ -390,12 +545,12 @@ namespace Discreet.Wallets
                 if (account.Type == 0)
                 {
                     ((account.SecSpendKey, account.PubSpendKey), (account.SecViewKey, account.PubViewKey)) = this.GetStealthAccountKeyPairs();
-                    account.Address = new StealthAddress(account.PubViewKey, account.PubSpendKey).ToString();
+                    account.Address = new StealthAddress(account.PubViewKey.Value, account.PubSpendKey.Value).ToString();
                 }
                 else if (account.Type == 1)
                 {
                     (account.SecKey, account.PubKey) = this.GetTransparentAccountKeyPair();
-                    account.Address = new TAddress(account.PubKey).ToString();
+                    account.Address = new TAddress(account.PubKey.Value).ToString();
                 }
                 else
                 {
@@ -408,12 +563,12 @@ namespace Discreet.Wallets
                 {
                     (account.SecSpendKey, account.PubSpendKey) = KeyOps.GenerateKeypair();
                     (account.SecViewKey, account.PubViewKey) = KeyOps.GenerateKeypair();
-                    account.Address = new StealthAddress(account.PubViewKey, account.PubSpendKey).ToString();
+                    account.Address = new StealthAddress(account.PubViewKey.Value, account.PubSpendKey.Value).ToString();
                 }
                 else if (account.Type == 1)
                 {
                     (account.SecKey, account.PubKey) = KeyOps.GenerateKeypair();
-                    account.Address = new TAddress(account.PubKey).ToString();
+                    account.Address = new TAddress(account.PubKey.Value).ToString();
                 }
                 else
                 {
@@ -422,6 +577,7 @@ namespace Discreet.Wallets
             }
 
             account.EncryptAccountPrivateKeys(this.Entropy);
+            account.DecryptAccountPrivateKeys(this.Entropy);
             account.Balance = 0;
             account.Encrypted = false;
             account.Wallet = this;
@@ -444,7 +600,7 @@ namespace Discreet.Wallets
                 account.Syncing = true;
                 AccountFundsService service = new(ViewProvider.GetDefaultProvider(), account);
                 RegisterService(service);
-                _ = Task.Run(() => service.StartFundsScan()).ConfigureAwait(false);
+                _ = Task.Run(() => service.StartFundsScan(cancellationTokenSource.Token)).ConfigureAwait(false);
             }
 
             return account;
@@ -454,25 +610,76 @@ namespace Discreet.Wallets
         {
             JsonSerializerOptions options = new();
             converters.ForEach(x => options.Converters.Add(x));
-            var elem = JsonSerializer.SerializeToElement(account, account.GetType(), options);
-            return elem;
+            var json = JsonSerializer.Serialize(account, account.GetType(), options);
+            var elem = JsonSerializer.Deserialize(json, typeof(object));
+            return (JsonElement)elem;
         }
 
         private JsonElement WalletToJson(SQLiteWallet wallet)
         {
             JsonSerializerOptions options = new();
             converters.ForEach(x => options.Converters.Add(x));
-            var elem = JsonSerializer.SerializeToElement(wallet, wallet.GetType(), options);
-            return elem;
+            var json = JsonSerializer.Serialize(wallet, wallet.GetType(), options);
+            var elem = JsonSerializer.Deserialize(json, typeof(object));
+            return (JsonElement)elem;
+        }
+
+        public async Task<FullTransaction> DoCreateTransaction(string address, IEnumerable<IAddress> addresses, IEnumerable<ulong> amounts, bool relay)
+        {
+            await requestSemaphore.WaitAsync();
+
+            try
+            {
+                var acc = Accounts.Where(x => x.Address == address).FirstOrDefault();
+                if (acc == null) throw new Exception("could not get account");
+                CreateTransactionService ctxs = new(acc, relay);
+                RegisterService(ctxs);
+                var tx = ctxs.CreateTransaction(addresses, amounts);
+                _ = Task.Run(() => ctxs.WaitForSuccess(cancellationTokenSource.Token)).ConfigureAwait(false);
+                return tx;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
+        }
+
+        public async Task<bool> DoUnload()
+        {
+            await requestSemaphore.WaitAsync();
+
+            try
+            {
+                cancellationTokenSource.Cancel();
+                while (services.Any(x => !x.Completed)) await Task.Delay(500);
+                Wallets.Remove(Label, out _);
+                Encrypt();
+                return true;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         public async Task<JsonElement> DoCreateAccount(CreateAccountParameters parameters)
         {
             await requestSemaphore.WaitAsync();
-            if (IsEncrypted) throw new Exception("wallet is encrypted");
-            var account = CreateAccount(parameters);
-            requestSemaphore.Release();
-            return AccountToJson(account);
+
+            try
+            {
+                if (IsEncrypted) throw new Exception("wallet is encrypted");
+                var account = CreateAccount(parameters.SetSave());
+                lock (Accounts)
+                {
+                    Accounts.Add(account);
+                }
+                return AccountToJson(account);
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         private bool CheckIntegrity()
@@ -483,10 +690,33 @@ namespace Discreet.Wallets
         public async Task<bool> DoCheckIntegrity()
         {
             await requestSemaphore.WaitAsync();
-            if (IsEncrypted) throw new Exception("wallet is encrypted");
-            var success = CheckIntegrity();
-            requestSemaphore.Release();
-            return success;
+
+            try
+            {
+                if (IsEncrypted) throw new Exception("wallet is encrypted");
+                var success = CheckIntegrity();
+                return success;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
+        }
+
+        public async Task<bool> DoCheckAccountIntegrity(string address)
+        {
+            await requestSemaphore.WaitAsync();
+
+            try
+            {
+                if (IsEncrypted) throw new Exception("wallet is encrypted");
+                var success = Accounts.Where(x => x.Address == address).First().TryCheckAccountIntegrity();
+                return success;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         private void ChangeAccountName(string address, string newName)
@@ -504,70 +734,102 @@ namespace Discreet.Wallets
         public async Task DoChangeAccountName(string address, string newName)
         {
             await requestSemaphore.WaitAsync();
-            if (IsEncrypted) throw new Exception("wallet is encrypted");
-            ChangeAccountName(address, newName);
-            requestSemaphore.Release();
+
+            try
+            {
+                if (IsEncrypted) throw new Exception("wallet is encrypted");
+                ChangeAccountName(address, newName);
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         public async Task<IEnumerable<JsonElement>> DoGetAccounts()
         {
             await requestSemaphore.WaitAsync();
-            if (IsEncrypted) throw new Exception("wallet is encrypted");
-            var accounts = Accounts.Select(x => AccountToJson(x)).ToList();
-            requestSemaphore.Release();
-            return accounts;
+
+            try
+            {
+                if (IsEncrypted) throw new Exception("wallet is encrypted");
+                var accounts = Accounts.Select(x => AccountToJson(x)).ToList();
+                return accounts;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         public async Task<ulong> DoGetBalance()
         {
             await requestSemaphore.WaitAsync();
-            if (IsEncrypted) return 0;
-            var balance = Accounts.Select(x => x.Balance).Aggregate((x, y) => x + y);
-            requestSemaphore.Release();
-            return balance;
+
+            try
+            {
+                if (IsEncrypted) return 0;
+                var balance = Accounts.Select(x => x.Balance).Aggregate((x, y) => x + y);
+                return balance;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         public async Task<ulong> DoGetAccountBalance(string address)
         {
             await requestSemaphore.WaitAsync();
-            if (IsEncrypted) return 0;
-            var account = Accounts.Where(x => x.Address == address).FirstOrDefault();
-            if (account == null) throw new Exception("could not find account");
-            var balance = account.Balance;
-            requestSemaphore.Release();
-            return balance;
-        }
 
-        public async Task<long> DoGetAccountHeight() => throw new Exception("depracated");
-
-        public async Task<long> DoGetWalletHeight()
-        {
-            await requestSemaphore.WaitAsync();
-            if (IsEncrypted) throw new Exception("wallet is encrypted");
-            var height = GetLastSeenHeight();
-            requestSemaphore.Release();
-            return height;
+            try
+            {
+                if (IsEncrypted) return 0;
+                var account = Accounts.Where(x => x.Address == address).FirstOrDefault();
+                if (account == null) throw new Exception("could not find account");
+                var balance = account.Balance;
+                return balance;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         public async Task<JsonElement> DoGetTransactionHistory(string address)
         {
             await requestSemaphore.WaitAsync();
-            var account = Accounts.Where(x => x.Address == address).FirstOrDefault();
-            if (account == null) throw new Exception("could not find account");
 
-            JsonSerializerOptions options = new();
-            converters.ForEach(x => options.Converters.Add(x));
-            var txhistory = JsonSerializer.SerializeToElement(account.TxHistory, options);
-            requestSemaphore.Release();
-            return txhistory;
+            try
+            {
+                var account = Accounts.Where(x => x.Address == address).FirstOrDefault();
+                if (account == null) throw new Exception("could not find account");
+
+                JsonSerializerOptions options = new();
+                converters.ForEach(x => options.Converters.Add(x));
+                var json = JsonSerializer.Serialize(account.TxHistory, options);
+                var elem = JsonSerializer.Deserialize(json, typeof(object));
+                return (JsonElement)elem;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         public async Task<JsonElement> DoGetWallet()
         {
             await requestSemaphore.WaitAsync();
-            var wallet = WalletToJson(this);
-            requestSemaphore.Release();
-            return wallet;
+
+            try
+            {
+                var wallet = WalletToJson(this);
+                return wallet;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         public static async Task<IEnumerable<JsonElement>> DoGetWallets()
@@ -578,9 +840,7 @@ namespace Discreet.Wallets
 
         public static IEnumerable<string> DoGetWalletsFromDir()
         {
-            return Directory.GetFiles(directory)
-                .Select(path => System.IO.Path.GetFileName(path))
-                .Where(file => System.IO.Path.HasExtension(".db"))
+            return Directory.GetFiles(directory, "*.db")
                 .Select(file => System.IO.Path.GetFileNameWithoutExtension(file));
         }
 
@@ -592,14 +852,17 @@ namespace Discreet.Wallets
                 return wallet.IsEncrypted ? 1 : 0;
             }
 
-            return 2;
+            var check = Directory.GetFiles(directory, "*.db")
+                .Select(file => System.IO.Path.GetFileNameWithoutExtension(file))
+                .Where(lbl => lbl == label).Any();
+
+            if (check) return 2;
+            else throw new Exception("cannot find wallet with label \"" + label + "\"");
         }
 
         public static IEnumerable<(string,int)> DoGetWalletStatuses()
         {
-            return Directory.GetFiles(directory)
-                .Select(path => System.IO.Path.GetFileName(path))
-                .Where(file => System.IO.Path.HasExtension(".db"))
+            return Directory.GetFiles(directory, "*.db")
                 .Select(file => System.IO.Path.GetFileNameWithoutExtension(file))
                 .Except(Wallets.Keys).Select(x => (x, 2))
                 .Union(Wallets.Values.Where(x => x.IsEncrypted).Select(x => (x.Label, 1)))
@@ -617,8 +880,11 @@ namespace Discreet.Wallets
 
                 acc.UTXOs = new HashSet<UTXO>(ctx.UTXOs.Where(u => u.Address == acc.Address), new UTXOEqualityComparer());
                 acc.DecryptUTXOs();
-                acc.TxHistory = new HashSet<HistoryTx>(ctx.HistoryTxs.Where(tx => tx.Address == acc.Address), new HistoryTxEqualityComparer());
-                acc.DecryptHistoryTxs();
+                acc.Balance = acc.UTXOs.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y);
+
+                var txs = ctx.HistoryTxs.Where(tx => tx.Address == acc.Address).ToList();
+                acc.DecryptHistoryTxs(txs);
+                acc.TxHistory = new HashSet<HistoryTx>(txs, new HistoryTxEqualityComparer());
 
                 var lshb = LoadKey(acc.Address);
                 if (lshb != null)
@@ -637,7 +903,7 @@ namespace Discreet.Wallets
             if (spents != null || utxos != null || txs != null)
             {
                 using var ctx = new WalletDBContext(Path);
-
+                ctx.Database.ExecuteSqlRaw("PRAGMA journal_mode = off;");
                 lock (db_lock)
                 {
                     if (spents != null)
@@ -675,8 +941,9 @@ namespace Discreet.Wallets
 
                     if (txs != null)
                     {
-
-                        txs = txs.Where(tx => !account.TxHistory.Contains(tx));
+                        // txs is transformed since a HistoryTx might be included as part of CreateTransactionService's WaitForSuccess()
+                        txs = txs.Where(tx => !account.TxHistory.Contains(tx)).ToList();
+                        account.EncryptHistoryTxs(txs);
                         lock (account.TxHistory)
                         {
                             account.TxHistory.UnionWith(txs);
@@ -686,6 +953,8 @@ namespace Discreet.Wallets
 
                     ctx.SaveChanges();
                 }
+
+                Publisher.Instance.Publish("processblocknotify", "");
             }
         }
 
@@ -722,9 +991,7 @@ namespace Discreet.Wallets
             if (string.IsNullOrEmpty(newLabel)) return false;
             if (newLabel == Label) return false;
 
-            var labels = Directory.GetFiles(directory).ToList()
-                .Select(path => System.IO.Path.GetFileName(path))
-                .Where(file => System.IO.Path.HasExtension(".db"))
+            var labels = Directory.GetFiles(directory, "*.db")
                 .Select(file => System.IO.Path.GetFileNameWithoutExtension(file));
             if (labels.Any(lbl => lbl == newLabel)) return false;
 
@@ -732,12 +999,35 @@ namespace Discreet.Wallets
             {
                 var newPath = System.IO.Path.Combine(directory, $"{newLabel}.db");
                 File.Move(Path, newPath);
+                if (File.Exists(System.IO.Path.Combine(directory, $"{Label}.db-shm")))
+                {
+                    File.Move(Path, System.IO.Path.Combine(directory, $"{Label}.db-shm"));
+                }
+                if (File.Exists(System.IO.Path.Combine(directory, $"{Label}.db-shm")))
+                {
+                    File.Move(Path, System.IO.Path.Combine(directory, $"{Label}.db-wal"));
+                }
                 Path = newPath;
             }
 
             Label = newLabel;
 
             return true;
+        }
+
+        public async Task<bool> DoChangeLabel(string newLabel)
+        {
+            await requestSemaphore.WaitAsync();
+
+            try
+            {
+                var success = ChangeLabel(newLabel);
+                return success;
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
         }
 
         public async Task Start(CancellationToken token)
@@ -757,9 +1047,180 @@ namespace Discreet.Wallets
                     CleanServices();
                     services.Where(x => x.Paused).ToList().ForEach(x => x.Resume());
                 }
-            }
 
-            await Task.Delay(500, token);
+                //Daemon.Logger.Log($"wallet height: {syncingService.GetLastSeenHeight()}");
+
+                try
+                {
+                    await Task.Delay(1000, token);
+                }
+                catch (TaskCanceledException e)
+                {
+                    return;
+                }
+            }
+        }
+
+        public class WalletMigration
+        {
+            /// <summary>
+            /// Migrates a Legacy Wallet to the new Wallet framework.
+            /// </summary>
+            /// <param name="wallet"></param>
+            /// <returns></returns>
+            public static bool Migrate(string label, string passphrase, bool resync = true)
+            {
+                var legacyWallet = WalletsLegacy.WalletDB.GetDB().TryGetWallet(label);
+                if (legacyWallet == null)
+                {
+                    Daemon.Logger.Error($"WalletMigration.Migrate: could not find legacy wallet with label \"{label}\"");
+                    return false;
+                }
+                if (!legacyWallet.TryDecrypt(passphrase))
+                {
+                    Daemon.Logger.Error("WalletMigration.Migrate: could not decrypt wallet");
+                    return false;
+                }
+
+                if (Directory.GetFiles(directory, "*.db").Select(file => System.IO.Path.GetFileNameWithoutExtension(file)).Any(lbl => lbl == label))
+                {
+                    Daemon.Logger.Error($"WalletMigration.Migrate: could not migrate wallet with label \"{label}\" as it shares a name with another wallet");
+                    return false;
+                }
+
+                var newWallet = new SQLiteWallet();
+                newWallet.Entropy = legacyWallet.Entropy;
+                newWallet.EncryptedEntropy = newWallet.Entropy.EncryptEntropy(passphrase, out var echksm);
+                newWallet.EntropyChecksum = echksm;
+
+                newWallet.Path = System.IO.Path.Combine(directory, $"{label}.db");
+                newWallet.Label = label;
+
+                newWallet.lastSeenHeight = resync ? -1 : legacyWallet.LastSeenHeight;
+                newWallet.IsEncrypted = false;
+                newWallet.Encrypted = legacyWallet.Encrypted;
+                newWallet.Timestamp = legacyWallet.Timestamp;
+                newWallet.Accounts = new();
+
+                newWallet.BuildDatabase();
+
+                newWallet.SaveKey("EncryptedEntropy", newWallet.EncryptedEntropy);
+                newWallet.SaveKey("Encrypted", newWallet.Encrypted);
+                newWallet.SaveKey("Timestamp", newWallet.Timestamp);
+                newWallet.SaveKey("EntropyChecksum", newWallet.EntropyChecksum.Bytes);
+                newWallet.SaveKey("LastSeenHeight", newWallet.lastSeenHeight);
+
+                Dictionary<Account, (List<UTXO>, List<HistoryTx>)> accFundData = new();
+                Dictionary<Account, WalletsLegacy.WalletAddress> accAssociations = new();
+                foreach (var lacc in legacyWallet.Addresses)
+                {
+                    var acc = new Account();
+                    acc.Name = lacc.Name;
+                    acc.Address = lacc.Address;
+                    acc.Wallet = newWallet;
+                    acc.Deterministic = lacc.Deterministic;
+                    acc.Type = lacc.Type;
+                    acc.PubKey = lacc.PubKey;
+                    acc.PubSpendKey = lacc.PubSpendKey;
+                    acc.PubViewKey = lacc.PubViewKey;
+                    acc.SecKey = lacc.SecKey;
+                    acc.SecSpendKey = lacc.SecSpendKey;
+                    acc.SecViewKey = lacc.SecViewKey;
+                    acc.Syncing = resync ? false : lacc.Syncer;
+
+                    acc.EncryptAccountPrivateKeys(newWallet.Entropy);
+                    acc.DecryptAccountPrivateKeys(newWallet.Entropy);
+
+                    acc.Balance = lacc.Balance;
+                    acc.UTXOs = new();
+                    acc.TxHistory = new();
+
+                    if (!resync && lacc.Syncer)
+                    {
+                        newWallet.SaveKey(acc.Address, lacc.LastSeenHeight);
+                    }
+
+                    accAssociations[acc] = lacc;
+                    newWallet.Accounts.Add(acc);
+                }
+
+                if (newWallet.Accounts.Count > 0)
+                {
+                    lock (newWallet.db_lock)
+                    {
+                        using var ctx = new WalletDBContext(newWallet.Path);
+                        newWallet.Accounts.ForEach(acc =>
+                        {
+                            ctx.Accounts.Add(acc);
+                        });
+                        ctx.SaveChanges();
+                    }
+                }
+
+                if (!resync)
+                {
+                    foreach ((var acc, var lacc) in accAssociations)
+                    {
+                        var utxos = lacc.UTXOs.Select(ux => new UTXO
+                        {
+                            Address = acc.Address,
+                            Type = (byte)ux.Type,
+                            IsCoinbase = ux.IsCoinbase,
+                            TransactionSrc = ux.TransactionSrc,
+                            Amount = ux.Amount,
+                            Index = ux.Index,
+                            UXKey = ux.UXKey,
+                            UXSecKey = ux.UXSecKey,
+                            Commitment = ux.Commitment,
+                            DecodeIndex = ux.DecodeIndex,
+                            TransactionKey = ux.TransactionKey,
+                            DecodedAmount = ux.DecodedAmount,
+                            LinkingTag = ux.LinkingTag,
+                            Encrypted = false,
+                            Account = acc
+                        }).ToList();
+
+                        var htxs = lacc.TxHistory.Select(htx => new HistoryTx
+                        {
+                            Address = acc.Address,
+                            TxID = htx.TxID,
+                            Timestamp = htx.Timestamp,
+                            Account = acc,
+                            Inputs = htx.Inputs.Select(x => new HistoryTxOutput { Address = x.Address, Amount = x.Amount }).ToList(),
+                            Outputs = htx.Outputs.Select(x => new HistoryTxOutput { Address = x.Address, Amount = x.Amount }).ToList(),
+                        }).ToList();
+
+                        acc.EncryptHistoryTxs(htxs);
+
+                        accFundData[acc] = (utxos, htxs);
+
+                        //newWallet.Accounts.Add(acc);
+                    }
+
+                    foreach ((var acc, (var utxos, var htxs)) in accFundData)
+                    {
+                        newWallet.SaveAccountFundData(acc, Array.Empty<UTXO>(), utxos, htxs);
+                    }
+                }
+                
+                newWallet.Register();
+
+                newWallet.syncingService = new ParallelWalletFundsService(newWallet, ViewProvider.GetDefaultProvider());
+                newWallet.RegisterService(newWallet.syncingService);
+                _ = Task.Run(() => newWallet.syncingService.StartFundsScanAsync(newWallet.cancellationTokenSource.Token)).ConfigureAwait(false);
+
+                foreach (var acc in newWallet.Accounts)
+                {
+                    if (acc.Syncing)
+                    {
+                        AccountFundsService service = new(ViewProvider.GetDefaultProvider(), acc);
+                        newWallet.RegisterService(service);
+                        _ = Task.Run(() => service.StartFundsScan(newWallet.cancellationTokenSource.Token)).ConfigureAwait(false);
+                    }
+                }
+
+                return true;
+            }
         }
     }
 }

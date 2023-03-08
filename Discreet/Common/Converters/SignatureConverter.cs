@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace Discreet.RPC.Converters
+namespace Discreet.Common.Converters
 {
     public class SignatureConverter : JsonConverter<Signature>
     {

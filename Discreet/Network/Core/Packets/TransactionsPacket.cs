@@ -29,7 +29,7 @@ namespace Discreet.Network.Core.Packets
 
         public void Deserialize(byte[] b, uint offset)
         {
-            TxsLen = Coin.Serialization.GetUInt32(b, offset);
+            TxsLen = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
             Txs = new Coin.FullTransaction[TxsLen];
@@ -58,7 +58,7 @@ namespace Discreet.Network.Core.Packets
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Coin.Serialization.CopyData(b, offset, TxsLen);
+            Common.Serialization.CopyData(b, offset, TxsLen);
             offset += 4;
 
             for (int i = 0; i < TxsLen; i++)
@@ -72,7 +72,7 @@ namespace Discreet.Network.Core.Packets
 
         public void Serialize(Stream s)
         {
-            s.Write(Coin.Serialization.UInt32(TxsLen));
+            s.Write(Common.Serialization.UInt32(TxsLen));
 
             foreach (Coin.FullTransaction tx in Txs)
             {

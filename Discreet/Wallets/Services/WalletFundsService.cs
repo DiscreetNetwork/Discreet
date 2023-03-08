@@ -4,7 +4,10 @@ using Discreet.Wallets.Extensions;
 using Discreet.Wallets.Models;
 using System;
 using System.Collections.Generic;
+using System.Data;
+using System.Diagnostics;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,36 +16,43 @@ namespace Discreet.Wallets.Services
 {
     public class WalletFundsService: IFundsService
     {
-        private readonly object status_lock = new();
-        private SQLiteWallet wallet;
-        private IView view;
-        private long lastSeenHeight;
-        private bool requestPause = false;
+        protected readonly object status_lock = new();
+        protected SQLiteWallet wallet;
+        protected IView view;
+        protected long lastSeenHeight;
+        protected CancellationToken token = default;
+        protected bool requestPause = false;
+        protected bool checkCoinbase;
 
-        public ServiceState State { get; private set; }
+        public ServiceState State { get; protected set; }
 
         public bool Paused { get { return State == ServiceState.PAUSED; } }
-        public bool Completed { get; private set; }
+        public bool Completed { get { return State == ServiceState.COMPLETED; } }
 
-        public WalletFundsService(SQLiteWallet wallet, IView provider) 
+        public WalletFundsService(SQLiteWallet wallet, IView provider, bool checkCoinbase = true) 
         { 
             this.wallet = wallet;
             this.view = provider;
             State = ServiceState.INSTANTIATED;
+            // check coinbase IFF either (1) checkCoinbase = true and DebugConfig.AlwaysCheckCoinbase = true, or (2) label has prefix "dbg"
+            if (Daemon.DaemonConfig.GetConfig().DbgConfig.AlwaysCheckCoinbase.Value) this.checkCoinbase = checkCoinbase;
+            else this.checkCoinbase = wallet.Label.ToLower().StartsWith("dbg");
         }
 
         public long GetLastSeenHeight() => Interlocked.Read(ref lastSeenHeight);
 
-        public void StartFundsScan() => Task.Run(async () => await StartFundsScanAsync()).ConfigureAwait(false);
+        public virtual void StartFundsScan(CancellationToken token = default) => Task.Run(async () => await StartFundsScanAsync(token)).ConfigureAwait(false);
 
-        public async Task StartFundsScanAsync(CancellationToken token = default)
+        public virtual async Task StartFundsScanAsync(CancellationToken token = default)
         {
+            
+            if (this.token == default) this.token = token;
             lastSeenHeight = wallet.GetLastSeenHeight();
             State = ServiceState.SYNCING;
             ProcessBlocks(view.GetBlocks(lastSeenHeight + 1, 0));
-
+            
             // successfully synced
-            if (!token.IsCancellationRequested && !Paused)
+            if (!this.token.IsCancellationRequested && !Paused)
             {
                 State = ServiceState.SYNCED;
                 while (!token.IsCancellationRequested)
@@ -56,30 +66,52 @@ namespace Discreet.Wallets.Services
                             .Select(x => view.GetBlock((long)x)));
                     }
 
-                    await Task.Delay(1000, token);
+                    try
+                    {
+                        await Task.Delay(1000, token);
+                    }
+                    catch (TaskCanceledException e)
+                    {
+                        wallet.SetLastSeenHeight(lastSeenHeight);
+                        State = ServiceState.COMPLETED;
+                        return;
+                    }
                 }
             }
         }
 
-        public void ProcessBlock(Block block)
+        protected virtual void ProcessBlock(Block block)
         {
             if (block == null) throw new Exception("block was null");
-            var lastHeight = wallet.GetLastSeenHeight();
-            if (lastHeight >= block.Header.Height) throw new Exception("already seen block");
-            if (lastHeight + 1 != block.Header.Height) throw new Exception("block out of order");
+            if (lastSeenHeight >= block.Header.Height) throw new Exception("already seen block");
+            if (lastSeenHeight + 1 != block.Header.Height) throw new Exception("block out of order");
 
-            wallet.Accounts.Where(x => !x.Syncing).ToList().ForEach(x =>
+            foreach (var acc in wallet.Accounts.Where(x => !x.Syncing).ToList())
+            {
+                if (!checkCoinbase && block.Header.NumTXs == 1 && block.Header.Version == 2)
                 {
-                    (var spents, var utxos, var txs) = x.ProcessBlock(block);
-                    if (spents != null || utxos != null || txs != null) wallet.SaveAccountFundData(x, spents, utxos, txs);
-                });
+                    lastSeenHeight = block.Header.Height;
+                    return;
+                }
+
+                (var spents, var utxos, var txs) = acc.ProcessBlock(block);
+                if (spents != null || utxos != null || txs != null) wallet.SaveAccountFundData(acc, spents, utxos, txs);
+            }
+
+            lastSeenHeight = block.Header.Height;
         }
 
-        public void ProcessBlocks(IEnumerable<Block> blocks)
+        public virtual void ProcessBlocks(IEnumerable<Block> blocks)
         {
             var blockEnumerator = blocks.GetEnumerator();
             while (blockEnumerator.MoveNext())
             {
+                if (this.token.IsCancellationRequested)
+                {
+                    wallet.SetLastSeenHeight(lastSeenHeight);
+                    State = ServiceState.COMPLETED;
+                    return;
+                }
                 if (requestPause)
                 {
                     State = ServiceState.PAUSED;
@@ -97,21 +129,20 @@ namespace Discreet.Wallets.Services
             wallet.SetLastSeenHeight(lastSeenHeight);
         }
 
-        public void Interrupt()
+        public virtual void Interrupt()
         {
+            if (Completed) return;
+
             lock (status_lock) 
             {
                 requestPause = true;
             }
         }
 
-        public void ProcessTransaction(FullTransaction tx)
+        public virtual void Resume()
         {
-            throw new NotImplementedException();
-        }
+            if (Completed) return;
 
-        public void Resume()
-        {
             if (Paused)
             {
                 lock (status_lock)
@@ -119,7 +150,7 @@ namespace Discreet.Wallets.Services
                     State = ServiceState.SYNCING;
                 }
 
-                _ = Task.Run(() => StartFundsScan()).ConfigureAwait(false);
+                _ = Task.Run(() => StartFundsScanAsync()).ConfigureAwait(false);
             }
         }
     }

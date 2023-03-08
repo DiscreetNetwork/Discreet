@@ -7,7 +7,7 @@ using System.Text.Json.Serialization;
 using System.Net;
 using System.Text.Json;
 
-namespace Discreet.RPC.Converters
+namespace Discreet.Common.Converters
 {
     public class IPEndPointConverter : JsonConverter<IPEndPoint>
     {

@@ -26,6 +26,42 @@ namespace Discreet.Wallets.Models
         /* populated fields */
         public SHA256 TxID { get; set; }
         public long Timestamp { get; set; }
+
+        public ulong SentAmount { get
+            {
+                long total = 0;
+                if (Inputs != null)
+                {
+                    total -= Inputs.Where(x => x.Address == Address).Select(x => (long)x.Amount).Aggregate(0L, (x, y) => x + y);
+                }
+
+                if (Outputs != null)
+                {
+                    total += Outputs.Where(x => x.Address == Address).Select(x => (long)x.Amount).Aggregate(0L, (x, y) => x + y);
+                }
+
+                return (total < 0) ? (ulong)(-total) : 0;
+            } }
+
+        public ulong ReceivedAmount
+        {
+            get
+            {
+                long total = 0;
+                if (Inputs != null)
+                {
+                    total -= Inputs.Where(x => x.Address == Address).Select(x => (long)x.Amount).Aggregate(0L, (x, y) => x + y);
+                }
+
+                if (Outputs != null)
+                {
+                    total += Outputs.Where(x => x.Address == Address).Select(x => (long)x.Amount).Aggregate(0L, (x, y) => x + y);
+                }
+
+                return (total > 0) ? (ulong)total : 0;
+            }
+        }
+
         public List<HistoryTxOutput> Inputs { get; set; }
         public List<HistoryTxOutput> Outputs { get; set; }
 

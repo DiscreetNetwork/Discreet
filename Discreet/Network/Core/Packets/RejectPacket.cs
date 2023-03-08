@@ -37,13 +37,13 @@ namespace Discreet.Network.Core.Packets
             Code = (RejectionCode)b[offset + 1];
             offset += 2;
 
-            ReasonLen = Coin.Serialization.GetUInt32(b, offset);
+            ReasonLen = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
             Reason = Encoding.UTF8.GetString(b, (int)offset, (int)ReasonLen);
             offset += ReasonLen;
 
-            DataLen = Coin.Serialization.GetUInt32(b, offset);
+            DataLen = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
             Data = new byte[DataLen];
@@ -58,14 +58,14 @@ namespace Discreet.Network.Core.Packets
             Code = (RejectionCode)s.ReadByte();
 
             s.Read(uintbuf);
-            ReasonLen = Coin.Serialization.GetUInt32(uintbuf, 0);
+            ReasonLen = Common.Serialization.GetUInt32(uintbuf, 0);
 
             byte[] _reason = new byte[ReasonLen];
             s.Read(_reason);
             Reason = Encoding.UTF8.GetString(_reason);
 
             s.Read(uintbuf);
-            DataLen = Coin.Serialization.GetUInt32(uintbuf, 0);
+            DataLen = Common.Serialization.GetUInt32(uintbuf, 0);
 
             Data = new byte[DataLen];
             s.Read(Data);
@@ -77,13 +77,13 @@ namespace Discreet.Network.Core.Packets
             b[offset + 1] = (byte)Code;
             offset += 2;
 
-            Coin.Serialization.CopyData(b, offset, ReasonLen);
+            Common.Serialization.CopyData(b, offset, ReasonLen);
             offset += 4;
 
             Array.Copy(Encoding.UTF8.GetBytes(Reason), 0, b, offset, ReasonLen);
             offset += ReasonLen;
 
-            Coin.Serialization.CopyData(b, offset, DataLen);
+            Common.Serialization.CopyData(b, offset, DataLen);
             offset += 4;
 
             Array.Copy(Data, 0, b, offset, DataLen);
@@ -96,9 +96,9 @@ namespace Discreet.Network.Core.Packets
         {
             s.WriteByte((byte)RejectedType);
             s.WriteByte((byte)Code);
-            s.Write(Coin.Serialization.UInt32(ReasonLen));
+            s.Write(Common.Serialization.UInt32(ReasonLen));
             s.Write(Encoding.UTF8.GetBytes(Reason));
-            s.Write(Coin.Serialization.UInt32(DataLen));
+            s.Write(Common.Serialization.UInt32(DataLen));
             s.Write(Data);
         }
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Discreet.RPC.Common;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -83,7 +84,7 @@ namespace Discreet.RPC
                     StreamReader reader = new(ss);
 
                     RPCProcess processor = new();
-                    object result = processor.ProcessRemoteCall(this, reader.ReadToEnd(), _daemon.RPCLive);
+                    object result = await processor.ProcessRemoteCall(this, reader.ReadToEnd(), _daemon.RPCLive);
 
                     ctx.Response.Headers.Add("Content-Type: application/json");
 

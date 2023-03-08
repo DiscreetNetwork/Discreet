@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Discreet.Common.Serialization
+namespace Discreet.Common.Serialize
 {
     public interface ISerializable
     {

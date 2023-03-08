@@ -18,8 +18,8 @@ namespace Discreet.Wallets.Utilities
 
             if (account.Type == (byte)AddressType.STEALTH)
             {
-                var pubSpendKey = account.PubSpendKey;
-                var pubViewKey = account.PubViewKey;
+                var pubSpendKey = account.PubSpendKey.Value;
+                var pubViewKey = account.PubViewKey.Value;
                 var secSpendKey = account.SecSpendKey;
                 var secViewKey = account.SecViewKey;
 
@@ -56,7 +56,7 @@ namespace Discreet.Wallets.Utilities
             }
             else if (account.Type == (byte)AddressType.TRANSPARENT)
             {
-                var pubKey = account.PubKey;
+                var pubKey = account.PubKey.Value;
                 var secKey = account.SecKey;
 
                 if (!KeyOps.InMainSubgroup(ref pubKey))

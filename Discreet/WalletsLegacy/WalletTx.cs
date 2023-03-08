@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Discreet.Coin;
 using Discreet.Network;
 
 namespace Discreet.WalletsLegacy
@@ -16,14 +15,14 @@ namespace Discreet.WalletsLegacy
 
         public void Serialize(Stream s)
         {
-            Coin.Serialization.CopyData(s, Amount);
-            Coin.Serialization.CopyData(s, Address);
+            Common.Serialization.CopyData(s, Amount);
+            Common.Serialization.CopyData(s, Address);
         }
 
         public void Deserialize(Stream s)
         {
-            Amount = Coin.Serialization.GetUInt64(s);
-            Address = Coin.Serialization.GetString(s);
+            Amount = Common.Serialization.GetUInt64(s);
+            Address = Common.Serialization.GetString(s);
         }
     }
 
@@ -152,16 +151,16 @@ namespace Discreet.WalletsLegacy
         {
             s.Write(TxID.Bytes);
 
-            Coin.Serialization.CopyData(s, Timestamp);
-            Coin.Serialization.CopyData(s, Index);
+            Common.Serialization.CopyData(s, Timestamp);
+            Common.Serialization.CopyData(s, Index);
 
-            Coin.Serialization.CopyData(s, Inputs.Length);
+            Common.Serialization.CopyData(s, Inputs.Length);
             for (int i = 0; i < Inputs.Length; i++)
             {
                 Inputs[i].Serialize(s);
             }
 
-            Coin.Serialization.CopyData(s, Outputs.Length);
+            Common.Serialization.CopyData(s, Outputs.Length);
             for (int i = 0; i < Outputs.Length; i++)
             {
                 Outputs[i].Serialize(s);
@@ -172,10 +171,10 @@ namespace Discreet.WalletsLegacy
         {
             TxID = new Cipher.SHA256(s);
 
-            Timestamp = Coin.Serialization.GetInt64(s);
-            Index = Coin.Serialization.GetInt32(s);
+            Timestamp = Common.Serialization.GetInt64(s);
+            Index = Common.Serialization.GetInt32(s);
 
-            var inputsLength = Coin.Serialization.GetInt32(s);
+            var inputsLength = Common.Serialization.GetInt32(s);
             Inputs = new WalletTxOutput[inputsLength];
             for (int i = 0; i < inputsLength; i++)
             {
@@ -183,7 +182,7 @@ namespace Discreet.WalletsLegacy
                 Inputs[i].Deserialize(s);
             }
 
-            var outputsLength = Coin.Serialization.GetInt32(s);
+            var outputsLength = Common.Serialization.GetInt32(s);
             Outputs = new WalletTxOutput[outputsLength];
             for (int i = 0; i < outputsLength; i++)
             {

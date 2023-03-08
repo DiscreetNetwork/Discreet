@@ -9,6 +9,7 @@ using Discreet.RPC.Common;
 using Discreet.WalletsLegacy;
 using Discreet.Common;
 using Discreet.Coin;
+using Discreet.Wallets;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -120,7 +121,7 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("create_transaction", APISet.WALLET | APISet.TXN)]
-        public static object CreateTransaction(CreateTransactionParams _params)
+        public static async Task<object> CreateTransaction(CreateTransactionParams _params)
         {
             try
             {
@@ -132,11 +133,9 @@ namespace Discreet.RPC.Endpoints
                 if (_params.Address == null || _params.Address == "")
                     return new RPCError("one of the following must be set: Address, Label");
 
-                var wallet = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == _params.Address).FirstOrDefault() != null).FirstOrDefault();
+                var wallet = SQLiteWallet.Wallets.Values.Where(x => x.Accounts.Where(y => y.Address == _params.Address).Any()).FirstOrDefault();
 
                 if (wallet == null) return new RPCError($"could not find address {_params.Address}");
-
-                var sender = wallet.Addresses.Where(x => x.Address == _params.Address).FirstOrDefault();
 
                 bool _raw = _params.Raw.HasValue ? _params.Raw.Value : false;
                 bool _relay = _params.Relay.HasValue ? _params.Relay.Value : false;
@@ -150,7 +149,7 @@ namespace Discreet.RPC.Endpoints
 
                 try
                 {
-                    tx = sender.CreateTransaction(_to, _amount).ToFull();
+                    tx = await wallet.DoCreateTransaction(_params.Address, _to, _amount, true);
                 }
                 catch (Exception ex)
                 {

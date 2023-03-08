@@ -54,7 +54,7 @@ namespace Discreet.Network.Core
                 throw new Exception($"Discreet.Network.Core.Packet.Populate: expected {Header.Length} bytes in payload, but got {num}");
             }
 
-            uint _checksum = Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(bodyData)), 0);
+            uint _checksum = Common.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(bodyData)), 0);
             if (_checksum != Header.Checksum)
             {
                 throw new Exception($"Discreet.Network.Core.Packet.Populate: checksum mismatch; got {Header.Checksum}, but calculated {_checksum}");
@@ -77,7 +77,7 @@ namespace Discreet.Network.Core
                 throw new Exception($"Discreet.Network.Core.Packet.Populate: expected {Header.Length} bytes in payload, but got {bytes.Length - 10}");
             }
 
-            uint _checksum = Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(new Span<byte>(bytes, 10, bytes.Length - 10))), 0);
+            uint _checksum = Common.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(new Span<byte>(bytes, 10, bytes.Length - 10))), 0);
             if (_checksum != Header.Checksum)
             {
                 throw new Exception($"Discreet.Network.Core.Packet.Populate: checksum mismatch; got {Header.Checksum}, but calculated {_checksum}");

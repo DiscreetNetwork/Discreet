@@ -46,11 +46,11 @@ namespace Discreet.WalletsLegacy
             bytes[0] = (byte)Type;
             bytes[1] = (IsCoinbase) ? (byte)1 : (byte)0;
             Array.Copy(TransactionSrc.Bytes, 0, bytes, 2, 32);
-            Coin.Serialization.CopyData(bytes, 34, DecodeIndex);
+            Common.Serialization.CopyData(bytes, 34, DecodeIndex);
             Array.Copy(TransactionKey.bytes, 0, bytes, 38, 32);
-            Coin.Serialization.CopyData(bytes, 70, Amount);
+            Common.Serialization.CopyData(bytes, 70, Amount);
 
-            Coin.Serialization.CopyData(bytes, 78, Index);
+            Common.Serialization.CopyData(bytes, 78, Index);
             Array.Copy(UXKey.bytes, 0, bytes, 82, 32);
             Array.Copy(Commitment.bytes, 0, bytes, 114, 32);
 
@@ -69,11 +69,11 @@ namespace Discreet.WalletsLegacy
             Type = (UTXOType)bytes[0];
             IsCoinbase = bytes[1] == 1;
 
-            DecodeIndex = Coin.Serialization.GetInt32(bytes, 34);
+            DecodeIndex = Common.Serialization.GetInt32(bytes, 34);
             DecodedAmount = (Type == UTXOType.PRIVATE) ? 0 : Amount;
             Encrypted = (Type == UTXOType.PRIVATE) ? true : false;
-            Amount = Coin.Serialization.GetUInt64(bytes, 70);
-            Index = Coin.Serialization.GetUInt32(bytes, 78);
+            Amount = Common.Serialization.GetUInt64(bytes, 70);
+            Index = Common.Serialization.GetUInt32(bytes, 78);
 
             LinkingTag = new Key(bytes[146..178]);
         }
@@ -83,10 +83,10 @@ namespace Discreet.WalletsLegacy
             Type = (UTXOType)s.ReadByte();
             IsCoinbase = s.ReadByte() == 1;
             TransactionSrc = new SHA256(s);
-            DecodeIndex = Coin.Serialization.GetInt32(s);
+            DecodeIndex = Common.Serialization.GetInt32(s);
             TransactionKey = new Key(s);
-            Amount = Coin.Serialization.GetUInt64(s);
-            Index = Coin.Serialization.GetUInt32(s);
+            Amount = Common.Serialization.GetUInt64(s);
+            Index = Common.Serialization.GetUInt32(s);
             UXKey = new Key(s);
             Commitment = new Key(s);
             LinkingTag = new Key(s);
@@ -168,7 +168,7 @@ namespace Discreet.WalletsLegacy
 
             byte[] cdata = new byte[36];
             Array.Copy(KeyOps.ScalarmultKey(ref TransactionKey, ref addr.SecViewKey).bytes, cdata, 32);
-            Coin.Serialization.CopyData(cdata, 32, DecodeIndex);
+            Common.Serialization.CopyData(cdata, 32, DecodeIndex);
 
             if (isCoinbase)
             {
@@ -212,7 +212,7 @@ namespace Discreet.WalletsLegacy
 
             byte[] cdata = new byte[36];
             Array.Copy(KeyOps.ScalarmultKey(ref TransactionKey, ref addr.SecViewKey).bytes, cdata, 32);
-            Coin.Serialization.CopyData(cdata, 32, DecodeIndex);
+            Common.Serialization.CopyData(cdata, 32, DecodeIndex);
 
             if (isCoinbase)
             {
@@ -290,7 +290,7 @@ namespace Discreet.WalletsLegacy
                 {
                     byte[] cdata = new byte[36];
                     Array.Copy(KeyOps.ScalarmultKey(ref TransactionKey, ref addr.SecViewKey).bytes, cdata, 32);
-                    Coin.Serialization.CopyData(cdata, 32, DecodeIndex);
+                    Common.Serialization.CopyData(cdata, 32, DecodeIndex);
 
                     Key c = new Key(new byte[32]);
                     HashOps.HashToScalar(ref c, cdata, 36);

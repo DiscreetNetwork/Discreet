@@ -609,9 +609,9 @@ namespace Discreet.Network
                 return;
             }
 
-            if (p.Data == null || p.Data.Length != 8 || Coin.Serialization.GetUInt64(p.Data, 0) != PingID)
+            if (p.Data == null || p.Data.Length != 8 || Common.Serialization.GetUInt64(p.Data, 0) != PingID)
             {
-                Daemon.Logger.Warn($"HandleNetPong: ping ID mismatch for peer {conn.Receiver}: expected {PingID}, but got {Coin.Serialization.GetUInt64(p.Data, 0)}");
+                Daemon.Logger.Warn($"HandleNetPong: ping ID mismatch for peer {conn.Receiver}: expected {PingID}, but got {Common.Serialization.GetUInt64(p.Data, 0)}");
                 return;
             }
 

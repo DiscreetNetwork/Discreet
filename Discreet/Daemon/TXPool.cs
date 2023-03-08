@@ -44,7 +44,7 @@ namespace Discreet.Daemon
             public byte[] Serialize()
             {
                 byte[] data = new byte[Tx.Size() + 8];
-                Coin.Serialization.CopyData(data, 0, Received);
+                Common.Serialization.CopyData(data, 0, Received);
                 Tx.Serialize(data, 8);
 
                 return data;
@@ -52,7 +52,7 @@ namespace Discreet.Daemon
 
             public void Deserialize(byte[] data)
             {
-                Received = Coin.Serialization.GetInt64(data, 0);
+                Received = Common.Serialization.GetInt64(data, 0);
 
                 Tx = new FullTransaction();
                 Tx.Deserialize(data, 8);
@@ -586,6 +586,8 @@ namespace Discreet.Daemon
             Cipher.KeyOps.GenCommitment(ref tmp, ref _Z, toutAmt);
             Cipher.KeyOps.AddKeys(ref outAmt, ref poutAmt, ref tmp);
 
+            Logger.Log($"INAMT: {inAmt.ToHex()}");
+            Logger.Log($"OUTAMT: {outAmt.ToHex()}");
             /* verify sumIn = sumOut */
             if (!inAmt.Equals(outAmt)) return new VerifyException("FullTransaction", $"Transaction does not balance");
 

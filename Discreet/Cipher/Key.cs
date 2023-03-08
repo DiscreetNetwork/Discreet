@@ -47,7 +47,14 @@ namespace Discreet.Cipher
         /// <returns></returns>
         public static Key Zero()
         {
-            return Z;
+            return Clone(Z);
+        }
+
+        public static Key Clone(Key k)
+        {
+            var c = new Key(new byte[32]);
+            Array.Copy(k.bytes, c.bytes, 32);
+            return c;
         }
 
         /// <summary>
@@ -56,7 +63,7 @@ namespace Discreet.Cipher
         /// <param name="k"></param>
         public static void Zero(Key k)
         {
-            Array.Copy(Key.Zero().bytes, k.bytes, 32);
+            Array.Copy(Z.bytes, k.bytes, 32);
         }
 
         /// <summary>
@@ -65,7 +72,7 @@ namespace Discreet.Cipher
         /// <returns></returns>
         public static Key Identity()
         {
-            return I;
+            return Clone(I);
         }
 
         /// <summary>
@@ -74,7 +81,7 @@ namespace Discreet.Cipher
         /// <param name="k"></param>
         public static void Identity(Key k)
         {
-            Array.Copy(Key.Identity().bytes, k.bytes, 32);
+            Array.Copy(I.bytes, k.bytes, 32);
         }
 
         /// <summary>
@@ -83,7 +90,7 @@ namespace Discreet.Cipher
         /// <returns></returns>
         public static Key CurveOrder()
         {
-            return L;
+            return Clone(L);
         }
 
         /// <summary>
@@ -92,7 +99,7 @@ namespace Discreet.Cipher
         /// <returns></returns>
         public static void CurveOrder(Key k)
         {
-            Array.Copy(Key.CurveOrder().bytes, k.bytes, 32);
+            Array.Copy(L.bytes, k.bytes, 32);
         }
 
         /// <summary>

@@ -461,6 +461,34 @@ namespace Discreet.Network.Peerbloom
 
             handler.Start(_shutdownTokenSource.Token);
 
+            // try to connect to "default" peers in network config
+            if (Daemon.DaemonConfig.GetConfig().NetConfig.Peers.Count > 0)
+            {
+                var dendpoints = Daemon.DaemonConfig.GetConfig().NetConfig.Peers;
+
+                while (dendpoints.Count > 0)
+                {
+                    var dendpoint = dendpoints[0];
+                    Peer dpeer;
+
+                    if (peerlist.FindPeer(dendpoint, out _) != null)
+                    {
+                        dpeer = peerlist.FindPeer(dendpoint, out _);
+                    }
+                    else
+                    {
+                        peerlist.AddNew(dendpoint, IPEndPoint.Parse("0.0.0.0:0"), 0, 0);
+                        dpeer = peerlist.FindPeer(dendpoint, out _);
+                    }
+
+                    Connection conn = new Connection(dpeer.Endpoint, this, LocalNode, true);
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 10000, 5);
+                    peerlist.Attempt(dpeer.Endpoint, !success);
+
+                    dendpoints.RemoveAt(0);
+                }
+            }
+
             // This check is in case THIS device, is the bootstrap node. In that case, it should not try to bootstrap itself, as it is the first node in the network
             // Eventually this check needs to be modified, when we include multiple bootstrap nodes
             // For now: make sure the int we check against, matches the port of the bootstrap node, in the line above
@@ -482,7 +510,7 @@ namespace Discreet.Network.Peerbloom
 
             int NumberConnections = (Daemon.Daemon.DebugMode ? 1 : 2);
 
-            if (peerlist.NumTried > 0)
+            if (peerlist.NumTried > 0 && OutboundConnectedPeers.Count < NumberConnections)
             {
                 Daemon.Logger.Info("Attempting to connect to known peers...");
 
@@ -495,6 +523,9 @@ namespace Discreet.Network.Peerbloom
                     (peer, _) = peerlist.Select(false, true);
 
                     if (checkedPeers.Contains(peer)) continue;
+
+                    // we want to skip over peers in the "default" peers list.
+                    if (Daemon.DaemonConfig.GetConfig().NetConfig.Peers.Contains(peer.Endpoint)) continue;
 
                     Connection conn = new Connection(peer.Endpoint, this, LocalNode, true);
 

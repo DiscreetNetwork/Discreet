@@ -3,6 +3,7 @@ using Discreet.Cipher.Mnemonics;
 using Discreet.Coin;
 using Discreet.Common;
 using Discreet.RPC.Common;
+using Discreet.Wallets;
 using Discreet.WalletsLegacy;
 using System;
 using System.Collections.Concurrent;
@@ -17,18 +18,18 @@ namespace Discreet.RPC.Endpoints
     public static class WalletEndpoints
     {
         [RPCEndpoint("get_wallet", APISet.WALLET)]
-        public static object GetWallet(string label)
+        public static async Task<object> GetWallet(string label)
         {
             try
             {
-                var _wallet = WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
+                var success = SQLiteWallet.Wallets.TryGetValue(label, out var wallet);
 
-                if (_wallet == null)
+                if (!success)
                 {
                     return new RPCError($"could not get wallet with label {label}");
                 }
 
-                return new Readable.Wallet(_wallet);
+                return await wallet.DoGetWallet();
             }
             catch (Exception ex)
             {
@@ -43,9 +44,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var db = WalletDB.GetDB();
-
-                return db.GetWallets().Select(x => new Readable.Wallet(x)).ToList();
+                return SQLiteWallet.DoGetWalletsFromDir();
             }
             catch (Exception ex)
             {
@@ -98,7 +97,7 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("create_wallet", APISet.WALLET)]
-        public static object CreateWallet(CreateWalletParams _params)
+        public static async Task<object> CreateWallet(CreateWalletParams _params)
         {
             try
             {
@@ -108,7 +107,14 @@ namespace Discreet.RPC.Endpoints
 
                 if (_params.Label == null || _params.Label == "") return new RPCError("label was null or empty");
 
-                if (WalletManager.Instance.Wallets.Any(x => x.Label == _params.Label)) return new RPCError("wallet with specified label already exists");
+                bool _encrypted = _params.Encrypted.HasValue ? _params.Encrypted.Value : true;
+
+                if (_encrypted && (_params.Passphrase == null || _params.Passphrase == "")) return new RPCError("passphrase was null or empty and encrypted was true");
+
+                if (SQLiteWallet.DoGetWalletsFromDir().Concat(SQLiteWallet.Wallets.Keys).Any(x => x == _params.Label)) return new RPCError("wallet with specified label already exists");
+
+                Wallets.Models.CreateWalletParameters cwParams = new(_params.Label, _params.Passphrase ?? "");
+                if (_encrypted) cwParams = cwParams.SetEncrypted();
 
                 if ((_params.Bip39.HasValue && (_params.Mnemonic != null || _params.Seed != null)) ||
                     (_params.Mnemonic != null && (_params.Seed != null || _params.Bip39.HasValue)) ||
@@ -126,9 +132,7 @@ namespace Discreet.RPC.Endpoints
                     mnemonic = new(_params.Seed);
                 }
 
-                bool _encrypted = _params.Encrypted.HasValue ? _params.Encrypted.Value : true;
-
-                if (_encrypted && (_params.Passphrase == null || _params.Passphrase == "")) return new RPCError("passphrase was null or empty and encrypted was true");
+                if (mnemonic != null) cwParams = cwParams.SetMnemonic(mnemonic.GetMnemonic());
 
                 if (_params.NumStealthAddresses.HasValue && _params.StealthAddressNames != null && _params.NumStealthAddresses.Value != _params.StealthAddressNames.Count)
                 {
@@ -140,36 +144,34 @@ namespace Discreet.RPC.Endpoints
                     return new RPCError($"number of transparent addresses does not match the number of provided transparent address names: {_params.NumTransparentAddresses.Value} != {_params.TransparentAddressNames.Count}");
                 }
 
-                uint numStealthAddresses = _params.NumStealthAddresses.HasValue ? _params.NumStealthAddresses.Value : (_params.StealthAddressNames != null ? (uint)_params.StealthAddressNames.Count : 1);
-                uint numTransparentAddresses = _params.NumTransparentAddresses.HasValue ? _params.NumTransparentAddresses.Value : (_params.TransparentAddressNames != null ? (uint)_params.TransparentAddressNames.Count : 0);
+                if (_params.StealthAddressNames != null && _params.StealthAddressNames.Count > 0)
+                {
+                    _params.StealthAddressNames.ForEach(x => cwParams = cwParams.AddStealthAddress(x));
+                }
+                else
+                {
+                    cwParams = cwParams.SetNumStealthAddresses(_params.NumStealthAddresses.Value);
+                }
+
+                if (_params.TransparentAddressNames != null && _params.TransparentAddressNames.Count > 0)
+                {
+                    _params.TransparentAddressNames.ForEach(x => cwParams = cwParams.AddTransparentAddress(x));
+                }
+                else
+                {
+                    cwParams = cwParams.SetNumTransparentAddresses(_params.NumTransparentAddresses.Value);
+                }
 
                 bool _save = _params.Save.HasValue ? _params.Save.Value : false;
                 bool _scan = _params.ScanForBalance.HasValue ? _params.ScanForBalance.Value : false;
 
+                if (_params.ScanForBalance.HasValue && _params.ScanForBalance.Value == true) cwParams = cwParams.Scan();
+                else cwParams = cwParams.SkipScan();
+
                 if (_scan && !_save) return new RPCError("Save must be true if scan is true");
 
-                Wallet wallet;
-
-                if (mnemonic == null)
-                {
-                    wallet = new Wallet(_params.Label, _params.Passphrase, _params.Bip39.HasValue ? _params.Bip39.Value : 24, _encrypted, true, numStealthAddresses, numTransparentAddresses, _params.StealthAddressNames, _params.TransparentAddressNames);
-                }
-                else
-                {
-                    wallet = new Wallet(_params.Label, _params.Passphrase, mnemonic.GetMnemonic(), _encrypted, true, (uint)mnemonic.Words.Length, numStealthAddresses, numTransparentAddresses, _params.StealthAddressNames, _params.TransparentAddressNames);
-                }
-
-                if (_save)
-                {
-                    lock (WalletManager.Instance.Wallets)
-                    {
-                        WalletManager.Instance.Wallets.Add(wallet);
-                    }
-
-                    wallet.Save(true);
-                }
-
-                return new Readable.Wallet(wallet);
+                SQLiteWallet wallet = SQLiteWallet.CreateWallet(cwParams);
+                return await wallet.DoGetWallet();
             }
             catch (Exception ex)
             {
@@ -207,10 +209,6 @@ namespace Discreet.RPC.Endpoints
             if (_params.Path != null && _params.Path != "" && _params.Label != null && _params.Label != "") 
                 return new RPCError("only one of the following must be set: Path, Label");
 
-            Wallet wallet;
-
-            WalletDB db = WalletDB.GetDB();
-
             try
             {
                 if (_params.Path != null && _params.Path != "")
@@ -218,43 +216,11 @@ namespace Discreet.RPC.Endpoints
                     if (!Path.IsPathRooted(_params.Path))
                         return new RPCError("Path must be absolute");
 
-                    wallet = Wallet.FromFile(_params.Path);
-
-                    if (db.ContainsWallet(wallet.Label))
-                    {
-                        return new RPCError($"Label conflict: walletdb already has a wallet with label {wallet.Label}; consider changing the label");
-                    }
-
-                    wallet.Save(true);
+                    SQLiteWallet.OpenWallet(_params.Path, _params.Passphrase);
                 }
                 else
                 {
-                    try
-                    {
-                        wallet = db.GetWallet(_params.Label);
-                    }
-                    catch (Exception ex)
-                    {
-                        Daemon.Logger.Error($"RPC call resulted in an error: {ex.Message}", ex);
-
-                        return new RPCError($"could not load wallet with label {_params.Label}; try checking wallet integrity or seeing if it is missing");
-                    }
-                }
-
-                if (WalletManager.Instance.Wallets.Any(x => x.Label == wallet.Label || (x.WalletPath == _params.Path && x.WalletPath != null && x.WalletPath != "")))
-                    return new RPCError(-1, "wallet shares label or path with another loaded wallet", new Readable.Wallet(wallet));
-
-                if (wallet.Encrypted && (_params.Passphrase == null || _params.Passphrase == ""))
-                    return new RPCError("Wallet is encrypted; passphrase was not supplied");
-
-                if (!wallet.TryDecrypt(_params.Passphrase))
-                    return new RPCError("Wallet passphrase incorrect");
-
-                wallet.WalletPath = _params.Path;
-
-                lock (WalletManager.Instance.Wallets)
-                {
-                    WalletManager.Instance.Wallets.Add(wallet);
+                    SQLiteWallet.OpenWallet(_params.Label, _params.Passphrase);
                 }
 
                 return "OK";
@@ -279,7 +245,7 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("check_integrity", APISet.WALLET)]
-        public static object CheckIntegrity(CheckIntegrityParams _params)
+        public static async Task<object> CheckIntegrity(CheckIntegrityParams _params)
         {
             var _daemon = Network.Handler.GetHandler().daemon;
 
@@ -296,20 +262,17 @@ namespace Discreet.RPC.Endpoints
             {
                 if (_params.Label != null && _params.Label != "")
                 {
-                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
+                    var success = SQLiteWallet.Wallets.TryGetValue(_params.Label, out var wallet);
+                    if (!success) return new RPCError($"could not find wallet with label {_params.Label}");
 
-                    if (wallet == null) return new RPCError($"could not find wallet with label {_params.Label}");
-
-                    return wallet.CheckIntegrity() ? "OK" : "wallet integrity check failed.";
+                    return await wallet.DoCheckIntegrity() ? "OK" : "wallet integrity check failed.";
                 }
                 else
                 {
-
-                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == _params.Address).FirstOrDefault() != null).FirstOrDefault();
-
+                    var wallet = SQLiteWallet.Wallets.Values.Where(x => x.Accounts.Any(y => y.Address == _params.Address)).FirstOrDefault();
                     if (wallet == null) return new RPCError($"could not find address {_params.Address}");
 
-                    return wallet.Addresses.Where(x => x.Address == _params.Address).First().TryCheckIntegrity() 
+                    return await wallet.DoCheckAccountIntegrity(_params.Address)
                         ? "OK" : $"address integrity check failed. consider using restore_wallet on wallet {wallet.Label} to attempt recovery.";
                 }
             }
@@ -333,58 +296,24 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("load_wallets", APISet.WALLET)]
-        public static object LoadWallets(List<LoadWalletParams> _params)
+        public static async Task<object> LoadWallets(List<LoadWalletParams> _params)
         {
             var _daemon = Network.Handler.GetHandler().daemon;
 
-            WalletDB db = WalletDB.GetDB();
-
             if (_params == null || _params.Count == 0) return new RPCError("load wallets params was null");
-
             bool dup = _params.Aggregate(new List<string>(), (lst, elem) => { lst.Add(elem.Label); return lst; }).Distinct().Count() < _params.Count;
-
             if (dup) return new RPCError($"load wallet params contains duplicate wallets to load; cannot load wallets");
-
-            foreach (var _wal in WalletManager.Instance.Wallets)
-            {
-                if (_params.Any(x => x.Label == _wal.Label)) return new RPCError($"load wallet params contains a wallet which shares a label with an already loaded wallet ({_wal.Label})");
-            }
-
+            List<SQLiteWallet> wallets = new();
             try
             {
-                List<Wallet> wallets = new List<Wallet>();
-
                 foreach (var param in _params)
                 {
                     if (param == null) return new RPCError("one of the load wallets params was null");
-
                     if (param.Label == null || param.Label == "") return new RPCError("one of the labels was null");
 
-                    Wallet wallet = db.TryGetWallet(param.Label);
-
-                    if (wallet == null) return new RPCError($"no wallet exists with label {param.Label}");
-
-                    if (wallet.Encrypted)
-                    {
-                        if (param.Passphrase == null || param.Passphrase == "") return new RPCError($"wallet {param.Label} requires passphrase");
-
-                        if (!wallet.TryDecrypt(param.Passphrase)) return new RPCError($"wallet {param.Label}: wrong passphrase");
-                    }
-                    else
-                    {
-                        if (!wallet.TryDecrypt()) return new RPCError($"wallet {param.Label} could not be decrypted");
-                    }
-
+                    var wallet = SQLiteWallet.OpenWallet(param.Label, param.Passphrase);
                     wallets.Add(wallet);
                 }
-
-                wallets.ForEach(wallet =>
-                {
-                    lock (WalletManager.Instance.Wallets)
-                    {
-                        WalletManager.Instance.Wallets.Add(wallet);
-                    }
-                });
 
                 return "OK";
             }
@@ -402,10 +331,8 @@ namespace Discreet.RPC.Endpoints
             try
             {
                 if (label == null || label == "") return new RPCError("label was null");
-
-                var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
-
-                if (wallet == null) return new RPCError($"could not find wallet with label {label}");
+                var success = SQLiteWallet.Wallets.TryGetValue(label, out var wallet);
+                if (!success) return new RPCError($"could not find wallet with label {label}");
 
                 wallet.RequestLock();
 
@@ -424,7 +351,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                foreach (Wallet wallet in WalletsLegacy.WalletManager.Instance.Wallets)
+                foreach (var wallet in SQLiteWallet.Wallets.Values)
                 {
                     wallet.RequestLock();
                 }
@@ -456,28 +383,15 @@ namespace Discreet.RPC.Endpoints
             var _daemon = Network.Handler.GetHandler().daemon;
 
             if (_params == null) return new RPCError("unlock wallet params was null");
-
             if (_params.Label == null || _params.Label == "") return new RPCError("label was null");
 
             try
             {
-                Wallet wallet = WalletManager.Instance.Wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
+                bool success = SQLiteWallet.Wallets.TryGetValue(_params.Label, out var wallet);
+                if (!success) return new RPCError($"no wallet found with label {_params.Label}");
 
-                if (wallet == null) return new RPCError($"no wallet found with label {_params.Label}");
-
-                if (!wallet.IsEncrypted) return new RPCError("wallet is not encrypted");
-
-                if (wallet.Encrypted)
-                {
-                    if (_params.Passphrase == null || _params.Passphrase == "") return new RPCError($"wallet {_params.Label} requires passphrase");
-
-                    if (!wallet.TryDecrypt(_params.Passphrase)) return new RPCError($"wallet {_params.Label}: wrong passphrase");
-                }
-                else
-                {
-                    if (!wallet.TryDecrypt()) return new RPCError($"wallet {_params.Label} could not be decrypted");
-                }
-
+                success = wallet.Unlock(_params.Passphrase);
+                if (!success) return new RPCEndpoint($"wrong passphrase!");
                 return "OK";
             }
             catch (Exception ex)
@@ -489,19 +403,17 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_wallet_balance", APISet.WALLET)]
-        public static object GetWalletBalance(string label)
+        public static async Task<object> GetWalletBalance(string label)
         {
             try
             {
                 var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
+                bool success = SQLiteWallet.Wallets.TryGetValue(label, out var wallet);
+                if (!success) return new RPCError($"no wallet found with label {label}");
 
-                Wallet wallet = WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
-
-                if (wallet == null) return new RPCError($"no wallet found with label {label}");
-
-                return wallet.Addresses.Select(x => { if (x.Synced && !x.Syncer) return x.Balance; else return 0UL; }).Aggregate((x, y) => x + y);
+                return await wallet.DoGetBalance();
             }
             catch (Exception ex)
             {
@@ -512,19 +424,17 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_balance", APISet.WALLET)]
-        public static object GetBalance(string address)
+        public static async Task<object> GetBalance(string address)
         {
             try
             {
                 var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (address == null || address == "") return new RPCError("parameter was null");
-
-                var wallet = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
-
+                var wallet = SQLiteWallet.Wallets.Values.Where(x => x.Accounts.Any(y => y.Address == address)).FirstOrDefault();
                 if (wallet == null) return new RPCError($"could not find address {address}");
 
-                return wallet.Addresses.Where(x => x.Address == address).FirstOrDefault().Balance;
+                return await wallet.DoGetAccountBalance(address);
             }
             catch (Exception ex)
             {
@@ -562,22 +472,19 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("create_address", APISet.WALLET)]
-        public static object CreateAddress(CreateAddressParams _params)
+        public static async Task<object> CreateAddress(CreateAddressParams _params)
         {
             try
             {
                 var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (_params == null) return new RPCError("unlock wallet params was null");
-
                 if (_params.Label == null || _params.Label == "") return new RPCError("label was null");
 
-                Wallet wallet = WalletManager.Instance.Wallets.Where(x => x.Label == _params.Label).FirstOrDefault();
-
-                if (wallet == null) return new RPCError($"no wallet found with label {_params.Label}");
+                var success = SQLiteWallet.Wallets.TryGetValue(_params.Label, out var wallet);
+                if (!success) return new RPCError($"no wallet found with label {_params.Label}");
 
                 if (_params.Type == null || _params.Type == "") return new RPCError("type was null");
-
                 AddressType? addrType = null;
 
                 if (_params.Type.ToLower() == "private" || _params.Type.ToLower() == "shielded" || _params.Type.ToLower() == "stealth" || _params.Type.ToLower() == "stealthaddress" || _params.Type.ToLower() == "p")
@@ -590,112 +497,41 @@ namespace Discreet.RPC.Endpoints
                 }
 
                 if (addrType == null) return new RPCError($"unknown address type {_params.Type}");
+                var caParams = new Wallets.Models.CreateAccountParameters(_params.Name);
+                if (addrType.Value == AddressType.STEALTH) caParams = caParams.Stealth();
+                else if (addrType.Value == AddressType.TRANSPARENT) caParams = caParams.Transparent();
 
                 if (!_params.Deterministic.HasValue) return new RPCError("deterministic was null");
-
                 bool deterministic = _params.Deterministic.Value;
+                if (deterministic) caParams = caParams.SetDeterministic();
+                else caParams = caParams.SetNondeterministic();
 
                 if (deterministic && ((_params.Secret != null && _params.Secret != "") ||
                                       (_params.Spend != null && _params.Spend != "") ||
                                       (_params.View != null && _params.View != "")))
                     return new RPCError("Secret, Spend and View cannot be set if deterministic is true");
 
-                WalletAddress addr = null;
-
-                if (deterministic)
+                if (_params.Secret != null)
                 {
-                    addr = wallet.AddWallet(true, addrType == AddressType.TRANSPARENT, _params.Name);
+                    if (Printable.IsHex(_params.Secret) && _params.Secret.Length == 64) caParams = caParams.SetTransparentSeed(_params.Secret);
+                    else caParams = caParams.SetTransparentMnemonic(_params.Secret);
                 }
-                else
+                else if (_params.Spend != null && _params.View != null)
                 {
-                    if (addrType == AddressType.STEALTH && (_params.Secret != null && _params.Secret != ""))
-                        return new RPCError($"Secret cannot be set if type is {_params.Type}");
+                    Mnemonic spend, view;
+                    if (Printable.IsHex(_params.Spend) && _params.Spend.Length == 64) spend = new(Printable.Byteify(_params.Spend));
+                    else spend = new(_params.Spend);
 
-                    if (addrType == AddressType.TRANSPARENT && ((_params.Spend != null && _params.Spend != "") || (_params.View != null && _params.View != "")))
-                        return new RPCError($"Spend and View cannot be set if type is {_params.Type}");
+                    if (Printable.IsHex(_params.View) && _params.View.Length == 64) view = new(Printable.Byteify(_params.View));
+                    else view = new(_params.View);
 
-                    bool random = !deterministic && (_params.Spend == null || _params.Spend == "") && (_params.View == null || _params.View == "") && (_params.Secret == null || _params.Secret == "");
-
-                    if (random)
-                    {
-                        addr = wallet.AddWallet(false, addrType == AddressType.TRANSPARENT, _params.Name);
-                    }
-                    else
-                    {
-                        if (addrType == AddressType.STEALTH)
-                        {
-                            Key spend, view;
-
-                            if (Printable.IsHex(_params.Spend) && _params.Spend.Length == 64)
-                            {
-                                spend = Key.FromHex(_params.Spend);
-                            }
-                            else if (Mnemonic.IsMnemonic(_params.Spend, 24))
-                            {
-                                spend = new Key(Mnemonic.GetEntropy(_params.Spend));
-                            }
-                            else
-                            {
-                                return new RPCError($"Spend is not a valid key mnemonic or key hex string");
-                            }
-
-                            if (Printable.IsHex(_params.View) && _params.View.Length == 64)
-                            {
-                                view = Key.FromHex(_params.View);
-                            }
-                            else if (Mnemonic.IsMnemonic(_params.View))
-                            {
-                                view = new Key(Mnemonic.GetEntropy(_params.View));
-                            }
-                            else
-                            {
-                                return new RPCError($"View is not a valid key mnemonic or key hex string");
-                            }
-
-                            addr = new WalletAddress(wallet, (byte)addrType, default, spend, view);
-                            addr.Name = _params.Name ?? "";
-                        }
-                        else if (addrType == AddressType.TRANSPARENT)
-                        {
-                            Key secret;
-
-                            if (Printable.IsHex(_params.Secret) && _params.Secret.Length == 64)
-                            {
-                                secret = Key.FromHex(_params.Spend);
-                            }
-                            else if (Mnemonic.IsMnemonic(_params.Secret, 24))
-                            {
-                                secret = new Key(Mnemonic.GetEntropy(_params.Spend));
-                            }
-                            else
-                            {
-                                return new RPCError($"Spend is not a valid key mnemonic or key hex string");
-                            }
-
-                            addr = new WalletAddress(wallet, (byte)addrType, secret, default, default);
-                            addr.Name = _params.Name ?? "";
-                        }
-
-                        wallet.AddWallet(addr);
-                    }
+                    caParams = caParams.SetStealthMnemonics(spend.GetMnemonic(), view.GetMnemonic());
                 }
 
                 bool scan = _params.ScanForBalance.HasValue ? _params.ScanForBalance.Value : false;
+                caParams = caParams.SetScan(scan);
 
-                if (scan)
-                {
-                    addr.Synced = false;
-                    addr.Syncer = true;
-                    addr.LastSeenHeight = -1;
-                }
-                else
-                {
-                    addr.Synced = true;
-                    addr.Syncer = false;
-                    addr.LastSeenHeight = wallet.LastSeenHeight;
-                }
-
-                return new Readable.WalletAddress(addr);
+                return await wallet.DoCreateAccount(caParams);
             }
             catch (Exception ex)
             {
@@ -706,19 +542,17 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_addresses", APISet.WALLET)]
-        public static object GetAddresses(string label)
+        public static async Task<object> GetAddresses(string label)
         {
             try
             {
                 var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("parameter was null");
+                var success = SQLiteWallet.Wallets.TryGetValue(label, out var wallet);
+                if (!success) return new RPCError($"no wallet found with label {label}");
 
-                Wallet wallet = WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
-
-                if (wallet == null) return new RPCError($"no wallet found with label {label}");
-
-                return wallet.Addresses.Select(x => x.Address).ToList();
+                return await wallet.DoGetAccounts();
             }
             catch (Exception ex)
             {
@@ -729,13 +563,11 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_wallets", APISet.WALLET)]
-        public static object GetWallets()
+        public static async Task<object> GetWallets()
         {
             try
             {
-                var _daemon = Network.Handler.GetHandler().daemon;
-
-                return WalletManager.Instance.Wallets.Select(x => new Readable.Wallet(x)).ToList();
+                return await Task.WhenAll(SQLiteWallet.Wallets.Values.Select(async (wallet) => await wallet.DoGetWallet()));
             }
             catch (Exception ex)
             {
@@ -746,26 +578,19 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("stop_wallet", APISet.WALLET)]
-        public static object StopWallet(string label)
+        public static async Task<object> StopWallet(string label)
         {
             try
             {
                 var _daemon = Network.Handler.GetHandler().daemon;
 
                 if (label == null || label == "") return new RPCError("label was null");
+                var success = SQLiteWallet.Wallets.TryGetValue(label, out var wallet);
+                if (!success) return new RPCError($"could not find wallet with label {label}");
+                
+                success = await wallet.DoUnload();
 
-                var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
-
-                if (wallet == null) return new RPCError($"could not find wallet with label {label}");
-
-                wallet.RequestUnload();
-
-                lock (WalletManager.Instance.Wallets)
-                {
-                    WalletManager.Instance.Wallets.Remove(wallet);
-                }
-
-                return "OK";
+                return success ? "OK" : throw new Exception("unknown failure");
             }
             catch (Exception ex)
             {
@@ -782,11 +607,9 @@ namespace Discreet.RPC.Endpoints
             {
                 var _daemon = Network.Handler.GetHandler().daemon;
 
-                if (label == null || label == "") return new RPCError("parameter was null");
-
-                Wallet wallet = WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
-
-                if (wallet == null) return new RPCError($"no wallet found with label {label}");
+                if (label == null || label == "") return new RPCError("label was null");
+                var success = SQLiteWallet.Wallets.TryGetValue(label, out var wallet);
+                if (!success) return new RPCError($"could not find wallet with label {label}");
 
                 return wallet.Version;
             }
@@ -799,22 +622,15 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("change_wallet_label", APISet.WALLET)]
-        public static object ChangeWalletLabel(string label, string newLabel)
+        public static async Task<object> ChangeWalletLabel(string label, string newLabel)
         {
             try
             {
-                var _daemon = Network.Handler.GetHandler().daemon;
+                if (label == null || label == "") return new RPCError("label was null");
+                var success = SQLiteWallet.Wallets.TryGetValue(label, out var wallet);
+                if (!success) return new RPCError($"could not find wallet with label {label}");
 
-                if (label == null || label == "") return new RPCError("parameter was null");
-
-                Wallet wallet = WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
-
-                if (wallet == null) return new RPCError($"no wallet found with label {label}");
-
-                if (label != newLabel && WalletManager.Instance.Wallets.Where(x => x.Label == newLabel).FirstOrDefault() != null)
-                    return new RPCError($"cannot change label to {newLabel}; wallet already loaded with this label");
-
-                return wallet.ChangeLabel(label) ? "OK" : "failed to change wallet label";
+                return await wallet.DoChangeLabel(label) ? "OK" : "failed to change wallet label";
             }
             catch (Exception ex)
             {
@@ -825,20 +641,14 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("change_address_name", APISet.WALLET)]
-        public static object ChangeAddressName(string address, string name)
+        public static async Task<object> ChangeAddressName(string address, string name)
         {
             try
             {
-                var _daemon = Network.Handler.GetHandler().daemon;
-
-                var wallet = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
-
+                var wallet = SQLiteWallet.Wallets.Values.Where(x => x.Accounts.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
                 if (wallet == null) return new RPCError($"could not find address {address}");
 
-                WalletAddress addr = wallet.Addresses.Where(x => x.Address == address).FirstOrDefault();
-
-                addr.ChangeName(name);
-
+                await wallet.DoChangeAccountName(address, name);
                 return "OK";
             }
             catch (Exception ex)
@@ -849,27 +659,12 @@ namespace Discreet.RPC.Endpoints
             }
         }
 
-        public enum WalletStatus: int
-        {
-            UNLOCKED = 0,
-            LOCKED = 1,
-            UNLOADED = 2,
-        }
-
         [RPCEndpoint("get_wallet_status", APISet.WALLET)]
         public static object GetWalletStatus(string label)
         {
             try
             {
-                var _daemon = Network.Handler.GetHandler().daemon;
-
-                if (label == null || label == "") return new RPCError("parameter was null");
-
-                Wallet wallet = WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
-
-                if (wallet == null) return (int)WalletStatus.UNLOADED;
-
-                return wallet.IsEncrypted ? (int)WalletStatus.LOCKED : (int)WalletStatus.UNLOCKED;
+                return SQLiteWallet.GetWalletStatus(label);
             }
             catch (Exception ex)
             {
@@ -890,27 +685,8 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var db = WalletDB.GetDB();
-                var _daemon = Network.Handler.GetHandler().daemon;
-                var wallets = db.GetWallets();
-                List<WalletStatusRV> statuses = new();
-
-                foreach (var wallet in wallets)
-                {
-                    WalletStatus status;
-                    if (WalletManager.Instance.Wallets.Where(x => x.Label == wallet.Label).FirstOrDefault() == null)
-                    {
-                        status = WalletStatus.UNLOADED;
-                    }
-                    else
-                    {
-                        status = WalletManager.Instance.Wallets.Where(x => x.Label == wallet.Label).FirstOrDefault().IsEncrypted ? WalletStatus.LOCKED : WalletStatus.UNLOCKED;
-                    }
-
-                    statuses.Add(new WalletStatusRV { Label = wallet.Label, Status = (int)status });
-                }
-
-                return statuses;
+                var statuses = SQLiteWallet.DoGetWalletStatuses();
+                return statuses.Select(x => new WalletStatusRV { Label = x.Item1, Status = x.Item2}).ToList();
             }
             catch (Exception ex)
             {
@@ -927,19 +703,16 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_wallet_height", APISet.WALLET)]
-        public static object GetWalletHeight(string label)
+        public static async Task<object> GetWalletHeight(string label)
         {
             try
             {
-                var _daemon = Network.Handler.GetHandler().daemon;
+                if (label == null || label == "") return new RPCError("label was null");
+                var success = SQLiteWallet.Wallets.TryGetValue(label, out var wallet);
+                if (!success) return new RPCError($"could not find wallet with label {label}");
 
-                if (label == null || label == "") return new RPCError("parameter was null");
-
-                Wallet wallet = WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
-
-                if (wallet == null) return new RPCError($"no wallet found with label {label}");
-
-                return new GetWalletHeightRV { Height = wallet.LastSeenHeight, Synced = wallet.Synced };
+                (bool synced, long height) = await wallet.DoGetHeight();
+                return new GetWalletHeightRV { Height = height, Synced = synced };
             }
             catch (Exception ex)
             {
@@ -957,19 +730,15 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_address_height", APISet.WALLET)]
-        public static object GetAddressHeight(string address)
+        public static async Task<object> GetAddressHeight(string address)
         {
             try
             {
-                var _daemon = Network.Handler.GetHandler().daemon;
-
-                var wallet = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
-
+                var wallet = SQLiteWallet.Wallets.Values.Where(x => x.Accounts.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
                 if (wallet == null) return new RPCError($"could not find address {address}");
 
-                var addr = wallet.Addresses.Where(x => x.Address == address).FirstOrDefault();
-
-                return new GetAddressHeightRV { Height = addr.LastSeenHeight, Synced = addr.Synced, Syncer = addr.Syncer };
+                (bool synced, bool syncer, long height) = await wallet.DoGetAccountHeight(address);
+                return new GetAddressHeightRV { Height = height, Synced = synced, Syncer = syncer };
             }
             catch (Exception ex)
             {
@@ -1028,69 +797,38 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_transaction_history", APISet.WALLET)]
-        public static object GetTransactionHistory(string address)
+        public static async Task<object> GetTransactionHistory(string address)
         {
             try
             {
-                var _daemon = Network.Handler.GetHandler().daemon;
-
-                var wallet = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
-
+                var wallet = SQLiteWallet.Wallets.Values.Where(x => x.Accounts.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
                 if (wallet == null) return new RPCError($"could not find address {address}");
 
-                var addr = wallet.Addresses.Where(x => x.Address == address).FirstOrDefault();
-
-                if (addr.Encrypted) return new RPCError($"address {address} is encrypted");
-
-                List<TransactionHistoryRV> history = new();
-                foreach (var wtx in addr.TxHistory)
-                {
-                    var htx = new TransactionHistoryRV
-                    {
-                        TxID = wtx.TxID.ToHex(),
-                        Timestamp = wtx.Timestamp,
-                        Inputs = wtx.Inputs.Select(x => new TransactionHistoryOutput { Address = x.Address, Amount = x.Amount }).ToList(),
-                        Outputs = wtx.Outputs.Select(x => new TransactionHistoryOutput { Address = x.Address, Amount = x.Amount }).ToList(),
-                        ReceivedAmount = 0,
-                        SentAmount = 0,
-                    };
-
-                    long total = 0;
-                    foreach (var input in wtx.Inputs)
-                    {
-                        if (input.Address == address)
-                        {
-                            total -= (long)input.Amount;
-                        }
-                    }
-
-                    foreach (var output in wtx.Outputs)
-                    {
-                        if (output.Address == address)
-                        {
-                            total += (long)output.Amount;
-                        }
-                    }
-
-                    if (total > 0)
-                    {
-                        htx.ReceivedAmount = (ulong)total;
-                    }
-                    else
-                    {
-                        htx.SentAmount = (ulong)(-total);
-                    }
-
-                    history.Add(htx);
-                }
-
-                return history;
+                return await wallet.DoGetTransactionHistory(address);
             }
             catch (Exception ex)
             {
                 Daemon.Logger.Error($"RPC call to GetTransactionHistory failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get transaction history");
+            }
+        }
+
+        [RPCEndpoint("migrate_legacy_wallet", APISet.WALLET)]
+        public static object MigrateLegacyWallet(string label, string passphrase)
+        {
+            try
+            {
+                bool success = SQLiteWallet.WalletMigration.Migrate(label, passphrase);
+                if (!success) return new RPCError("could not migrate legacy wallet");
+
+                return "OK";
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to MigrateLegacyWallet failed: {ex.Message}", ex);
+
+                return new RPCError($"Could not migrate legacy wallet");
             }
         }
     }

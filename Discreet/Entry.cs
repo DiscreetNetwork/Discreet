@@ -17,6 +17,9 @@ using Discreet.RPC.Common;
 using System.Net;
 using System.Reflection;
 using Discreet.DB;
+using Discreet.Wallets.Utilities;
+using Discreet.Readable;
+using Discreet.Wallets.Models;
 
 namespace Discreet
 {

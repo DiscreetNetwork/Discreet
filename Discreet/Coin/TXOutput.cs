@@ -5,6 +5,8 @@ using System.Runtime.InteropServices;
 using Discreet.Cipher;
 using System.Text.Json.Serialization;
 using System.IO;
+using Discreet.Common;
+using Discreet.Common.Exceptions;
 
 namespace Discreet.Coin
 {

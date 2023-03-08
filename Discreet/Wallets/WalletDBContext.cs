@@ -30,6 +30,7 @@ namespace Discreet.Wallets
             {
                 DataSource = filename
             };
+            
             optionsBuilder.UseSqlite(sb.ToString());
         }
 
@@ -66,26 +67,26 @@ namespace Discreet.Wallets
 
             modelBuilder.Entity<Account>().HasKey(p => p.Address);
             modelBuilder.Entity<Account>().Property(p => p.Address).HasColumnType("varchar").IsRequired().ValueGeneratedNever();
-            modelBuilder.Entity<Account>().Property(p => p.Name).HasColumnType("varchar");
+            modelBuilder.Entity<Account>().Property(p => p.Name).HasColumnType("varchar").HasDefaultValue(null);
             modelBuilder.Entity<Account>()
                 .Property(p => p.PubKey)
                 .HasConversion(
-                    k => k.bytes, 
-                    b => new Discreet.Cipher.Key(b))
+                    k => k == null ? null : k.Value.bytes, 
+                    b => b == null ? null : new Discreet.Cipher.Key(b))
                 .HasColumnType("binary")
                 .HasMaxLength(32);
             modelBuilder.Entity<Account>()
                 .Property(p => p.PubSpendKey)
                 .HasConversion(
-                    k => k.bytes,
-                    b => new Discreet.Cipher.Key(b))
+                    k => k == null ? null : k.Value.bytes,
+                    b => b == null ? null : new Discreet.Cipher.Key(b))
                 .HasColumnType("binary")
                 .HasMaxLength(32);
             modelBuilder.Entity<Account>()
                 .Property(p => p.PubViewKey)
                 .HasConversion(
-                    k => k.bytes,
-                    b => new Discreet.Cipher.Key(b))
+                    k => k == null ? null : k.Value.bytes,
+                    b => b == null ? null : new Discreet.Cipher.Key(b))
                 .HasColumnType("binary")
                 .HasMaxLength(32);
             modelBuilder.Entity<Account>().Property(p => p.Type).HasColumnType("tinyint");
@@ -96,9 +97,10 @@ namespace Discreet.Wallets
             modelBuilder.Entity<Account>().Ignore(p => p.SecSpendKey);
             modelBuilder.Entity<Account>().Ignore(p => p.SecViewKey);
             modelBuilder.Entity<Account>().Ignore(p => p.Encrypted);
+            modelBuilder.Entity<Account>().Ignore(p => p.SortedUTXOs);
 
             modelBuilder.Entity<UTXO>().HasKey(p => p.Id);
-            modelBuilder.Entity<UTXO>().Property(p => p.Id).HasColumnType("integer");
+            modelBuilder.Entity<UTXO>().Property(p => p.Id).HasColumnType("integer").ValueGeneratedOnAdd();
             modelBuilder.Entity<UTXO>().Property(p => p.Type).HasColumnType("bit");
             modelBuilder.Entity<UTXO>().Property(p => p.IsCoinbase).HasColumnType("bit");
             modelBuilder.Entity<UTXO>()
@@ -110,56 +112,58 @@ namespace Discreet.Wallets
                 .HasMaxLength(32);
             modelBuilder.Entity<UTXO>().Property(p => p.Amount)
                 .HasConversion(
-                    l => Discreet.Coin.Serialization.UInt64(l),
-                    b => Discreet.Coin.Serialization.GetUInt64(b, 0))
+                    l => Common.Serialization.UInt64(l),
+                    b => Common.Serialization.GetUInt64(b, 0))
                 .HasColumnType("binary")
                 .HasMaxLength(8);
             modelBuilder.Entity<UTXO>().Property(p => p.Index).HasColumnType("int");
             modelBuilder.Entity<UTXO>()
                 .Property(p => p.UXKey)
                 .HasConversion(
-                    k => k.bytes,
-                    b => new Discreet.Cipher.Key(b))
+                    k => k == null ? null : k.Value.bytes,
+                    b => b == null ? null : new Discreet.Cipher.Key(b))
                 .HasColumnType("binary")
                 .HasMaxLength(32);
             modelBuilder.Entity<UTXO>().Ignore(p => p.UXSecKey);
             modelBuilder.Entity<UTXO>()
                 .Property(p => p.Commitment)
                 .HasConversion(
-                    k => k.bytes,
-                    b => new Discreet.Cipher.Key(b))
+                    k => k == null ? null : k.Value.bytes,
+                    b => b == null ? null : new Discreet.Cipher.Key(b))
                 .HasColumnType("binary")
                 .HasMaxLength(32);
             modelBuilder.Entity<UTXO>().Property(p => p.DecodeIndex).HasColumnType("int");
             modelBuilder.Entity<UTXO>()
                 .Property(p => p.TransactionKey)
                 .HasConversion(
-                    k => k.bytes,
-                    b => new Discreet.Cipher.Key(b))
+                    k => k == null ? null : k.Value.bytes,
+                    b => b == null ? null : new Discreet.Cipher.Key(b))
                 .HasColumnType("binary")
                 .HasMaxLength(32);
             modelBuilder.Entity<UTXO>().Ignore(p => p.DecodedAmount);
             modelBuilder.Entity<UTXO>()
                 .Property(p => p.LinkingTag)
                 .HasConversion(
-                    k => k.bytes,
-                    b => new Discreet.Cipher.Key(b))
+                    k => k == null ? null : k.Value.bytes,
+                    b => b == null ? null : new Discreet.Cipher.Key(b))
                 .HasColumnType("binary")
                 .HasMaxLength(32);
             modelBuilder.Entity<UTXO>().Ignore(p => p.Encrypted);
-            modelBuilder.Entity<UTXO>().HasOne(p => p.Account).WithMany().HasForeignKey(p => p.Address).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<UTXO>().Ignore(p => p.Account);
+            //modelBuilder.Entity<UTXO>().HasOne(p => p.Account).WithMany().HasForeignKey(p => p.Address).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<UTXO>().Property(p => p.Address).HasColumnType("varchar");
             modelBuilder.Entity<UTXO>().HasIndex(p => p.Address);
 
             //https://stackoverflow.com/questions/69621200/microsoft-data-sqlite-sqliteexception-sqlite-error-1-autoincrement-is-only-all
             modelBuilder.Entity<HistoryTx>().HasKey(p => p.Id);
-            modelBuilder.Entity<HistoryTx>().Property(p => p.Id).HasColumnType("integer");
+            modelBuilder.Entity<HistoryTx>().Property(p => p.Id).HasColumnType("integer").ValueGeneratedOnAdd();
             modelBuilder.Entity<HistoryTx>().Property(p => p.EncryptedRawData).HasColumnType("varbinary");
             modelBuilder.Entity<HistoryTx>().Ignore(p => p.TxID);
             modelBuilder.Entity<HistoryTx>().Ignore(p => p.Timestamp);
             modelBuilder.Entity<HistoryTx>().Ignore(p => p.Inputs);
             modelBuilder.Entity<HistoryTx>().Ignore(p => p.Outputs);
-            modelBuilder.Entity<HistoryTx>().HasOne(p => p.Account).WithMany().HasForeignKey(p => p.Address).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<HistoryTx>().Ignore(p => p.Account);
+            //modelBuilder.Entity<HistoryTx>().HasOne(p => p.Account).WithMany().HasForeignKey(p => p.Address).OnDelete(DeleteBehavior.Cascade);
             modelBuilder.Entity<HistoryTx>().Property(p => p.Address).HasColumnType("varchar");
             modelBuilder.Entity<HistoryTx>().HasIndex(p => p.Address);
         }

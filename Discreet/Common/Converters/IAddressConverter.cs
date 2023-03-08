@@ -8,7 +8,7 @@ using Discreet.Coin;
 using Discreet.Common;
 using System.Text.Json;
 
-namespace Discreet.RPC.Converters
+namespace Discreet.Common.Converters
 {
     public class IAddressConverter : JsonConverter<IAddress>
     {

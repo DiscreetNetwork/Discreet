@@ -24,13 +24,14 @@ namespace Discreet.Wallets.Services
             var inputs = BuildPrivateInputs(utxos).ToArray();
             (var txPrivateKey, var txPublicKey) = KeyOps.GenerateKeypair();
             (var secoutdata, var _outputs) = BuildPrivateOutputs(account, addresses, amounts, txPrivateKey);
-            (var change, _) = BuildChangeOutput(account, utxos, amounts, txPrivateKey, out var extraPair);
+            (var change, _) = BuildChangeOutput(account, utxos, amounts, txPrivateKey, _outputs.Count(), out var extraPair);
             if (change != null)
             {
-                _outputs.Append(change);
-                secoutdata.Append(extraPair.Value);
+                _outputs = _outputs.Append(change);
+                secoutdata = secoutdata.Append(extraPair.Value);
             }
             var outputs = _outputs.ToArray();
+
             var bp = BuildRangeProof(secoutdata);
 
             var tx = new Transaction
@@ -47,9 +48,9 @@ namespace Discreet.Wallets.Services
             };
 
             var signingHash = tx.SigningHash();
-            (var pseudos, var blindingFactors) = BuildPseudoOutputs(account, utxos, secoutdata);
+            (var pseudos, var blindingFactors) = BuildPseudoOutputs(utxos, secoutdata);
             tx.PseudoOutputs = pseudos.ToArray();
-            tx.Signatures = BuildPrivateSignatures(account, utxos, inputs, pseudos, blindingFactors, signingHash).ToArray();
+            tx.Signatures = BuildPrivateSignatures(utxos, inputs, pseudos, blindingFactors, signingHash).ToArray();
 
             return (utxos, tx.ToFull());
         }

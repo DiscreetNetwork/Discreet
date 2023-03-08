@@ -34,19 +34,19 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public void Deserialize(byte[] b, uint offset)
         {
-            Version = Coin.Serialization.GetUInt32(b, offset);
+            Version = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
-            Services = (ServicesFlag)Coin.Serialization.GetUInt32(b, offset);
+            Services = (ServicesFlag)Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
-            Timestamp = Coin.Serialization.GetInt64(b, offset);
+            Timestamp = Common.Serialization.GetInt64(b, offset);
             offset += 8;
 
-            Height = Coin.Serialization.GetInt64(b, offset);
+            Height = Common.Serialization.GetInt64(b, offset);
             offset += 8;
 
-            Port = Coin.Serialization.GetInt32(b, offset);
+            Port = Common.Serialization.GetInt32(b, offset);
             offset += 4;
 
             Syncing = b[offset] != 0;
@@ -58,37 +58,37 @@ namespace Discreet.Network.Core.Packets.Peerbloom
             byte[] longbuf = new byte[8];
 
             s.Read(uintbuf);
-            Version = Coin.Serialization.GetUInt32(uintbuf, 0);
+            Version = Common.Serialization.GetUInt32(uintbuf, 0);
 
             s.Read(uintbuf);
-            Services = (ServicesFlag)Coin.Serialization.GetUInt32(uintbuf, 0);
+            Services = (ServicesFlag)Common.Serialization.GetUInt32(uintbuf, 0);
 
             s.Read(longbuf);
-            Timestamp = Coin.Serialization.GetInt64(longbuf, 0);
+            Timestamp = Common.Serialization.GetInt64(longbuf, 0);
 
             s.Read(longbuf);
-            Height = Coin.Serialization.GetInt64(longbuf, 0);
+            Height = Common.Serialization.GetInt64(longbuf, 0);
 
-            Port = Coin.Serialization.GetInt32(s);
+            Port = Common.Serialization.GetInt32(s);
 
             Syncing = s.ReadByte() != 0;
         }
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Coin.Serialization.CopyData(b, offset, Version);
+            Common.Serialization.CopyData(b, offset, Version);
             offset += 4;
 
-            Coin.Serialization.CopyData(b, offset, (uint)Services);
+            Common.Serialization.CopyData(b, offset, (uint)Services);
             offset += 4;
 
-            Coin.Serialization.CopyData(b, offset, Timestamp);
+            Common.Serialization.CopyData(b, offset, Timestamp);
             offset += 8;
 
-            Coin.Serialization.CopyData(b, offset, Height);
+            Common.Serialization.CopyData(b, offset, Height);
             offset += 8;
 
-            Coin.Serialization.CopyData(b, offset, Port);
+            Common.Serialization.CopyData(b, offset, Port);
             offset += 4;
 
             b[offset] = Syncing ? (byte)1 : (byte)0;
@@ -97,11 +97,11 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public void Serialize(Stream s)
         {
-            s.Write(Coin.Serialization.UInt32(Version));
-            s.Write(Coin.Serialization.UInt32((uint)Services));
-            s.Write(Coin.Serialization.Int64(Timestamp));
-            s.Write(Coin.Serialization.Int64(Height));
-            Coin.Serialization.CopyData(s, Port);
+            s.Write(Common.Serialization.UInt32(Version));
+            s.Write(Common.Serialization.UInt32((uint)Services));
+            s.Write(Common.Serialization.Int64(Timestamp));
+            s.Write(Common.Serialization.Int64(Height));
+            Common.Serialization.CopyData(s, Port);
             s.WriteByte(Syncing ? (byte)1 : (byte)0);
         }
 

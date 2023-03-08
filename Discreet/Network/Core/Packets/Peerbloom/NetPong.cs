@@ -25,23 +25,23 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public void Deserialize(byte[] b, uint offset)
         {
-            (_, Data) = Coin.Serialization.GetBytes(b, offset);
+            (_, Data) = Common.Serialization.GetBytes(b, offset);
         }
 
         public void Deserialize(Stream s)
         {
-            Data = Coin.Serialization.GetBytes(s);
+            Data = Common.Serialization.GetBytes(s);
         }
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Coin.Serialization.CopyData(b, offset, Data);
+            Common.Serialization.CopyData(b, offset, Data);
             return offset + (uint)Size();
         }
 
         public void Serialize(Stream s)
         {
-            Coin.Serialization.CopyData(s, Data);
+            Common.Serialization.CopyData(s, Data);
         }
 
         public int Size()

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace Discreet.Coin
+namespace Discreet.Common
 {
     public static class Serialization
     {
@@ -342,12 +342,12 @@ namespace Discreet.Coin
 
         public static bool GetBool(byte[] bytes, uint offset)
         {
-            return (bytes[offset] == (byte)1);
+            return bytes[offset] == 1;
         }
 
         public static bool GetBool(Stream s)
         {
-            return s.ReadByte() == (byte)1;
+            return s.ReadByte() == 1;
         }
 
         public static void CopyData(byte[] bytes, uint offset, byte[] data)

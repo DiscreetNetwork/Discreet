@@ -7,7 +7,7 @@ using Discreet.Common;
 using System.Text.Json.Serialization;
 using System.Text.Json;
 
-namespace Discreet.RPC.Converters
+namespace Discreet.Common.Converters
 {
     public class BytesConverter : JsonConverter<byte[]>
     {

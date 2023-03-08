@@ -31,27 +31,27 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
             Endpoint = Utils.DeserializeEndpoint(b, offset);
             offset += 18;
-            MaxPeers = Coin.Serialization.GetInt32(b, offset);
+            MaxPeers = Common.Serialization.GetInt32(b, offset);
         }
 
         public void Deserialize(Stream s)
         {
             Endpoint = Utils.DeserializeEndpoint(s);
-            MaxPeers = Coin.Serialization.GetInt32(s);
+            MaxPeers = Common.Serialization.GetInt32(s);
         }
 
         public uint Serialize(byte[] b, uint offset)
         {
             Utils.SerializeEndpoint(Endpoint, b, offset);
             offset += 18;
-            Coin.Serialization.CopyData(b, offset, MaxPeers);
+            Common.Serialization.CopyData(b, offset, MaxPeers);
             return offset + 4;
         }
 
         public void Serialize(Stream s)
         {
             Utils.SerializeEndpoint(Endpoint, s);
-            Coin.Serialization.CopyData(s, MaxPeers);
+            Common.Serialization.CopyData(s, MaxPeers);
         }
 
         public int Size()

@@ -37,14 +37,14 @@ namespace Discreet.Wallets.Services
         public FullTransaction CreatePtoTTransaction(Account account, IEnumerable<IAddress> paddrs, IEnumerable<ulong> pamounts, IEnumerable<IAddress> taddrs, IEnumerable<ulong> tamounts, IEnumerable<UTXO> utxos)
         {
             var pinputs = BuildPrivateInputs(utxos).ToArray();
-            var toutputs = BuildTransparentOutputs(account, taddrs, tamounts).ToArray();
+            var toutputs = BuildTransparentOutputs(taddrs, tamounts).ToArray();
             (var txPrivateKey, var txPublicKey) = KeyOps.GenerateKeypair();
             (var secoutdata, var _poutputs) = BuildPrivateOutputs(account, paddrs, pamounts, txPrivateKey);
-            (var change, _) = BuildChangeOutput(account, utxos, tamounts.Concat(pamounts), txPrivateKey, out var extraPair);
+            (var change, _) = BuildChangeOutput(account, utxos, tamounts.Concat(pamounts), txPrivateKey, _poutputs.Count(), out var extraPair);
             if (change != null)
             {
-                _poutputs.Append(change);
-                secoutdata.Append(extraPair.Value);
+                _poutputs = _poutputs.Append(change);
+                secoutdata = secoutdata.Append(extraPair.Value);
             }
             var poutputs = _poutputs.ToArray();
             var bp = BuildRangeProof(secoutdata);
@@ -70,9 +70,9 @@ namespace Discreet.Wallets.Services
             };
 
             tx.SigningHash = tx.TXSigningHash();
-            (var pseudos, var blindingFactors) = BuildPseudoOutputs(account, utxos, secoutdata);
+            (var pseudos, var blindingFactors) = BuildPseudoOutputs(utxos, secoutdata);
             tx.PseudoOutputs = pseudos.ToArray();
-            tx.PSignatures = BuildPrivateSignatures(account, utxos, pinputs, pseudos, blindingFactors, tx.SigningHash).ToArray();
+            tx.PSignatures = BuildPrivateSignatures(utxos, pinputs, pseudos, blindingFactors, tx.SigningHash).ToArray();
 
             return tx.ToFull();
         }
@@ -80,13 +80,13 @@ namespace Discreet.Wallets.Services
         public FullTransaction CreateTtoPTransaction(Account account, IEnumerable<IAddress> paddrs, IEnumerable<ulong> pamounts, IEnumerable<IAddress> taddrs, IEnumerable<ulong> tamounts, IEnumerable<UTXO> utxos)
         {
             var tinputs = BuildTransparentInputs(utxos).ToArray();
-            var _toutputs = BuildTransparentOutputs(account, taddrs, tamounts);
+            var _toutputs = BuildTransparentOutputs(taddrs, tamounts);
             (var txPrivateKey, var txPublicKey) = KeyOps.GenerateKeypair();
             (var secoutdata, var _poutputs) = BuildPrivateOutputs(account, paddrs, pamounts, txPrivateKey);
-            (_, var change) = BuildChangeOutput(account, utxos, tamounts.Concat(pamounts), txPrivateKey, out _);
+            (_, var change) = BuildChangeOutput(account, utxos, tamounts.Concat(pamounts), txPrivateKey, _poutputs.Count(), out _);
             if (change != null)
             {
-                _toutputs.Append(change);
+                _toutputs = _toutputs.Append(change);
             }
             var poutputs = _poutputs.ToArray();
             var toutputs = _toutputs.ToArray();
@@ -114,7 +114,7 @@ namespace Discreet.Wallets.Services
             };
 
             tx.SigningHash = tx.TXSigningHash();
-            tx.TSignatures = BuildTransparentSignatures(account, utxos, tinputs, tx.SigningHash).ToArray();
+            tx.TSignatures = BuildTransparentSignatures(utxos, tinputs, tx.SigningHash).ToArray();
 
             return tx.ToFull();
         }

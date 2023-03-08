@@ -1,4 +1,5 @@
 ﻿using Discreet.Coin;
+using Discreet.Common;
 using RocksDbSharp;
 using System;
 using System.Collections.Generic;
@@ -159,6 +160,8 @@ namespace Discreet.DB
             if (limit <= 0) limit = long.MaxValue;
 
             var iter = rdb.NewIterator(cf: Blocks);
+            iter.SeekToFirst();
+            iter.Seek(Serialization.Int64(startHeight));
             while (iter.Valid() && limit > 0)
             {
                 Block block = new();

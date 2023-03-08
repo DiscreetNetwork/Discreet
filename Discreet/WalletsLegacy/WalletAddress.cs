@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Discreet.Cipher;
 using Discreet.Coin;
+using Discreet.Common;
 using Discreet.Daemon;
 
 namespace Discreet.WalletsLegacy

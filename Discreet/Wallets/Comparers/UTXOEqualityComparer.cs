@@ -33,11 +33,11 @@ namespace Discreet.Wallets.Comparers
         {
             if (obj.Type == 0)
             {
-                return Discreet.Coin.Serialization.GetInt32(obj.LinkingTag.bytes, 0);
+                return Common.Serialization.GetInt32(obj.LinkingTag?.bytes, 0);
             }
             else
             {
-                return Discreet.Coin.Serialization.GetInt32(obj.TransactionSrc.Bytes, 0);
+                return Common.Serialization.GetInt32(obj.TransactionSrc.Bytes, 0);
             }
         }
     }
