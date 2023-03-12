@@ -171,8 +171,7 @@ namespace Discreet.Wallets.Services
                     {
                         UXKey = KeyOps.DKSAP(ref txPrivateKey, x.Item1.view, x.Item1.spend, i),
                         Commitment = comm,
-                        Amount = KeyOps.GenAmountMask(ref txPrivateKey, ref x.Item1.view, i++, x.Second),
-
+                        Amount = (account.Type == 1) ? x.Second : KeyOps.GenAmountMask(ref txPrivateKey, ref x.Item1.view, i++, x.Second),
                     };
                 }).ToList();
 

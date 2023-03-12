@@ -136,7 +136,7 @@ namespace Discreet.Wallets.Extensions
                         {
                             Address = account.Address,
                             Type = 0,
-                            IsCoinbase = false,
+                            IsCoinbase = tToP,
                             TransactionSrc = transaction.TxID,
                             Amount = transaction.POutputs[i].Amount,
                             UXKey = transaction.POutputs[i].UXKey,
@@ -144,7 +144,7 @@ namespace Discreet.Wallets.Extensions
                             Commitment = transaction.POutputs[i].Commitment,
                             DecodeIndex = i,
                             TransactionKey = transaction.TransactionKey,
-                            DecodedAmount = KeyOps.GenAmountMaskRecover(ref transaction.TransactionKey, ref account.SecViewKey, i, transaction.POutputs[i].Amount),
+                            DecodedAmount = tToP ? transaction.POutputs[i].Amount : KeyOps.GenAmountMaskRecover(ref transaction.TransactionKey, ref account.SecViewKey, i, transaction.POutputs[i].Amount),
                             LinkingTag = KeyOps.GenerateLinkingTag(ref outputSecKey),
                             Encrypted = false,
                             Account = account
@@ -152,7 +152,37 @@ namespace Discreet.Wallets.Extensions
                         //TODO: remember to include txoutput index data for SPV (part of refactor)
                         utxo.Index = ViewProvider.GetDefaultProvider().GetOutputIndices(transaction.TxID)[i];
 
-                        newUtxo.Add((utxo, i));
+                        // if an attacker wanted he could arbitrarily set the amount field wrong and corrupt wallet. check correctness.
+                        if (utxo.IsCoinbase)
+                        {
+                            // 1G + bH
+                            var checkCommitment = new Key(new byte[32]);
+                            var mask = Key.Identity();
+                            KeyOps.GenCommitment(ref checkCommitment, ref mask, utxo.DecodedAmount);
+                            if (checkCommitment != utxo.Commitment)
+                            {
+                                Daemon.Logger.Error($"Account.ProcessTransaction: potential malformed amount field in coinbase utxo. Output ignored.");
+                            }
+                            else
+                            {
+                                newUtxo.Add((utxo, i));
+                            }
+                        }
+                        else
+                        {
+                            var checkCommitment = new Key(new byte[32]);
+                            var mask = KeyOps.GenCommitmentMaskRecover(ref transaction.TransactionKey, ref account.SecViewKey, i);
+                            KeyOps.GenCommitment(ref checkCommitment, ref mask, utxo.DecodedAmount);
+
+                            if (checkCommitment != utxo.Commitment)
+                            {
+                                Daemon.Logger.Error($"Account.ProcessTransaction: potential malformed amount field in private utxo. Output ignored.");
+                            }
+                            else
+                            {
+                                newUtxo.Add((utxo, i));
+                            }
+                        }
                     }
                 }
             }
@@ -541,7 +571,43 @@ namespace Discreet.Wallets.Extensions
                                 Account = account
                             };
 
-                            newUtxos.Add((utxo, (uint)i));
+                            // fixes a user error in block 1875896 and 1875898
+                            if (utxo.UXKey.Value.ToHex() == "67ac33ab1a47c4b017c2e84d88c3e05b23b082c9ed359f87e1e4e77026843311"
+                                || utxo.UXKey.Value.ToHex() == "e85f4db372bf70a0d7881d8659e6870a89a08ff4d3e1fc6cb71c02bc184e0bbc")
+                            {
+                                utxo.DecodedAmount = KeyOps.GenAmountMaskRecover(ref tx.tx.TransactionKey, ref account.SecViewKey, i, tx.tx.POutputs[i].Amount);
+                            }
+
+                            if (utxo.IsCoinbase)
+                            {
+                                // 1G + bH
+                                var checkCommitment = new Key(new byte[32]);
+                                var mask = Key.Identity();
+                                KeyOps.GenCommitment(ref checkCommitment, ref mask, utxo.DecodedAmount);
+                                if (checkCommitment != utxo.Commitment)
+                                {
+                                    Daemon.Logger.Error($"Account.ProcessTransaction: potential malformed amount field in coinbase utxo. Output ignored.");
+                                }
+                                else
+                                {
+                                    newUtxos.Add((utxo, (uint)i));
+                                }
+                            }
+                            else
+                            {
+                                var checkCommitment = new Key(new byte[32]);
+                                var mask = KeyOps.GenCommitmentMaskRecover(ref tx.tx.TransactionKey, ref account.SecViewKey, i);
+                                KeyOps.GenCommitment(ref checkCommitment, ref mask, utxo.DecodedAmount);
+
+                                if (checkCommitment != utxo.Commitment)
+                                {
+                                    Daemon.Logger.Error($"Account.ProcessTransaction: potential malformed amount field in private utxo. Output ignored.");
+                                }
+                                else
+                                {
+                                    newUtxos.Add((utxo, (uint)i));
+                                }
+                            }
                         }
                     }
 
