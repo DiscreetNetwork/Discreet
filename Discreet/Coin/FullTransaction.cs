@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Cipher;
+using Discreet.Common;
+using Discreet.Common.Exceptions;
 
 namespace Discreet.Coin
 {

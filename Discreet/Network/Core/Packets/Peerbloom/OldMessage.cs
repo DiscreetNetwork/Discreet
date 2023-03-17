@@ -28,13 +28,13 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public void Deserialize(byte[] b, uint offset)
         {
-            MessageIDLen = Coin.Serialization.GetUInt32(b, offset);
+            MessageIDLen = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
             MessageID = Encoding.UTF8.GetString(b, (int)offset, (int)MessageIDLen);
             offset += MessageIDLen;
 
-            MessageLen = Coin.Serialization.GetUInt32(b, offset);
+            MessageLen = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
             Message = Encoding.UTF8.GetString(b, (int)offset, (int)MessageLen);
@@ -44,14 +44,14 @@ namespace Discreet.Network.Core.Packets.Peerbloom
         {
             byte[] uintbuf = new byte[4];
             s.Read(uintbuf);
-            MessageIDLen = Coin.Serialization.GetUInt32(uintbuf, 0);
+            MessageIDLen = Common.Serialization.GetUInt32(uintbuf, 0);
 
             byte[] _messageID = new byte[MessageIDLen];
             s.Read(_messageID);
             MessageID = Encoding.UTF8.GetString(_messageID);
 
             s.Read(uintbuf);
-            MessageLen = Coin.Serialization.GetUInt32(uintbuf, 0);
+            MessageLen = Common.Serialization.GetUInt32(uintbuf, 0);
 
             byte[] _message = new byte[MessageLen];
             s.Read(_message);
@@ -60,13 +60,13 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Coin.Serialization.CopyData(b, offset, MessageIDLen);
+            Common.Serialization.CopyData(b, offset, MessageIDLen);
             offset += 4;
 
             Array.Copy(Encoding.UTF8.GetBytes(MessageID), 0, b, offset, MessageIDLen);
             offset += MessageIDLen;
 
-            Coin.Serialization.CopyData(b, offset, MessageLen);
+            Common.Serialization.CopyData(b, offset, MessageLen);
             offset += 4;
 
             Array.Copy(Encoding.UTF8.GetBytes(Message), 0, b, offset, MessageLen);
@@ -77,9 +77,9 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public void Serialize(Stream s)
         {
-            s.Write(Coin.Serialization.UInt32(MessageIDLen));
+            s.Write(Common.Serialization.UInt32(MessageIDLen));
             s.Write(Encoding.UTF8.GetBytes(MessageID));
-            s.Write(Coin.Serialization.UInt32(MessageLen));
+            s.Write(Common.Serialization.UInt32(MessageLen));
             s.Write(Encoding.UTF8.GetBytes(Message));
         }
 

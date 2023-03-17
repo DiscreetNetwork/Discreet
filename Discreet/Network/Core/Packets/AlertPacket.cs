@@ -50,7 +50,7 @@ namespace Discreet.Network.Core.Packets
             Sig = new Cipher.Signature(b, offset);
             offset += 96;
 
-            MessageLen = Coin.Serialization.GetUInt32(b, offset);
+            MessageLen = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
             Message = Encoding.UTF8.GetString(b, (int)offset, (int)MessageLen);
@@ -68,7 +68,7 @@ namespace Discreet.Network.Core.Packets
 
             byte[] _messageLen = new byte[4];
             s.Read(_messageLen);
-            MessageLen = Coin.Serialization.GetUInt32(_messageLen, 0);
+            MessageLen = Common.Serialization.GetUInt32(_messageLen, 0);
 
             byte[] _message = new byte[MessageLen];
             s.Read(_message);
@@ -83,7 +83,7 @@ namespace Discreet.Network.Core.Packets
             Array.Copy(Sig.ToBytes(), 0, b, offset, 96);
             offset += 96;
 
-            Coin.Serialization.CopyData(b, offset, MessageLen);
+            Common.Serialization.CopyData(b, offset, MessageLen);
             offset += 4;
 
             Array.Copy(Encoding.UTF8.GetBytes(Message), 0, b, offset, MessageLen);
@@ -96,7 +96,7 @@ namespace Discreet.Network.Core.Packets
         {
             s.Write(Checksum.Bytes);
             s.Write(Sig.ToBytes());
-            s.Write(Coin.Serialization.UInt32(MessageLen));
+            s.Write(Common.Serialization.UInt32(MessageLen));
             s.Write(Encoding.UTF8.GetBytes(Message));
         }
 

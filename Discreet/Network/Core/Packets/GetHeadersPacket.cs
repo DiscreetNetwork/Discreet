@@ -30,13 +30,13 @@ namespace Discreet.Network.Core.Packets
 
         public void Deserialize(byte[] b, uint offset)
         {
-            StartingHeight = Coin.Serialization.GetInt64(b, offset);
+            StartingHeight = Common.Serialization.GetInt64(b, offset);
             offset += 8;
 
-            Count = Coin.Serialization.GetUInt32(b, offset);
+            Count = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
-            int headersLen = Coin.Serialization.GetInt32(b, offset);
+            int headersLen = Common.Serialization.GetInt32(b, offset);
             offset += 4;
 
             Headers = new Cipher.SHA256[headersLen];
@@ -50,10 +50,10 @@ namespace Discreet.Network.Core.Packets
 
         public void Deserialize(Stream s)
         {
-            StartingHeight = Coin.Serialization.GetInt64(s);
-            Count = Coin.Serialization.GetUInt32(s);
+            StartingHeight = Common.Serialization.GetInt64(s);
+            Count = Common.Serialization.GetUInt32(s);
 
-            int headersLen = Coin.Serialization.GetInt32(s);
+            int headersLen = Common.Serialization.GetInt32(s);
             Headers = new Cipher.SHA256[headersLen];
 
             for (int i = 0; i < headersLen; i++)
@@ -64,13 +64,13 @@ namespace Discreet.Network.Core.Packets
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Coin.Serialization.CopyData(b, offset, StartingHeight);
+            Common.Serialization.CopyData(b, offset, StartingHeight);
             offset += 8;
 
-            Coin.Serialization.CopyData(b, offset, Count);
+            Common.Serialization.CopyData(b, offset, Count);
             offset += 4;
 
-            Coin.Serialization.CopyData(b, offset, Headers == null ? 0 : Headers.Length);
+            Common.Serialization.CopyData(b, offset, Headers == null ? 0 : Headers.Length);
             offset += 4;
 
             if (Headers != null)
@@ -87,9 +87,9 @@ namespace Discreet.Network.Core.Packets
 
         public void Serialize(Stream s)
         {
-            Coin.Serialization.CopyData(s, StartingHeight);
-            Coin.Serialization.CopyData(s, Count);
-            Coin.Serialization.CopyData(s, Headers == null ? 0 : Headers.Length);
+            Common.Serialization.CopyData(s, StartingHeight);
+            Common.Serialization.CopyData(s, Count);
+            Common.Serialization.CopyData(s, Headers == null ? 0 : Headers.Length);
 
             if (Headers != null)
             {

@@ -37,7 +37,7 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public void Deserialize(byte[] b, uint offset)
         {
-            Length = Coin.Serialization.GetInt32(b, offset);
+            Length = Common.Serialization.GetInt32(b, offset);
             offset += 4;
 
             Elems = new FindNodeRespElem[Length];
@@ -53,7 +53,7 @@ namespace Discreet.Network.Core.Packets.Peerbloom
         {
             byte[] uintbuf = new byte[4];
             s.Read(uintbuf);
-            Length = Coin.Serialization.GetInt32(uintbuf, 0);
+            Length = Common.Serialization.GetInt32(uintbuf, 0);
 
             Elems = new FindNodeRespElem[Length];
 
@@ -65,7 +65,7 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Coin.Serialization.CopyData(b, offset, Length);
+            Common.Serialization.CopyData(b, offset, Length);
             offset += 4;
 
             foreach (var elem in Elems)
@@ -79,7 +79,7 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public void Serialize(Stream s)
         {
-            s.Write(Coin.Serialization.Int32(Length));
+            s.Write(Common.Serialization.Int32(Length));
 
             foreach (var elem in Elems)
             {

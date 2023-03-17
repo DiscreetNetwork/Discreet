@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 
-namespace Discreet.Coin
+namespace Discreet.Common
 {
     public static class Serialization
     {
@@ -30,6 +30,30 @@ namespace Discreet.Coin
             }
 
             return arr;
+        }
+
+        public static void CopyData(byte[] bytes, uint offset, short value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            Array.Copy(data, 0, bytes, offset, sizeof(short));
+        }
+
+        public static void CopyData(byte[] bytes, uint offset, ushort value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            Array.Copy(data, 0, bytes, offset, sizeof(ushort));
         }
 
         public static void CopyData(byte[] bytes, uint offset, int value)
@@ -87,6 +111,30 @@ namespace Discreet.Coin
             Array.Copy(data, 0, bytes, offset, sizeof(float));
         }
 
+        public static byte[] Int16(short value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return data;
+        }
+
+        public static byte[] UInt16(ushort value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return data;
+        }
+
         public static byte[] Int32(int value)
         {
             byte[] data = BitConverter.GetBytes(value);
@@ -133,6 +181,32 @@ namespace Discreet.Coin
             }
 
             return data;
+        }
+
+        public static short GetInt16(byte[] bytes, uint offset)
+        {
+            byte[] data = new byte[sizeof(short)];
+            Array.Copy(bytes, offset, data, 0, sizeof(short));
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return BitConverter.ToInt16(data);
+        }
+
+        public static ushort GetUInt16(byte[] bytes, uint offset)
+        {
+            byte[] data = new byte[sizeof(ushort)];
+            Array.Copy(bytes, offset, data, 0, sizeof(ushort));
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return BitConverter.ToUInt16(data);
         }
 
         public static int GetInt32(byte[] bytes, uint offset)
@@ -187,6 +261,30 @@ namespace Discreet.Coin
             return BitConverter.ToUInt64(data);
         }
 
+        public static void CopyData(Stream s, short value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            s.Write(data);
+        }
+
+        public static void CopyData(Stream s, ushort value)
+        {
+            byte[] data = BitConverter.GetBytes(value);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            s.Write(data);
+        }
+
         public static void CopyData(Stream s, int value)
         {
             byte[] data = BitConverter.GetBytes(value);
@@ -233,6 +331,32 @@ namespace Discreet.Coin
             }
 
             s.Write(data);
+        }
+
+        public static short GetInt16(Stream s)
+        {
+            byte[] data = new byte[sizeof(short)];
+            s.Read(data);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return BitConverter.ToInt16(data);
+        }
+
+        public static ushort GetUInt16(Stream s)
+        {
+            byte[] data = new byte[sizeof(ushort)];
+            s.Read(data);
+
+            if (BitConverter.IsLittleEndian)
+            {
+                Array.Reverse(data);
+            }
+
+            return BitConverter.ToUInt16(data);
         }
 
         public static int GetInt32(Stream s)
@@ -342,12 +466,12 @@ namespace Discreet.Coin
 
         public static bool GetBool(byte[] bytes, uint offset)
         {
-            return (bytes[offset] == (byte)1);
+            return bytes[offset] == 1;
         }
 
         public static bool GetBool(Stream s)
         {
-            return s.ReadByte() == (byte)1;
+            return s.ReadByte() == 1;
         }
 
         public static void CopyData(byte[] bytes, uint offset, byte[] data)

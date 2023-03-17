@@ -7,7 +7,7 @@ using Discreet.Coin;
 
 namespace Discreet.DB
 {
-    public class DataView
+    public class DataView : IView
     {
         private static DataView instance;
 
@@ -27,6 +27,8 @@ namespace Discreet.DB
         {
             curView = new CurView();
         }
+
+        public IEnumerable<Block> GetBlocks(long startHeight, long limit) => curView.GetBlocks(startHeight, limit);
 
         public void AddBlockToCache(Block blk) => curView.AddBlockToCache(blk);
 

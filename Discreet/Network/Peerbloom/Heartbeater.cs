@@ -37,7 +37,7 @@ namespace Discreet.Network.Peerbloom
                 Daemon.Logger.Debug($"Heartbeater: testing connections...");
 
                 var pingIDBytes = Cipher.Randomness.Random(8);
-                var pingID = Coin.Serialization.GetUInt64(pingIDBytes, 0);
+                var pingID = Common.Serialization.GetUInt64(pingIDBytes, 0);
 
                 _network.handler.PingID = pingID;
 

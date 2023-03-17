@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using System.Runtime.InteropServices;
 using Discreet.Cipher;
 using System.IO;
+using Discreet.Common;
+using Discreet.Common.Exceptions;
 
 namespace Discreet.Coin.Transparent
 {
@@ -38,7 +40,7 @@ namespace Discreet.Coin.Transparent
         public Signature[] Signatures;
 
         private SHA256 _txid;
-        public SHA256 TxID { get { if (_txid == default) _txid = Hash(); return _txid; } }
+        public SHA256 TxID { get { if (_txid == default || _txid.Bytes == null) _txid = Hash(); return _txid; } }
 
         public SHA256 Hash()
         {

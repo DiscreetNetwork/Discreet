@@ -7,6 +7,7 @@ using Discreet.RPC.Common;
 using Discreet.Common;
 using Discreet.Cipher;
 using Discreet.Cipher.Mnemonics;
+using Discreet.Wallets;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -25,53 +26,17 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _wallet = Wallets.WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
+                (var seed, var mnemonic) = SQLiteWallet.GetMnemonic(label, passphrase);
 
-                if (_wallet == null)
+                if (seed != null && mnemonic != null)
                 {
-                    return new RPCError($"could not get wallet with label {label}");
-                }
-
-                if (_wallet.Encrypted)
-                {
-                    byte[] entropyEncryptionKey = new byte[32];
-                    byte[] passhash = SHA512.HashData(SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
-                    KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
-
-                    byte[] entropyChecksumFull = SHA256.HashData(SHA256.HashData(entropyEncryptionKey).Bytes).Bytes;
-
-                    byte[] entropyChecksumBytes = new byte[8];
-                    Array.Copy(entropyChecksumFull, entropyChecksumBytes, 8);
-
-                    if (BitConverter.IsLittleEndian)
-                    {
-                        Array.Reverse(entropyChecksumBytes);
-                    }
-
-                    ulong entropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
-
-                    if (entropyChecksum != _wallet.EntropyChecksum)
-                    {
-                        return new RPCError("Wrong passphrase");
-                    }
-
-                    (CipherObject cipherObj, byte[] encryptedEntropyBytes) = CipherObject.GetFromPrependedArray(entropyEncryptionKey, _wallet.EncryptedEntropy);
-                    Mnemonic _mnemonic = new Mnemonic(AESCBC.Decrypt(encryptedEntropyBytes, cipherObj));
-
                     return new GetWalletSeedRV
                     {
-                        Seed = Printable.Hexify(_mnemonic.GetEntropy()),
-                        Mnemonic = _mnemonic.GetMnemonic()
+                        Seed = seed,
+                        Mnemonic = mnemonic.GetMnemonic()
                     };
                 }
-
-                Mnemonic mnemonic = new Mnemonic(_wallet.Entropy);
-
-                return new GetWalletSeedRV
-                {
-                    Seed = Printable.Hexify(mnemonic.GetEntropy()),
-                    Mnemonic = mnemonic.GetMnemonic()
-                };
+                else return new RPCError("wrong passphrase");
             }
             catch (Exception ex)
             {
@@ -104,97 +69,30 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                var _wallet = Wallets.WalletManager.Instance.Wallets.Where(x => x.Label == label).FirstOrDefault();
+                (var spend, var view, var sec) = SQLiteWallet.GetAccountPrivateKeys(label, address, passphrase);
 
-                if (_wallet == null)
-                {
-                    return new RPCError($"could not get wallet with label {label}");
-                }
-
-                var _walletAddress = _wallet.Addresses.Where(x => x.Address == address).FirstOrDefault();
-
-                if (_walletAddress == null)
-                {
-                    return new RPCError($"could not find wallet address {address}");
-                }
-
-                byte[] _entropy;
-
-                if (_wallet.Encrypted)
-                {
-                    byte[] entropyEncryptionKey = new byte[32];
-                    byte[] passhash = SHA512.HashData(SHA512.HashData(Encoding.UTF8.GetBytes(passphrase)).Bytes).Bytes;
-                    KeyDerivation.PBKDF2(entropyEncryptionKey, passhash, 64, new byte[] { 0x44, 0x69, 0x73, 0x63, 0x72, 0x65, 0x65, 0x74 }, 8, 4096, 32);
-
-                    byte[] entropyChecksumFull = SHA256.HashData(SHA256.HashData(entropyEncryptionKey).Bytes).Bytes;
-
-                    byte[] entropyChecksumBytes = new byte[8];
-                    Array.Copy(entropyChecksumFull, entropyChecksumBytes, 8);
-
-                    if (BitConverter.IsLittleEndian)
-                    {
-                        Array.Reverse(entropyChecksumBytes);
-                    }
-
-                    ulong entropyChecksum = BitConverter.ToUInt64(entropyChecksumBytes);
-
-                    if (entropyChecksum != _wallet.EntropyChecksum)
-                    {
-                        return new RPCError("Wrong passphrase");
-                    }
-
-                    (CipherObject cipherObj, byte[] encryptedEntropyBytes) = CipherObject.GetFromPrependedArray(entropyEncryptionKey, _wallet.EncryptedEntropy);
-                    _entropy = AESCBC.Decrypt(encryptedEntropyBytes, cipherObj);
-                }
+                if (spend == null && view == null && sec == null) return new RPCError("wrong passphrase");
                 else
                 {
-                    _entropy = _wallet.Entropy;
-                }
-
-                if (_walletAddress.Type == 0)
-                {
-                    (CipherObject cipherObjSpend, byte[] encryptedSecSpendKeyBytes) = CipherObject.GetFromPrependedArray(_entropy, _walletAddress.EncryptedSecSpendKey);
-                    byte[] unencryptedSpendKey = AESCBC.Decrypt(encryptedSecSpendKeyBytes, cipherObjSpend);
-
-                    (CipherObject cipherObjView, byte[] encryptedSecViewKeyBytes) = CipherObject.GetFromPrependedArray(_entropy, _walletAddress.EncryptedSecViewKey);
-                    byte[] unencryptedViewKey = AESCBC.Decrypt(encryptedSecViewKeyBytes, cipherObjView);
-
-                    var _spend = new Mnemonic(unencryptedSpendKey);
-                    var _view = new Mnemonic(unencryptedViewKey);
-
-                    var _rv = new GetSecretKeyPRV
+                    if (sec == null)
                     {
-                        Spend = Printable.Hexify(_spend.GetEntropy()),
-                        View = Printable.Hexify(_view.GetEntropy()),
-                        MnemonicSpend = _spend.GetMnemonic(),
-                        MnemonicView = _view.GetMnemonic(),
-                    };
-
-                    Array.Clear(unencryptedSpendKey, 0, unencryptedSpendKey.Length);
-                    Array.Clear(unencryptedViewKey, 0, unencryptedViewKey.Length);
-
-                    return _rv;
-                }
-                else if (_walletAddress.Type == 1)
-                {
-                    (CipherObject cipherObjSec, byte[] encryptedSecKeyBytes) = CipherObject.GetFromPrependedArray(_entropy, _walletAddress.EncryptedSecKey);
-                    byte[] unencryptedSecKey = AESCBC.Decrypt(encryptedSecKeyBytes, cipherObjSec);
-
-                    var _secret = new Mnemonic(unencryptedSecKey);
-
-                    var _rv = new GetSecretKeyTRV
+                        return new GetSecretKeyPRV
+                        {
+                            Spend = Printable.Hexify(spend.GetEntropy()),
+                            View = Printable.Hexify(view.GetEntropy()),
+                            MnemonicSpend = spend.GetMnemonic(),
+                            MnemonicView = view.GetMnemonic()
+                        };
+                    }
+                    else
                     {
-                        Secret = Printable.Hexify(_secret.GetEntropy()),
-                        Mnemonic = _secret.GetMnemonic(),
-                    };
-
-                    Array.Clear(unencryptedSecKey, 0, unencryptedSecKey.Length);
-
-                    return _rv;
-                }
-                else
-                {
-                    throw new Exception("Discreet.Wallets.WalletAddress: unknown wallet type " + _walletAddress.Type);
+                        return new GetWalletSeedRV
+                        {
+                            Seed = Printable.Hexify(sec.GetEntropy()),
+                            Mnemonic = sec.GetMnemonic()
+                        };
+                    }
+                    
                 }
             }
             catch (Exception ex)

@@ -68,7 +68,7 @@ namespace Discreet.RPC.Endpoints
                 var _in = _network.InboundConnectedPeers.Count;
                 var _out = _network.OutboundConnectedPeers.Count;
                 var _con = _network.ConnectingPeers.Count;
-                var _wal = Wallets.WalletManager.Instance.Wallets.Count;
+                var _wal = WalletsLegacy.WalletManager.Instance.Wallets.Count;
                 var _state = _handler.State;
                 var _ver = _handler.MakeVersionPacket();
                 var _head = (Readable.BlockHeader)dataView.GetBlockHeader(dataView.GetChainHeight()).ToReadable();

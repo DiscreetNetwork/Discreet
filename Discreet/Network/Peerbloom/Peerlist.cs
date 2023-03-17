@@ -85,16 +85,16 @@ namespace Discreet.Network.Peerbloom
         {
             using MemoryStream _ms = new MemoryStream();
 
-            Coin.Serialization.CopyData(_ms, salt);
-            Coin.Serialization.CopyData(_ms, _counter);
-            Coin.Serialization.CopyData(_ms, _triedCounter);
-            Coin.Serialization.CopyData(_ms, _newCounter);
+            Common.Serialization.CopyData(_ms, salt);
+            Common.Serialization.CopyData(_ms, _counter);
+            Common.Serialization.CopyData(_ms, _triedCounter);
+            Common.Serialization.CopyData(_ms, _newCounter);
 
             for (int i = 0; i < Tried.GetLength(0); i++)
             {
                 for (int j = 0; j < Tried.GetLength(1); j++)
                 {
-                    Coin.Serialization.CopyData(_ms, Tried[i, j]);
+                    Common.Serialization.CopyData(_ms, Tried[i, j]);
                 }
             }
 
@@ -102,30 +102,30 @@ namespace Discreet.Network.Peerbloom
             {
                 for (int j = 0; j < New.GetLength(1); j++)
                 {
-                    Coin.Serialization.CopyData(_ms, New[i, j]);
+                    Common.Serialization.CopyData(_ms, New[i, j]);
                 }
             }
 
-            Coin.Serialization.CopyData(_ms, addrs.Count);
+            Common.Serialization.CopyData(_ms, addrs.Count);
 
             foreach (var kvpair in addrs)
             {
-                Coin.Serialization.CopyData(_ms, kvpair.Key);
-                Coin.Serialization.CopyData(_ms, kvpair.Value.Serialize());
+                Common.Serialization.CopyData(_ms, kvpair.Key);
+                Common.Serialization.CopyData(_ms, kvpair.Value.Serialize());
             }
 
-            Coin.Serialization.CopyData(_ms, Anchors.Count);
+            Common.Serialization.CopyData(_ms, Anchors.Count);
 
             for (int i = 0; i < Anchors.Count; i++)
             {
-                Coin.Serialization.CopyData(_ms, Anchors[i].Serialize());
+                Common.Serialization.CopyData(_ms, Anchors[i].Serialize());
             }
 
-            Coin.Serialization.CopyData(_ms, TriedCollisions.Count);
+            Common.Serialization.CopyData(_ms, TriedCollisions.Count);
 
             for (int i = 0; i < TriedCollisions.Count; i++)
             {
-                Coin.Serialization.CopyData(_ms, TriedCollisions[i].Serialize());
+                Common.Serialization.CopyData(_ms, TriedCollisions[i].Serialize());
             }
 
             return _ms.ToArray();
@@ -135,10 +135,10 @@ namespace Discreet.Network.Peerbloom
         {
             using var _ms = new MemoryStream(data);
 
-            salt = Coin.Serialization.GetBytes(_ms);
-            _counter = Coin.Serialization.GetInt32(_ms);
-            _triedCounter = Coin.Serialization.GetInt32(_ms);
-            _newCounter = Coin.Serialization.GetInt32(_ms);
+            salt = Common.Serialization.GetBytes(_ms);
+            _counter = Common.Serialization.GetInt32(_ms);
+            _triedCounter = Common.Serialization.GetInt32(_ms);
+            _newCounter = Common.Serialization.GetInt32(_ms);
 
             Tried = new uint[Constants.PEERLIST_MAX_TRIED_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
             New = new uint[Constants.PEERLIST_MAX_NEW_BUCKETS, Constants.PEERLIST_BUCKET_SIZE];
@@ -147,7 +147,7 @@ namespace Discreet.Network.Peerbloom
             {
                 for (int j = 0; j < Tried.GetLength(1); j++)
                 {
-                    Tried[i, j] = Coin.Serialization.GetUInt32(_ms);
+                    Tried[i, j] = Common.Serialization.GetUInt32(_ms);
                 }
             }
 
@@ -155,33 +155,33 @@ namespace Discreet.Network.Peerbloom
             {
                 for (int j = 0; j < New.GetLength(1); j++)
                 {
-                    New[i, j] = Coin.Serialization.GetUInt32(_ms);
+                    New[i, j] = Common.Serialization.GetUInt32(_ms);
                 }
             }
 
             addrs = new();
-            var addrsCount = Coin.Serialization.GetInt32(_ms);
+            var addrsCount = Common.Serialization.GetInt32(_ms);
 
             for (int i = 0; i < addrsCount; i++)
             {
-                var nID = Coin.Serialization.GetUInt32(_ms);
-                addrs[nID] = new Peer(Coin.Serialization.GetBytes(_ms));
+                var nID = Common.Serialization.GetUInt32(_ms);
+                addrs[nID] = new Peer(Common.Serialization.GetBytes(_ms));
             }
 
             Anchors = new();
-            var anchorCount = Coin.Serialization.GetInt32(_ms);
+            var anchorCount = Common.Serialization.GetInt32(_ms);
 
             for (int i = 0; i < anchorCount; i++)
             {
-                Anchors.Add(new Peer(Coin.Serialization.GetBytes(_ms)));
+                Anchors.Add(new Peer(Common.Serialization.GetBytes(_ms)));
             }
 
             TriedCollisions = new();
-            var collisionCount = Coin.Serialization.GetInt32(_ms);
+            var collisionCount = Common.Serialization.GetInt32(_ms);
 
             for (int i = 0; i < collisionCount; i++)
             {
-                TriedCollisions.Add(new Peer(Coin.Serialization.GetBytes(_ms)));
+                TriedCollisions.Add(new Peer(Common.Serialization.GetBytes(_ms)));
             }
         }
 
@@ -221,15 +221,15 @@ namespace Discreet.Network.Peerbloom
             byte[] data1 = new byte[salt.Length + 18];
             Array.Copy(salt, 0, data1, 0, salt.Length);
             Core.Utils.SerializeEndpoint(endpoint, data1, (uint)salt.Length);
-            var i = Coin.Serialization.GetUInt64(SHA256.HashData(SHA256.HashData(data1)), 0) % Constants.TRIED_BUCKETS_PER_GROUP;
+            var i = Common.Serialization.GetUInt64(SHA256.HashData(SHA256.HashData(data1)), 0) % Constants.TRIED_BUCKETS_PER_GROUP;
 
             var group = GetGroup(endpoint);
             byte[] data2 = new byte[salt.Length + group.Length + 8];
             Array.Copy(salt, 0, data2, 0, salt.Length);
             Array.Copy(group, 0, data2, salt.Length, group.Length);
-            Coin.Serialization.CopyData(data2, (uint)(salt.Length + group.Length), i);
+            Common.Serialization.CopyData(data2, (uint)(salt.Length + group.Length), i);
 
-            return Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(data2)), 0) % Constants.PEERLIST_MAX_TRIED_BUCKETS;
+            return Common.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(data2)), 0) % Constants.PEERLIST_MAX_TRIED_BUCKETS;
         }
 
         public uint GetNewBucket(IPEndPoint endpoint, IPEndPoint src)
@@ -242,14 +242,14 @@ namespace Discreet.Network.Peerbloom
             Array.Copy(srcGroup, 0, data1, salt.Length, srcGroup.Length);
             Array.Copy(group, 0, data1, salt.Length + srcGroup.Length, group.Length);
 
-            var i = Coin.Serialization.GetUInt64(SHA256.HashData(SHA256.HashData(data1)), 0) % Constants.NEW_BUCKETS_PER_SOURCE_GROUP;
+            var i = Common.Serialization.GetUInt64(SHA256.HashData(SHA256.HashData(data1)), 0) % Constants.NEW_BUCKETS_PER_SOURCE_GROUP;
 
             byte[] data2 = new byte[salt.Length + srcGroup.Length + 8];
             Array.Copy(salt, 0, data2, 0, salt.Length);
             Array.Copy(srcGroup, 0, data2, salt.Length, srcGroup.Length);
-            Coin.Serialization.CopyData(data2, (uint)(salt.Length + srcGroup.Length), i);
+            Common.Serialization.CopyData(data2, (uint)(salt.Length + srcGroup.Length), i);
 
-            return Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(data2)), 0) % Constants.PEERLIST_MAX_NEW_BUCKETS;
+            return Common.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(data2)), 0) % Constants.PEERLIST_MAX_NEW_BUCKETS;
         }
 
         public uint GetBucketPosition(bool _new, uint bucket, IPEndPoint endpoint)
@@ -257,10 +257,10 @@ namespace Discreet.Network.Peerbloom
             byte[] data = new byte[salt.Length + 1 + 4 + 18];
             Array.Copy(salt, 0, data, 0, salt.Length);
             data[salt.Length] = _new ? (byte)'N' : (byte)'K';
-            Coin.Serialization.CopyData(data, (uint)(salt.Length + 1), bucket);
+            Common.Serialization.CopyData(data, (uint)(salt.Length + 1), bucket);
             Core.Utils.SerializeEndpoint(endpoint, data, (uint)(salt.Length + 1 + 4));
 
-            return Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(data)), 0) % Constants.PEERLIST_BUCKET_SIZE;
+            return Common.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(data)), 0) % Constants.PEERLIST_BUCKET_SIZE;
         }
 
         public void RemoveInNew(int nID)

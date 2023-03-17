@@ -4,13 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Coin;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 using Discreet.Common.Exceptions;
 using Discreet.Cipher;
 using System.Net;
 using System.Threading;
 using System.Collections.Concurrent;
 using System.Reflection;
+using Discreet.RPC.Common;
+using Discreet.Wallets;
 
 namespace Discreet.Daemon
 {
@@ -33,7 +35,7 @@ namespace Discreet.Daemon
         Network.MessageCache messageCache;
         DB.DataView dataView;
         DaemonConfig config;
-        Wallet masternodeWallet;
+        SQLiteWallet masternodeWallet;
 
         RPC.RPCServer _rpcServer;
         Version.VersionBackgroundPoller _versionBackgroundPoller;
@@ -102,7 +104,7 @@ namespace Discreet.Daemon
             }
 
             _cancellationToken = _tokenSource.Token;
-            RPC.RPCEndpointResolver.ClearEndpoints();
+            RPCEndpointResolver.ClearEndpoints();
 
             Logger.Info("Restarting Daemon...");
             bool success = await Start();
@@ -172,8 +174,8 @@ namespace Discreet.Daemon
             handler = network.handler;
             handler.daemon = this;
 
-            Logger.Info($"Starting wallet manager...");
-            _ = Task.Run(() => WalletManager.Instance.Start(_cancellationToken)).ConfigureAwait(false);
+            //Logger.Info($"Starting wallet manager...");
+            //_ = Task.Run(() => WalletManager.Instance.Start(_cancellationToken)).ConfigureAwait(false);
 
             handler.SetState(Network.PeerState.Startup);
             RPCLive = true;
@@ -263,9 +265,9 @@ namespace Discreet.Daemon
                         Logger.Info($"Fetching block headers {_hheight + 1} to {_newHheight}");
 
                         byte[] zmqSync = new byte[12];
-                        Coin.Serialization.CopyData(zmqSync, 0, (int)(_hheight + 1));
-                        Coin.Serialization.CopyData(zmqSync, 4, (int)(_newHheight));
-                        Coin.Serialization.CopyData(zmqSync, 8, 0.25f * ((float)(_hheight + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
+                        Common.Serialization.CopyData(zmqSync, 0, (int)(_hheight + 1));
+                        Common.Serialization.CopyData(zmqSync, 4, (int)(_newHheight));
+                        Common.Serialization.CopyData(zmqSync, 8, 0.25f * ((float)(_hheight + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
                         ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSync);
 
                         toBeFulfilled = _newHheight - _hheight;
@@ -314,9 +316,9 @@ namespace Discreet.Daemon
                 Logger.Info($"Grabbed headers; grabbing blocks");
 
                 byte[] zmqSyncH = new byte[12];
-                Coin.Serialization.CopyData(zmqSyncH, 0, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncH, 4, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncH, 8, 0.25f);
+                Common.Serialization.CopyData(zmqSyncH, 0, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncH, 4, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncH, 8, 0.25f);
                 ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncH);
 
                 // restart all data
@@ -346,9 +348,9 @@ namespace Discreet.Daemon
                         Logger.Info($"Fetching blocks {chunk + 1} to {_newHeight}");
 
                         byte[] zmqSync = new byte[12];
-                        Coin.Serialization.CopyData(zmqSync, 0, (int)(chunk + 1));
-                        Coin.Serialization.CopyData(zmqSync, 4, (int)(_newHeight));
-                        Coin.Serialization.CopyData(zmqSync, 8, 0.25f + 0.74f * ((float)(chunk + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
+                        Common.Serialization.CopyData(zmqSync, 0, (int)(chunk + 1));
+                        Common.Serialization.CopyData(zmqSync, 4, (int)(_newHeight));
+                        Common.Serialization.CopyData(zmqSync, 8, 0.25f + 0.74f * ((float)(chunk + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
                         ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSync);
 
                         Network.Peerbloom.Connection curConn;
@@ -522,9 +524,9 @@ namespace Discreet.Daemon
                 handler.SetState(Network.PeerState.Processing);
 
                 byte[] zmqSyncB = new byte[12];
-                Coin.Serialization.CopyData(zmqSyncB, 0, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncB, 4, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncB, 8, 0.99f);
+                Common.Serialization.CopyData(zmqSyncB, 0, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncB, 4, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncB, 8, 0.99f);
                 ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncB);
 
                 //var blocks = db.GetBlockCache();
@@ -645,9 +647,9 @@ namespace Discreet.Daemon
                 }
 
                 byte[] zmqSyncF = new byte[12];
-                Coin.Serialization.CopyData(zmqSyncF, 0, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncF, 4, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncF, 8, 1.0f);
+                Common.Serialization.CopyData(zmqSyncF, 0, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncF, 4, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncF, 8, 1.0f);
                 ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncF);
 
                 Logger.Info("Fetching TXPool...");
@@ -656,19 +658,31 @@ namespace Discreet.Daemon
             
             if (IsMasternode)
             {
-                Logger.Info($"Starting minter...");
-                _ = Minter();
+                Logger.Info("Loading Master Wallet...");
 
                 if (masternodeWallet == null)
                 {
-                    Wallet wallet = WalletDB.GetDB().TryGetWallet("DBG_MASTERNODE");
+                    //Wallet wallet = WalletDB.GetDB().TryGetWallet("DBG_MASTERNODE");
 
-                    wallet.Decrypt("password");
+                    //wallet.Decrypt("password");
 
-                    masternodeWallet = wallet;
+                    try
+                    {
+                        SQLiteWallet wallet = SQLiteWallet.OpenWallet("DBG_MASTERNODE", "password");
+                        masternodeWallet = wallet;
+                    }
+                    catch
+                    {
+                        // we haven't migrated yet
+                        Logger.Critical($"Migrating legacy masternode wallet to new wallet framework...");
+                        SQLiteWallet.WalletMigration.Migrate("DBG_MASTERNODE", "password");
+                        masternodeWallet = SQLiteWallet.Wallets["DBG_MASTERNODE"];
+                    }
                 }
 
-                Wallets.WalletManager.Instance.Wallets.Add(masternodeWallet);
+                //WalletsLegacy.WalletManager.Instance.Wallets.Add(masternodeWallet);
+                Logger.Info($"Starting minter...");
+                _ = Minter();
 
                 await Task.Delay(500);
             }
@@ -785,7 +799,7 @@ namespace Discreet.Daemon
                 Logger.Info($"Discreet.Daemon: Minting new block...", verbose: 1);
 
                 var txs = txpool.GetTransactionsForBlock();
-                var blk = Block.Build(txs, (StealthAddress)WalletManager.Instance.Wallets.First().Addresses[0].GetAddress(), signingKey);
+                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["DBG_MASTERNODE"].Accounts[0].Address), signingKey);
 
                 try
                 {
@@ -824,11 +838,13 @@ namespace Discreet.Daemon
             List<StealthAddress> addresses = new List<StealthAddress>();
             List<ulong> coins = new List<ulong>();
 
-            Wallet wallet = new Wallet("DBG_MASTERNODE", "password");
+            //Wallet wallet = new Wallet("DBG_MASTERNODE", "password");
 
-            wallet.Save(true);
+            //wallet.Save(true);
 
-            WalletManager.Instance.Wallets.Add(wallet);
+            //WalletManager.Instance.Wallets.Add(wallet);
+
+            var wallet = SQLiteWallet.CreateWallet(new Wallets.Models.CreateWalletParameters("DBG_MASTERNODE", "password").Scan().SetNumStealthAddresses(1).SetNumTransparentAddresses(0).SetDeterministic().SetEncrypted());
 
             /*while (_input != "EXIT")
             {
@@ -847,7 +863,8 @@ namespace Discreet.Daemon
                 coins.Add(ulong.Parse(_input));
             }*/
 
-            addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
+            //addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
+            addresses.Add(new StealthAddress(wallet.Accounts[0].Address));
             coins.Add(900_000_000_0_000_000_000UL);
 
             Logger.Info("Creating genesis block...");

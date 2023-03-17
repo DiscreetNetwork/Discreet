@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Discreet.Coin
+namespace Discreet.Common.Exceptions
 {
-    public class VerifyException: Exception
+    public class VerifyException : Exception
     {
         public VerifyException(string msg) : base("Discreet.Coin.Verify: " + msg) { }
 

@@ -1,7 +1,7 @@
 ﻿using Discreet.Coin;
 using Discreet.Common;
 using Discreet.Common.Exceptions;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -67,12 +67,12 @@ namespace Discreet.Readable
             Name = addr.Name;
         }
 
-        public WalletAddress(Wallets.WalletAddress obj)
+        public WalletAddress(WalletsLegacy.WalletAddress obj)
         {
             FromObject(obj, false);
         }
 
-        public WalletAddress(Wallets.WalletAddress obj, bool encrypted)
+        public WalletAddress(WalletsLegacy.WalletAddress obj, bool encrypted)
         {
             FromObject(obj, encrypted);
         }
@@ -86,9 +86,9 @@ namespace Discreet.Readable
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Wallets.WalletAddress))
+            if (typeof(T) == typeof(WalletsLegacy.WalletAddress))
             {
-                FromObject((Wallets.WalletAddress)obj, false);
+                FromObject((WalletsLegacy.WalletAddress)obj, false);
             }
             else
             {
@@ -96,7 +96,7 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Wallets.WalletAddress obj, bool encrypted)
+        public void FromObject(WalletsLegacy.WalletAddress obj, bool encrypted)
         {
             Name = obj.Name;
             Type = obj.Type;
@@ -146,7 +146,7 @@ namespace Discreet.Readable
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Wallets.WalletAddress))
+            if (typeof(T) == typeof(WalletsLegacy.WalletAddress))
             {
                 return (T)ToObject();
             }
@@ -158,7 +158,7 @@ namespace Discreet.Readable
 
         public object ToObject()
         {
-            Wallets.WalletAddress obj = new();
+            WalletsLegacy.WalletAddress obj = new();
 
             obj.Name = Name;
             obj.Type = Type;
@@ -180,7 +180,7 @@ namespace Discreet.Readable
             obj.Balance = Balance;
 
             /* this is the only Readable which relies on DB being formatted correctly. Can't win em all. */
-            obj.UTXOs = new List<Wallets.UTXO>(UTXOs.Count);
+            obj.UTXOs = new List<WalletsLegacy.UTXO>(UTXOs.Count);
 
             if (UTXOs != null)
             {
@@ -211,12 +211,12 @@ namespace Discreet.Readable
             return obj;
         }
 
-        public static Wallets.WalletAddress FromReadable(string json)
+        public static WalletsLegacy.WalletAddress FromReadable(string json)
         {
-            return (Wallets.WalletAddress)new WalletAddress(json).ToObject();
+            return (WalletsLegacy.WalletAddress)new WalletAddress(json).ToObject();
         }
 
-        public static string ToReadable(Wallets.WalletAddress obj)
+        public static string ToReadable(WalletsLegacy.WalletAddress obj)
         {
             /* only exception we can expect from ToReadable based on object state; still stateless but ugly */
             if (!obj.Encrypted) throw new Exception("Cannot create readable from unencrypted wallet!");

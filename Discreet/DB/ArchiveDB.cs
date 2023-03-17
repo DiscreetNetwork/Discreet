@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Coin;
+using Discreet.Common;
 using RocksDbSharp;
 
 namespace Discreet.DB

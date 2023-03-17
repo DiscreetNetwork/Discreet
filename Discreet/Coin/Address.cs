@@ -4,6 +4,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Common;
 using System.IO;
+using Discreet.Common.Exceptions;
 
 namespace Discreet.Coin
 {

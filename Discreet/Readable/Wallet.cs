@@ -55,7 +55,7 @@ namespace Discreet.Readable
             Addresses = wallet.Addresses;
         }
 
-        public Wallet(Wallets.Wallet obj)
+        public Wallet(WalletsLegacy.Wallet obj)
         {
             FromObject(obj);
         }
@@ -69,9 +69,9 @@ namespace Discreet.Readable
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Wallets.Wallet))
+            if (typeof(T) == typeof(WalletsLegacy.Wallet))
             {
-                FromObject((Wallets.Wallet)obj);
+                FromObject((WalletsLegacy.Wallet)obj);
             }
             else
             {
@@ -79,7 +79,7 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Wallets.Wallet obj)
+        public void FromObject(WalletsLegacy.Wallet obj)
         {
             /* one of the few times we will check-and-exception for Readable */
             if (obj == null) throw new Exception("Discreet.Readable.Wallet.FromObject: Wallet is null!");
@@ -121,7 +121,7 @@ namespace Discreet.Readable
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Wallets.Wallet))
+            if (typeof(T) == typeof(WalletsLegacy.Wallet))
             {
                 return (T)ToObject();
             }
@@ -133,7 +133,7 @@ namespace Discreet.Readable
 
         public object ToObject()
         {
-            Wallets.Wallet obj = new();
+            WalletsLegacy.Wallet obj = new();
 
             obj.Label = Label;
             obj.CoinName = CoinName;
@@ -157,11 +157,11 @@ namespace Discreet.Readable
 
             if (Addresses != null)
             {
-                obj.Addresses = new Wallets.WalletAddress[Addresses.Count];
+                obj.Addresses = new WalletsLegacy.WalletAddress[Addresses.Count];
 
                 for (int i = 0; i < Addresses.Count; i++)
                 {
-                    obj.Addresses[i] = (Wallets.WalletAddress)Addresses[i].ToObject();
+                    obj.Addresses[i] = (WalletsLegacy.WalletAddress)Addresses[i].ToObject();
                     obj.Addresses[i].wallet = obj;
                 }
             }
@@ -171,12 +171,12 @@ namespace Discreet.Readable
             return obj;
         }
 
-        public static Wallets.Wallet FromReadable(string json)
+        public static WalletsLegacy.Wallet FromReadable(string json)
         {
-            return (Wallets.Wallet)new Wallet(json).ToObject();
+            return (WalletsLegacy.Wallet)new Wallet(json).ToObject();
         }
 
-        public static string ToReadable(Wallets.Wallet obj)
+        public static string ToReadable(WalletsLegacy.Wallet obj)
         {
             return new Wallet(obj).JSON();
         }

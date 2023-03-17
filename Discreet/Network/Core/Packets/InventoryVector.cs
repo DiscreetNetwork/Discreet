@@ -20,7 +20,7 @@ namespace Discreet.Network.Core.Packets
         public byte[] Serialize()
         {
             byte[] rv = new byte[36];
-            Coin.Serialization.CopyData(rv, 0, (uint)Type);
+            Common.Serialization.CopyData(rv, 0, (uint)Type);
             Array.Copy(Hash.Bytes, 0, rv, 4, 32);
 
             return rv;
@@ -49,7 +49,7 @@ namespace Discreet.Network.Core.Packets
 
         public override int GetHashCode()
         {
-            return Coin.Serialization.GetInt32(Hash.Bytes, 28);
+            return Common.Serialization.GetInt32(Hash.Bytes, 28);
         }
     }
 }

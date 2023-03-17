@@ -89,7 +89,7 @@ namespace Discreet.Network.Peerbloom.Extensions
                     throw new Exception($"ReadPacketAsync: expected {Header.Length} bytes in payload, but got {_numRead}");
                 }
 
-                uint _checksum = Coin.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(_bytes)), 0);
+                uint _checksum = Common.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(_bytes)), 0);
                 if (_checksum != Header.Checksum)
                 {
                     throw new Exception($"ReadPacketAsync: checksum mismatch; got {Header.Checksum}, but calculated {_checksum}");

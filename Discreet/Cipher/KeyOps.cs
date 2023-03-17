@@ -8,6 +8,16 @@ namespace Discreet.Cipher
     public static class KeyOps
     {
         public static void GenerateKeypair(ref Key sk, ref Key pk) => Native.Native.Instance.GenerateKeypair(ref sk, ref pk);
+        public static (Key, Key) GenerateKeypair()
+        {
+            Key sk = new(new byte[32]);
+            Key pk = new(new byte[32]);
+
+            GenerateKeypair(ref sk, ref pk);
+
+            return (sk, pk);
+        }
+
         public static void ScalarmultKey(ref Key ap, ref Key p, ref Key a) => Native.Native.Instance.ScalarmultKey(ref ap, ref p, ref a);
         public static void DKSAP(ref Key R, ref Key T, ref Key pv, ref Key ps, int index) => Native.Native.Instance.DKSAP(ref R, ref T, ref pv, ref ps, index);
         public static void DKSAPRecover(ref Key t, ref Key R, ref Key sv, ref Key ss, int index) => Native.Native.Instance.DKSAPRecover(ref t, ref R, ref sv, ref ss, index);
@@ -48,21 +58,45 @@ namespace Discreet.Cipher
 
         public static ulong XOR8(ref Key g, ulong amount)
         {
-            byte[] amountBytes = Coin.Serialization.UInt64(amount);
+            byte[] amountBytes = Common.Serialization.UInt64(amount);
 
             for (int i = 0; i < 8; i++)
             {
                 amountBytes[i] ^= g.bytes[i];
             }
 
-            return Coin.Serialization.GetUInt64(amountBytes, 0);
+            return Common.Serialization.GetUInt64(amountBytes, 0);
         }
 
         public static ulong GenAmountMask(ref Key r, ref Key pv, int i, ulong amount)
         {
             byte[] cdata = new byte[36];
             Array.Copy(ScalarmultKey(ref pv, ref r).bytes, cdata, 32);
-            Coin.Serialization.CopyData(cdata, 32, i);
+            Common.Serialization.CopyData(cdata, 32, i);
+
+            Key c = new Key(new byte[32]);
+            HashOps.HashToScalar(ref c, cdata, 36);
+
+            byte[] gdata = new byte[38];
+            gdata[0] = (byte)'a';
+            gdata[1] = (byte)'m';
+            gdata[2] = (byte)'o';
+            gdata[3] = (byte)'u';
+            gdata[4] = (byte)'n';
+            gdata[5] = (byte)'t';
+            Array.Copy(c.bytes, 0, gdata, 6, 32);
+
+            Key g = new Key(new byte[32]);
+            HashOps.HashData(ref g, gdata, 38);
+
+            return XOR8(ref g, amount);
+        }
+
+        public static ulong GenAmountMaskRecover(ref Key R, ref Key sv, int i, ulong amount)
+        {
+            byte[] cdata = new byte[36];
+            Array.Copy(ScalarmultKey(ref R, ref sv).bytes, cdata, 32);
+            Common.Serialization.CopyData(cdata, 32, i);
 
             Key c = new Key(new byte[32]);
             HashOps.HashToScalar(ref c, cdata, 36);
@@ -100,7 +134,7 @@ namespace Discreet.Cipher
         {
             byte[] cdata = new byte[36];
             Array.Copy(ScalarmultKey(ref pv, ref r).bytes, cdata, 32);
-            Coin.Serialization.CopyData(cdata, 32, i);
+            Common.Serialization.CopyData(cdata, 32, i);
 
             Key c = new Key(new byte[32]);
             HashOps.HashToScalar(ref c, cdata, 36);
@@ -116,7 +150,7 @@ namespace Discreet.Cipher
         {
             byte[] cdata = new byte[36];
             Array.Copy(ScalarmultKey(ref R, ref sv).bytes, cdata, 32);
-            Coin.Serialization.CopyData(cdata, 32, i);
+            Common.Serialization.CopyData(cdata, 32, i);
 
             Key c = new Key(new byte[32]);
             HashOps.HashToScalar(ref c, cdata, 36);

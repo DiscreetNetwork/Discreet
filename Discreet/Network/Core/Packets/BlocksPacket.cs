@@ -29,7 +29,7 @@ namespace Discreet.Network.Core.Packets
 
         public void Deserialize(byte[] b, uint offset)
         {
-            BlocksLen = Coin.Serialization.GetUInt32(b, offset);
+            BlocksLen = Common.Serialization.GetUInt32(b, offset);
             offset += 4;
 
             Blocks = new Coin.Block[BlocksLen];
@@ -57,7 +57,7 @@ namespace Discreet.Network.Core.Packets
 
         public uint Serialize(byte[] b, uint offset)
         {
-            Coin.Serialization.CopyData(b, offset, BlocksLen);
+            Common.Serialization.CopyData(b, offset, BlocksLen);
             offset += 4;
 
             for (int i = 0; i < BlocksLen; i++)
@@ -71,7 +71,7 @@ namespace Discreet.Network.Core.Packets
 
         public void Serialize(Stream s)
         {
-            s.Write(Coin.Serialization.UInt32(BlocksLen));
+            s.Write(Common.Serialization.UInt32(BlocksLen));
 
             foreach (Coin.Block block in Blocks)
             {

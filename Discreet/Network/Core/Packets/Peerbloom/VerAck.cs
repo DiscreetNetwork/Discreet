@@ -30,19 +30,19 @@ namespace Discreet.Network.Core.Packets.Peerbloom
         public void Deserialize(byte[] b, uint offset)
         {
             ReflectedEndpoint = Utils.DeserializeEndpoint(b, offset);
-            Counter = Coin.Serialization.GetInt32(b, offset + 18);
+            Counter = Common.Serialization.GetInt32(b, offset + 18);
         }
 
         public void Deserialize(Stream s)
         {
             ReflectedEndpoint = Utils.DeserializeEndpoint(s);
-            Counter = Coin.Serialization.GetInt32(s);
+            Counter = Common.Serialization.GetInt32(s);
         }
 
         public uint Serialize(byte[] b, uint offset)
         {
             Utils.SerializeEndpoint(ReflectedEndpoint, b, offset);
-            Coin.Serialization.CopyData(b, offset + 18, Counter);
+            Common.Serialization.CopyData(b, offset + 18, Counter);
 
             return offset + 22;
         }
@@ -50,7 +50,7 @@ namespace Discreet.Network.Core.Packets.Peerbloom
         public void Serialize(Stream s)
         {
             Utils.SerializeEndpoint(ReflectedEndpoint, s);
-            Coin.Serialization.CopyData(s, Counter);
+            Common.Serialization.CopyData(s, Counter);
         }
 
         public int Size()

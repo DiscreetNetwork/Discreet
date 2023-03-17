@@ -93,23 +93,23 @@ namespace Discreet.Cipher
         public SHA256(ulong num)
         {
             bytes = new byte[32];
-            Coin.Serialization.CopyData(bytes, 24, num);
+            Common.Serialization.CopyData(bytes, 24, num);
         }
 
         public SHA256(long num)
         {
             bytes = new byte[32];
-            Coin.Serialization.CopyData(bytes, 24, num);
+            Common.Serialization.CopyData(bytes, 24, num);
         }
 
         public ulong ToUInt64()
         {
-            return Coin.Serialization.GetUInt64(bytes, 24);
+            return Common.Serialization.GetUInt64(bytes, 24);
         }
 
         public long ToInt64()
         {
-            return Coin.Serialization.GetInt64(bytes, 24);
+            return Common.Serialization.GetInt64(bytes, 24);
         }
 
         public bool IsLong()

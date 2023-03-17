@@ -2,7 +2,7 @@
 using Discreet.Daemon;
 using Discreet.Network;
 using Discreet.RPC.Common;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 using System;
 using System.Collections.Generic;
 using System.Linq;
