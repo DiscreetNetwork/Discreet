@@ -49,7 +49,7 @@ namespace Discreet.Wallets.Services
         {
             if (account.Encrypted) throw new Exception("account is encrypted");
 
-            var totalAmount = amount.Aggregate((x, y) => x + y);
+            var totalAmount = amount.Aggregate(0UL, (x, y) => x + y);
             if (totalAmount > account.Balance) throw new Exception("sending amount greater than balance");
 
             if (account.SortedUTXOs == null)
@@ -96,8 +96,8 @@ namespace Discreet.Wallets.Services
 
         protected (TXOutput?, Discreet.Coin.Transparent.TXOutput?) BuildChangeOutput(Account account, IEnumerable<UTXO> utxos, IEnumerable<ulong> amounts, Key? txPrivateKey, int i, out (Key, ulong)? extraPair)
         {
-            var totalIn = utxos.Select(x => x.DecodedAmount).Aggregate((x, y) => x + y);
-            var totalOut = amounts.Aggregate((x, y) => { return x + y; });
+            var totalIn = utxos.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y);
+            var totalOut = amounts.Aggregate(0UL, (x, y) => { return x + y; });
             var _txPrivateKey = txPrivateKey.HasValue ? txPrivateKey.Value : default;
             if (totalIn != totalOut && account.Type == 1)
             {
@@ -152,8 +152,8 @@ namespace Discreet.Wallets.Services
 
         protected (IEnumerable<(Key, ulong)>, IEnumerable<TXOutput>) BuildPrivateOutputs(Account account, IEnumerable<IAddress> dests, IEnumerable<ulong> amounts, Key txPrivateKey)
         {
-            //var totalIn = utxos.Select(x => x.DecodedAmount).Aggregate((x, y) => x + y);
-            //var totalOut = amounts.Aggregate((x, y) => x + y);
+            //var totalIn = utxos.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y);
+            //var totalOut = amounts.Aggregate(0UL, (x, y) => x + y);
 
             int i = 0;
             List<(Key, ulong)> maskAmountPairs = new();
