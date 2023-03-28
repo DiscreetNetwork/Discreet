@@ -108,11 +108,11 @@ namespace Discreet.Coin
             return size;
         }
 
-        /* for testing purposes only */
-        public static Block BuildRandom(StealthAddress[] addresses, int[] numOutputs)
+        private static Block BuildTransactions(
+            List<FullTransaction> txs,
+            StealthAddress[] addresses,
+            int[] numOutputs)
         {
-            List<FullTransaction> txs = new();
-
             for (int i = 0; i < addresses.Length; i++)
             {
                 for (int j = 0; j < numOutputs[i] / 16; j++)
@@ -129,24 +129,19 @@ namespace Discreet.Coin
             return Build(txs, null, default);
         }
 
+        /* for testing purposes only */
+        public static Block BuildRandom(StealthAddress[] addresses, int[] numOutputs)
+        {
+            List<FullTransaction> txs = new();
+
+            return BuildTransactions(txs, addresses, numOutputs);
+        }
+
         public static Block BuildRandomPlus(StealthAddress[] addresses, int[] numOutputs, List<FullTransaction> txExtras)
         {
             List<FullTransaction> txs = txExtras;
 
-            for (int i = 0; i < addresses.Length; i++)
-            {
-                for (int j = 0; j < numOutputs[i] / 16; j++)
-                {
-                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], 16).ToFull());
-                }
-
-                if (numOutputs[i] % 16 != 0)
-                {
-                    txs.Add(Transaction.GenerateRandomNoSpend(addresses[i], numOutputs[i] % 16).ToFull());
-                }
-            }
-
-            return Build(txs, null, default);
+            return BuildTransactions(txs, addresses, numOutputs);
         }
 
         public static Block Build(List<FullTransaction> txs, StealthAddress miner, Key signingKey)
