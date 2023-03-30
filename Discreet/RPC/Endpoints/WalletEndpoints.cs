@@ -230,7 +230,7 @@ namespace Discreet.RPC.Endpoints
             {
                 Daemon.Logger.Error($"RPC call to LoadWallet failed: {ex.Message}", ex);
 
-                return new RPCError($"Could not load wallet");
+                return new RPCError(string.IsNullOrWhiteSpace(ex.Message) ? $"Could not load wallet" : ex.Message);
             }
         }
 
