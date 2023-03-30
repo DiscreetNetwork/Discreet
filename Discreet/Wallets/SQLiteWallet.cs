@@ -997,6 +997,8 @@ namespace Discreet.Wallets
 
         public void Decrypt(string passphrase)
         {
+            if (!IsEncrypted) return;
+
             Entropy = EncryptedEntropy.DecryptEntropy(EntropyChecksum, passphrase);
             Accounts.ForEach(acc =>
             {
