@@ -97,7 +97,7 @@ namespace Discreet.Wallets.Services
 
             if (inputs.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y) > outputs.Select(x => x.Item2).Aggregate(0UL, (x, y) => x + y))
             {
-                var changeAmount = inputs.Select(x => x.DecodedAmount).Aggregate((x, y) => x + y) - outputs.Select(x => x.Item2).Aggregate(0UL, (x, y) => x + y);
+                var changeAmount = inputs.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y) - outputs.Select(x => x.Item2).Aggregate(0UL, (x, y) => x + y);
                 outputs.Add((change, changeAmount));
             }
 

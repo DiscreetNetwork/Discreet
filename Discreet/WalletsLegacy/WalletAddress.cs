@@ -623,11 +623,11 @@ namespace Discreet.WalletsLegacy
             }
 
             // simply create the wallet tx; on success, it gets added automatically to the db.
-            if (utxos.Select(x => (x.Type == UTXOType.PRIVATE) ? x.DecodedAmount : x.Amount).Aggregate((a, b) => a + b) > amount.Aggregate((a, b) => a + b))
+            if (utxos.Select(x => (x.Type == UTXOType.PRIVATE) ? x.DecodedAmount : x.Amount).Aggregate(0UL, (a, b) => a + b) > amount.Aggregate(0UL, (a, b) => a + b))
             {
                 var namount = new ulong[amount.Length + 1];
                 Array.Copy(amount, namount, amount.Length);
-                namount[amount.Length] = utxos.Select(x => (x.Type == UTXOType.PRIVATE) ? x.DecodedAmount : x.Amount).Aggregate((a, b) => a + b) - amount.Aggregate((a, b) => a + b);
+                namount[amount.Length] = utxos.Select(x => (x.Type == UTXOType.PRIVATE) ? x.DecodedAmount : x.Amount).Aggregate(0UL, (a, b) => a + b) - amount.Aggregate(0UL, (a, b) => a + b);
                 amount = namount;
 
                 var nto = new IAddress[to.Length + 1];

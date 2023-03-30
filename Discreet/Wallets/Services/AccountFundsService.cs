@@ -84,6 +84,7 @@ namespace Discreet.Wallets.Services
                 ProcessBlock(block);
             }
 
+            account.Wallet.SaveKey(account.Address, -1);
         }
 
         private void ProcessBlock(Block block)
@@ -115,12 +116,33 @@ namespace Discreet.Wallets.Services
             }
         }
 
-        public void StartFundsScan(CancellationToken token = default)
+        public async void StartFundsScan(CancellationToken token = default)
         {
             if (this.token == default) this.token = token;
             lastSeenHeight = Serialization.GetInt64(account.Wallet.LoadKey(account.Address), 0);
             State = ServiceState.SYNCING;
-            ProcessBlocks(view.GetBlocks(lastSeenHeight + 1, 0));
+            while (account.Wallet.SyncingService == null && !Completed)
+            {
+                ProcessBlocks(view.GetBlocks(lastSeenHeight + 1, 0));
+            }
+            while (lastSeenHeight < account.Wallet.SyncingService.GetLastSeenHeight() && !Completed)
+            {
+                ProcessBlocks(view.GetBlocks(lastSeenHeight + 1, 0));
+            }
+
+            while (lastSeenHeight != account.Wallet.SyncingService.GetLastSeenHeight() && !Completed)
+            {
+                await Task.Delay(100, token);
+            }
+
+            account.Wallet.DeleteKey(account.Address);
+            account.Syncing = false;
+            State = ServiceState.COMPLETED;
+
+            if (account.Wallet.SyncingService.State == ServiceState.SYNCED)
+            {
+                ZMQ.Publisher.Instance.Publish("addresssynced", Encoding.UTF8.GetBytes(account.Address));
+            }
         }
     }
 }
