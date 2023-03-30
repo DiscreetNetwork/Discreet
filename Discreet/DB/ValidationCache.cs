@@ -555,7 +555,7 @@ namespace Discreet.DB
                 /* spent keys */
                 for (int i = 0; i < tx.NumPInputs; i++)
                 {
-                    updates.Add(new UpdateEntry { key = tx.PInputs[i].KeyImage.bytes, value = StateDB.ZEROKEY, rule = UpdateRule.ADD, type = UpdateType.SPENTKEY });
+                    updates.Add(new UpdateEntry { key = tx.PInputs[i].KeyImage.bytes, value = ChainDB.ZEROKEY, rule = UpdateRule.ADD, type = UpdateType.SPENTKEY });
                 }
 
                 /* tinputs */
@@ -567,7 +567,7 @@ namespace Discreet.DB
                     }
                     else
                     {
-                        updates.Add(new UpdateEntry { key = tx.TInputs[i].Serialize(), value = StateDB.ZEROKEY, rule = UpdateRule.DEL, type = UpdateType.PUBOUTPUT });
+                        updates.Add(new UpdateEntry { key = tx.TInputs[i].Serialize(), value = ChainDB.ZEROKEY, rule = UpdateRule.DEL, type = UpdateType.PUBOUTPUT });
                     }
                 }
 

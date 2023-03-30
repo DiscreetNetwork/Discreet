@@ -586,8 +586,8 @@ namespace Discreet.Daemon
             Cipher.KeyOps.GenCommitment(ref tmp, ref _Z, toutAmt);
             Cipher.KeyOps.AddKeys(ref outAmt, ref poutAmt, ref tmp);
 
-            Logger.Log($"INAMT: {inAmt.ToHex()}");
-            Logger.Log($"OUTAMT: {outAmt.ToHex()}");
+            //Logger.Log($"INAMT: {inAmt.ToHex()}");
+            //Logger.Log($"OUTAMT: {outAmt.ToHex()}");
             /* verify sumIn = sumOut */
             if (!inAmt.Equals(outAmt)) return new VerifyException("FullTransaction", $"Transaction does not balance");
 

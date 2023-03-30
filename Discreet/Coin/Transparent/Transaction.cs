@@ -24,11 +24,11 @@ namespace Discreet.Coin.Transparent
         [MarshalAs(UnmanagedType.U1)]
         public byte NumSigs;
 
-        [MarshalAs(UnmanagedType.U8)]
-        public ulong Fee;
-
         [MarshalAs(UnmanagedType.Struct)]
         public SHA256 InnerHash;
+
+        [MarshalAs(UnmanagedType.U8)]
+        public ulong Fee;
 
         [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
         public TXInput[] Inputs;

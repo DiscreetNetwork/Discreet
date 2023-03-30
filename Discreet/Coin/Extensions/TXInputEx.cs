@@ -4,11 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Discreet.HTTP
+namespace Discreet.Coin.Extensions
 {
-    internal class HttpEndpoints
+    internal static class SerializationEx
     {
-
-
     }
 }

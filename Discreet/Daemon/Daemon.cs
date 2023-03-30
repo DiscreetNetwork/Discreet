@@ -135,6 +135,8 @@ namespace Discreet.Daemon
 
         public async Task<bool> Start()
         {
+            Logger.GetLogger().Start(_cancellationToken);
+
             AppDomain.CurrentDomain.UnhandledException += (sender, e) => Logger.CrashLog(sender, e);
             Logger.Debug("Attached global exception handler.");
 
