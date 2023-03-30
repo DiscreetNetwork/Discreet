@@ -22,6 +22,10 @@ namespace Discreet.Version
 
         private CancellationTokenSource _cts;
 
+        /// <summary>
+        /// Starts the background poller
+        /// </summary>
+        /// <returns></returns>
         public async Task StartBackgroundPoller()
         {
             _cts = new CancellationTokenSource();
