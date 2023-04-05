@@ -507,7 +507,9 @@ namespace Discreet.WalletsLegacy
         {
             // Encrypt();
 
-            return Readable.Wallet.ToReadable(this);
+            //return Readable.Wallet.ToReadable(this);
+
+            throw new Exception("This utility is deprecated.");
         }
 
         /**
@@ -539,7 +541,8 @@ namespace Discreet.WalletsLegacy
 
         public static Wallet FromJSON(string json)
         {
-            return Readable.Wallet.FromReadable(json);
+            //return Readable.Wallet.FromReadable(json);
+            throw new Exception("This utility is deprecated.");
         }
 
         public void ProcessBlock(Block block)

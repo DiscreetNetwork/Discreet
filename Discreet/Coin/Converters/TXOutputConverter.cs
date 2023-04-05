@@ -71,10 +71,12 @@ namespace Discreet.Coin.Converters
 
             writer.WriteStartObject();
 
-            writer.WritePropertyName(nameof(value.TransactionSrc));
-            if (value.TransactionSrc == default) writer.WriteNullValue();
-            else writer.WriteStringValue(value.TransactionSrc.ToHex());
-
+            if (value.TransactionSrc != default(SHA256) && value.TransactionSrc.Bytes != null)
+            {
+                writer.WritePropertyName(nameof(value.TransactionSrc));
+                writer.WriteStringValue(value.TransactionSrc.ToHex());
+            }
+            
             writer.WritePropertyName(nameof(value.UXKey));
             if (value.UXKey == default) writer.WriteNullValue();
             else writer.WriteStringValue(value.UXKey.ToHex());

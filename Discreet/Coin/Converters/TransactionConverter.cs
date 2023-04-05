@@ -2,7 +2,6 @@
 using Discreet.Coin.Models;
 using Discreet.Common;
 using Discreet.Common.Converters;
-using Discreet.Readable;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;

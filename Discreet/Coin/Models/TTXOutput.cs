@@ -11,6 +11,7 @@ using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
 using System.Drawing;
 using Microsoft.VisualBasic;
+using System.Text.Json;
 
 namespace Discreet.Coin.Models
 {
@@ -56,27 +57,10 @@ namespace Discreet.Coin.Models
 
         public string Readable()
         {
-            return Discreet.Readable.Transparent.TXOutput.ToReadable(this);
-        }
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new Converters.Transparent.TXOutputConverter());
 
-        public string TXReadable()
-        {
-            return Discreet.Readable.Transparent.TXOutput.ToTXReadable(this);
-        }
-
-        public object ToReadable()
-        {
-            return new Readable.Transparent.TXOutput(this);
-        }
-
-        public object ToTXReadable()
-        {
-            return new Readable.Transparent.TXOutput(this, true);
-        }
-
-        public static TTXOutput FromReadable(string json)
-        {
-            return Discreet.Readable.Transparent.TXOutput.FromReadable(json);
+            return JsonSerializer.Serialize(this, typeof(TTXOutput), options);
         }
 
         public void Deserialize(ref MemoryReader reader)
@@ -90,13 +74,6 @@ namespace Discreet.Coin.Models
         {
             Address = new(reader.ReadByteArray(25));
             Amount = reader.ReadUInt64();
-        }
-
-        public uint TXUnmarshal(byte[] bytes, uint offset)
-        {
-            var reader = new MemoryReader(bytes.AsMemory().Slice((int)offset, TXSize));
-            TXUnmarshal(ref reader);
-            return offset + (uint)TXSize;
         }
 
         public static uint GetSize()

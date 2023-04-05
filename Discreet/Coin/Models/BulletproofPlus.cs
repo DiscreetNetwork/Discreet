@@ -7,6 +7,7 @@ using System.IO;
 using Discreet.Common;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
+using System.Text.Json;
 
 namespace Discreet.Coin.Models
 {
@@ -69,17 +70,10 @@ namespace Discreet.Coin.Models
 
         public string Readable()
         {
-            return Discreet.Readable.BulletproofPlus.ToReadable(this);
-        }
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new Converters.BulletproofPlusConverter());
 
-        public object ToReadable()
-        {
-            return new Readable.BulletproofPlus(this);
-        }
-
-        public static BulletproofPlus FromReadable(string json)
-        {
-            return Discreet.Readable.BulletproofPlus.FromReadable(json);
+            return JsonSerializer.Serialize(this, typeof(BulletproofPlus), options);
         }
 
         public uint GetSize()

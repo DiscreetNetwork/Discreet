@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
+using System.Text.Json;
 
 namespace Discreet.Coin.Models
 {
@@ -39,17 +40,10 @@ namespace Discreet.Coin.Models
 
         public string Readable()
         {
-            return Discreet.Readable.Block.ToReadable(this);
-        }
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new Converters.BlockConverter());
 
-        public object ToReadable()
-        {
-            return new Readable.Block(this);
-        }
-
-        public static Block FromReadable(string json)
-        {
-            return Discreet.Readable.Block.FromReadable(json);
+            return JsonSerializer.Serialize(this, typeof(Block), options);
         }
 
         public uint GetSize()

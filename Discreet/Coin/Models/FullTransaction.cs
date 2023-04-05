@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Discreet.Cipher;
 using Discreet.Common;
@@ -267,17 +268,10 @@ namespace Discreet.Coin.Models
 
         public string Readable()
         {
-            return Discreet.Readable.FullTransaction.ToReadable(this);
-        }
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new Converters.TransactionConverter());
 
-        public object ToReadable()
-        {
-            return new Readable.FullTransaction(this);
-        }
-
-        public static FullTransaction FromReadable(string json)
-        {
-            return Discreet.Readable.FullTransaction.FromReadable(json);
+            return JsonSerializer.Serialize(this, typeof(FullTransaction), options);
         }
 
         public uint GetSize()

@@ -7,6 +7,7 @@ using System.IO;
 using Discreet.Common;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
+using System.Text.Json;
 
 namespace Discreet.Coin.Models
 {
@@ -115,17 +116,10 @@ namespace Discreet.Coin.Models
 
         public string Readable()
         {
-            return Discreet.Readable.Transaction.ToReadable(this);
-        }
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new Converters.TransactionConverter());
 
-        public object ToReadable()
-        {
-            return new Readable.Transaction(this);
-        }
-
-        public static Transaction FromReadable(string json)
-        {
-            return Discreet.Readable.Transaction.FromReadable(json);
+            return JsonSerializer.Serialize(ToFull(), typeof(FullTransaction), options);
         }
 
         /* for testing purposes only */

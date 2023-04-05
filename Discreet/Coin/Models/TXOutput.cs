@@ -9,6 +9,7 @@ using Discreet.Common;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
 using System.Reflection.PortableExecutable;
+using System.Text.Json;
 
 namespace Discreet.Coin.Models
 {
@@ -62,31 +63,12 @@ namespace Discreet.Coin.Models
             writer.Write(Amount);
         }
 
-        public void TXMarshal(byte[] bytes, int offset = 0) => TXMarshal(new BEBinaryWriter(new MemoryStream(bytes, offset, TXSize)));
-
         public string Readable()
         {
-            return Discreet.Readable.TXOutput.ToReadable(this);
-        }
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new Converters.TXOutputConverter());
 
-        public string TXReadable()
-        {
-            return Discreet.Readable.TXOutput.ToTXReadable(this);
-        }
-
-        public object ToReadable()
-        {
-            return new Readable.TXOutput(this);
-        }
-
-        public object ToTXReadable()
-        {
-            return new Readable.TXOutput(this, true);
-        }
-
-        public static TXOutput FromReadable(string json)
-        {
-            return Discreet.Readable.TXOutput.FromReadable(json);
+            return JsonSerializer.Serialize(this, typeof(TXOutput), options);
         }
 
         public static uint GetSize()
@@ -113,12 +95,5 @@ namespace Discreet.Coin.Models
             Commitment = reader.ReadKey();
             Amount = reader.ReadUInt64();
         }
-
-        public int TXUnmarshal(byte[] bytes, int offset)
-        {
-            var reader = new MemoryReader(bytes.AsMemory().Slice(offset, TXSize));
-            TXUnmarshal(ref reader);
-            return offset + TXSize;
-        } 
     }
 }

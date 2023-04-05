@@ -6,6 +6,7 @@ using Discreet.Cipher;
 using System.IO;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
+using System.Text.Json;
 
 namespace Discreet.Coin.Models
 {
@@ -68,17 +69,10 @@ namespace Discreet.Coin.Models
 
         public string Readable()
         {
-            return Discreet.Readable.Triptych.ToReadable(this);
-        }
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new Converters.TriptychConverter());
 
-        public object ToReadable()
-        {
-            return new Readable.Triptych(this);
-        }
-
-        public static Triptych FromReadable(string json)
-        {
-            return Discreet.Readable.Triptych.FromReadable(json);
+            return JsonSerializer.Serialize(this, typeof(Triptych), options);
         }
 
         public static uint GetSize()

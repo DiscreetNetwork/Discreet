@@ -1,4 +1,5 @@
 ﻿using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Daemon;
 using Discreet.Network;
 using Discreet.RPC.Common;
@@ -53,7 +54,7 @@ namespace Discreet.RPC.Endpoints
 
         public class DbgFaucetTransparentRV
         {
-            public Readable.FullTransaction Tx { get; set; }
+            public FullTransaction Tx { get; set; }
             public string Txid { get; set; }
             public string Verify { get; set; }
         }
@@ -163,7 +164,7 @@ namespace Discreet.RPC.Endpoints
 
                     return new DbgFaucetTransparentRV
                     {
-                        Tx = (Readable.FullTransaction)tx.ToReadable(),
+                        Tx = tx,
                         Txid = tx.Hash().ToHex(),
                         Verify = _verify
                     };

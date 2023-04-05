@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Discreet.Coin.Models
@@ -70,17 +71,10 @@ namespace Discreet.Coin.Models
 
         public string Readable()
         {
-            return Discreet.Readable.BlockHeader.ToReadable(this);
-        }
+            var options = new JsonSerializerOptions();
+            options.Converters.Add(new Converters.BlockHeaderConverter());
 
-        public object ToReadable()
-        {
-            return new Readable.BlockHeader(this);
-        }
-
-        public static BlockHeader FromReadable(string json)
-        {
-            return Discreet.Readable.BlockHeader.FromReadable(json);
+            return JsonSerializer.Serialize(this, typeof(BlockHeader), options);
         }
 
         public void Serialize(BEBinaryWriter writer)
