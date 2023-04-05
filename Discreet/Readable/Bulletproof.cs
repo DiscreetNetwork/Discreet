@@ -58,7 +58,7 @@ namespace Discreet.Readable
             t = bp.t;
         }
 
-        public Bulletproof(Coin.Bulletproof obj)
+        public Bulletproof(Coin.Models.Bulletproof obj)
         {
             FromObject(obj);
         }
@@ -72,9 +72,9 @@ namespace Discreet.Readable
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.Bulletproof))
+            if (typeof(T) == typeof(Coin.Models.Bulletproof))
             {
-                FromObject((Coin.Bulletproof)obj);
+                FromObject((Coin.Models.Bulletproof)obj);
             }
             else
             {
@@ -82,7 +82,7 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Coin.Bulletproof obj)
+        public void FromObject(Coin.Models.Bulletproof obj)
         {
             size = obj.size;
 
@@ -119,7 +119,7 @@ namespace Discreet.Readable
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.Bulletproof))
+            if (typeof(T) == typeof(Coin.Models.Bulletproof))
             {
                 return (T)ToObject();
             }
@@ -131,7 +131,7 @@ namespace Discreet.Readable
 
         public object ToObject()
         {
-            Coin.Bulletproof obj = new();
+            Coin.Models.Bulletproof obj = new();
 
             if (A != null && A != "") obj.A = new Cipher.Key(Printable.Byteify(A));
             if (S != null && S != "") obj.S = new Cipher.Key(Printable.Byteify(S));
@@ -166,12 +166,12 @@ namespace Discreet.Readable
             return obj;
         }
 
-        public static Coin.Bulletproof FromReadable(string json)
+        public static Coin.Models.Bulletproof FromReadable(string json)
         {
-            return (Coin.Bulletproof)new Bulletproof(json).ToObject();
+            return (Coin.Models.Bulletproof)new Bulletproof(json).ToObject();
         }
 
-        public static string ToReadable(Coin.Bulletproof obj)
+        public static string ToReadable(Coin.Models.Bulletproof obj)
         {
             return new Bulletproof(obj).JSON();
         }

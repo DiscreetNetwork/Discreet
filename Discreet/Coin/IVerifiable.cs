@@ -4,9 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Discreet.Common.Serialize.Extensions
+namespace Discreet.Coin
 {
-    public static class SerializationEx
+    internal interface IVerifiable
     {
+        public bool Verify();
     }
 }

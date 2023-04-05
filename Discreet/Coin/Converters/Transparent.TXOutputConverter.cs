@@ -1,4 +1,5 @@
 ﻿using Discreet.Cipher;
+using Discreet.Coin.Models;
 using Discreet.Common;
 using System;
 using System.Collections.Generic;
@@ -10,16 +11,16 @@ using System.Threading.Tasks;
 
 namespace Discreet.Coin.Converters.Transparent
 {
-    public class TXOutputConverter : JsonConverter<Coin.Transparent.TXOutput>
+    public class TXOutputConverter : JsonConverter<TTXOutput>
     {
-        public override Coin.Transparent.TXOutput Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override TTXOutput Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             if (reader.TokenType == JsonTokenType.Null) return null;
 
             if (reader.TokenType != JsonTokenType.StartObject) throw new JsonException();
 
             string innerPropName;
-            Coin.Transparent.TXOutput toutput = new();
+            TTXOutput toutput = new();
 
             while (reader.Read())
             {
@@ -55,7 +56,7 @@ namespace Discreet.Coin.Converters.Transparent
             return toutput;
         }
 
-        public override void Write(Utf8JsonWriter writer, Coin.Transparent.TXOutput value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, TTXOutput value, JsonSerializerOptions options)
         {
             if (value == null)
             {

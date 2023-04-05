@@ -8,6 +8,8 @@ using Discreet.Coin;
 using Discreet.Common;
 using Discreet.Cipher;
 using System.Text.Json;
+using Discreet.Coin.Models;
+using Discreet.Common.Serialize;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -662,7 +664,7 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_pub_output", APISet.READ)]
-        public static object GetPubOutput(Coin.Transparent.TXInput input)
+        public static object GetPubOutput(TTXInput input)
         {
             if (input == null) return new RPCError(-1, $"No arguments given", Array.Empty<object>());
 
@@ -679,7 +681,7 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_pub_outputs", APISet.READ)]
-        public static object GetPubOutputs(Coin.Transparent.TXInput[] inputs)
+        public static object GetPubOutputs(TTXInput[] inputs)
         {
             if (inputs == null) return new RPCError(-1, $"No arguments given", Array.Empty<object>());
 

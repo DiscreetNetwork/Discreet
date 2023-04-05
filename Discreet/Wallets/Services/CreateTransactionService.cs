@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Discreet.Network;
 using System.Threading;
+using Discreet.Coin.Models;
 
 namespace Discreet.Wallets.Services
 {

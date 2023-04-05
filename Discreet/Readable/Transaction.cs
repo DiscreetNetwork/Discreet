@@ -7,6 +7,7 @@ using System.Text.Json;
 using Discreet.Common.Exceptions;
 using Discreet.Common;
 using Discreet.RPC.Common;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Readable
 {
@@ -70,7 +71,7 @@ namespace Discreet.Readable
             TxID = transaction.TxID;
         }
 
-        public Transaction(Coin.Transaction obj)
+        public Transaction(Coin.Models.Transaction obj)
         {
             FromObject(obj);
         }
@@ -83,9 +84,9 @@ namespace Discreet.Readable
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.Transaction))
+            if (typeof(T) == typeof(Coin.Models.Transaction))
             {
-                FromObject((Coin.Transaction)obj);
+                FromObject((Coin.Models.Transaction)obj);
             }
             else
             {
@@ -93,7 +94,7 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Coin.Transaction obj)
+        public void FromObject(Coin.Models.Transaction obj)
         {
             Version = obj.Version;
             NumInputs = obj.NumInputs;
@@ -154,7 +155,7 @@ namespace Discreet.Readable
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.Transaction))
+            if (typeof(T) == typeof(Coin.Models.Transaction))
             {
                 return (T)ToObject();
             }
@@ -166,7 +167,7 @@ namespace Discreet.Readable
 
         public object ToObject()
         {
-            Coin.Transaction obj = new();
+            Coin.Models.Transaction obj = new();
 
             obj.Version = Version;
             obj.NumInputs = NumInputs;
@@ -175,35 +176,35 @@ namespace Discreet.Readable
 
             if (Inputs != null)
             {
-                obj.Inputs = new Coin.TXInput[Inputs.Count];
+                obj.Inputs = new Coin.Models.TXInput[Inputs.Count];
 
                 for (int i = 0; i < Inputs.Count; i++)
                 {
-                    obj.Inputs[i] = (Coin.TXInput)Inputs[i].ToObject();
+                    obj.Inputs[i] = (Coin.Models.TXInput)Inputs[i].ToObject();
                 }
             }
             if (Outputs != null)
             {
-                obj.Outputs = new Coin.TXOutput[Outputs.Count];
+                obj.Outputs = new Coin.Models.TXOutput[Outputs.Count];
 
                 for (int i = 0; i < Outputs.Count; i++)
                 {
-                    obj.Outputs[i] = (Coin.TXOutput)Outputs[i].ToObject();
+                    obj.Outputs[i] = (Coin.Models.TXOutput)Outputs[i].ToObject();
                 }
             }
 
-            if (RangeProof != null) obj.RangeProof = (Coin.Bulletproof)RangeProof.ToObject();
-            if (RangeProofPlus != null) obj.RangeProofPlus = (Coin.BulletproofPlus)RangeProofPlus.ToObject();
+            if (RangeProof != null) obj.RangeProof = (Coin.Models.Bulletproof)RangeProof.ToObject();
+            if (RangeProofPlus != null) obj.RangeProofPlus = (Coin.Models.BulletproofPlus)RangeProofPlus.ToObject();
 
             obj.Fee = Fee;
 
             if (Signatures != null)
             {
-                obj.Signatures = new Coin.Triptych[Signatures.Count];
+                obj.Signatures = new Coin.Models.Triptych[Signatures.Count];
 
                 for (int i = 0; i < Signatures.Count; i++)
                 {
-                    obj.Signatures[i] = (Coin.Triptych)Signatures[i].ToObject();
+                    obj.Signatures[i] = (Coin.Models.Triptych)Signatures[i].ToObject();
                 }
             }
 
@@ -222,12 +223,12 @@ namespace Discreet.Readable
             return obj;
         }
 
-        public static Coin.Transaction FromReadable(string json)
+        public static Coin.Models.Transaction FromReadable(string json)
         {
-            return (Coin.Transaction)new Transaction(json).ToObject();
+            return (Coin.Models.Transaction)new Transaction(json).ToObject();
         }
 
-        public static string ToReadable(Coin.Transaction obj)
+        public static string ToReadable(Coin.Models.Transaction obj)
         {
             return new Transaction(obj).JSON();
         }

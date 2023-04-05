@@ -31,7 +31,7 @@ namespace Discreet.Readable
             KeyImage = tXInput.KeyImage;
         }
 
-        public TXInput(Coin.TXInput obj)
+        public TXInput(Coin.Models.TXInput obj)
         {
             FromObject(obj);
         }
@@ -45,9 +45,9 @@ namespace Discreet.Readable
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.TXInput))
+            if (typeof(T) == typeof(Coin.Models.TXInput))
             {
-                FromObject((Coin.TXInput)obj);
+                FromObject((Coin.Models.TXInput)obj);
             }
             else
             {
@@ -55,7 +55,7 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Coin.TXInput obj)
+        public void FromObject(Coin.Models.TXInput obj)
         {
             if (obj.Offsets != null)
             {
@@ -71,7 +71,7 @@ namespace Discreet.Readable
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.TXInput))
+            if (typeof(T) == typeof(Coin.Models.TXInput))
             {
                 return (T)ToObject();
             }
@@ -83,7 +83,7 @@ namespace Discreet.Readable
 
         public object ToObject()
         {
-            Coin.TXInput obj = new();
+            Coin.Models.TXInput obj = new();
 
             if (Offsets != null)
             {
@@ -99,12 +99,12 @@ namespace Discreet.Readable
             return obj;
         }
 
-        public static Coin.TXInput FromReadable(string json)
+        public static Coin.Models.TXInput FromReadable(string json)
         {
-            return (Coin.TXInput)new TXInput(json).ToObject();
+            return (Coin.Models.TXInput)new TXInput(json).ToObject();
         }
 
-        public static string ToReadable(Coin.TXInput obj)
+        public static string ToReadable(Coin.Models.TXInput obj)
         {
             return new TXInput(obj).JSON();
         }

@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Discreet.Coin;
+using Discreet.Coin.Models;
 
 namespace Discreet.DB
 {
@@ -137,9 +137,9 @@ namespace Discreet.DB
 
         public bool CheckSpentKey(Cipher.Key j) => chainDB.CheckSpentKey(j);
 
-        public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input) => chainDB.GetPubOutput(_input);
+        public TTXOutput GetPubOutput(TTXInput _input) => chainDB.GetPubOutput(_input);
 
-        public void RemovePubOutput(Coin.Transparent.TXInput _input) => chainDB.RemovePubOutput(_input);
+        public void RemovePubOutput(TTXInput _input) => chainDB.RemovePubOutput(_input);
 
         public uint[] GetOutputIndices(Cipher.SHA256 tx) => chainDB.GetOutputIndices(tx);
 

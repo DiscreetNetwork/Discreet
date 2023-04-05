@@ -250,7 +250,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint(endpoint_name: "dbg_send_message")]
         public static object SendMessage(string message)
         {
-            _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDMSG, new Network.Core.Packets.SendMessagePacket { MessageLen = (uint)Encoding.UTF8.GetBytes(message).Length, Message = message }));
+            _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDMSG, new Network.Core.Packets.SendMessagePacket { Message = message }));
 
             return true;
         }

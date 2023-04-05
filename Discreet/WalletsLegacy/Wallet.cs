@@ -6,12 +6,12 @@ using Discreet.Cipher;
 using System.Text.Json;
 using System.IO;
 using System.Linq;
-using Discreet.Coin;
 using System.Runtime.InteropServices;
 using Discreet.Common;
 using System.Threading.Tasks;
 using System.Threading;
 using Discreet.ZMQ;
+using Discreet.Coin.Models;
 
 namespace Discreet.WalletsLegacy
 {
@@ -675,7 +675,7 @@ namespace Discreet.WalletsLegacy
             Version = Serialization.GetString(s);
             EntropyLen = Serialization.GetUInt32(s);
 
-            byte[] _entropy = Serialization.GetBytes(s);
+            (_, byte[] _entropy) = Serialization.GetBytes(s);
 
             if (Encrypted)
             {

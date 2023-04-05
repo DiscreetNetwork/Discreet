@@ -1,6 +1,8 @@
 ﻿using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Common;
 using Discreet.Common.Exceptions;
+using Discreet.Common.Serialize;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,14 +27,14 @@ namespace Discreet.DB
         private ulong tIndex;
 
         /* ephemeral validation data structures */
-        private Dictionary<Coin.Transparent.TXInput, Coin.Transparent.TXOutput> spentPubs;
-        private Dictionary<Coin.Transparent.TXInput, Coin.Transparent.TXOutput> newOutputs;
+        private Dictionary<TTXInput, TTXOutput> spentPubs;
+        private Dictionary<TTXInput, TTXOutput> newOutputs;
         private SortedSet<Cipher.Key> spentKeys;
         private SortedSet<Cipher.Key> txs;
 
         private long previousHeight;
-        private Dictionary<Cipher.SHA256, Coin.Block> blocksCache;
-        private Dictionary<uint, Coin.TXOutput> outputsCache;
+        private Dictionary<Cipher.SHA256, Block> blocksCache;
+        private Dictionary<uint, TXOutput> outputsCache;
 
         public ValidationCache(Block blk)
         {
@@ -130,7 +132,7 @@ namespace Discreet.DB
             if (dataView.BlockExists(block.Header.BlockHash)) return new VerifyException("Block", $"Block already present");
             if (block.Transactions == null || block.Transactions.Length == 0) return new VerifyException("Block", "Block contains no transactions");
             if (block.Header.NumTXs != block.Transactions.Length) return new VerifyException("Block", $"Block tx mismatch: expected {block.Header.NumTXs}; got {block.Transactions.Length}");
-            if (block.Size() != block.Header.BlockSize) return new VerifyException("Block", $"Block size mismatch: expected {block.Header.BlockSize}; got {block.Size()}");
+            if (block.GetSize() != block.Header.BlockSize) return new VerifyException("Block", $"Block size mismatch: expected {block.Header.BlockSize}; got {block.GetSize()}");
             if ((long)block.Header.Timestamp > DateTime.UtcNow.AddMinutes(120).Ticks) return new VerifyException("Block", $"Block timestamp is more than two hours in the future");
             if (!block.GetMerkleRoot().Equals(block.Header.MerkleRoot)) return new VerifyException("Block", $"Block merkle hash does not match calculated block merkle hash");
             if (block.Header.ExtraLen != (block.Header.Extra?.Length ?? 0)) return new VerifyException("Block", $"Block extra mismatch: expected length {block.Header.ExtraLen}, but got {block.Header.Extra?.Length ?? 0}");
@@ -260,11 +262,11 @@ namespace Discreet.DB
                     if (dataView.ContainsTransaction(tx.TxID)) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in main branch");
 
                     /* transparent checks */
-                    Coin.Transparent.TXOutput[] tinVals = new Coin.Transparent.TXOutput[tx.NumTInputs];
+                    TTXOutput[] tinVals = new TTXOutput[tx.NumTInputs];
                     if (tx.NumTInputs > 0)
                     {
                         /* check for spend in pool */
-                        HashSet<Coin.Transparent.TXInput> _in = new HashSet<Coin.Transparent.TXInput>(new Coin.Transparent.TXInputEqualityComparer());
+                        HashSet<TTXInput> _in = new HashSet<TTXInput>(new Coin.Comparers.TTXInputEqualityComparer());
                         for (int j = 0; j < tx.NumTInputs; j++)
                         {
                             _in.Add(tx.TInputs[j]);
@@ -367,7 +369,7 @@ namespace Discreet.DB
 
                     /* calculate tinAmt */
                     ulong tinAmt = 0;
-                    foreach (Coin.Transparent.TXOutput output in tinVals)
+                    foreach (TTXOutput output in tinVals)
                     {
                         try
                         {
@@ -383,7 +385,7 @@ namespace Discreet.DB
                     ulong toutAmt = 0;
                     if (tx.NumTOutputs > 0)
                     {
-                        foreach (Coin.Transparent.TXOutput output in tx.TOutputs)
+                        foreach (TTXOutput output in tx.TOutputs)
                         {
                             try
                             {
@@ -418,7 +420,8 @@ namespace Discreet.DB
                     Cipher.Key poutAmt = new(new byte[32]);
                     for (int j = 0; j < tx.NumPOutputs; j++)
                     {
-                        Cipher.KeyOps.AddKeys(ref tmp, ref poutAmt, ref tx.POutputs[j].Commitment);
+                        var comm = tx.POutputs[j].Commitment;
+                        Cipher.KeyOps.AddKeys(ref tmp, ref poutAmt, ref comm);
                         Array.Copy(tmp.bytes, poutAmt.bytes, 32);
                     }
 
@@ -499,7 +502,7 @@ namespace Discreet.DB
                     {
                         for (int j = 0; j < tx.TOutputs.Length; j++)
                         {
-                            var newOut = new Coin.Transparent.TXInput(tx.TxID, (byte)j);
+                            var newOut = new TTXInput { TxSrc = tx.TxID, Offset = (byte)j };
                             newOutputs[newOut] = tx.TOutputs[j];
                         }
                     }
@@ -526,7 +529,7 @@ namespace Discreet.DB
                 previousHeight = block.Header.Height;
             }
 
-            Dictionary<Coin.Transparent.TXInput, Coin.Transparent.TXOutput> pubUpdates = new();
+            Dictionary<TTXInput, TTXOutput> pubUpdates = new();
 
             /* txs */
             foreach (var tx in block.Transactions)
@@ -574,7 +577,7 @@ namespace Discreet.DB
                 /* toutputs */
                 for (int i = 0; i < tx.NumTOutputs; i++)
                 {
-                    pubUpdates[new Coin.Transparent.TXInput(tx.TxID, (byte)i)] = tx.TOutputs[i];
+                    pubUpdates[new TTXInput { TxSrc = tx.TxID, Offset = (byte)i }] = tx.TOutputs[i];
                 }
             }
 

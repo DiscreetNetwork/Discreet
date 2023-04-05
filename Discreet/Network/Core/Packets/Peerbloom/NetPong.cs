@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Discreet.Common.Serialize;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,40 +14,16 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public NetPong() { }
 
-        public NetPong(Stream s)
+        public void Serialize(BEBinaryWriter writer)
         {
-            Deserialize(s);
+            writer.WriteByteArray(Data);
         }
 
-        public NetPong(byte[] b, uint offset)
+        public void Deserialize(ref MemoryReader reader)
         {
-            Deserialize(b, offset);
+            Data = reader.ReadByteArray();
         }
 
-        public void Deserialize(byte[] b, uint offset)
-        {
-            (_, Data) = Common.Serialization.GetBytes(b, offset);
-        }
-
-        public void Deserialize(Stream s)
-        {
-            Data = Common.Serialization.GetBytes(s);
-        }
-
-        public uint Serialize(byte[] b, uint offset)
-        {
-            Common.Serialization.CopyData(b, offset, Data);
-            return offset + (uint)Size();
-        }
-
-        public void Serialize(Stream s)
-        {
-            Common.Serialization.CopyData(s, Data);
-        }
-
-        public int Size()
-        {
-            return Data.Length + 4;
-        }
+        public int Size => Data.Length + 4;
     }
 }

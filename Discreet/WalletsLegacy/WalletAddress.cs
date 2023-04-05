@@ -7,7 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Discreet.Cipher;
 using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Common;
+using Discreet.Common.Serialize;
 using Discreet.Daemon;
 
 namespace Discreet.WalletsLegacy
@@ -598,11 +600,11 @@ namespace Discreet.WalletsLegacy
                 case 1:
                 case 2:
                     (utxos, var _txP) = CreateTransaction(GetStealthAddresses(to), amount);
-                    tx = new MixedTransaction(_txP);
+                    tx = _txP.ToFull().ToMixed();
                     return tx;
                 case 3:
                     (utxos, var _txT) = CreateTransaction(GetTAddresses(to), amount);
-                    tx = new MixedTransaction(_txT);
+                    tx = _txT.ToFull().ToMixed();
                     return tx;
                 case 4:
                     break;
@@ -693,7 +695,7 @@ namespace Discreet.WalletsLegacy
                     KeyOps.ScalarSub(ref sign_s, ref sign_x, ref blindingFactors[i]);
 
                     Cipher.Triptych ringsig = Cipher.Triptych.Prove(utx.PInputs[i].M, utx.PInputs[i].P, C_offset, (uint)utx.PInputs[i].l, sign_r, sign_s, tx.SigningHash.ToKey());
-                    tx.PSignatures[i] = new Coin.Triptych(ringsig);
+                    tx.PSignatures[i] = new Coin.Models.Triptych(ringsig);
                 }
             }
             else if (Type == (byte)WalletType.TRANSPARENT)
@@ -702,7 +704,7 @@ namespace Discreet.WalletsLegacy
                 {
                     byte[] data = new byte[64];
                     Array.Copy(tx.SigningHash.Bytes, data, 32);
-                    Array.Copy(tx.TInputs[i].Hash(new Coin.Transparent.TXOutput { TransactionSrc = tx.TInputs[i].TxSrc, Address = new TAddress(Address), Amount = utx.inputAmounts[i] }).Bytes, 0, data, 32, 32);
+                    Array.Copy(tx.TInputs[i].Hash(new TTXOutput { TransactionSrc = tx.TInputs[i].TxSrc, Address = new TAddress(Address), Amount = utx.inputAmounts[i] }).Bytes, 0, data, 32, 32);
 
                     var hash = SHA256.HashData(data);
 
@@ -784,7 +786,8 @@ namespace Discreet.WalletsLegacy
                     KeyOps.DKSAPRecover(ref sign_r, ref inputs[i].TransactionKey, ref SecViewKey, ref SecSpendKey, inputs[i].DecodeIndex);
 
                     utx.PInputs[i].Input.KeyImage = new Key(new byte[32]);
-                    KeyOps.GenerateLinkingTag(ref utx.PInputs[i].Input.KeyImage, ref sign_r);
+                    var ki = utx.PInputs[i].Input.KeyImage;
+                    KeyOps.GenerateLinkingTag(ref ki, ref sign_r);
 
                     utx.inputAmounts[i] = inputs[i].DecodedAmount;
                     utx.TransactionKeys[i] = inputs[i].TransactionKey;
@@ -813,17 +816,17 @@ namespace Discreet.WalletsLegacy
                 utx.NumPOutputs = 0;
 
                 /* Construct inputs */
-                utx.TInputs = new Coin.Transparent.TXInput[utx.NumInputs];
+                utx.TInputs = new TTXInput[utx.NumInputs];
                 utx.inputAmounts = new ulong[utx.NumInputs];
                 for (int i = 0; i < utx.NumInputs; i++)
                 {
-                    utx.TInputs[i] = new Coin.Transparent.TXInput { TxSrc = inputs[i].TransactionSrc, Offset = (byte)inputs[i].Index };
+                    utx.TInputs[i] = new TTXInput { TxSrc = inputs[i].TransactionSrc, Offset = (byte)inputs[i].Index };
                     utx.inputAmounts[i] = inputs[i].Amount;
                 }
             }
 
             /* construct outputs */
-            List<Coin.Transparent.TXOutput> tOutputs = new List<Coin.Transparent.TXOutput>();
+            List<TTXOutput> tOutputs = new List<TTXOutput>();
             List<TXOutput> pOutputs = new List<TXOutput>();
             List<Key> gammas = new List<Key>();
             List<ulong> amounts = new List<ulong>();
@@ -840,7 +843,7 @@ namespace Discreet.WalletsLegacy
             {
                 if (to[i].Type() == (byte)AddressType.TRANSPARENT)
                 {
-                    tOutputs.Add(new Coin.Transparent.TXOutput(default, new TAddress(to[i].Bytes()), amount[i]));
+                    tOutputs.Add(new TTXOutput(default, new TAddress(to[i].Bytes()), amount[i]));
                     utx.NumTOutputs++;
                 }
                 else
@@ -852,7 +855,8 @@ namespace Discreet.WalletsLegacy
                         pOutput.UXKey = KeyOps.DKSAP(ref r, addr.view, addr.spend, pOutputs.Count);
                         pOutput.Commitment = new Key(new byte[32]);
                         Key mask = Key.I; // makes logic work
-                        KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
+                        var comm = pOutput.Commitment;
+                        KeyOps.GenCommitment(ref comm, ref mask, amount[i]);
                         pOutput.Amount = amount[i];
                         gammas.Add(mask);
                         amounts.Add(amount[i]);
@@ -869,7 +873,8 @@ namespace Discreet.WalletsLegacy
                         pOutput.UXKey = KeyOps.DKSAP(ref r, addr.view, addr.spend, pOutputs.Count);
                         pOutput.Commitment = new Key(new byte[32]);
                         Key mask = KeyOps.GenCommitmentMask(ref r, ref addr.view, pOutputs.Count);
-                        KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, amount[i]);
+                        var comm = pOutput.Commitment;
+                        KeyOps.GenCommitment(ref comm, ref mask, amount[i]);
                         pOutput.Amount = KeyOps.GenAmountMask(ref r, ref addr.view, pOutputs.Count, amount[i]);
                         gammas.Add(mask);
                         amounts.Add(amount[i]);
@@ -890,7 +895,8 @@ namespace Discreet.WalletsLegacy
                     pOutput.UXKey = KeyOps.DKSAP(ref r, PubViewKey, PubSpendKey, pOutputs.Count);
                     pOutput.Commitment = new Key(new byte[32]);
                     Key mask = KeyOps.GenCommitmentMask(ref r, ref PubViewKey, pOutputs.Count);
-                    KeyOps.GenCommitment(ref pOutput.Commitment, ref mask, neededAmount - totalAmount);
+                    var comm = pOutput.Commitment;
+                    KeyOps.GenCommitment(ref comm, ref mask, neededAmount - totalAmount);
                     pOutput.Amount = KeyOps.GenAmountMask(ref r, ref PubViewKey, pOutputs.Count, neededAmount - totalAmount);
                     gammas.Add(mask);
                     amounts.Add(neededAmount - totalAmount);
@@ -905,7 +911,7 @@ namespace Discreet.WalletsLegacy
             {
                 if (neededAmount != totalAmount)
                 {
-                    tOutputs.Add(new Coin.Transparent.TXOutput(default, new TAddress(Address), neededAmount - totalAmount));
+                    tOutputs.Add(new TTXOutput(default, new TAddress(Address), neededAmount - totalAmount));
                     utx.NumTOutputs++;
                 }
             }
@@ -914,7 +920,7 @@ namespace Discreet.WalletsLegacy
             if (pOutputs.Count > 0)
             {
                 Cipher.BulletproofPlus bp = Cipher.BulletproofPlus.Prove(amounts.ToArray(), gammas.ToArray());
-                utx.RangeProof = new Coin.BulletproofPlus(bp);
+                utx.RangeProof = new Coin.Models.BulletproofPlus(bp);
             }
             else
             {
@@ -928,7 +934,7 @@ namespace Discreet.WalletsLegacy
             return (inputs.ToArray(), utx);
         }
 
-        public (UTXO[], Coin.Transparent.Transaction) CreateTransaction(TAddress[] to, ulong[] amount)
+        public (UTXO[], TTransaction) CreateTransaction(TAddress[] to, ulong[] amount)
         {
             if (Type != (byte)WalletType.TRANSPARENT) throw new Exception("Discreet.Wallets.WalletAddress.CreateTransaction: private wallet cannot create fully transparent transaction!");
 
@@ -941,7 +947,7 @@ namespace Discreet.WalletsLegacy
                 throw new Exception($"Discreet.Wallets.WalletAddress.CreateTransaction: sending amount is greater than wallet balance ({totalAmount} > {Balance})");
             }
 
-            Coin.Transparent.Transaction tx = new();
+            TTransaction tx = new();
 
             List<UTXO> inputs = new List<UTXO>();
             ulong neededAmount = 0;
@@ -965,21 +971,21 @@ namespace Discreet.WalletsLegacy
             tx.Fee = 0;
 
             /* create inputs */
-            tx.Inputs = new Coin.Transparent.TXInput[tx.NumInputs];
+            tx.Inputs = new TTXInput[tx.NumInputs];
             for (int i = 0; i < tx.NumInputs; i++)
             {
-                tx.Inputs[i] = new Coin.Transparent.TXInput { TxSrc = inputs[i].TransactionSrc, Offset = (byte)inputs[i].Index };
+                tx.Inputs[i] = new TTXInput { TxSrc = inputs[i].TransactionSrc, Offset = (byte)inputs[i].Index };
             }
 
             /* create outputs */
-            tx.Outputs = new Coin.Transparent.TXOutput[tx.NumOutputs];
+            tx.Outputs = new TTXOutput[tx.NumOutputs];
             for (int i = 0; i < to.Length; i++)
             {
-                tx.Outputs[i] = new Coin.Transparent.TXOutput(default, to[i], amount[i]);
+                tx.Outputs[i] = new TTXOutput(default, to[i], amount[i]);
             }
             if (neededAmount != totalAmount)
             {
-                tx.Outputs[tx.NumOutputs - 1] = new Coin.Transparent.TXOutput(default, new TAddress(Address), neededAmount - totalAmount);
+                tx.Outputs[tx.NumOutputs - 1] = new TTXOutput(default, new TAddress(Address), neededAmount - totalAmount);
             }
 
             /* create signatures */
@@ -989,7 +995,7 @@ namespace Discreet.WalletsLegacy
             {
                 byte[] data = new byte[64];
                 Array.Copy(tx.InnerHash.Bytes, data, 32);
-                Array.Copy(tx.Inputs[i].Hash(new Coin.Transparent.TXOutput { TransactionSrc = tx.Inputs[i].TxSrc, Address = new TAddress(Address), Amount = inputs[i].Amount }).Bytes, 0, data, 32, 32);
+                Array.Copy(tx.Inputs[i].Hash(new TTXOutput { TransactionSrc = tx.Inputs[i].TxSrc, Address = new TAddress(Address), Amount = inputs[i].Amount }).Bytes, 0, data, 32, 32);
 
                 var hash = SHA256.HashData(data);
 
@@ -1147,7 +1153,8 @@ namespace Discreet.WalletsLegacy
 
             if (Type == (byte)AddressType.STEALTH)
             {
-                Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref transaction.TransactionKey, ref SecViewKey) : default;
+                var txkey = transaction.TransactionKey;
+                Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref txkey, ref SecViewKey) : default;
 
                 for (int i = 0; i < numPOutputs; i++)
                 {
@@ -1162,7 +1169,8 @@ namespace Discreet.WalletsLegacy
                         }
                     }
 
-                    if (KeyOps.CheckForBalance(ref cscalar, ref PubSpendKey, ref transaction.POutputs[i].UXKey, i))
+                    var uxk = transaction.POutputs[i].UXKey;
+                    if (KeyOps.CheckForBalance(ref cscalar, ref PubSpendKey, ref uxk, i))
                     {
                         Daemon.Logger.Info($"You received some Discreet!", save: DaemonConfig.GetConfig().DbgConfig.DebugMode.Value);
                         var utxo = ProcessOutput(transaction, i, false, isCoinbase: tToP);
@@ -1443,7 +1451,8 @@ namespace Discreet.WalletsLegacy
                 tx.Outputs[i].UXKey = T[i];
                 tx.Outputs[i].Commitment = new Key(new byte[32]);
                 Key mask = KeyOps.GenCommitmentMask(ref r, ref to[i].view, i);
-                KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref mask, amount[i]);
+                var comm = tx.Outputs[i].Commitment;
+                KeyOps.GenCommitment(ref comm, ref mask, amount[i]);
                 tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref to[i].view, i, amount[i]);
                 gammas[i] = mask;
             }
@@ -1455,7 +1464,8 @@ namespace Discreet.WalletsLegacy
                 tx.Outputs[i].UXKey = KeyOps.DKSAP(ref r, PubViewKey, PubSpendKey, i);
                 tx.Outputs[i].Commitment = new Key(new byte[32]);
                 Key rmask = KeyOps.GenCommitmentMask(ref r, ref PubViewKey, i);
-                KeyOps.GenCommitment(ref tx.Outputs[i].Commitment, ref rmask, neededAmount - totalAmount);
+                var comm = tx.Outputs[i].Commitment;
+                KeyOps.GenCommitment(ref comm, ref rmask, neededAmount - totalAmount);
                 tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref PubViewKey, i, neededAmount - totalAmount);
                 gammas[i] = rmask;
             }
@@ -1476,17 +1486,17 @@ namespace Discreet.WalletsLegacy
             if (tx.Version == 2)
             {
                 Cipher.BulletproofPlus bp = Cipher.BulletproofPlus.Prove(amounts, gammas);
-                tx.RangeProofPlus = new Coin.BulletproofPlus(bp);
+                tx.RangeProofPlus = new Coin.Models.BulletproofPlus(bp);
             }
             else
             {
                 Cipher.Bulletproof bp = Cipher.Bulletproof.Prove(amounts, gammas);
-                tx.RangeProof = new Coin.Bulletproof(bp);
+                tx.RangeProof = new Coin.Models.Bulletproof(bp);
             }
 
             /* generate inputs and signatures */
             tx.Inputs = new TXInput[inputs.Count];
-            tx.Signatures = new Coin.Triptych[inputs.Count];
+            tx.Signatures = new Coin.Models.Triptych[inputs.Count];
 
             tx.PseudoOutputs = new Key[inputs.Count];
 
@@ -1554,7 +1564,8 @@ namespace Discreet.WalletsLegacy
                 KeyOps.DKSAPRecover(ref sign_r, ref inputs[i].TransactionKey, ref SecViewKey, ref SecSpendKey, inputs[i].DecodeIndex);
 
                 tx.Inputs[i].KeyImage = new Key(new byte[32]);
-                KeyOps.GenerateLinkingTag(ref tx.Inputs[i].KeyImage, ref sign_r);
+                var ki = tx.Inputs[i].KeyImage;
+                KeyOps.GenerateLinkingTag(ref ki, ref sign_r);
 
                 Ms.Add(M);
                 Ps.Add(P);
@@ -1585,7 +1596,7 @@ namespace Discreet.WalletsLegacy
                 KeyOps.ScalarSub(ref sign_s, ref sign_x, ref blindingFactors[i]);
 
                 Cipher.Triptych ringsig = Cipher.Triptych.Prove(M, P, C_offset, (uint)l, sign_r, sign_s, tx.SigningHash().ToKey());
-                tx.Signatures[i] = new Coin.Triptych(ringsig);
+                tx.Signatures[i] = new Coin.Models.Triptych(ringsig);
             }
 
             return (inputs.ToArray(), tx);
@@ -1662,15 +1673,15 @@ namespace Discreet.WalletsLegacy
 
             if (Type == 0)
             {
-                EncryptedSecSpendKey = Serialization.GetBytes(s);
-                EncryptedSecViewKey = Serialization.GetBytes(s);
+                (_, EncryptedSecSpendKey) = Serialization.GetBytes(s);
+                (_, EncryptedSecViewKey) = Serialization.GetBytes(s);
 
                 PubSpendKey = new Key(s);
                 PubViewKey = new Key(s);
             }
             else
             {
-                EncryptedSecKey = Serialization.GetBytes(s);
+                (_, EncryptedSecKey) = Serialization.GetBytes(s);
 
                 PubKey = new Key(s);
             }

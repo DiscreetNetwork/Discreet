@@ -135,7 +135,7 @@ namespace Discreet.Network.Peerbloom
         {
             using var _ms = new MemoryStream(data);
 
-            salt = Common.Serialization.GetBytes(_ms);
+            (_, salt) = Common.Serialization.GetBytes(_ms);
             _counter = Common.Serialization.GetInt32(_ms);
             _triedCounter = Common.Serialization.GetInt32(_ms);
             _newCounter = Common.Serialization.GetInt32(_ms);
@@ -165,7 +165,7 @@ namespace Discreet.Network.Peerbloom
             for (int i = 0; i < addrsCount; i++)
             {
                 var nID = Common.Serialization.GetUInt32(_ms);
-                addrs[nID] = new Peer(Common.Serialization.GetBytes(_ms));
+                addrs[nID] = new Peer(Common.Serialization.GetBytes(_ms).Item2);
             }
 
             Anchors = new();
@@ -173,7 +173,7 @@ namespace Discreet.Network.Peerbloom
 
             for (int i = 0; i < anchorCount; i++)
             {
-                Anchors.Add(new Peer(Common.Serialization.GetBytes(_ms)));
+                Anchors.Add(new Peer(Common.Serialization.GetBytes(_ms).Item2));
             }
 
             TriedCollisions = new();
@@ -181,7 +181,7 @@ namespace Discreet.Network.Peerbloom
 
             for (int i = 0; i < collisionCount; i++)
             {
-                TriedCollisions.Add(new Peer(Common.Serialization.GetBytes(_ms)));
+                TriedCollisions.Add(new Peer(Common.Serialization.GetBytes(_ms).Item2));
             }
         }
 

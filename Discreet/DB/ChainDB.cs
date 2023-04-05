@@ -1,5 +1,6 @@
-﻿using Discreet.Coin;
+﻿using Discreet.Coin.Models;
 using Discreet.Common;
+using Discreet.Common.Serialize;
 using RocksDbSharp;
 using System;
 using System.Collections.Generic;
@@ -313,7 +314,7 @@ namespace Discreet.DB
                 for (int i = 0; i < tx.NumTOutputs; i++)
                 {
                     tx.TOutputs[i].TransactionSrc = tx.TxID;
-                    rdb.Put(new Coin.Transparent.TXInput { TxSrc = tx.TOutputs[i].TransactionSrc, Offset = (byte)i }.Serialize(), tx.TOutputs[i].Serialize(), cf: PubOutputs);
+                    rdb.Put(new TTXInput { TxSrc = tx.TOutputs[i].TransactionSrc, Offset = (byte)i }.Serialize(), tx.TOutputs[i].Serialize(), cf: PubOutputs);
                 }
             }
 
@@ -651,7 +652,7 @@ namespace Discreet.DB
             return rdb.Get(j.bytes, cf: SpentKeys) == null;
         }
 
-        public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input)
+        public TTXOutput GetPubOutput(TTXInput _input)
         {
             var result = rdb.Get(_input.Serialize(), cf: PubOutputs);
 
@@ -660,12 +661,12 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.StateDB.GetPubOutput: database get exception: could not find transparent tx output with index {_input}");
             }
 
-            var txo = new Coin.Transparent.TXOutput();
+            var txo = new TTXOutput();
             txo.Deserialize(result);
             return txo;
         }
 
-        public void RemovePubOutput(Coin.Transparent.TXInput _input)
+        public void RemovePubOutput(TTXInput _input)
         {
             rdb.Remove(_input.Serialize(), cf: PubOutputs);
         }

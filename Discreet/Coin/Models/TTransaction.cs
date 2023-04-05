@@ -8,46 +8,29 @@ using System.Runtime.InteropServices;
 using Discreet.Cipher;
 using System.IO;
 using Discreet.Common;
+using Discreet.Common.Serialize;
 using Discreet.Common.Exceptions;
 
-namespace Discreet.Coin.Transparent
+namespace Discreet.Coin.Models
 {
-    [StructLayout(LayoutKind.Sequential)]
-    public class Transaction: ICoin
+    public class TTransaction : IHashable
     {
-        [MarshalAs(UnmanagedType.U1)]
-        public byte Version;
-        [MarshalAs(UnmanagedType.U1)]
-        public byte NumInputs;
-        [MarshalAs(UnmanagedType.U1)]
-        public byte NumOutputs;
-        [MarshalAs(UnmanagedType.U1)]
-        public byte NumSigs;
+        public byte Version { get; set; }
+        public byte NumInputs { get; set; }
+        public byte NumOutputs { get; set; }
+        public byte NumSigs { get; set; }
 
-        [MarshalAs(UnmanagedType.Struct)]
-        public SHA256 InnerHash;
+        public SHA256 InnerHash { get; set; }
+        public ulong Fee { get; set; }
 
-        [MarshalAs(UnmanagedType.U8)]
-        public ulong Fee;
-
-        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
-        public TXInput[] Inputs;
-
-        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
-        public TXOutput[] Outputs;
-
-        [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.Struct)]
-        public Signature[] Signatures;
+        public TTXInput[] Inputs { get; set; }
+        public TTXOutput[] Outputs { get; set; }
+        public Signature[] Signatures { get; set; }
 
         private SHA256 _txid;
-        public SHA256 TxID { get { if (_txid == default || _txid.Bytes == null) _txid = Hash(); return _txid; } }
+        public SHA256 TxID { get { if (_txid == default || _txid.Bytes == null) _txid = this.Hash(); return _txid; } }
 
-        public SHA256 Hash()
-        {
-            return SHA256.HashData(Serialize());
-        }
-
-        public Transaction() { }
+        public TTransaction() { }
 
         public FullTransaction ToFull()
         {
@@ -58,73 +41,45 @@ namespace Discreet.Coin.Transparent
         {
             /* Version, NumInputs, NumOutputs, Inputs, Outputs, and Fee are included. NumSigs is not since this is used to track signing progress. */
             byte[] bytes = new byte[33 * Outputs.Length + 33 * Inputs.Length + 11];
+            var writer = new BEBinaryWriter(new MemoryStream(bytes));
 
-            bytes[0] = Version;
-            bytes[1] = NumInputs;
-            bytes[2] = NumOutputs;
+            writer.Write(Version);
+            writer.Write(NumInputs);
+            writer.Write(NumOutputs);
+            writer.Write(NumSigs);
 
-            uint offset = 3;
-
-            for (int i = 0; i < Inputs.Length; i++)
-            {
-                Inputs[i].Serialize(bytes, offset);
-                offset += TXInput.Size();
-            }
-
-            for (int i = 0; i < Outputs.Length; i++)
-            {
-                Outputs[i].TXMarshal(bytes, offset);
-                offset += 33;
-            }
-
-            Serialization.CopyData(bytes, offset, Fee);
+            writer.WriteSerializableArray(Inputs, false);
+            writer.WriteSerializableArray(Outputs, false, (x) => x.TXMarshal);
+            writer.Write(Fee);
 
             return SHA256.HashData(bytes);
         }
 
-        public byte[] Serialize()
+        public void Serialize(BEBinaryWriter writer)
         {
-            byte[] bytes = new byte[Size()];
+            writer.Write(Version);
+            writer.Write(NumInputs);
+            writer.Write(NumOutputs);
+            writer.Write(NumSigs);
 
-            bytes[0] = Version;
-            bytes[1] = NumInputs;
-            bytes[2] = NumOutputs;
-            bytes[3] = NumSigs;
-
-            uint offset = 4;
-
-            Serialization.CopyData(bytes, offset, Fee);
-            offset += 8;
-
-            Array.Copy(InnerHash.Bytes, 0, bytes, offset, 32);
-            offset += 32;
-
-            for (int i = 0; i < Inputs.Length; i++)
-            {
-                Inputs[i].Serialize(bytes, offset);
-                offset += 33;
-            }
-
-            for (int i = 0; i < Outputs.Length; i++)
-            {
-                Outputs[i].TXMarshal(bytes, offset);
-                offset += 33;
-            }
-
-            for (int i = 0; i < Signatures.Length; i++)
-            {
-                Signatures[i].ToBytes(bytes, offset);
-                offset += 96;
-            }
-
-            return bytes;
+            writer.Write(Fee);
+            writer.WriteSHA256(InnerHash);
+            writer.WriteSerializableArray(Inputs, false);
+            writer.WriteSerializableArray(Outputs, false, (x) => x.TXMarshal);
+            writer.WriteSerializableArray(Signatures, false);
         }
 
-        public void Serialize(byte[] bytes, uint offset)
+        public void Deserialize(ref MemoryReader reader)
         {
-            byte[] rv = Serialize();
+            Version = reader.ReadUInt8();
+            NumInputs = reader.ReadUInt8();
+            NumOutputs = reader.ReadUInt8();
+            NumSigs = reader.ReadUInt8();
 
-            Array.Copy(rv, 0, bytes, offset, rv.Length);
+            Fee = reader.ReadUInt64();
+            InnerHash = reader.ReadSHA256();
+            Inputs = reader.ReadSerializableArray<TTXInput>(NumInputs);
+            Outputs = reader.ReadSerializableArray<TTXOutput>(NumOutputs, (x) => x.TXUnmarshal);
         }
 
         public string Readable()
@@ -134,127 +89,20 @@ namespace Discreet.Coin.Transparent
 
         public object ToReadable()
         {
-            return new Discreet.Readable.Transparent.Transaction(this);
+            return new Readable.Transparent.Transaction(this);
         }
 
-        public static Transaction FromReadable(string json)
+        public static TTransaction FromReadable(string json)
         {
             return Discreet.Readable.Transparent.Transaction.FromReadable(json);
         }
 
-        public void Deserialize(byte[] bytes)
+        public uint GetSize()
         {
-            Deserialize(bytes, 0);
+            return (uint)(44 + TTXInput.GetSize() * Inputs.Length + 33 * Outputs.Length + 96 * Signatures.Length);
         }
 
-        public uint Deserialize(byte[] bytes, uint offset)
-        {
-            Version = bytes[offset];
-            NumInputs = bytes[offset + 1];
-            NumOutputs = bytes[offset + 2];
-            NumSigs = bytes[offset + 3];
-
-            offset += 4;
-
-            Fee = Serialization.GetUInt64(bytes, offset);
-            offset += 8;
-
-            InnerHash = new SHA256(bytes, offset);
-            offset += 32;
-
-            Inputs = new TXInput[NumInputs];
-
-            for (int i = 0; i < Inputs.Length; i++)
-            {
-                Inputs[i] = new TXInput();
-                Inputs[i].Deserialize(bytes, offset);
-                offset += TXInput.Size();
-            }
-
-            Outputs = new TXOutput[NumOutputs];
-
-            for (int i = 0; i < Outputs.Length; i++)
-            {
-                Outputs[i] = new TXOutput();
-                Outputs[i].TXUnmarshal(bytes, offset);
-                offset += 33;
-            }
-
-            Signatures = new Signature[NumSigs];
-
-            for (int i = 0; i < Signatures.Length; i++)
-            {
-                Signatures[i] = new Signature(bytes, offset);
-                offset += 96;
-            }
-
-            return offset;
-        }
-
-        public void Serialize(Stream s)
-        {
-            s.WriteByte(Version);
-            s.WriteByte(NumInputs);
-            s.WriteByte(NumOutputs);
-            s.WriteByte(NumSigs);
-
-            Serialization.CopyData(s, Fee);
-
-            s.Write(InnerHash.Bytes);
-
-            for (int i = 0; i < Inputs.Length; i++)
-            {
-                Inputs[i].Serialize(s);
-            }
-
-            for (int i = 0; i < Outputs.Length; i++)
-            {
-                Outputs[i].TXMarshal(s);
-            }
-
-            for (int i = 0; i < Signatures.Length; i++)
-            {
-                s.Write(Signatures[i].ToBytes());
-            }
-        }
-
-        public void Deserialize(Stream s)
-        {
-            Version = (byte)s.ReadByte();
-            NumInputs = (byte)s.ReadByte();
-            NumOutputs = (byte)s.ReadByte();
-            NumSigs = (byte)s.ReadByte();
-
-            Fee = Serialization.GetUInt64(s);
-
-            InnerHash = new SHA256(s);
-
-            Inputs = new TXInput[NumInputs];
-            Outputs = new TXOutput[NumOutputs];
-            Signatures = new Signature[NumSigs];
-
-            for (int i = 0; i < Inputs.Length; i++)
-            {
-                Inputs[i] = new TXInput();
-                Inputs[i].Deserialize(s);
-            }
-
-            for (int i = 0; i < Outputs.Length; i++)
-            {
-                Outputs[i] = new TXOutput();
-                Outputs[i].TXUnmarshal(s);
-            }
-
-            for (int i = 0; i < Signatures.Length; i++)
-            {
-                Signatures[i] = new Signature(s);
-            }
-        }
-
-        public uint Size()
-        {
-            return (uint)(44 + TXInput.Size() * Inputs.Length + 33 * Outputs.Length + 96 * Signatures.Length);
-        }
+        public int Size => (int)GetSize();
 
         private VerifyException verify(bool signed, bool inBlock = false)
         {
@@ -293,8 +141,8 @@ namespace Discreet.Coin.Transparent
                 return new VerifyException("Transparent.Transaction", $"Invalid number of signatures: {NumSigs} > {NumInputs}, exceeding the number of inputs");
             }
 
-            HashSet<TXInput> _in = new HashSet<TXInput>(new TXInputEqualityComparer());
-            TXOutput[] inputValues = new TXOutput[Inputs.Length];
+            HashSet<TTXInput> _in = new HashSet<TTXInput>(new Comparers.TTXInputEqualityComparer());
+            TTXOutput[] inputValues = new TTXOutput[Inputs.Length];
 
             var dataView = DB.DataView.GetView();
             var pool = Daemon.TXPool.GetTXPool();
@@ -319,7 +167,7 @@ namespace Discreet.Coin.Transparent
                 return new VerifyException("Transparent.Transaction", $"Duplicate inputs detected!");
             }
 
-            for(int i = 0; i < Inputs.Length; i++)
+            for (int i = 0; i < Inputs.Length; i++)
             {
                 var aexc = inputValues[i].Address.Verify();
                 if (aexc != null) return aexc;
@@ -330,7 +178,7 @@ namespace Discreet.Coin.Transparent
                 }
 
                 /* check if present in database */
-                
+
 
                 /* check if tx is in pool */
                 if (!inBlock)
@@ -347,7 +195,7 @@ namespace Discreet.Coin.Transparent
                 return new VerifyException("Transparent.Transaction", $"Invalid transaction version: expected {(byte)Config.TransactionVersions.TRANSPARENT}, but got {Version}");
             }
 
-            foreach (TXOutput output in Outputs)
+            foreach (TTXOutput output in Outputs)
             {
                 if (output.Amount == 0)
                 {
@@ -357,13 +205,13 @@ namespace Discreet.Coin.Transparent
 
             ulong _amount = 0;
 
-            foreach(TXOutput output in Outputs)
+            foreach (TTXOutput output in Outputs)
             {
                 try
                 {
                     _amount = checked(_amount + output.Amount);
                 }
-                catch(OverflowException)
+                catch (OverflowException)
                 {
                     return new VerifyException("Transparent.Transaction", $"transaction resulted in overflow!");
                 }
@@ -373,13 +221,13 @@ namespace Discreet.Coin.Transparent
             {
                 _amount = checked(_amount + Fee);
             }
-            catch(OverflowException)
+            catch (OverflowException)
             {
                 return new VerifyException("Transparent.Transaction", $"transaction fee resulted in overflow!");
             }
 
             ulong inAmount = 0;
-            foreach(TXOutput input in inputValues)
+            foreach (TTXOutput input in inputValues)
             {
                 inAmount += input.Amount;
             }
@@ -389,13 +237,13 @@ namespace Discreet.Coin.Transparent
                 return new VerifyException("Transparent.Transaction", $"Transaction does not balance! {inAmount} (sum of inputs) != {_amount} (sum of outputs)");
             }
 
-            SHA256 txhash = Hash();
+            SHA256 txhash = this.Hash();
 
             HashSet<SHA256> _out = new HashSet<SHA256>();
 
             for (int i = 0; i < NumOutputs; i++)
             {
-                _out.Add(new TXOutput(txhash, Outputs[i].Address, Outputs[i].Amount).Hash());
+                _out.Add(new TTXOutput(txhash, Outputs[i].Address, Outputs[i].Amount).Hash());
             }
 
             if (_out.Count != NumOutputs)

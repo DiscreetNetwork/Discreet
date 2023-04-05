@@ -1,4 +1,4 @@
-﻿using Discreet.Coin;
+﻿using Discreet.Coin.Models;
 using Discreet.Common;
 using Discreet.DB;
 using Discreet.Wallets.Extensions;

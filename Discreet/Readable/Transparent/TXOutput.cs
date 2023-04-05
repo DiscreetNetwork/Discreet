@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Text.Json;
+using Discreet.Coin.Models;
 
 namespace Discreet.Readable.Transparent
 {
@@ -32,12 +33,12 @@ namespace Discreet.Readable.Transparent
             Amount = tXOutput.Amount;
         }
 
-        public TXOutput(Coin.Transparent.TXOutput obj)
+        public TXOutput(TTXOutput obj)
         {
             FromObject(obj);
         }
 
-        public TXOutput(Coin.Transparent.TXOutput obj, bool tx)
+        public TXOutput(TTXOutput obj, bool tx)
         {
             if (tx)
                 FromTXObject(obj);
@@ -54,9 +55,9 @@ namespace Discreet.Readable.Transparent
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.Transparent.TXOutput))
+            if (typeof(T) == typeof(TTXOutput))
             {
-                FromObject((Coin.Transparent.TXOutput)obj);
+                FromObject((TTXOutput)obj);
             }
             else
             {
@@ -64,7 +65,7 @@ namespace Discreet.Readable.Transparent
             }
         }
 
-        public void FromObject(Coin.Transparent.TXOutput obj)
+        public void FromObject(TTXOutput obj)
         {
             if (obj.TransactionSrc.Bytes != null) TransactionSrc = obj.TransactionSrc.ToHex();
             if (obj.Address != null) Address = obj.Address.ToString();
@@ -73,7 +74,7 @@ namespace Discreet.Readable.Transparent
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.Transparent.TXOutput))
+            if (typeof(T) == typeof(TTXOutput))
             {
                 return (T)ToObject();
             }
@@ -85,7 +86,7 @@ namespace Discreet.Readable.Transparent
 
         public object ToObject()
         {
-            Coin.Transparent.TXOutput obj = new();
+            TTXOutput obj = new();
 
             if (TransactionSrc != null && TransactionSrc != "") obj.TransactionSrc = Cipher.SHA256.FromHex(TransactionSrc);
             if (Address != null && Address != "") obj.Address = new Coin.TAddress(Address);
@@ -94,23 +95,23 @@ namespace Discreet.Readable.Transparent
             return obj;
         }
 
-        public void FromTXObject(Coin.Transparent.TXOutput obj)
+        public void FromTXObject(TTXOutput obj)
         {
             if (obj.Address != null) Address = obj.Address.ToString();
             Amount = obj.Amount;
         }
 
-        public static Coin.Transparent.TXOutput FromReadable(string json)
+        public static TTXOutput FromReadable(string json)
         {
-            return (Coin.Transparent.TXOutput)new TXOutput(json).ToObject();
+            return (TTXOutput)new TXOutput(json).ToObject();
         }
 
-        public static string ToReadable(Coin.Transparent.TXOutput obj)
+        public static string ToReadable(TTXOutput obj)
         {
             return new TXOutput(obj).JSON();
         }
 
-        public static string ToTXReadable(Coin.Transparent.TXOutput obj)
+        public static string ToTXReadable(TTXOutput obj)
         {
             return new TXOutput(obj, true).JSON();
         }

@@ -10,6 +10,7 @@ using Discreet.Network.Peerbloom.Extensions;
 using System.Threading;
 using System.Security.Cryptography;
 using System.IO;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Network.Peerbloom
 {
@@ -556,13 +557,13 @@ namespace Discreet.Network.Peerbloom
 
                 Core.Packets.Peerbloom.RequestPeersResp respBody = (Core.Packets.Peerbloom.RequestPeersResp)resp.Body;
 
-                if (respBody.Length > Constants.PEERBLOOM_MAX_PEERS_PER_REQUESTPEERS)
+                if (respBody.Peers.Length > Constants.PEERBLOOM_MAX_PEERS_PER_REQUESTPEERS)
                 {
-                    Daemon.Logger.Error($"Connection.RequestPeers: Received too many peers (got {respBody.Length}; maximum is set to 10)");
+                    Daemon.Logger.Error($"Connection.RequestPeers: Received too many peers (got {respBody.Peers.Length}; maximum is set to 10)");
                     return null;
                 }
 
-                List<IPEndPoint> remoteNodes = respBody.Elems.Select(x => x.Endpoint).ToList();
+                List<IPEndPoint> remoteNodes = respBody.Peers.ToList();
 
                 return remoteNodes;
             }
@@ -811,10 +812,18 @@ namespace Discreet.Network.Peerbloom
 
                 try
                 {
-                    p = new Core.Packet();
+                    
+                    // fuckery with c# ref structs and async; this is safe, but 
+                    var syncSafe = (Core.PacketHeader header, byte[] bytes) =>
+                    {
+                        var packet = new Core.Packet();
 
-                    p.Header = header;
-                    p.Body = Core.Packet.DecodePacketBody(header.Command, _data, 0);
+                        packet.Header = header;
+                        MemoryReader reader = new MemoryReader(bytes);
+                        packet.Body = Core.Packet.DecodePacketBody(header.Command, ref reader);
+                        return packet;
+                    };
+                    p = syncSafe(header, _data);
                 }
                 catch (Exception)
                 {

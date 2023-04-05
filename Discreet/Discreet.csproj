@@ -19,10 +19,13 @@
 
   <ItemGroup>
     <Compile Remove="API\**" />
+    <Compile Remove="Coin\NewFolder2\**" />
     <Compile Remove="Network\Tests\**" />
     <EmbeddedResource Remove="API\**" />
+    <EmbeddedResource Remove="Coin\NewFolder2\**" />
     <EmbeddedResource Remove="Network\Tests\**" />
     <None Remove="API\**" />
+    <None Remove="Coin\NewFolder2\**" />
     <None Remove="Network\Tests\**" />
   </ItemGroup>
 

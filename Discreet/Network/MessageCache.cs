@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Discreet.Network.Core.Packets;
 using System.Net;
 using System.Collections.Concurrent;
+using Discreet.Coin.Models;
 
 namespace Discreet.Network
 {
@@ -29,27 +30,27 @@ namespace Discreet.Network
         public HashSet<AlertPacket> Alerts;
         public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> Versions;
         public ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket> BadVersions;
-        public ConcurrentDictionary<long, Coin.Block> BlockCache;
-        public ConcurrentDictionary<long, Coin.BlockHeader> HeaderCache;
+        public ConcurrentDictionary<long, Block> BlockCache;
+        public ConcurrentDictionary<long, BlockHeader> HeaderCache;
         private long _headerMin = -1;
         private long _headerMax = -1;
 
-        public ConcurrentDictionary<Cipher.SHA256, Coin.Block> OrphanBlocks;
+        public ConcurrentDictionary<Cipher.SHA256, Block> OrphanBlocks;
         public ConcurrentDictionary<Cipher.SHA256, int> OrphanBlockParents = new(new Cipher.SHA256EqualityComparer());
 
         public MessageCache()
         {
             Messages = new ConcurrentBag<string>();
             Rejections = new ConcurrentBag<RejectPacket>();
-            Alerts = new HashSet<AlertPacket>(new AlertEqualityComparer());
+            Alerts = new HashSet<AlertPacket>(new Core.Packets.Comparers.AlertEqualityComparer());
             Versions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BadVersions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
-            BlockCache = new ConcurrentDictionary<long, Coin.Block>();
-            OrphanBlocks = new ConcurrentDictionary<Cipher.SHA256, Coin.Block>();
-            HeaderCache = new ConcurrentDictionary<long, Coin.BlockHeader>();
+            BlockCache = new ConcurrentDictionary<long, Block>();
+            OrphanBlocks = new ConcurrentDictionary<Cipher.SHA256, Block>();
+            HeaderCache = new ConcurrentDictionary<long, BlockHeader>();
         }
 
-        public bool AddHeaderToCache(Coin.BlockHeader header)
+        public bool AddHeaderToCache(BlockHeader header)
         {
             var dataView = DB.DataView.GetView();
             var _curHeight = dataView.GetChainHeight();
@@ -101,7 +102,7 @@ namespace Discreet.Network
             return true;
         }
 
-        public (bool, string) AddBlockToCache(Coin.Block blk)
+        public (bool, string) AddBlockToCache(Block blk)
         {
             if (BlockCache.ContainsKey(blk.Header.Height))
             {
@@ -122,7 +123,7 @@ namespace Discreet.Network
             }
 
             /* unfortunately, we can't check the transactions yet, since some output indices might not be present. We check a few things though. */
-            foreach (Coin.FullTransaction tx in blk.Transactions)
+            foreach (FullTransaction tx in blk.Transactions)
             {
                 if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
                 {
@@ -148,9 +149,9 @@ namespace Discreet.Network
             return (true, "");
         }
 
-        public List<Coin.Block> GetAllCachedBlocks(long startingHeight, long endingHeight)
+        public List<Block> GetAllCachedBlocks(long startingHeight, long endingHeight)
         {
-            List<Coin.Block> blocks = new();
+            List<Block> blocks = new();
 
             for (long i = startingHeight; i <= endingHeight; i++)
             {
@@ -164,7 +165,7 @@ namespace Discreet.Network
             return blocks;
         }
 
-        public Queue<Coin.BlockHeader> PopHeaders(long max)
+        public Queue<BlockHeader> PopHeaders(long max)
         {
             if (_headerMin == -1)
             {
@@ -176,7 +177,7 @@ namespace Discreet.Network
                 _headerMax = HeaderCache.Keys.Max();
             }
 
-            Queue<Coin.BlockHeader> headers = new();
+            Queue<BlockHeader> headers = new();
             var maxHeight = _headerMin + max;
             for (long i = _headerMin; i < maxHeight; i++)
             {

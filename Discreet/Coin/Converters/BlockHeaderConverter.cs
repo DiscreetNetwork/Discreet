@@ -1,4 +1,5 @@
 ﻿using Discreet.Cipher;
+using Discreet.Coin.Models;
 using Discreet.Common;
 using System;
 using System.Collections.Generic;
@@ -63,7 +64,8 @@ namespace Discreet.Coin.Converters
                         blockHeader.NumOutputs = reader.GetUInt32();
                         break;
                     case "ExtraLen":
-                        blockHeader.ExtraLen = reader.GetUInt32();
+                        //blockHeader.ExtraLen = reader.GetUInt32();
+                        // CHANGED: now a read-only property.
                         break;
                     case "Extra":
                         blockHeader.Extra = Printable.Byteify(reader.GetString());

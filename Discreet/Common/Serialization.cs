@@ -501,14 +501,14 @@ namespace Discreet.Common
             return (offset + (uint)len, data);
         }
 
-        public static byte[] GetBytes(Stream s)
+        public static (uint, byte[]) GetBytes(Stream s)
         {
             int length = GetInt32(s);
             byte[] data = new byte[length];
 
             s.Read(data, 0, length);
 
-            return data;
+            return ((uint)length, data);
         }
     }
 }

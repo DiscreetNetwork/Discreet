@@ -10,6 +10,8 @@ using Discreet.WalletsLegacy;
 using Discreet.Common;
 using Discreet.Coin;
 using Discreet.Wallets;
+using Discreet.Coin.Models;
+using Discreet.Common.Serialize;
 
 namespace Discreet.RPC.Endpoints
 {

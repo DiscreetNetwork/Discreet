@@ -20,6 +20,9 @@ using Discreet.DB;
 using Discreet.Wallets.Utilities;
 using Discreet.Readable;
 using Discreet.Wallets.Models;
+using Discreet.Common.Serialize;
+using Discreet.Network;
+using Discreet.Network.Core.Packets.Peerbloom;
 
 namespace Discreet
 {

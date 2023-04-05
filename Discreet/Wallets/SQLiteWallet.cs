@@ -24,6 +24,7 @@ using Discreet.Common;
 using Microsoft.EntityFrameworkCore;
 using Discreet.Cipher.Mnemonics;
 using System.Reflection.Emit;
+using Discreet.Coin.Models;
 
 namespace Discreet.Wallets
 {

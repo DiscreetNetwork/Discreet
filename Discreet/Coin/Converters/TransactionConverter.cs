@@ -1,4 +1,5 @@
 ﻿using Discreet.Cipher;
+using Discreet.Coin.Models;
 using Discreet.Common;
 using Discreet.Common.Converters;
 using Discreet.Readable;
@@ -13,7 +14,7 @@ using System.Threading.Tasks;
 
 namespace Discreet.Coin.Converters
 {
-    public class TransactionConverter : JsonConverter<FullTransaction>
+    public class TransactionConverter : JsonConverter<Models.FullTransaction>
     {
         private static BulletproofConverter BulletproofConverter;
         private static BulletproofPlusConverter BulletproofPlusConverter;
@@ -52,12 +53,12 @@ namespace Discreet.Coin.Converters
         }
 
 
-        public override FullTransaction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override Models.FullTransaction Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             if (reader.TokenType == JsonTokenType.Null) return null;
             if (reader.TokenType != JsonTokenType.StartObject) throw new JsonException();
 
-            FullTransaction transaction = new FullTransaction();
+            Models.FullTransaction transaction = new();
             string? propName;
             byte version;
 
@@ -147,10 +148,10 @@ namespace Discreet.Coin.Converters
                             transaction.POutputs = ReadArray(ref reader, TXOutputConverter, options);
                             break;
                         case "RangeProof":
-                            transaction.RangeProof = BulletproofConverter.Read(ref reader, typeof(Bulletproof), options);
+                            transaction.RangeProof = BulletproofConverter.Read(ref reader, typeof(Models.Bulletproof), options);
                             break;
                         case "RangeProofPlus":
-                            transaction.RangeProofPlus = BulletproofPlusConverter.Read(ref reader, typeof(BulletproofPlus), options);
+                            transaction.RangeProofPlus = BulletproofPlusConverter.Read(ref reader, typeof(Models.BulletproofPlus), options);
                             break;
                         case "PSignatures":
                             transaction.PSignatures = ReadArray(ref reader, TriptychConverter, options);
@@ -225,7 +226,7 @@ namespace Discreet.Coin.Converters
             writer.WriteEndArray();
         }
 
-        public override void Write(Utf8JsonWriter writer, FullTransaction value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, Models.FullTransaction value, JsonSerializerOptions options)
         {
             if (value == null)
             {

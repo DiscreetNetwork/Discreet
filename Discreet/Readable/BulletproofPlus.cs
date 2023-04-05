@@ -51,7 +51,7 @@ namespace Discreet.Readable
             R = bp.R;
         }
 
-        public BulletproofPlus(Coin.BulletproofPlus obj)
+        public BulletproofPlus(Coin.Models.BulletproofPlus obj)
         {
             FromObject(obj);
         }
@@ -65,9 +65,9 @@ namespace Discreet.Readable
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.BulletproofPlus))
+            if (typeof(T) == typeof(Coin.Models.BulletproofPlus))
             {
-                FromObject((Coin.BulletproofPlus)obj);
+                FromObject((Coin.Models.BulletproofPlus)obj);
             }
             else
             {
@@ -75,7 +75,7 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Coin.BulletproofPlus obj)
+        public void FromObject(Coin.Models.BulletproofPlus obj)
         {
             size = obj.size;
 
@@ -109,7 +109,7 @@ namespace Discreet.Readable
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.BulletproofPlus))
+            if (typeof(T) == typeof(Coin.Models.BulletproofPlus))
             {
                 return (T)ToObject();
             }
@@ -121,7 +121,7 @@ namespace Discreet.Readable
 
         public object ToObject()
         {
-            Coin.BulletproofPlus obj = new();
+            Coin.Models.BulletproofPlus obj = new();
 
             obj.size = size;
 
@@ -155,12 +155,12 @@ namespace Discreet.Readable
             return obj;
         }
 
-        public static Coin.BulletproofPlus FromReadable(string json)
+        public static Coin.Models.BulletproofPlus FromReadable(string json)
         {
-            return (Coin.BulletproofPlus)new BulletproofPlus(json).ToObject();
+            return (Coin.Models.BulletproofPlus)new BulletproofPlus(json).ToObject();
         }
 
-        public static string ToReadable(Coin.BulletproofPlus obj)
+        public static string ToReadable(Coin.Models.BulletproofPlus obj)
         {
             return new BulletproofPlus(obj).JSON();
         }

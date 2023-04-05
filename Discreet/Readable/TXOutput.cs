@@ -34,12 +34,12 @@ namespace Discreet.Readable
             Amount = tXOutput.Amount;
         }
 
-        public TXOutput(Coin.TXOutput obj)
+        public TXOutput(Coin.Models.TXOutput obj)
         {
             FromObject(obj);
         }
 
-        public TXOutput(Coin.TXOutput obj, bool tx)
+        public TXOutput(Coin.Models.TXOutput obj, bool tx)
         {
             if (tx)
                 FromTXObject(obj);
@@ -56,9 +56,9 @@ namespace Discreet.Readable
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.TXOutput))
+            if (typeof(T) == typeof(Coin.Models.TXOutput))
             {
-                FromObject((Coin.TXOutput)obj);
+                FromObject((Coin.Models.TXOutput)obj);
             }
             else
             {
@@ -66,7 +66,7 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Coin.TXOutput obj)
+        public void FromObject(Coin.Models.TXOutput obj)
         {
             if (obj.TransactionSrc.Bytes != null) TransactionSrc = obj.TransactionSrc.ToHex();
             if (obj.UXKey.bytes != null) UXKey = obj.UXKey.ToHex();
@@ -76,7 +76,7 @@ namespace Discreet.Readable
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.TXOutput))
+            if (typeof(T) == typeof(Coin.Models.TXOutput))
             {
                 return (T)ToObject();
             }
@@ -88,7 +88,7 @@ namespace Discreet.Readable
 
         public object ToObject()
         {
-            Coin.TXOutput obj = new();
+            Coin.Models.TXOutput obj = new();
 
             if (TransactionSrc != null && TransactionSrc != "") obj.TransactionSrc = Cipher.SHA256.FromHex(TransactionSrc);
             if (UXKey != null && UXKey != "") obj.UXKey = Cipher.Key.FromHex(UXKey);
@@ -98,24 +98,24 @@ namespace Discreet.Readable
             return obj;
         }
 
-        public void FromTXObject(Coin.TXOutput obj)
+        public void FromTXObject(Coin.Models.TXOutput obj)
         {
             if (obj.UXKey.bytes != null) UXKey = obj.UXKey.ToHex();
             if (obj.Commitment.bytes != null) Commitment = obj.Commitment.ToHex();
             Amount = obj.Amount;
         }
 
-        public static Coin.TXOutput FromReadable(string json)
+        public static Coin.Models.TXOutput FromReadable(string json)
         {
-            return (Coin.TXOutput)new TXOutput(json).ToObject();
+            return (Coin.Models.TXOutput)new TXOutput(json).ToObject();
         }
 
-        public static string ToReadable(Coin.TXOutput obj)
+        public static string ToReadable(Coin.Models.TXOutput obj)
         {
             return new TXOutput(obj).JSON();
         }
 
-        internal static string ToTXReadable(Coin.TXOutput obj)
+        internal static string ToTXReadable(Coin.Models.TXOutput obj)
         {
             return new TXOutput(obj, true).JSON();
         }

@@ -1,4 +1,5 @@
 ﻿using Discreet.Cipher;
+using Discreet.Coin.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,16 +10,16 @@ using System.Threading.Tasks;
 
 namespace Discreet.Coin.Converters
 {
-    public class BulletproofConverter : JsonConverter<Coin.Bulletproof>
+    public class BulletproofConverter : JsonConverter<Models.Bulletproof>
     {
-        public override Bulletproof Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override Models.Bulletproof Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             if (reader.TokenType == JsonTokenType.Null) return null;
 
             if (reader.TokenType != JsonTokenType.StartObject) throw new JsonException();
 
             string innerPropName;
-            Bulletproof bp = new();
+            Models.Bulletproof bp = new();
 
             while (reader.Read())
             {
@@ -130,7 +131,7 @@ namespace Discreet.Coin.Converters
             return bp;
         }
 
-        public override void Write(Utf8JsonWriter writer, Bulletproof value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, Models.Bulletproof value, JsonSerializerOptions options)
         {
             if (value == null)
             {

@@ -60,7 +60,7 @@ namespace Discreet.Readable
             Extra = b.Extra;
         }
 
-        public BlockHeader(Coin.BlockHeader obj)
+        public BlockHeader(Coin.Models.BlockHeader obj)
         {
             FromObject(obj);
         }
@@ -73,9 +73,9 @@ namespace Discreet.Readable
 
         public virtual void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.BlockHeader))
+            if (typeof(T) == typeof(Coin.Models.BlockHeader))
             {
-                FromObject((Coin.BlockHeader)obj);
+                FromObject((Coin.Models.BlockHeader)obj);
             }
             else
             {
@@ -83,7 +83,7 @@ namespace Discreet.Readable
             }
         }
 
-        public virtual void FromObject(Coin.BlockHeader obj)
+        public virtual void FromObject(Coin.Models.BlockHeader obj)
         {
             Version = obj.Version;
             Timestamp = obj.Timestamp;
@@ -105,7 +105,7 @@ namespace Discreet.Readable
 
         public virtual T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.BlockHeader))
+            if (typeof(T) == typeof(Coin.Models.BlockHeader))
             {
                 return (T)ToObject();
             }
@@ -117,7 +117,7 @@ namespace Discreet.Readable
 
         public virtual object ToObject()
         {
-            Coin.BlockHeader obj = new();
+            Coin.Models.BlockHeader obj = new();
 
             obj.Version = Version;
             obj.Timestamp = Timestamp;
@@ -133,19 +133,17 @@ namespace Discreet.Readable
             obj.BlockSize = BlockSize;
             obj.NumOutputs = NumOutputs;
 
-            obj.ExtraLen = ExtraLen;
-
             if (Extra != null && Extra != "") obj.Extra = Printable.Byteify(Extra);
 
             return obj;
         }
 
-        public static Coin.BlockHeader FromReadable(string json)
+        public static Coin.Models.BlockHeader FromReadable(string json)
         {
-            return (Coin.BlockHeader)new BlockHeader(json).ToObject();
+            return (Coin.Models.BlockHeader)new BlockHeader(json).ToObject();
         }
 
-        public static string ToReadable(Coin.BlockHeader obj)
+        public static string ToReadable(Coin.Models.BlockHeader obj)
         {
             return new BlockHeader(obj).JSON();
         }

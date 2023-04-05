@@ -54,7 +54,7 @@ namespace Discreet.Readable
             z = triptych.z;
         }
 
-        public Triptych(Coin.Triptych obj)
+        public Triptych(Coin.Models.Triptych obj)
         {
             FromObject(obj);
         }
@@ -68,9 +68,9 @@ namespace Discreet.Readable
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.Triptych))
+            if (typeof(T) == typeof(Coin.Models.Triptych))
             {
-                FromObject((Coin.Triptych)obj);
+                FromObject((Coin.Models.Triptych)obj);
             }
             else
             {
@@ -78,7 +78,7 @@ namespace Discreet.Readable
             }
         }
 
-        public void FromObject(Coin.Triptych obj)
+        public void FromObject(Coin.Models.Triptych obj)
         {
             if (obj.K.bytes != null) K = obj.K.ToHex();
             if (obj.A.bytes != null) A = obj.A.ToHex();
@@ -121,7 +121,7 @@ namespace Discreet.Readable
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.Triptych))
+            if (typeof(T) == typeof(Coin.Models.Triptych))
             {
                 return (T)ToObject();
             }
@@ -133,7 +133,7 @@ namespace Discreet.Readable
 
         public object ToObject()
         {
-            Coin.Triptych obj = new();
+            Coin.Models.Triptych obj = new();
 
             if (K != null && K != "") obj.K = new Cipher.Key(Printable.Byteify(K));
             if (A != null && A != "") obj.A = new Cipher.Key(Printable.Byteify(A));
@@ -176,12 +176,12 @@ namespace Discreet.Readable
             return obj;
         }
 
-        public static Coin.Triptych FromReadable(string json)
+        public static Coin.Models.Triptych FromReadable(string json)
         {
-            return (Coin.Triptych)new Triptych(json).ToObject();
+            return (Coin.Models.Triptych)new Triptych(json).ToObject();
         }
 
-        public static string ToReadable(Coin.Triptych obj)
+        public static string ToReadable(Coin.Models.Triptych obj)
         {
             return new Triptych(obj).JSON();
         }

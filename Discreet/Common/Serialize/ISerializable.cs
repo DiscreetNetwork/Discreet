@@ -10,7 +10,9 @@ namespace Discreet.Common.Serialize
     public interface ISerializable
     {
         public int Size { get; }
-        public void Serialize(BinaryWriter writer);
+        
+        public void Serialize(BEBinaryWriter writer);
+
         public void Deserialize(ref MemoryReader reader);
     }
 }

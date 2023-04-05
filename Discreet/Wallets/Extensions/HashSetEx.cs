@@ -1,5 +1,5 @@
 ﻿using Discreet.Cipher;
-using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Wallets.Models;
 using System;
 using System.Collections.Generic;
@@ -33,7 +33,7 @@ namespace Discreet.Wallets.Extensions
             return h.TryGetValue((T)toTest, out value);
         }
 
-        public static bool Contains<T>(this HashSet<T> h, Discreet.Coin.Transparent.TXInput input) where T : UTXO
+        public static bool Contains<T>(this HashSet<T> h, TTXInput input) where T : UTXO
         {
             UTXO toTest = new UTXO
             {
@@ -45,7 +45,7 @@ namespace Discreet.Wallets.Extensions
             return h.Contains(toTest);
         }
 
-        public static bool TryGetValue<T>(this HashSet<T> h, Discreet.Coin.Transparent.TXInput input, out T value) where T : UTXO
+        public static bool TryGetValue<T>(this HashSet<T> h, TTXInput input, out T value) where T : UTXO
         {
             UTXO toTest = new UTXO
             {

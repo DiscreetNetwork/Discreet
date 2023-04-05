@@ -155,7 +155,7 @@ namespace Discreet.Cipher
             return rv;
         }
 
-        public Bulletproof(Coin.Bulletproof bp, Key[] comms)
+        public Bulletproof(Coin.Models.Bulletproof bp, Key[] comms)
         {
             A = bp.A;
             S = bp.S;

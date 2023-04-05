@@ -1,5 +1,7 @@
-﻿using Discreet.Common;
+﻿using Discreet.Coin.Models;
+using Discreet.Common;
 using Discreet.Common.Exceptions;
+using Discreet.Common.Serialize;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -51,7 +53,7 @@ namespace Discreet.Readable.Transparent
             TxID = transaction.TxID;
         }
 
-        public Transaction(Coin.Transparent.Transaction obj)
+        public Transaction(TTransaction obj)
         {
             FromObject(obj);
         }
@@ -65,9 +67,9 @@ namespace Discreet.Readable.Transparent
 
         public void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.Transparent.Transaction))
+            if (typeof(T) == typeof(TTransaction))
             {
-                FromObject((Coin.Transparent.Transaction)obj);
+                FromObject((TTransaction)obj);
             }
             else
             {
@@ -75,7 +77,7 @@ namespace Discreet.Readable.Transparent
             }
         }
 
-        public void FromObject(Coin.Transparent.Transaction obj)
+        public void FromObject(TTransaction obj)
         {
             Version = obj.Version;
             NumInputs = obj.NumInputs;
@@ -118,7 +120,7 @@ namespace Discreet.Readable.Transparent
 
         public T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.Transparent.Transaction))
+            if (typeof(T) == typeof(TTransaction))
             {
                 return (T)ToObject();
             }
@@ -130,7 +132,7 @@ namespace Discreet.Readable.Transparent
 
         public object ToObject()
         {
-            Coin.Transparent.Transaction obj = new();
+            TTransaction obj = new();
 
             obj.Version = Version;
             obj.NumInputs = NumInputs;
@@ -140,21 +142,21 @@ namespace Discreet.Readable.Transparent
             if (InnerHash != null && InnerHash != "") obj.InnerHash = Cipher.SHA256.FromHex(InnerHash);
             if (Inputs != null)
             {
-                obj.Inputs = new Coin.Transparent.TXInput[Inputs.Count];
+                obj.Inputs = new TTXInput[Inputs.Count];
 
                 for (int i = 0; i < Inputs.Count; i++)
                 {
-                    obj.Inputs[i] = new Coin.Transparent.TXInput();
+                    obj.Inputs[i] = new TTXInput();
                     obj.Inputs[i].Deserialize(Printable.Byteify(Inputs[i]));
                 }
             }
             if (Outputs != null)
             {
-                obj.Outputs = new Coin.Transparent.TXOutput[Outputs.Count];
+                obj.Outputs = new TTXOutput[Outputs.Count];
 
                 for (int i = 0; i < Outputs.Count; i++)
                 {
-                    obj.Outputs[i] = (Coin.Transparent.TXOutput)Outputs[i].ToObject();
+                    obj.Outputs[i] = (TTXOutput)Outputs[i].ToObject();
                 }
             }
             if (Signatures != null)
@@ -172,12 +174,12 @@ namespace Discreet.Readable.Transparent
             return obj;
         }
 
-        public static Coin.Transparent.Transaction FromReadable(string json)
+        public static TTransaction FromReadable(string json)
         {
-            return (Coin.Transparent.Transaction)new Transaction(json).ToObject();
+            return (TTransaction)new Transaction(json).ToObject();
         }
 
-        public static string ToReadable(Coin.Transparent.Transaction obj)
+        public static string ToReadable(TTransaction obj)
         {
             return new Transaction(obj).JSON();
         }

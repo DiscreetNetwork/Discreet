@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using Discreet.Coin.Models;
 
 namespace Discreet.Coin.Converters
 {

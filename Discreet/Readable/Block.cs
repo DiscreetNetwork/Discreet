@@ -8,6 +8,7 @@ using Discreet.Common.Exceptions;
 using Discreet.Common;
 using Discreet.RPC.Common;
 using System.Text.Json.Serialization;
+using Discreet.Coin.Models;
 
 namespace Discreet.Readable
 {
@@ -35,7 +36,7 @@ namespace Discreet.Readable
             Transactions = b.Transactions;
         }
 
-        public Block(Coin.Block obj)
+        public Block(Coin.Models.Block obj)
         {
             FromObject(obj);
         }
@@ -48,9 +49,9 @@ namespace Discreet.Readable
 
         public virtual void FromObject<T>(object obj)
         {
-            if (typeof(T) == typeof(Coin.Block))
+            if (typeof(T) == typeof(Coin.Models.Block))
             {
-                FromObject((Coin.Block)obj);
+                FromObject((Coin.Models.Block)obj);
             }
             else
             {
@@ -58,7 +59,7 @@ namespace Discreet.Readable
             }
         }
 
-        public virtual void FromObject(Coin.Block obj)
+        public virtual void FromObject(Coin.Models.Block obj)
         {
             Header = new BlockHeader(obj.Header);
 
@@ -75,7 +76,7 @@ namespace Discreet.Readable
 
         public virtual T ToObject<T>()
         {
-            if (typeof(T) == typeof(Coin.Block))
+            if (typeof(T) == typeof(Coin.Models.Block))
             {
                 return (T)ToObject();
             }
@@ -87,32 +88,32 @@ namespace Discreet.Readable
 
         public virtual object ToObject()
         {
-            Coin.Block obj = new();
+            Coin.Models.Block obj = new();
 
-            obj.Header = (Coin.BlockHeader)Header.ToObject();
+            obj.Header = (Coin.Models.BlockHeader)Header.ToObject();
 
             if (Transactions != null)
             {
-                obj.Transactions = new Coin.FullTransaction[Transactions.Count];
+                obj.Transactions = new Coin.Models.FullTransaction[Transactions.Count];
 
                 for (int i = 0; i < Transactions.Count; i++)
                 {
-                    if      (Transactions[i] is Transaction ptx)                obj.Transactions[i] = ((Coin.Transaction)ptx.ToObject()).ToFull();
-                    else if (Transactions[i] is MixedTransaction mtx)           obj.Transactions[i] = ((Coin.MixedTransaction)mtx.ToObject()).ToFull();
-                    else if (Transactions[i] is Transparent.Transaction ttx)    obj.Transactions[i] = ((Coin.Transparent.Transaction)ttx.ToObject()).ToFull();
-                    else                                                        obj.Transactions[i] = (Coin.FullTransaction)((FullTransaction)Transactions[i]).ToObject();
+                    if      (Transactions[i] is Transaction ptx)                obj.Transactions[i] = ((Coin.Models.Transaction)ptx.ToObject()).ToFull();
+                    else if (Transactions[i] is MixedTransaction mtx)           obj.Transactions[i] = ((Coin.Models.MixedTransaction)mtx.ToObject()).ToFull();
+                    else if (Transactions[i] is Transparent.Transaction ttx)    obj.Transactions[i] = ((TTransaction)ttx.ToObject()).ToFull();
+                    else                                                        obj.Transactions[i] = (Coin.Models.FullTransaction)((FullTransaction)Transactions[i]).ToObject();
                 }
             }
 
             return obj;
         }
 
-        public static Coin.Block FromReadable(string json)
+        public static Coin.Models.Block FromReadable(string json)
         {
-            return (Coin.Block)new Block(json).ToObject();
+            return (Coin.Models.Block)new Block(json).ToObject();
         }
 
-        public static string ToReadable(Coin.Block obj)
+        public static string ToReadable(Coin.Models.Block obj)
         {
             return new Block(obj).JSON();
         }
