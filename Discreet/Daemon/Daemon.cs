@@ -13,6 +13,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using Discreet.RPC.Common;
 using Discreet.Wallets;
+using Discreet.Coin.Models;
 
 namespace Discreet.Daemon
 {
@@ -135,6 +136,8 @@ namespace Discreet.Daemon
 
         public async Task<bool> Start()
         {
+            Logger.GetLogger().Start(_cancellationToken);
+
             AppDomain.CurrentDomain.UnhandledException += (sender, e) => Logger.CrashLog(sender, e);
             Logger.Debug("Attached global exception handler.");
 
@@ -384,7 +387,7 @@ namespace Discreet.Daemon
                                 _height = _nextHeight;
                             }
 
-                            var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
+                            var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray() });
                             network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
 
                             while (handler.LastSeenHeight < _nextHeight && missedItems.Count == 0)
@@ -403,7 +406,7 @@ namespace Discreet.Daemon
                                             curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                         }
 
-                                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                         missedItems.Clear();
                                     }
                                 }
@@ -447,7 +450,7 @@ namespace Discreet.Daemon
                                 // begin re-sending requests for blocks
                                 toBeFulfilled = reget.Count;
 
-                                var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = reget.ToArray(), Count = (uint)reget.Count });
+                                var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = reget.ToArray() });
                                 network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 600000, callback: callback);
 
                                 var _nextHeight = reget.Select(x => x.ToInt64()).Max();
@@ -467,7 +470,7 @@ namespace Discreet.Daemon
                                                 curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                             }
 
-                                            network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                            network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                             missedItems.Clear();
                                         }
                                     }
@@ -593,7 +596,7 @@ namespace Discreet.Daemon
                             curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                         }
 
-                        var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
+                        var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray() });
                         network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
 
                         while (handler.LastSeenHeight < (minheight - 1) && missedItems.Count == 0)
@@ -612,7 +615,7 @@ namespace Discreet.Daemon
                                         curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                     }
 
-                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                     missedItems.Clear();
                                 }
                             }
@@ -630,7 +633,7 @@ namespace Discreet.Daemon
                     if (err != null)
                     {
                         Logger.Error($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}", err);
-                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
+                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
                     }
 
                     try

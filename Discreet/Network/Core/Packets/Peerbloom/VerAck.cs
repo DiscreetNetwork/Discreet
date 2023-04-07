@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Discreet.Common.Serialize;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -17,45 +18,18 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public VerAck() { }
 
-        public VerAck(Stream s)
+        public void Serialize(BEBinaryWriter writer)
         {
-            Deserialize(s);
+            Utils.SerializeEndpoint(ReflectedEndpoint, writer);
+            writer.Write(Counter);
         }
 
-        public VerAck(byte[] b, uint offset)
+        public void Deserialize(ref MemoryReader reader)
         {
-            Deserialize(b, offset);
+            ReflectedEndpoint = Utils.DeserializeEndpoint(ref reader);
+            Counter = reader.ReadInt32();
         }
 
-        public void Deserialize(byte[] b, uint offset)
-        {
-            ReflectedEndpoint = Utils.DeserializeEndpoint(b, offset);
-            Counter = Common.Serialization.GetInt32(b, offset + 18);
-        }
-
-        public void Deserialize(Stream s)
-        {
-            ReflectedEndpoint = Utils.DeserializeEndpoint(s);
-            Counter = Common.Serialization.GetInt32(s);
-        }
-
-        public uint Serialize(byte[] b, uint offset)
-        {
-            Utils.SerializeEndpoint(ReflectedEndpoint, b, offset);
-            Common.Serialization.CopyData(b, offset + 18, Counter);
-
-            return offset + 22;
-        }
-
-        public void Serialize(Stream s)
-        {
-            Utils.SerializeEndpoint(ReflectedEndpoint, s);
-            Common.Serialization.CopyData(s, Counter);
-        }
-
-        public int Size()
-        {
-            return 22;
-        }
+        public int Size => 22;
     }
 }

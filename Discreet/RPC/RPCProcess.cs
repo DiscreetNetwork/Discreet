@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using Discreet.Common.Converters;
 using System.Linq;
 using System.Threading.Tasks;
+using Discreet.Coin.Converters;
 
 namespace Discreet.RPC
 {
@@ -65,12 +66,24 @@ namespace Discreet.RPC
                     new RIPEMD160Converter(),
                     new SHA256Converter(),
                     new SHA512Converter(),
-                    new SignatureConverter(),
                     new StealthAddressConverter(),
                     new TAddressConverter(),
                     new JsonStringEnumConverter(JsonNamingPolicy.CamelCase),
                     new StringConverter(),
-                    new TXInputConverter(),
+
+                    // Coin.Converters
+                    new BlockConverter(),
+                    new BlockHeaderConverter(),
+                    new BulletproofConverter(),
+                    new BulletproofPlusConverter(),
+                    new Coin.Converters.SignatureConverter(),
+                    new TransactionConverter(),
+                    new Coin.Converters.Transparent.TXInputConverter(),
+                    new Coin.Converters.Transparent.TXOutputConverter(),
+                    new TriptychConverter(),
+                    new Coin.Converters.TXInputConverter(),
+                    new TXOutputConverter(),
+
                 }).ForEach(x => defaultOptions.Converters.Add(x));
             }
         }

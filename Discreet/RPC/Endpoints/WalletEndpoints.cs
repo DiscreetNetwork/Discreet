@@ -326,7 +326,7 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("lock_wallet", APISet.WALLET)]
-        public static object LockWallet(string label)
+        public static async Task<object> LockWallet(string label)
         {
             try
             {
@@ -334,7 +334,7 @@ namespace Discreet.RPC.Endpoints
                 var success = SQLiteWallet.Wallets.TryGetValue(label, out var wallet);
                 if (!success) return new RPCError($"could not find wallet with label {label}");
 
-                wallet.RequestLock();
+                await wallet.DoLockWallet();
 
                 return "OK";
             }
@@ -347,14 +347,11 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("lock_wallets", APISet.WALLET)]
-        public static object LockWallets()
+        public static async Task<object> LockWallets()
         {
             try
             {
-                foreach (var wallet in SQLiteWallet.Wallets.Values)
-                {
-                    wallet.RequestLock();
-                }
+                await Task.WhenAll(SQLiteWallet.Wallets.Values.ToList().Select(async (x) => await x.DoLockWallet()));
 
                 return "OK";
             }
@@ -378,7 +375,7 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("unlock_wallet", APISet.WALLET)]
-        public static object UnlockWallet(UnlockWalletParams _params)
+        public static async Task<object> UnlockWallet(UnlockWalletParams _params)
         {
             var _daemon = Network.Handler.GetHandler().daemon;
 
@@ -390,8 +387,8 @@ namespace Discreet.RPC.Endpoints
                 bool success = SQLiteWallet.Wallets.TryGetValue(_params.Label, out var wallet);
                 if (!success) return new RPCError($"no wallet found with label {_params.Label}");
 
-                success = wallet.Unlock(_params.Passphrase);
-                if (!success) return new RPCEndpoint($"wrong passphrase!");
+                success = await wallet.Unlock(_params.Passphrase);
+                if (!success) return new RPCError($"wrong passphrase!");
                 return "OK";
             }
             catch (Exception ex)

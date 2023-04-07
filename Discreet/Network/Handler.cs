@@ -6,6 +6,7 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Discreet.Coin.Models;
 using Discreet.Network.Core;
 using Discreet.Network.Core.Packets;
 
@@ -36,9 +37,9 @@ namespace Discreet.Network
         public HashSet<InventoryVectorRef> container;
         public Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback;
         public IPEndPoint peer;
-        public Coin.FullTransaction tx = null;
-        public Coin.Block block = null;
-        public Coin.BlockHeader header = null;
+        public FullTransaction tx = null;
+        public Block block = null;
+        public BlockHeader header = null;
 
         public InventoryVectorRef() { }
 
@@ -53,13 +54,13 @@ namespace Discreet.Network
 
     public class TransactionReceivedEventArgs : EventArgs
     {
-        public Coin.FullTransaction Tx;
+        public FullTransaction Tx;
         public bool Success;
     }
 
     public class BlockSuccessEventArgs: EventArgs
     {
-        public Coin.Block Block;
+        public Block Block;
     }
 
     public delegate void TransactionReceivedEventHandler(TransactionReceivedEventArgs e);
@@ -220,7 +221,7 @@ namespace Discreet.Network
                 var blocks = packet as BlocksPacket;
                 List<InventoryVectorRef> fulfilled = new(capacity: blocks.Blocks.Length + 1);
 
-                foreach (Coin.Block block in blocks.Blocks)
+                foreach (Block block in blocks.Blocks)
                 {
                     var binv = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block.Header.BlockHash)) { block = block };
                     bool remsuccess = reqset.TryGetValue(binv, out var trueinv);
@@ -252,7 +253,7 @@ namespace Discreet.Network
                 var headers = packet as HeadersPacket;
                 List<InventoryVectorRef> fulfilled = new(capacity: headers.Headers.Length + 1);
 
-                foreach (Coin.BlockHeader header in headers.Headers)
+                foreach (BlockHeader header in headers.Headers)
                 {
                     var hinv = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header.BlockHash)) { header = header };
                     bool remsuccess = reqset.TryGetValue(hinv, out var trueinv);
@@ -637,12 +638,7 @@ namespace Discreet.Network
             Daemon.Logger.Info($"Received `RequestPeers` from: {endpoint}", verbose: 2);
 
             var nodes = _network.GetPeers(p.MaxPeers);
-            Core.Packets.Peerbloom.RequestPeersResp respBody = new Core.Packets.Peerbloom.RequestPeersResp { Length = nodes.Count, Elems = new Core.Packets.Peerbloom.FindNodeRespElem[nodes.Count] };
-
-            for (int i = 0; i < nodes.Count; i++)
-            {
-                respBody.Elems[i] = new Core.Packets.Peerbloom.FindNodeRespElem(nodes[i]);
-            }
+            Core.Packets.Peerbloom.RequestPeersResp respBody = new Core.Packets.Peerbloom.RequestPeersResp { Peers = nodes.ToArray() };
 
             Packet resp = new Packet(PacketType.REQUESTPEERSRESP, respBody);
 
@@ -651,7 +647,7 @@ namespace Discreet.Network
 
         public async Task HandleRequestPeersResp(Core.Packets.Peerbloom.RequestPeersResp p, Peerbloom.Connection conn)
         {
-            foreach (var endpoint in p.Elems.Select(x => x.Endpoint))
+            foreach (var endpoint in p.Peers)
             {
                 if (conn.Receiver.Port < 49152 && !_network.ReflectedAddress.Equals(endpoint.Address))
                 {
@@ -823,13 +819,13 @@ namespace Discreet.Network
         {
             DB.DataView dataView = DB.DataView.GetView();
 
-            List<Coin.Block> blocks = new();
+            List<Block> blocks = new();
             List<InventoryVector> notFound = new();
             uint totalBlockSize = 0;
 
             foreach (var h in p.Blocks)
             {
-                Coin.Block blockToAdd = null;
+                Block blockToAdd = null;
                 if (h.IsLong())
                 {
                     bool success = dataView.TryGetBlock(h.ToInt64(), out var block);
@@ -864,7 +860,7 @@ namespace Discreet.Network
                 // break into chunks if request is too large
                 if (totalBlockSize > 15_000_000)
                 {
-                    Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { BlocksLen = (uint)blocks.Count, Blocks = blocks.ToArray() }));
+                    Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { Blocks = blocks.ToArray() }));
                     blocks.Clear();
                     totalBlockSize = 0;
                 }
@@ -872,14 +868,13 @@ namespace Discreet.Network
 
             if (blocks.Count > 0)
             {
-                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { BlocksLen = (uint)blocks.Count, Blocks = blocks.ToArray() }));
+                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { Blocks = blocks.ToArray() }));
             }
 
             if (notFound.Count > 0)
             {
                 NotFoundPacket resp = new NotFoundPacket
                 {
-                    Count = p.Count,
                     Inventory = notFound.ToArray(),
                 };
 
@@ -891,7 +886,7 @@ namespace Discreet.Network
         {
             DB.DataView dataView = DB.DataView.GetView();
 
-            List<Coin.FullTransaction> txs = new();
+            List<FullTransaction> txs = new();
             List<InventoryVector> notFound = new();
 
             foreach (var h in p.Transactions)
@@ -953,14 +948,13 @@ namespace Discreet.Network
 
             if (txs.Count > 0)
             {
-                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.TXS, new TransactionsPacket { TxsLen = (uint)txs.Count, Txs = txs.ToArray() }));
+                Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.TXS, new TransactionsPacket { Txs = txs.ToArray() }));
             }
 
             if (notFound.Count > 0) 
             {
                 NotFoundPacket resp = new NotFoundPacket
                 {
-                    Count = p.Count,
                     Inventory = notFound.ToArray(),
                 };
 
@@ -972,7 +966,7 @@ namespace Discreet.Network
         {
             var txpool = Daemon.TXPool.GetTXPool();
             var txs = txpool.GetTransactions();
-            Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.TXS, new TransactionsPacket { TxsLen = (uint)txs.Count, Txs = txs.ToArray() }));
+            Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.TXS, new TransactionsPacket { Txs = txs.ToArray() }));
         }
 
         public async Task HandlePool(Core.Packets.PoolPacket p, Peerbloom.Connection conn)
@@ -1020,8 +1014,6 @@ namespace Discreet.Network
                 {
                     RejectedType = PacketType.SENDTX,
                     Reason = p.Error,
-                    ReasonLen = (uint)Encoding.UTF8.GetBytes(p.Error).Length,
-                    DataLen = 0,
                     Data = Array.Empty<byte>(),
                     Code = RejectionCode.MALFORMED,
                 };
@@ -1051,8 +1043,6 @@ namespace Discreet.Network
                     {
                         RejectedType = PacketType.SENDTX,
                         Reason = err.Message,
-                        ReasonLen = (uint)Encoding.UTF8.GetBytes(err.Message).Length,
-                        DataLen = 32,
                         Data = p.Tx.Hash().Bytes,
                         Code = RejectionCode.INVALID,
                     };
@@ -1090,8 +1080,6 @@ namespace Discreet.Network
                 {
                     RejectedType = PacketType.SENDBLOCK,
                     Reason = p.Error,
-                    ReasonLen = (uint)Encoding.UTF8.GetBytes(p.Error).Length,
-                    DataLen = 0,
                     Data = Array.Empty<byte>(),
                     Code = RejectionCode.MALFORMED,
                 };
@@ -1111,8 +1099,6 @@ namespace Discreet.Network
                     {
                         RejectedType = PacketType.SENDBLOCK,
                         Reason = reason,
-                        ReasonLen = (uint)Encoding.UTF8.GetBytes(reason).Length,
-                        DataLen = 32,
                         Data = p.Block.Header.BlockHash.Bytes,
                         Code = RejectionCode.INVALID,
                     };
@@ -1151,7 +1137,7 @@ namespace Discreet.Network
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added; querying {conn.Receiver} for previous block");
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = 0;
-                            Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Block.Header.PreviousBlock }, Count = 1 }), durationMilliseconds: 60000);
+                            Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Block.Header.PreviousBlock } }), durationMilliseconds: 60000);
                             return;
                         }
                         else
@@ -1168,8 +1154,6 @@ namespace Discreet.Network
                         {
                             RejectedType = PacketType.SENDBLOCK,
                             Reason = err.Message,
-                            ReasonLen = (uint)Encoding.UTF8.GetBytes(err.Message).Length,
-                            DataLen = 32,
                             Data = p.Block.Header.BlockHash.Bytes,
                             Code = RejectionCode.INVALID,
                         };
@@ -1282,7 +1266,7 @@ namespace Discreet.Network
 
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = 0;
-                            Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Blocks[0].Header.PreviousBlock }, Count = 1 }), durationMilliseconds: 60000);
+                            Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Blocks[0].Header.PreviousBlock } }), durationMilliseconds: 60000);
                             return;
                         }
                         else
@@ -1337,7 +1321,7 @@ namespace Discreet.Network
         {
             DB.DataView dataView = DB.DataView.GetView();
 
-            List<Coin.BlockHeader> headers = new();
+            List<BlockHeader> headers = new();
             List<InventoryVector> notFound = new();
 
             if (p.StartingHeight >= 0 && (p.Headers == null || p.Headers.Length == 0))
@@ -1389,14 +1373,13 @@ namespace Discreet.Network
 
             if (headers.Count > 0)
             {
-                Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.HEADERS, new HeadersPacket { Count = (uint)headers.Count, Headers = headers.ToArray() }));
+                Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.HEADERS, new HeadersPacket { Headers = headers.ToArray() }));
             }
 
             if (notFound.Count > 0)
             {
                 NotFoundPacket resp = new NotFoundPacket
                 {
-                    Count = p.Count,
                     Inventory = notFound.ToArray(),
                 };  
 

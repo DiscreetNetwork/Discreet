@@ -1,4 +1,4 @@
-﻿using Discreet.Coin;
+﻿using Discreet.Coin.Models;
 using Discreet.DB;
 using Discreet.Wallets.Extensions;
 using Discreet.Wallets.Models;
@@ -45,12 +45,16 @@ namespace Discreet.Wallets.Services
 
         public virtual async Task StartFundsScanAsync(CancellationToken token = default)
         {
-            
             if (this.token == default) this.token = token;
             lastSeenHeight = wallet.GetLastSeenHeight();
             State = ServiceState.SYNCING;
             ProcessBlocks(view.GetBlocks(lastSeenHeight + 1, 0));
-            
+
+            foreach (var addrstr in wallet.Accounts.Where(x => !x.Syncing).Select(x => x.Address).ToList())
+            {
+                ZMQ.Publisher.Instance.Publish("addresssynced", Encoding.UTF8.GetBytes(addrstr));
+            }
+
             // successfully synced
             if (!this.token.IsCancellationRequested && !Paused)
             {

@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Discreet.Network;
 using System.Threading;
+using Discreet.Coin.Models;
 
 namespace Discreet.Wallets.Services
 {
@@ -91,9 +92,9 @@ namespace Discreet.Wallets.Services
                     throw new Exception("unknown transaction type");
             }
 
-            if (utxos.Select(x => x.DecodedAmount).Aggregate((x, y) => x + y) > amounts.Aggregate((x, y) => x + y))
+            if (utxos.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y) > amounts.Aggregate(0UL, (x, y) => x + y))
             {
-                amounts = amounts.Append(utxos.Select(x => x.DecodedAmount).Aggregate((x, y) => x + y) - amounts.Aggregate((x, y) => x + y));
+                amounts = amounts.Append(utxos.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y) - amounts.Aggregate(0UL, (x, y) => x + y));
                 addresses = addresses.Append(account.Type == 0 ? new StealthAddress(account.Address) : new TAddress(account.Address));
             }
 

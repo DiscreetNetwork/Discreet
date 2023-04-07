@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Discreet.Coin.Models;
 
 namespace Discreet.Wallets.Services
 {
@@ -49,7 +50,7 @@ namespace Discreet.Wallets.Services
         {
             if (account.Encrypted) throw new Exception("account is encrypted");
 
-            var totalAmount = amount.Aggregate((x, y) => x + y);
+            var totalAmount = amount.Aggregate(0UL, (x, y) => x + y);
             if (totalAmount > account.Balance) throw new Exception("sending amount greater than balance");
 
             if (account.SortedUTXOs == null)
@@ -75,29 +76,29 @@ namespace Discreet.Wallets.Services
             return utxos;
         }
 
-        protected IEnumerable<Discreet.Coin.Transparent.TXInput> BuildTransparentInputs(IEnumerable<UTXO> utxos)
+        protected IEnumerable<TTXInput> BuildTransparentInputs(IEnumerable<UTXO> utxos)
         {
             return utxos.Where(x => x.Type == 1)
-                .Select(x => new Discreet.Coin.Transparent.TXInput
+                .Select(x => new TTXInput
                 {
                     TxSrc = x.TransactionSrc,
                     Offset = (byte)x.Index
                 }).ToList();
         }
 
-        protected IEnumerable<Discreet.Coin.Transparent.TXOutput> BuildTransparentOutputs(IEnumerable<IAddress> dests, IEnumerable<ulong> amounts)
+        protected IEnumerable<TTXOutput> BuildTransparentOutputs(IEnumerable<IAddress> dests, IEnumerable<ulong> amounts)
         {
             var toutputs = dests.Zip(amounts)
                 .Where(x => x.First.Type() == (byte)AddressType.TRANSPARENT)
-                .Select(x => new Discreet.Coin.Transparent.TXOutput(default, (TAddress)x.First, x.Second)).ToList();
+                .Select(x => new TTXOutput(default, (TAddress)x.First, x.Second)).ToList();
 
             return toutputs;
         }
 
-        protected (TXOutput?, Discreet.Coin.Transparent.TXOutput?) BuildChangeOutput(Account account, IEnumerable<UTXO> utxos, IEnumerable<ulong> amounts, Key? txPrivateKey, int i, out (Key, ulong)? extraPair)
+        protected (TXOutput?, TTXOutput?) BuildChangeOutput(Account account, IEnumerable<UTXO> utxos, IEnumerable<ulong> amounts, Key? txPrivateKey, int i, out (Key, ulong)? extraPair)
         {
-            var totalIn = utxos.Select(x => x.DecodedAmount).Aggregate((x, y) => x + y);
-            var totalOut = amounts.Aggregate((x, y) => { return x + y; });
+            var totalIn = utxos.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y);
+            var totalOut = amounts.Aggregate(0UL, (x, y) => { return x + y; });
             var _txPrivateKey = txPrivateKey.HasValue ? txPrivateKey.Value : default;
             if (totalIn != totalOut && account.Type == 1)
             {
@@ -152,8 +153,8 @@ namespace Discreet.Wallets.Services
 
         protected (IEnumerable<(Key, ulong)>, IEnumerable<TXOutput>) BuildPrivateOutputs(Account account, IEnumerable<IAddress> dests, IEnumerable<ulong> amounts, Key txPrivateKey)
         {
-            //var totalIn = utxos.Select(x => x.DecodedAmount).Aggregate((x, y) => x + y);
-            //var totalOut = amounts.Aggregate((x, y) => x + y);
+            //var totalIn = utxos.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y);
+            //var totalOut = amounts.Aggregate(0UL, (x, y) => x + y);
 
             int i = 0;
             List<(Key, ulong)> maskAmountPairs = new();
@@ -171,8 +172,7 @@ namespace Discreet.Wallets.Services
                     {
                         UXKey = KeyOps.DKSAP(ref txPrivateKey, x.Item1.view, x.Item1.spend, i),
                         Commitment = comm,
-                        Amount = KeyOps.GenAmountMask(ref txPrivateKey, ref x.Item1.view, i++, x.Second),
-
+                        Amount = (account.Type == 1) ? x.Second : KeyOps.GenAmountMask(ref txPrivateKey, ref x.Item1.view, i++, x.Second),
                     };
                 }).ToList();
 
@@ -193,13 +193,13 @@ namespace Discreet.Wallets.Services
             return (maskAmountPairs, poutputs);
         }
 
-        protected Discreet.Coin.BulletproofPlus BuildRangeProof(IEnumerable<(Key, ulong)> outs)
+        protected Coin.Models.BulletproofPlus BuildRangeProof(IEnumerable<(Key, ulong)> outs)
         {
-            var bp = Discreet.Cipher.BulletproofPlus.Prove(
+            var bp = Cipher.BulletproofPlus.Prove(
                 outs.Select(x => x.Item2).ToArray(), 
                 outs.Select(x => x.Item1).ToArray());
 
-            return new Discreet.Coin.BulletproofPlus(bp);
+            return new Coin.Models.BulletproofPlus(bp);
         }
 
         protected (IEnumerable<Key> pseudos, IEnumerable<Key> blindingFactors) BuildPseudoOutputs(IEnumerable<UTXO> utxos, IEnumerable<(Key, ulong)> outs)
@@ -232,7 +232,7 @@ namespace Discreet.Wallets.Services
             return (pseudos, blindingFactors);
         }
 
-        protected IEnumerable<Discreet.Coin.Triptych> BuildPrivateSignatures(IEnumerable<UTXO> utxos, IEnumerable<PrivateTxInput> inputs, IEnumerable<Key> pseudos, IEnumerable<Key> blindingFactors, SHA256 message)
+        protected IEnumerable<Coin.Models.Triptych> BuildPrivateSignatures(IEnumerable<UTXO> utxos, IEnumerable<PrivateTxInput> inputs, IEnumerable<Key> pseudos, IEnumerable<Key> blindingFactors, SHA256 message)
         {
             return utxos.Where(x => x.Type == 0).Zip(inputs).Zip(pseudos).Zip(blindingFactors)
                 .Select(x => (x.First.First.First, x.First.First.Second, x.First.Second, x.Second))
@@ -245,18 +245,18 @@ namespace Discreet.Wallets.Services
                     var sign_s = Key.Zero();
                     KeyOps.ScalarSub(ref sign_s, ref sign_x, ref x.Item4);
 
-                    var ringsig = Discreet.Cipher.Triptych.Prove(x.Item2.M, x.Item2.P, x.Item3, (uint)x.Item2.l, sign_r, sign_s, message.ToKey());
-                    return new Discreet.Coin.Triptych(ringsig);
+                    var ringsig = Cipher.Triptych.Prove(x.Item2.M, x.Item2.P, x.Item3, (uint)x.Item2.l, sign_r, sign_s, message.ToKey());
+                    return new Coin.Models.Triptych(ringsig);
                 }).ToList();
         }
 
-        protected IEnumerable<Signature> BuildTransparentSignatures(IEnumerable<UTXO> utxos, IEnumerable<Discreet.Coin.Transparent.TXInput> tinputs, SHA256 message)
+        protected IEnumerable<Signature> BuildTransparentSignatures(IEnumerable<UTXO> utxos, IEnumerable<TTXInput> tinputs, SHA256 message)
         {
             return utxos.Where(x => x.Type == 1).Zip(tinputs).Select(x =>
             {
                 byte[] data = new byte[64];
                 Array.Copy(message.Bytes, data, 32);
-                Array.Copy(x.Second.Hash(new Discreet.Coin.Transparent.TXOutput
+                Array.Copy(x.Second.Hash(new TTXOutput
                 {
                     TransactionSrc = x.First.TransactionSrc,
                     Address = new TAddress(x.First.Account.Address),

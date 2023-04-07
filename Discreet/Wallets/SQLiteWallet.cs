@@ -24,6 +24,7 @@ using Discreet.Common;
 using Microsoft.EntityFrameworkCore;
 using Discreet.Cipher.Mnemonics;
 using System.Reflection.Emit;
+using Discreet.Coin.Models;
 
 namespace Discreet.Wallets
 {
@@ -117,21 +118,43 @@ namespace Discreet.Wallets
             }
         }
 
-        public bool Unlock(string passphrase)
+        public async Task DoLockWallet()
         {
-            lock (req_lock)
+            await requestSemaphore.WaitAsync();
+            try
             {
-                if (!IsEncrypted) return true;
+                RequestLock();
+                while (!IsEncrypted) await Task.Delay(100, cancellationTokenSource.Token);
+            }
+            finally
+            {
+                requestSemaphore.Release();
+            }
+        }
 
-                try
+        public async Task<bool> Unlock(string passphrase)
+        {
+            await requestSemaphore.WaitAsync();
+            try
+            {
+                lock (req_lock)
                 {
-                    Decrypt(passphrase);
-                    return true;
+                    if (!IsEncrypted) return true;
+
+                    try
+                    {
+                        Decrypt(passphrase);
+                        return true;
+                    }
+                    catch
+                    {
+                        return false;
+                    }
                 }
-                catch
-                {
-                    return false;
-                }
+            }
+            finally
+            {
+                requestSemaphore.Release();
             }
         }
 
@@ -345,7 +368,6 @@ namespace Discreet.Wallets
 
         public static SQLiteWallet CreateWallet(CreateWalletParameters parameters)
         {
-            Console.WriteLine(JsonSerializer.Serialize(parameters));
             // first check if wallet with label already exists
             var labels = Directory.GetFiles(directory, "*.db")
                 .Select(file => System.IO.Path.GetFileNameWithoutExtension(file));
@@ -769,7 +791,7 @@ namespace Discreet.Wallets
             try
             {
                 if (IsEncrypted) return 0;
-                var balance = Accounts.Select(x => x.Balance).Aggregate((x, y) => x + y);
+                var balance = Accounts.Select(x => x.Balance).Aggregate(0UL, (x, y) => x + y);
                 return balance;
             }
             finally
@@ -982,8 +1004,10 @@ namespace Discreet.Wallets
                 acc.DecryptAccountPrivateKeys(Entropy);
                 acc.DecryptHistoryTxs();
                 acc.DecryptUTXOs();
-                acc.Balance = acc.UTXOs.Select(x => x.DecodedAmount).Aggregate((x, y) => x + y);
+                acc.Balance = acc.UTXOs.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y);
             });
+
+            IsEncrypted = false;
         }
 
         public bool ChangeLabel(string newLabel)

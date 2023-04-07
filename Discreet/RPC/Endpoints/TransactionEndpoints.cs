@@ -10,6 +10,8 @@ using Discreet.WalletsLegacy;
 using Discreet.Common;
 using Discreet.Coin;
 using Discreet.Wallets;
+using Discreet.Coin.Models;
+using Discreet.Common.Serialize;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -18,7 +20,7 @@ namespace Discreet.RPC.Endpoints
         public class RelayTxParams
         {
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
-            public Readable.FullTransaction Transaction { get; set; }
+            public FullTransaction Transaction { get; set; }
 
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
             public string Raw { get; set; }
@@ -43,7 +45,7 @@ namespace Discreet.RPC.Endpoints
 
                 if (_params.Transaction != null)
                 {
-                    tx = _params.Transaction.ToObject<FullTransaction>();
+                    tx = _params.Transaction;
                 }
                 else if (_params.Raw != null)
                 {
@@ -111,7 +113,7 @@ namespace Discreet.RPC.Endpoints
             public string Txid { get; set; }
 
             [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
-            public Readable.FullTransaction Tx { get; set; }
+            public FullTransaction Tx { get; set; }
 
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
             public string Raw { get; set; }
@@ -159,7 +161,7 @@ namespace Discreet.RPC.Endpoints
                 var _rv = new CreateTransactionRV
                 {
                     Txid = tx.Hash().ToHex(),
-                    Tx = (Readable.FullTransaction)tx.ToReadable()
+                    Tx = tx
                 };
 
                 if (_raw)

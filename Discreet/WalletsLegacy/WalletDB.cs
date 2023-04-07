@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Common;
 using RocksDbSharp;
 

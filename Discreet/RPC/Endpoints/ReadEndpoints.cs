@@ -8,6 +8,8 @@ using Discreet.Coin;
 using Discreet.Common;
 using Discreet.Cipher;
 using System.Text.Json;
+using Discreet.Coin.Models;
+using Discreet.Common.Serialize;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -89,7 +91,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                return DB.DataView.GetView().GetBlockHeader(height).ToReadable();
+                return DB.DataView.GetView().GetBlockHeader(height);
             }
             catch (Exception ex)
             {
@@ -104,13 +106,13 @@ namespace Discreet.RPC.Endpoints
         {
             var dataView = DB.DataView.GetView();
 
-            List<Readable.BlockHeader> headers = new();
+            List<BlockHeader> headers = new();
 
             for (long height = startHeight; height <= endHeight; height++)
             {
                 try
                 {
-                    headers.Add((Readable.BlockHeader)dataView.GetBlockHeader(height).ToReadable());
+                    headers.Add(dataView.GetBlockHeader(height));
                 }
                 catch (Exception ex)
                 {
@@ -136,13 +138,13 @@ namespace Discreet.RPC.Endpoints
 
                     if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid block hash {hash}");
 
-                    return DB.DataView.GetView().GetBlock(SHA256.FromHex(hash)).ToReadable();
+                    return DB.DataView.GetView().GetBlock(SHA256.FromHex(hash));
                 }
                 else if (_kind == JsonValueKind.Number)
                 {
                     long height = ((JsonElement)_jsonElement).GetInt64();
 
-                    return DB.DataView.GetView().GetBlock(height).ToReadable();
+                    return DB.DataView.GetView().GetBlock(height);
                 }
                 else
                 {
@@ -177,7 +179,7 @@ namespace Discreet.RPC.Endpoints
         {
             if (idxs == null) return new RPCError(-1, $"No arguments given", Array.Empty<object>());
 
-            List<Readable.Block> blocks = new();
+            List<Block> blocks = new();
 
             foreach (object _jsonElement in idxs)
             {
@@ -191,13 +193,13 @@ namespace Discreet.RPC.Endpoints
 
                         if (!Printable.IsHex(hash) || hash.Length != 64) return new RPCError($"Malformed or invalid block hash {hash}");
 
-                        blocks.Add((Readable.Block)DB.DataView.GetView().GetBlock(SHA256.FromHex(hash)).ToReadable());
+                        blocks.Add(DB.DataView.GetView().GetBlock(SHA256.FromHex(hash)));
                     }
                     else if (_kind == JsonValueKind.Number)
                     {
                         long height = ((JsonElement)_jsonElement).GetInt64();
 
-                        blocks.Add((Readable.Block)DB.DataView.GetView().GetBlock(height).ToReadable());
+                        blocks.Add(DB.DataView.GetView().GetBlock(height));
                     }
                     else
                     {
@@ -242,7 +244,7 @@ namespace Discreet.RPC.Endpoints
 
                             foreach (var _tx in block.Transactions)
                             {
-                                var tx = (Readable.FullTransaction)_tx.ToReadable();
+                                var tx = _tx;
 
                                 if (tx.TOutputs != null)
                                 {
@@ -267,7 +269,7 @@ namespace Discreet.RPC.Endpoints
                         }
                         catch (Exception)
                         {
-                            var tx = (Readable.FullTransaction)dataView.GetTransaction(SHA256.FromHex(hash)).ToReadable();
+                            var tx = dataView.GetTransaction(SHA256.FromHex(hash));
 
                             if (tx.TOutputs != null)
                             {
@@ -300,7 +302,7 @@ namespace Discreet.RPC.Endpoints
 
                             foreach (var _tx in block.Transactions)
                             {
-                                var tx = (Readable.FullTransaction)_tx.ToReadable();
+                                var tx = _tx;
 
                                 if (tx.TOutputs != null)
                                 {
@@ -327,7 +329,7 @@ namespace Discreet.RPC.Endpoints
                         {
                             try
                             {
-                                var tx = (Readable.FullTransaction)dataView.GetTransaction(id).ToReadable();
+                                var tx = dataView.GetTransaction(id);
 
                                 if (tx.TOutputs != null)
                                 {
@@ -351,7 +353,7 @@ namespace Discreet.RPC.Endpoints
                             }
                             catch (Exception)
                             {
-                                outputs.Add(dataView.GetOutput((uint)id).ToReadable());
+                                outputs.Add(dataView.GetOutput((uint)id));
                             }
                         }
                     }
@@ -376,7 +378,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                return DB.DataView.GetView().GetOutput(index).ToReadable();
+                return DB.DataView.GetView().GetOutput(index);
             }
             catch (Exception ex)
             {
@@ -394,7 +396,7 @@ namespace Discreet.RPC.Endpoints
             {
                 try
                 {
-                    rv.Add(DB.DataView.GetView().GetOutput(index).ToReadable());
+                    rv.Add(DB.DataView.GetView().GetOutput(index));
                 }
                 catch (Exception ex)
                 {
@@ -428,7 +430,7 @@ namespace Discreet.RPC.Endpoints
 
                         var tx = DB.DataView.GetView().GetTransaction(SHA256.FromHex(hash));
 
-                        txs.Add(tx.ToReadable());
+                        txs.Add(tx);
                     }
                     else if (_kind == JsonValueKind.Number)
                     {
@@ -436,7 +438,7 @@ namespace Discreet.RPC.Endpoints
 
                         var tx = DB.DataView.GetView().GetTransaction(id);
 
-                        txs.Add(tx.ToReadable());
+                        txs.Add(tx);
                     }
                     else
                     {
@@ -469,7 +471,7 @@ namespace Discreet.RPC.Endpoints
 
                     var tx = DB.DataView.GetView().GetTransaction(SHA256.FromHex(hash));
 
-                    return tx.ToReadable();
+                    return tx;
                 }
                 else if (_kind == JsonValueKind.Number)
                 {
@@ -477,7 +479,7 @@ namespace Discreet.RPC.Endpoints
 
                     var tx = DB.DataView.GetView().GetTransaction(id);
 
-                    return tx.ToReadable();
+                    return tx;
                 }
                 else
                 {
@@ -576,8 +578,8 @@ namespace Discreet.RPC.Endpoints
 
         public class GetBlockchainRV
         {
-            public Readable.Block Head { get; set; }
-            public List<object> TxPool { get; set; }
+            public Block Head { get; set; }
+            public List<FullTransaction> TxPool { get; set; }
             public string Status { get; set; }
             public bool Synced { get; set; }
             
@@ -596,8 +598,8 @@ namespace Discreet.RPC.Endpoints
 
                 GetBlockchainRV _rv = new GetBlockchainRV
                 {
-                    Head = (Readable.Block)db.GetBlock(db.GetChainHeight()).ToReadable(),
-                    TxPool = Daemon.TXPool.GetTXPool().GetTransactions().Select(x => x.ToReadable()).ToList(),
+                    Head = db.GetBlock(db.GetChainHeight()),
+                    TxPool = Daemon.TXPool.GetTXPool().GetTransactions(),
                     Synced = _handler.State == Network.PeerState.Normal,
                     Status = "OK"
                 };
@@ -611,7 +613,7 @@ namespace Discreet.RPC.Endpoints
                 return new GetBlockchainRV
                 {
                     Head = null,
-                    TxPool = new List<object>(),
+                    TxPool = new List<FullTransaction>(),
                     Synced = false,
                     Status = "An internal error was encountered"
                 };
@@ -627,13 +629,13 @@ namespace Discreet.RPC.Endpoints
 
             var height = dataView.GetChainHeight();
 
-            List<Readable.Block> blocks = new();
+            List<Block> blocks = new();
 
             for (long i = height; i > height - num; i--)
             {
                 try
                 {
-                    blocks.Add((Readable.Block)dataView.GetBlock(i).ToReadable());
+                    blocks.Add(dataView.GetBlock(i));
                 }
                 catch (Exception ex)
                 {
@@ -651,7 +653,7 @@ namespace Discreet.RPC.Endpoints
         {
             try
             {
-                return Daemon.TXPool.GetTXPool().GetTransactions().Select(x => x.ToReadable()).ToList();
+                return Daemon.TXPool.GetTXPool().GetTransactions();
             }
             catch (Exception ex)
             {
@@ -662,13 +664,13 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_pub_output", APISet.READ)]
-        public static object GetPubOutput(Coin.Transparent.TXInput input)
+        public static object GetPubOutput(TTXInput input)
         {
             if (input == null) return new RPCError(-1, $"No arguments given", Array.Empty<object>());
 
             try
             {
-                return (Readable.Transparent.TXOutput)DB.DataView.GetView().MustGetPubOutput(input).ToReadable();
+                return DB.DataView.GetView().MustGetPubOutput(input);
             }
             catch (Exception ex)
             {
@@ -679,16 +681,16 @@ namespace Discreet.RPC.Endpoints
         }
 
         [RPCEndpoint("get_pub_outputs", APISet.READ)]
-        public static object GetPubOutputs(Coin.Transparent.TXInput[] inputs)
+        public static object GetPubOutputs(TTXInput[] inputs)
         {
             if (inputs == null) return new RPCError(-1, $"No arguments given", Array.Empty<object>());
 
             try
             {
-                List<Readable.Transparent.TXOutput> outputs = new();
+                List<TTXOutput> outputs = new();
                 foreach (var input in inputs)
                 {
-                    outputs.Add((Readable.Transparent.TXOutput)DB.DataView.GetView().MustGetPubOutput(input).ToReadable());
+                    outputs.Add(DB.DataView.GetView().MustGetPubOutput(input));
                 }
 
                 return outputs;

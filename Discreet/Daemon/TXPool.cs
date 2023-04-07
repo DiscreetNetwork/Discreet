@@ -4,8 +4,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Common.Exceptions;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Daemon
 {
@@ -43,7 +44,7 @@ namespace Discreet.Daemon
 
             public byte[] Serialize()
             {
-                byte[] data = new byte[Tx.Size() + 8];
+                byte[] data = new byte[Tx.GetSize() + 8];
                 Common.Serialization.CopyData(data, 0, Received);
                 Tx.Serialize(data, 8);
 
@@ -55,17 +56,17 @@ namespace Discreet.Daemon
                 Received = Common.Serialization.GetInt64(data, 0);
 
                 Tx = new FullTransaction();
-                Tx.Deserialize(data, 8);
+                Tx.Deserialize<FullTransaction>(data, 8);
             }
         }
 
         private ConcurrentDictionary<Cipher.SHA256, MemTx> pool;
-        private ConcurrentDictionary<Coin.Transparent.TXInput, Coin.Transparent.TXOutput> spentOutputs;
-        private ConcurrentDictionary<Cipher.SHA256, List<Coin.Transparent.TXInput>> spentsTx;
+        private ConcurrentDictionary<TTXInput, TTXOutput> spentOutputs;
+        private ConcurrentDictionary<Cipher.SHA256, List<TTXInput>> spentsTx;
         private SortedSet<Cipher.Key> spentKeys;
         private ConcurrentDictionary<Cipher.SHA256, List<Cipher.Key>> updateSpentKeys;
-        private ConcurrentDictionary<Coin.Transparent.TXInput, Coin.Transparent.TXOutput> newOutputs;
-        private ConcurrentDictionary<Cipher.SHA256, List<Coin.Transparent.TXInput>> updateNewOutputs;
+        private ConcurrentDictionary<TTXInput, TTXOutput> newOutputs;
+        private ConcurrentDictionary<Cipher.SHA256, List<TTXInput>> updateNewOutputs;
 
         private ConcurrentDictionary<Cipher.SHA256, FullTransaction> orphanTxs;
 
@@ -124,82 +125,6 @@ namespace Discreet.Daemon
             }*/
         }
 
-        public Exception ProcessIncoming(FullTransaction tx)
-        {
-            /* verify transaction */
-            var err = tx.Verify();
-
-            if (err != null)
-            {
-                return err;
-            }
-
-            /* since it is verified, create a new memtx */
-            var memtx = new MemTx { Tx = tx, Received = DateTime.UtcNow.Ticks };
-
-            /* try adding to database */
-            //DB.DisDB db = DB.DisDB.GetDB();
-            try
-            {
-                //lock (DB.DisDB.DBLock)
-                //{
-                //    db.AddTXToPool(memtx);
-                //}
-            }
-            catch (Exception e)
-            {
-                return new DatabaseException("Discreet.Daemon.TXPool.ProcessIncoming", e.Message);
-            }
-
-            /* no errors, so add TX to pool */
-            pool[tx.Hash()] = memtx;
-
-            /* update the stuff */
-            if (tx.TInputs != null && tx.TInputs.Length > 0)
-            {
-                List<Coin.Transparent.TXInput> stxs = new List<Coin.Transparent.TXInput>();
-
-                foreach (var txi in tx.TInputs)
-                {
-                    spentOutputs[txi] = DB.DataView.GetView().GetPubOutput(txi);
-                    stxs.Add(txi);
-                }
-
-                spentsTx[tx.TxID] = stxs;
-            }
-
-            if (tx.TOutputs != null && tx.TOutputs.Length > 0)
-            {
-                List<Coin.Transparent.TXInput> newOuts = new List<Coin.Transparent.TXInput>();
-
-                for (int i = 0; i < tx.TOutputs.Length; i++)
-                {
-                    var newOut = new Coin.Transparent.TXInput(tx.TxID, (byte)i);
-                    newOuts.Add(newOut);
-                    newOutputs[newOut] = tx.TOutputs[i];
-                }
-
-                updateNewOutputs[tx.TxID] = newOuts;
-            }
-
-            if (tx.PInputs != null && tx.PInputs.Length > 0)
-            {
-                List<Cipher.Key> ks = new List<Cipher.Key>();
-                lock (spentKeys)
-                {
-                    foreach (var ptxi in tx.PInputs)
-                    {
-                        ks.Add(ptxi.KeyImage);
-                        spentKeys.Add(ptxi.KeyImage);
-                    }
-                }
-
-                updateSpentKeys[tx.TxID] = ks;
-            }
-
-            return null;
-        }
-
         public void AddToPool(MemTx tx)
         {
             pool[tx.Tx.Hash()] = tx;
@@ -207,7 +132,7 @@ namespace Discreet.Daemon
             /* update the stuff */
             if (tx.Tx.TInputs != null && tx.Tx.TInputs.Length > 0)
             {
-                List<Coin.Transparent.TXInput> stxs = new List<Coin.Transparent.TXInput>();
+                List<TTXInput> stxs = new List<TTXInput>();
 
                 foreach (var txi in tx.Tx.TInputs)
                 {
@@ -228,11 +153,11 @@ namespace Discreet.Daemon
 
             if (tx.Tx.TOutputs != null && tx.Tx.TOutputs.Length > 0)
             {
-                List<Coin.Transparent.TXInput> newOuts = new List<Coin.Transparent.TXInput>();
+                List<TTXInput> newOuts = new List<TTXInput>();
 
                 for (int i = 0; i < tx.Tx.TOutputs.Length; i++)
                 {
-                    var newOut = new Coin.Transparent.TXInput(tx.Tx.TxID, (byte)i);
+                    var newOut = new TTXInput { TxSrc = tx.Tx.TxID, Offset = (byte)i };
                     newOuts.Add(newOut);
                     newOutputs[newOut] = tx.Tx.TOutputs[i];
                 }
@@ -258,21 +183,6 @@ namespace Discreet.Daemon
             }
         }
 
-        public Exception ProcessIncoming(MixedTransaction tx)
-        {
-            return ProcessIncoming(tx.ToFull());
-        }
-
-        public Exception ProcessIncoming(Transaction tx)
-        {
-            return ProcessIncoming(tx.ToFull());
-        }
-
-        public Exception ProcessIncoming(Coin.Transparent.Transaction tx)
-        {
-            return ProcessIncoming(tx.ToFull());
-        }
-
         public bool ContainsSpentKey(Cipher.Key k)
         {
             lock (spentKeys)
@@ -292,12 +202,12 @@ namespace Discreet.Daemon
             {
                 var tx = searchTxs.FirstOrDefault();
 
-                if (tx != null && tx.Tx.Size() + _sizeTotal < maxBytes)
+                if (tx != null && tx.Tx.GetSize() + _sizeTotal < maxBytes)
                 {
                     txs.Add(tx.Tx);
                     searchTxs.Remove(tx);
 
-                    _sizeTotal += tx.Tx.Size();
+                    _sizeTotal += tx.Tx.GetSize();
                 }
                 else
                 {
@@ -335,7 +245,7 @@ namespace Discreet.Daemon
             //return db.TXPoolContains(txhash);
         }
 
-        public bool ContainsSpent(Coin.Transparent.TXInput txoidx)
+        public bool ContainsSpent(TTXInput txoidx)
         {
             return spentOutputs.ContainsKey(txoidx);
         }
@@ -428,11 +338,11 @@ namespace Discreet.Daemon
             if (view.ContainsTransaction(tx.TxID)) return new VerifyException("FullTransaction", $"Transaction {tx.TxID.ToHexShort()} already present in main branch");
 
             /* transparent checks */
-            Coin.Transparent.TXOutput[] tinVals = new Coin.Transparent.TXOutput[ntin];
+            TTXOutput[] tinVals = new TTXOutput[ntin];
             if (ntin > 0)
             {
                 /* check for spend in pool */
-                HashSet<Coin.Transparent.TXInput> _in = new HashSet<Coin.Transparent.TXInput>(new Coin.Transparent.TXInputEqualityComparer());
+                HashSet<TTXInput> _in = new HashSet<TTXInput>(new Coin.Comparers.TTXInputEqualityComparer());
                 for (int i = 0; i < ntin; i++)
                 {
                     _in.Add(tx.TInputs[i]);
@@ -518,7 +428,7 @@ namespace Discreet.Daemon
 
             /* calculate tinAmt */
             ulong tinAmt = 0;
-            foreach (Coin.Transparent.TXOutput output in tinVals)
+            foreach (TTXOutput output in tinVals)
             {
                 try
                 {
@@ -534,7 +444,7 @@ namespace Discreet.Daemon
             ulong toutAmt = 0;
             if (ntout > 0)
             {
-                foreach (Coin.Transparent.TXOutput output in tx.TOutputs)
+                foreach (TTXOutput output in tx.TOutputs)
                 {
                     try
                     {
@@ -569,7 +479,8 @@ namespace Discreet.Daemon
             Cipher.Key poutAmt = new(new byte[32]);
             for (int i = 0; i < npout; i++)
             {
-                Cipher.KeyOps.AddKeys(ref tmp, ref poutAmt, ref tx.POutputs[i].Commitment);
+                var comm = tx.POutputs[i].Commitment;
+                Cipher.KeyOps.AddKeys(ref tmp, ref poutAmt, ref comm);
                 Array.Copy(tmp.bytes, poutAmt.bytes, 32);
             }
 
@@ -586,8 +497,8 @@ namespace Discreet.Daemon
             Cipher.KeyOps.GenCommitment(ref tmp, ref _Z, toutAmt);
             Cipher.KeyOps.AddKeys(ref outAmt, ref poutAmt, ref tmp);
 
-            Logger.Log($"INAMT: {inAmt.ToHex()}");
-            Logger.Log($"OUTAMT: {outAmt.ToHex()}");
+            //Logger.Log($"INAMT: {inAmt.ToHex()}");
+            //Logger.Log($"OUTAMT: {outAmt.ToHex()}");
             /* verify sumIn = sumOut */
             if (!inAmt.Equals(outAmt)) return new VerifyException("FullTransaction", $"Transaction does not balance");
 
