@@ -94,7 +94,7 @@ namespace Discreet.Network
 
         // used for unorganized inventory requests
         private ConcurrentDictionary<IPEndPoint, HashSet<InventoryVectorRef>> NeededInventory = new();
-        private ConcurrentDictionary<InventoryVectorRef, (long, long)> InventoryTimeouts = new(new InventoryEqualityComparer());
+        private ConcurrentDictionary<InventoryVectorRef, (long, long)> InventoryTimeouts = new(Environment.ProcessorCount, 25000, new InventoryEqualityComparer());
 
         public async Task NeededInventoryStart(CancellationToken token)
         {
@@ -127,7 +127,11 @@ namespace Discreet.Network
             bool success = NeededInventory.TryGetValue(req, out var reqset);
             if (!success || reqset == null)
             {
-                reqset = new(new InventoryPureEqualityComparer());
+                var len = packet.GetType() == typeof(GetTransactionsPacket) ? (packet as GetTransactionsPacket).Count :
+                           (packet.GetType() == typeof(GetBlocksPacket) ? (packet as GetBlocksPacket).Count :
+                            (packet.GetType() == typeof(GetHeadersPacket) ? (packet as GetHeadersPacket).Count :
+                             0));
+                reqset = new((int)len, new InventoryPureEqualityComparer());
                 NeededInventory.TryAdd(req, reqset);
             }
 
@@ -194,7 +198,8 @@ namespace Discreet.Network
             {
                 var txs = packet as TransactionsPacket;
                 var txinvs = txs.Txs.Select(x => new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, x.TxID)) { tx = x});
-                List<InventoryVectorRef> fulfilled = new();
+                // it's best to assume the optimal case that all items are present
+                List<InventoryVectorRef> fulfilled = new(capacity: txs.Txs.Length + 1);
                 foreach (var txinv in txinvs)
                 {
                     bool remsuccess = reqset.TryGetValue(txinv, out var trueinv);
@@ -213,7 +218,7 @@ namespace Discreet.Network
             else if (packet.GetType() == typeof(BlocksPacket))
             {
                 var blocks = packet as BlocksPacket;
-                List<InventoryVectorRef> fulfilled = new();
+                List<InventoryVectorRef> fulfilled = new(capacity: blocks.Blocks.Length + 1);
 
                 foreach (Coin.Block block in blocks.Blocks)
                 {
@@ -245,7 +250,7 @@ namespace Discreet.Network
             else if (packet.GetType() == typeof(HeadersPacket))
             {
                 var headers = packet as HeadersPacket;
-                List<InventoryVectorRef> fulfilled = new();
+                List<InventoryVectorRef> fulfilled = new(capacity: headers.Headers.Length + 1);
 
                 foreach (Coin.BlockHeader header in headers.Headers)
                 {

@@ -52,7 +52,7 @@ namespace Discreet.Daemon
 
         public long Uptime { get; private set; }
 
-        public bool RPCLive { get; set; }
+        public bool RPCLive { get; set; } = false;
 
         private object MintLocker = new();
 
@@ -158,7 +158,6 @@ namespace Discreet.Daemon
                 }
             }
 
-            RPCLive = false;
             Logger.Info($"Starting RPC server...");
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
