@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Discreet.Coin.Converters
 {
-    internal class TXOutputConverter : JsonConverter<TXOutput>
+    public class TXOutputConverter : JsonConverter<TXOutput>
     {
         public override TXOutput Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {

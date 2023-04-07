@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Discreet.Coin.Converters
 {
-    internal class BlockHeaderConverter : JsonConverter<BlockHeader>
+    public class BlockHeaderConverter : JsonConverter<BlockHeader>
     {
         public override BlockHeader Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {

@@ -58,7 +58,7 @@ namespace Discreet.Coin.Models
         public string Readable()
         {
             var options = new JsonSerializerOptions();
-            options.Converters.Add(new Converters.Transparent.TXOutputConverter());
+            options.Converters.Add(new Converters.TTXOutputConverter());
 
             return JsonSerializer.Serialize(this, typeof(TTXOutput), options);
         }

@@ -18,8 +18,8 @@ namespace Discreet.Coin.Converters
         private static BulletproofConverter BulletproofConverter;
         private static BulletproofPlusConverter BulletproofPlusConverter;
         private static SignatureConverter SignatureConverter;
-        private static Transparent.TXInputConverter TTXInputConverter;
-        private static Transparent.TXOutputConverter TTXOutputConverter;
+        private static TTXInputConverter TTXInputConverter;
+        private static TTXOutputConverter TTXOutputConverter;
         private static TriptychConverter TriptychConverter;
         private static TXInputConverter TXInputConverter;
         private static TXOutputConverter TXOutputConverter;
