@@ -130,7 +130,7 @@ namespace Discreet.Network
             {
                 var len = packet.GetType() == typeof(GetTransactionsPacket) ? (packet as GetTransactionsPacket).Count :
                            (packet.GetType() == typeof(GetBlocksPacket) ? (packet as GetBlocksPacket).Count :
-                            (packet.GetType() == typeof(GetHeadersPacket) ? (packet as GetHeadersPacket).Count :
+                            (packet.GetType() == typeof(GetHeadersPacket) ? (int)(packet as GetHeadersPacket).Count :
                              0));
                 reqset = new((int)len, new InventoryPureEqualityComparer());
                 NeededInventory.TryAdd(req, reqset);
