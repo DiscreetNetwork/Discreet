@@ -565,8 +565,11 @@ namespace Discreet.Network.Peerbloom
             }
         }
 
-        public (Peer, long) Select(bool newOnly, bool triedOnly = false)
+        public (Peer, long) Select(bool newOnly, bool triedOnly = false, int maxTries = 1000)
         {
+            if (maxTries < 0) maxTries = 1000;
+            int numTries = 0;
+
             if (newOnly && NumNew == 0) return (null, 0);
 
             if (NumTried == 0 && NumNew == 0) return (null, 0);
@@ -577,7 +580,7 @@ namespace Discreet.Network.Peerbloom
             {
                 double chanceFactor = 1.0;
 
-                while (true)
+                while (numTries < maxTries)
                 {
                     uint bucket = (uint)r.Next(0, Constants.PEERLIST_MAX_TRIED_BUCKETS);
                     uint pos = (uint)r.Next(0, Constants.PEERLIST_BUCKET_SIZE);
@@ -589,7 +592,11 @@ namespace Discreet.Network.Peerbloom
                         if (Tried[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE] != 0) break;
                     }
 
-                    if (i == Constants.PEERLIST_BUCKET_SIZE) continue;
+                    if (i == Constants.PEERLIST_BUCKET_SIZE)
+                    {
+                        numTries++;
+                        continue;
+                    }
 
                     uint nID = Tried[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE];
                     addrs.TryGetValue(nID, out var found);
@@ -608,7 +615,7 @@ namespace Discreet.Network.Peerbloom
             {
                 double chanceFactor = 1.0;
 
-                while (true)
+                while (numTries < maxTries)
                 {
                     uint bucket = (uint)r.Next(0, Constants.PEERLIST_MAX_NEW_BUCKETS);
                     uint pos = (uint)r.Next(0, Constants.PEERLIST_BUCKET_SIZE);
@@ -619,7 +626,11 @@ namespace Discreet.Network.Peerbloom
                         if (New[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE] != 0) break;
                     }
 
-                    if (i == Constants.PEERLIST_BUCKET_SIZE) continue;
+                    if (i == Constants.PEERLIST_BUCKET_SIZE)
+                    {
+                        numTries++;
+                        continue;
+                    }
 
                     uint nID = New[bucket, (pos + i) % Constants.PEERLIST_BUCKET_SIZE];
                     addrs.TryGetValue(nID, out var found);
@@ -634,6 +645,8 @@ namespace Discreet.Network.Peerbloom
                     chanceFactor *= 1.2;
                 }
             }
+
+            return (null, 0);
         }
 
         public List<IPEndPoint> GetAddr(int maxAddresses, int maxPercent)
