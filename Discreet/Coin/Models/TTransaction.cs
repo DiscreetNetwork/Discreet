@@ -80,6 +80,7 @@ namespace Discreet.Coin.Models
             InnerHash = reader.ReadSHA256();
             Inputs = reader.ReadSerializableArray<TTXInput>(NumInputs);
             Outputs = reader.ReadSerializableArray<TTXOutput>(NumOutputs, (x) => x.TXUnmarshal);
+            Signatures = reader.ReadSerializableArray<Signature>(NumSigs);
         }
 
         public string Readable()
