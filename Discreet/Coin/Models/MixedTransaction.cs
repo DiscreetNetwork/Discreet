@@ -87,7 +87,7 @@ namespace Discreet.Coin.Models
 
             if (NumPOutputs > 0) RangeProofPlus.Serialize(writer);
             writer.WriteSerializableArray(PSignatures, false);
-            if (NumPInputs > 0) writer.WriteKeyArray(PseudoOutputs);
+            if (NumPInputs > 0) writer.WriteKeyArray(PseudoOutputs, false);
         }
 
         public void Deserialize(ref MemoryReader reader)

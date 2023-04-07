@@ -47,7 +47,6 @@ namespace Discreet.Coin.Models
             writer.Write(Version);
             writer.Write(NumInputs);
             writer.Write(NumOutputs);
-            writer.Write(NumSigs);
 
             writer.WriteSerializableArray(Inputs, false);
             writer.WriteSerializableArray(Outputs, false, (x) => x.TXMarshal);
