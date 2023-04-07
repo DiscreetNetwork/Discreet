@@ -202,6 +202,7 @@ namespace Discreet.Coin.Models
                 var comm = tx.Outputs[0].Commitment;
                 Key mask = KeyOps.GenCommitmentMask(ref r, ref addresses[i].view, 0);
                 KeyOps.GenCommitment(ref comm, ref mask, values[i]);
+                tx.Outputs[0].Commitment = comm;
                 tx.Outputs[0].UXKey = KeyOps.DKSAP(ref r, addresses[i].view, addresses[i].spend, 0);
                 tx.Outputs[0].Amount = KeyOps.GenAmountMask(ref r, ref addresses[i].view, 0, values[i]);
 

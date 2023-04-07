@@ -857,6 +857,7 @@ namespace Discreet.WalletsLegacy
                         Key mask = Key.I; // makes logic work
                         var comm = pOutput.Commitment;
                         KeyOps.GenCommitment(ref comm, ref mask, amount[i]);
+                        pOutput.Commitment = comm;
                         pOutput.Amount = amount[i];
                         gammas.Add(mask);
                         amounts.Add(amount[i]);
@@ -875,6 +876,7 @@ namespace Discreet.WalletsLegacy
                         Key mask = KeyOps.GenCommitmentMask(ref r, ref addr.view, pOutputs.Count);
                         var comm = pOutput.Commitment;
                         KeyOps.GenCommitment(ref comm, ref mask, amount[i]);
+                        pOutput.Commitment = comm;
                         pOutput.Amount = KeyOps.GenAmountMask(ref r, ref addr.view, pOutputs.Count, amount[i]);
                         gammas.Add(mask);
                         amounts.Add(amount[i]);
@@ -897,6 +899,7 @@ namespace Discreet.WalletsLegacy
                     Key mask = KeyOps.GenCommitmentMask(ref r, ref PubViewKey, pOutputs.Count);
                     var comm = pOutput.Commitment;
                     KeyOps.GenCommitment(ref comm, ref mask, neededAmount - totalAmount);
+                    pOutput.Commitment = comm;
                     pOutput.Amount = KeyOps.GenAmountMask(ref r, ref PubViewKey, pOutputs.Count, neededAmount - totalAmount);
                     gammas.Add(mask);
                     amounts.Add(neededAmount - totalAmount);
@@ -1453,6 +1456,7 @@ namespace Discreet.WalletsLegacy
                 Key mask = KeyOps.GenCommitmentMask(ref r, ref to[i].view, i);
                 var comm = tx.Outputs[i].Commitment;
                 KeyOps.GenCommitment(ref comm, ref mask, amount[i]);
+                tx.Outputs[i].Commitment = comm;
                 tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref to[i].view, i, amount[i]);
                 gammas[i] = mask;
             }
@@ -1466,6 +1470,7 @@ namespace Discreet.WalletsLegacy
                 Key rmask = KeyOps.GenCommitmentMask(ref r, ref PubViewKey, i);
                 var comm = tx.Outputs[i].Commitment;
                 KeyOps.GenCommitment(ref comm, ref rmask, neededAmount - totalAmount);
+                tx.Outputs[i].Commitment = comm;
                 tx.Outputs[i].Amount = KeyOps.GenAmountMask(ref r, ref PubViewKey, i, neededAmount - totalAmount);
                 gammas[i] = rmask;
             }

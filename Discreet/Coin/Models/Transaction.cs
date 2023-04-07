@@ -151,6 +151,7 @@ namespace Discreet.Coin.Models
                 ulong amnt = 1_000_000_000_0 + Cipher.KeyOps.RandomDisAmount(99_000_000_000_0);
                 var comm = tx.Outputs[i].Commitment;
                 Cipher.KeyOps.GenCommitment(ref comm, ref mask, amnt);
+                tx.Outputs[i].Commitment = comm;
                 tx.Outputs[i].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, i);
                 tx.Outputs[i].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, i, amnt);
             }
@@ -184,6 +185,7 @@ namespace Discreet.Coin.Models
             Cipher.Key mask = Cipher.KeyOps.GenCommitmentMask(ref r, ref to.view, 0);
             var comm = tx.Outputs[0].Commitment;
             Cipher.KeyOps.GenCommitment(ref comm, ref mask, amnt);
+            tx.Outputs[0].Commitment = comm;
             tx.Outputs[0].UXKey = Cipher.KeyOps.DKSAP(ref r, to.view, to.spend, 0);
             tx.Outputs[0].Amount = Cipher.KeyOps.GenAmountMask(ref r, ref to.view, 0, amnt);
 
