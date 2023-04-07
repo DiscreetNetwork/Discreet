@@ -74,7 +74,7 @@ namespace Discreet.Daemon
 
             signingKey = Key.FromHex(config.SigningKey);
 
-            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d")))
+            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("2ad7ffd37e53a704baa0f75e2a24343efd42efb4080d3226f6b8b09124da67ba")))
             {
                 IsMasternode = true;
             }
