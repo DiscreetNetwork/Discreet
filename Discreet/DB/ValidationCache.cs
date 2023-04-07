@@ -151,7 +151,7 @@ namespace Discreet.DB
             if (numOutputs != block.Header.NumOutputs) return new VerifyException("Block", $"block private output count mismatch: expected {block.Header.NumOutputs}; got {numOutputs} from calculations");
 
             /* check coinbase */
-            if (block.Header.Version == 2)
+            if (block.Header.Version == 2 && block.Header.Height > 0)
             {
                 var coinbaseTx = block.Transactions[0];
 

@@ -14,6 +14,7 @@ using System.Reflection;
 using Discreet.RPC.Common;
 using Discreet.Wallets;
 using Discreet.Coin.Models;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Daemon
 {
@@ -74,7 +75,7 @@ namespace Discreet.Daemon
 
             signingKey = Key.FromHex(config.SigningKey);
 
-            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("2ad7ffd37e53a704baa0f75e2a24343efd42efb4080d3226f6b8b09124da67ba")))
+            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("ee37bbcbd7c0760fdc13947fd5a360f66fd13f5ab78f34be36640481bc1b9d2a")))
             {
                 IsMasternode = true;
             }

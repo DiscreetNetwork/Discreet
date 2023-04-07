@@ -42,8 +42,6 @@ namespace Discreet.Wallets.Utilities
 
             SHA256 entropyChecksum = SHA256.HashData(SHA256.HashData(entropyEncryptionKey).Bytes);
 
-            Console.WriteLine(entropyChecksum.ToHex());
-            Console.WriteLine(checksum.ToHex());
             if (entropyChecksum != checksum)
             {
                 throw new Exception("Wrong passphrase!");
