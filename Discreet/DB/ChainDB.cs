@@ -68,12 +68,16 @@ namespace Discreet.DB
             }
         }
 
+        public static readonly Cipher.Key[] obsoleteSigningKeys = new Cipher.Key[] {
+            Cipher.Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d"),
+        };
+
         public ChainDB(string path)
         {
             try
             {
                 if (File.Exists(path)) throw new Exception("ArchiveDB: expects a valid directory path, not a file");
-
+redo:
                 if (!Directory.Exists(path))
                 {
                     Directory.CreateDirectory(path);
@@ -149,6 +153,21 @@ namespace Discreet.DB
                 }
 
                 folder = path;
+
+                // test and see if we're obsolete 
+                if (height.Value >= 0)
+                {
+                    var block = GetBlock(height.Value);
+                    if (block != null && block.Header.ExtraLen == 96)
+                    {
+                        var sig = new Cipher.Signature(block.Header.Extra);
+                        if (obsoleteSigningKeys.Any(x => x == sig.y))
+                        {
+                            DropEverything(path);
+                            goto redo;
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -343,6 +362,23 @@ namespace Discreet.DB
             rdb.Put(txhash.Bytes, Serialization.UInt64(txIndex), cf: TxIndices);
             byte[] txraw = tx.Serialize();
             rdb.Put(Serialization.UInt64(txIndex), txraw, cf: Txs);
+        }
+
+        public void DropEverything(string path)
+        {
+            System.IO.DirectoryInfo chain = new(path);
+            if (chain.Exists)
+            {
+                foreach (var fi in chain.GetFiles())
+                {
+                    fi.Delete();
+                }
+
+                foreach (var di in chain.GetDirectories())
+                {
+                    di.Delete(true);
+                }
+            }
         }
 
         public Dictionary<long, Block> GetBlockCache()
