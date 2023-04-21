@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Discreet.Common.Serialize;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -8,7 +9,7 @@ using static Discreet.Cipher.Extensions.ByteArrayExtensions;
 
 namespace Discreet.Network.Core.Packets
 {
-    public struct InventoryVector
+    public struct InventoryVector : ISerializable
     {
         public ObjectType Type;
         public Cipher.SHA256 Hash;
@@ -17,14 +18,19 @@ namespace Discreet.Network.Core.Packets
 
         public InventoryVector(ObjectType type, long hash) { this.Type = type; this.Hash = new Cipher.SHA256(hash); }
 
-        public byte[] Serialize()
+        public void Serialize(BEBinaryWriter writer)
         {
-            byte[] rv = new byte[36];
-            Common.Serialization.CopyData(rv, 0, (uint)Type);
-            Array.Copy(Hash.Bytes, 0, rv, 4, 32);
-
-            return rv;
+            writer.Write((uint)Type);
+            writer.WriteSHA256(Hash);
         }
+
+        public void Deserialize(ref MemoryReader reader)
+        {
+            Type = (ObjectType)reader.ReadUInt32();
+            Hash = reader.ReadSHA256();
+        }
+
+        public int Size => 36;
 
         public int Compare(InventoryVector y)
         {

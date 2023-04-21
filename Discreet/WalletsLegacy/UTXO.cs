@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Discreet.Cipher;
+using Discreet.Coin.Models;
 
 namespace Discreet.WalletsLegacy
 {
@@ -101,7 +102,7 @@ namespace Discreet.WalletsLegacy
             Type = UTXOType.PRIVATE;
         }
 
-        public UTXO(uint index, Coin.TXOutput output)
+        public UTXO(uint index, TXOutput output)
         {
             Type = UTXOType.PRIVATE;
             Index = index;
@@ -117,7 +118,7 @@ namespace Discreet.WalletsLegacy
             Encrypted = true;
         }
 
-        public UTXO(Coin.Transparent.TXOutput output)
+        public UTXO(TTXOutput output)
         {
             Type = UTXOType.TRANSPARENT;
             TransactionSrc = output.TransactionSrc;
@@ -131,40 +132,40 @@ namespace Discreet.WalletsLegacy
             Encrypted = false;
         }
 
-        public UTXO(uint index, Coin.TXOutput output, Coin.Transaction tx, int i) : this(index, output)
+        public UTXO(uint index, TXOutput output, Transaction tx, int i) : this(index, output)
         {
             TransactionKey = tx.TransactionKey;
             DecodeIndex = i;
             IsCoinbase = false;
         }
 
-        public UTXO(uint index, Coin.TXOutput output, Coin.MixedTransaction tx, int i) : this(index, output)
+        public UTXO(uint index, TXOutput output, MixedTransaction tx, int i) : this(index, output)
         {
             TransactionKey = tx.TransactionKey;
             DecodeIndex = i;
             IsCoinbase = false;
         }
 
-        public UTXO(uint index, Coin.TXOutput output, Key txKey, int i) : this(index, output)
+        public UTXO(uint index, TXOutput output, Key txKey, int i) : this(index, output)
         {
             TransactionKey = txKey;
             DecodeIndex = i;
             IsCoinbase = false;
         }
 
-        public UTXO(uint index, Coin.TXOutput output, Coin.Transaction tx, int i, bool isCoinbase) : this(index, output)
+        public UTXO(uint index, TXOutput output, Transaction tx, int i, bool isCoinbase) : this(index, output)
         {
             TransactionKey = tx.TransactionKey;
             DecodeIndex = i;
             IsCoinbase = isCoinbase;
         }
 
-        public UTXO(WalletAddress addr, uint index, Coin.TXOutput output, Coin.Transaction tx, int i, bool isCoinbase) : this(index, output)
+        public UTXO(WalletAddress addr, uint index, TXOutput output, Transaction tx, int i, bool isCoinbase) : this(index, output)
         {
             TransactionKey = tx.TransactionKey;
             DecodeIndex = i;
             IsCoinbase = isCoinbase;
-            UXSecKey = KeyOps.DKSAPRecover(ref tx.TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, i);
+            UXSecKey = KeyOps.DKSAPRecover(ref TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, i);
 
             byte[] cdata = new byte[36];
             Array.Copy(KeyOps.ScalarmultKey(ref TransactionKey, ref addr.SecViewKey).bytes, cdata, 32);
@@ -202,13 +203,13 @@ namespace Discreet.WalletsLegacy
             Encrypted = false;
         }
 
-        public UTXO(WalletAddress addr, uint index, Coin.TXOutput output, Coin.MixedTransaction tx, int i, bool isCoinbase) : this(index, output)
+        public UTXO(WalletAddress addr, uint index, TXOutput output, MixedTransaction tx, int i, bool isCoinbase) : this(index, output)
         {
             TransactionKey = tx.TransactionKey;
             DecodeIndex = i;
             IsCoinbase = isCoinbase;
 
-            UXSecKey = KeyOps.DKSAPRecover(ref tx.TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, i);
+            UXSecKey = KeyOps.DKSAPRecover(ref TransactionKey, ref addr.SecViewKey, ref addr.SecSpendKey, i);
 
             byte[] cdata = new byte[36];
             Array.Copy(KeyOps.ScalarmultKey(ref TransactionKey, ref addr.SecViewKey).bytes, cdata, 32);
@@ -246,7 +247,7 @@ namespace Discreet.WalletsLegacy
             Encrypted = false;
         }
 
-        public UTXO(uint index, Coin.TXOutput output, Key txKey, int i, bool isCoinbase) : this(index, output)
+        public UTXO(uint index, TXOutput output, Key txKey, int i, bool isCoinbase) : this(index, output)
         {
             TransactionKey = txKey;
             DecodeIndex = i;

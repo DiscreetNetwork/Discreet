@@ -1,5 +1,6 @@
 ﻿using Discreet.Cipher;
 using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Wallets.Models;
 using System;
 using System.Collections.Generic;
@@ -66,7 +67,7 @@ namespace Discreet.Wallets.Services
 
             var poutputs = _poutputs.ToArray();
             var toutputs = _toutputs.ToArray();
-            Coin.BulletproofPlus bp = null;
+            Coin.Models.BulletproofPlus bp = null;
             if (poutputs.Any()) bp = BuildRangeProof(secoutdata);
 
             var tx = new MixedTransaction

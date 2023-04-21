@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Wallets.Models;
 
 namespace Discreet.Wallets.Services
@@ -19,7 +20,7 @@ namespace Discreet.Wallets.Services
             if (change != null) _outputs = _outputs.Append(change);
             var outputs = _outputs.ToArray();
 
-            var tx = new Discreet.Coin.Transparent.Transaction
+            var tx = new TTransaction
             {
                 Version = (byte)Config.TransactionVersions.TRANSPARENT,
                 NumInputs = (byte)inputs.Length,

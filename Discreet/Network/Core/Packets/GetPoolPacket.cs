@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Discreet.Common.Serialize;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -19,39 +20,10 @@ namespace Discreet.Network.Core.Packets
 
         }
 
-        public GetPoolPacket(byte[] b, uint offset)
-        {
-            Deserialize(b, offset);
-        }
+        public void Serialize(BEBinaryWriter writer) { }
+        
+        public void Deserialize(ref MemoryReader reader) { }
 
-        public GetPoolPacket(Stream s)
-        {
-            Deserialize(s);
-        }
-
-        public void Deserialize(byte[] b, uint offset)
-        {
-            return;
-        }
-
-        public void Deserialize(Stream s)
-        {
-            return;
-        }
-
-        public uint Serialize(byte[] b, uint offset)
-        {
-            return offset;
-        }
-
-        public void Serialize(Stream s)
-        {
-            return;
-        }
-
-        public int Size()
-        {
-            return 0;
-        }
+        public int Size => 0;
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Discreet.Cipher;
 using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Wallets.Models;
 using System;
 using System.Collections.Generic;
@@ -62,7 +63,7 @@ namespace Discreet.Wallets.Services
                 Fee = 0,
                 PInputs = pinputs.Select(x => x.Input).ToArray(),
                 POutputs = poutputs,
-                TInputs = Array.Empty<Discreet.Coin.Transparent.TXInput>(),
+                TInputs = Array.Empty<TTXInput>(),
                 TOutputs = toutputs,
                 RangeProofPlus = bp,
                 TransactionKey = txPublicKey,
@@ -109,7 +110,7 @@ namespace Discreet.Wallets.Services
                 TOutputs = toutputs,
                 RangeProofPlus = bp,
                 TransactionKey = txPublicKey,
-                PSignatures = Array.Empty<Discreet.Coin.Triptych>(),
+                PSignatures = Array.Empty<Coin.Models.Triptych>(),
                 PseudoOutputs = Array.Empty<Key>()
             };
 

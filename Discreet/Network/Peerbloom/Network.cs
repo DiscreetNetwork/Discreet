@@ -522,6 +522,13 @@ namespace Discreet.Network.Peerbloom
                 {
                     (peer, _) = peerlist.Select(false, true);
 
+                    if (peer == null)
+                    {
+                        numAttempts++;
+                        checkedPeers.Clear();
+                        continue;
+                    }
+
                     if (checkedPeers.Contains(peer)) continue;
 
                     // we want to skip over peers in the "default" peers list.

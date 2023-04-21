@@ -1,5 +1,5 @@
 ﻿using Discreet.Cipher;
-using Discreet.Coin;
+using Discreet.Coin.Models;
 using Microsoft.EntityFrameworkCore.Update;
 using System;
 using System.Collections.Generic;
@@ -33,8 +33,8 @@ namespace Discreet.DB
         public Dictionary<long, Block> GetBlockCache();
         public void ClearBlockCache();
         public bool CheckSpentKey(Key j);
-        public Discreet.Coin.Transparent.TXOutput GetPubOutput(Discreet.Coin.Transparent.TXInput _input);
-        public void RemovePubOutput(Discreet.Coin.Transparent.TXInput _input);
+        public TTXOutput GetPubOutput(TTXInput _input);
+        public void RemovePubOutput(TTXInput _input);
         public uint[] GetOutputIndices(SHA256 tx);
         public TXOutput GetOutput(uint index);
         public TXOutput[] GetMixins(uint[] index);
@@ -134,7 +134,7 @@ namespace Discreet.DB
         public bool BlockExists(SHA256 blockHash);
         public bool BlockHeightExists(long height);
         public void Flush(IEnumerable<UpdateEntry> updates);
-        public Discreet.Coin.Transparent.TXOutput MustGetPubOutput(Discreet.Coin.Transparent.TXInput input)
+        public TTXOutput MustGetPubOutput(TTXInput input)
         {
             try
             {

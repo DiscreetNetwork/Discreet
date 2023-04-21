@@ -14,6 +14,7 @@ using System.Security.Principal;
 using Discreet.Wallets.Comparers;
 using System.Drawing;
 using System.Collections.Concurrent;
+using Discreet.Coin.Models;
 
 namespace Discreet.Wallets.Extensions
 {
@@ -26,7 +27,7 @@ namespace Discreet.Wallets.Extensions
             List<UTXO> spents = new();
 
             if (account.Encrypted) throw new Exception("account is encrypted");
-            if (block.Header.Version != 1)
+            if (block.Header.Version != 1 && block.Header.Height > 0)
             {
                 var Coinbase = block.Transactions[0].ToPrivate();
                 if (Coinbase != null && account.Type == 0)
@@ -125,13 +126,15 @@ namespace Discreet.Wallets.Extensions
 
             if (account.Type == 0 && transaction.POutputs != null)
             {
-                Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref transaction.TransactionKey, ref account.SecViewKey) : default;
+                var txkey = transaction.TransactionKey;
+                Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref txkey, ref account.SecViewKey) : default;
                 for (int i = 0; i < transaction.POutputs.Length; i++)
                 {
                     var pubkey = account.PubSpendKey.Value;
-                    if (KeyOps.CheckForBalance(ref cscalar, ref pubkey, ref transaction.POutputs[i].UXKey, i))
+                    var uxkey = transaction.POutputs[i].UXKey;
+                    if (KeyOps.CheckForBalance(ref cscalar, ref pubkey, ref uxkey, i))
                     {
-                        var outputSecKey = KeyOps.DKSAPRecover(ref transaction.TransactionKey, ref account.SecViewKey, ref account.SecSpendKey, i);
+                        var outputSecKey = KeyOps.DKSAPRecover(ref txkey, ref account.SecViewKey, ref account.SecSpendKey, i);
                         var utxo = new UTXO
                         {
                             Address = account.Address,
@@ -144,7 +147,7 @@ namespace Discreet.Wallets.Extensions
                             Commitment = transaction.POutputs[i].Commitment,
                             DecodeIndex = i,
                             TransactionKey = transaction.TransactionKey,
-                            DecodedAmount = tToP ? transaction.POutputs[i].Amount : KeyOps.GenAmountMaskRecover(ref transaction.TransactionKey, ref account.SecViewKey, i, transaction.POutputs[i].Amount),
+                            DecodedAmount = tToP ? transaction.POutputs[i].Amount : KeyOps.GenAmountMaskRecover(ref txkey, ref account.SecViewKey, i, transaction.POutputs[i].Amount),
                             LinkingTag = KeyOps.GenerateLinkingTag(ref outputSecKey),
                             Encrypted = false,
                             Account = account
@@ -171,7 +174,7 @@ namespace Discreet.Wallets.Extensions
                         else
                         {
                             var checkCommitment = new Key(new byte[32]);
-                            var mask = KeyOps.GenCommitmentMaskRecover(ref transaction.TransactionKey, ref account.SecViewKey, i);
+                            var mask = KeyOps.GenCommitmentMaskRecover(ref txkey, ref account.SecViewKey, i);
                             KeyOps.GenCommitment(ref checkCommitment, ref mask, utxo.DecodedAmount);
 
                             if (checkCommitment != utxo.Commitment)
@@ -409,13 +412,13 @@ namespace Discreet.Wallets.Extensions
             List<UTXO> spents = new();
 
             if (account.Encrypted) throw new Exception("account is encrypted");
-
-            IEnumerable<(ulong, FullTransaction)> txs = blocks.SelectMany(x => Enumerable.Repeat(x.Header.Timestamp, (int)x.Header.NumTXs).Zip(x.Transactions));
+            
+            IEnumerable<((bool, ulong), FullTransaction)> txs = blocks.SelectMany(x => Enumerable.Repeat((x.Header.Height == 0, x.Header.Timestamp), (int)x.Header.NumTXs).Zip(x.Transactions));
             var beginUnspents = ProcessTxsForOutputs(account, txs);
             return ProcessTxsForInputs(account, txs, beginUnspents);
         }
 
-        public static (IEnumerable<UTXO>? spents, IEnumerable<UTXO>? utxos, IEnumerable<HistoryTx>? htxs) ProcessTxsForInputs(this Account account, IEnumerable<(ulong, FullTransaction)> txs, IEnumerable<(IEnumerable<UTXO> unspents, HistoryTx htx)> unspentsAndHtxs)
+        public static (IEnumerable<UTXO>? spents, IEnumerable<UTXO>? utxos, IEnumerable<HistoryTx>? htxs) ProcessTxsForInputs(this Account account, IEnumerable<((bool, ulong), FullTransaction)> txs, IEnumerable<(IEnumerable<UTXO> unspents, HistoryTx htx)> unspentsAndHtxs)
         {
             HashSet<UTXO> unspents = null;
             Dictionary<SHA256, HistoryTx> htxs = null;
@@ -461,7 +464,7 @@ namespace Discreet.Wallets.Extensions
                                 if (existingHtx) htxs[tx.Item2.TxID].ConstructHistoryTxInputs(account, tx.Item2, spents);
                                 else
                                 {
-                                    newHtxs.Enqueue(AddTransactionToHistory(account, tx.Item2, spents, Array.Empty<(UTXO, int)>(), new DateTime((long)tx.Item1).ToLocalTime().Ticks));
+                                    newHtxs.Enqueue(AddTransactionToHistory(account, tx.Item2, spents, Array.Empty<(UTXO, int)>(), new DateTime((long)tx.Item1.Item2).ToLocalTime().Ticks));
                                 }
                             }
                         }
@@ -507,7 +510,7 @@ namespace Discreet.Wallets.Extensions
                             {
                                 if (!existingHtx)
                                 {
-                                    newHtxs.Enqueue(AddTransactionToHistory(account, tx.Item2, spents, Array.Empty<(UTXO, int)>(), new DateTime((long)tx.Item1).ToLocalTime().Ticks));
+                                    newHtxs.Enqueue(AddTransactionToHistory(account, tx.Item2, spents, Array.Empty<(UTXO, int)>(), new DateTime((long)tx.Item1.Item2).ToLocalTime().Ticks));
                                 }
                             }
                         }
@@ -522,7 +525,7 @@ namespace Discreet.Wallets.Extensions
             else throw new FormatException(nameof(account));
         }
 
-        public static IEnumerable<(IEnumerable<UTXO> unspents, HistoryTx htx)> ProcessTxsForOutputs(this Account account, IEnumerable<(ulong, FullTransaction)> txs)
+        public static IEnumerable<(IEnumerable<UTXO> unspents, HistoryTx htx)> ProcessTxsForOutputs(this Account account, IEnumerable<((bool, ulong), FullTransaction)> txs)
         {
             if (account.Type == 0)
             {
@@ -530,12 +533,14 @@ namespace Discreet.Wallets.Extensions
                 return txs.AsParallel().AsUnordered().Select(x => new MarkableFullTransaction(x, account)).Where(tx =>
                 {
                     var numPOutputs = tx.tx.NumPOutputs;
-                    Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref tx.tx.TransactionKey, ref account.SecViewKey) : default;
+                    var txkey = tx.tx.TransactionKey;
+                    Key cscalar = numPOutputs > 0 ? KeyOps.ScalarmultKey(ref txkey, ref account.SecViewKey) : default;
                     bool any = false;
                     for (int i = 0; i < numPOutputs; i++)
                     {
                         var pubkey = account.PubSpendKey.Value;
-                        if (KeyOps.CheckForBalance(ref cscalar, ref pubkey, ref tx.tx.POutputs[i].UXKey, i))
+                        var uxkey = tx.tx.POutputs[i].UXKey;
+                        if (KeyOps.CheckForBalance(ref cscalar, ref pubkey, ref uxkey, i))
                         {
                             tx.markedbalance[i] = true;
                             any = true;
@@ -551,12 +556,13 @@ namespace Discreet.Wallets.Extensions
                         if (tx.markedbalance[i])
                         {
                             bool tToP = (tx.tx.Version == 4 && tx.tx.NumTInputs > 0 && tx.tx.NumPOutputs > 0);
-                            var outputSecKey = KeyOps.DKSAPRecover(ref tx.tx.TransactionKey, ref account.SecViewKey, ref account.SecSpendKey, i);
+                            var txkey = tx.tx.TransactionKey;
+                            var outputSecKey = KeyOps.DKSAPRecover(ref txkey, ref account.SecViewKey, ref account.SecSpendKey, i);
                             var utxo = new UTXO
                             {
                                 Address = account.Address,
                                 Type = 0,
-                                IsCoinbase = tx.tx.Version == 0 || tToP,
+                                IsCoinbase = (tx.tx.Version == 0 || tToP) && !tx.genesis,
                                 TransactionSrc = tx.tx.TxID,
                                 Amount = tx.tx.POutputs[i].Amount,
                                 UXKey = tx.tx.POutputs[i].UXKey,
@@ -565,7 +571,7 @@ namespace Discreet.Wallets.Extensions
                                 Index = view.GetOutputIndices(tx.tx.TxID)[i],
                                 DecodeIndex = i,
                                 TransactionKey = tx.tx.TransactionKey,
-                                DecodedAmount = (tx.tx.Version == 0 || tToP) ? tx.tx.POutputs[i].Amount : KeyOps.GenAmountMaskRecover(ref tx.tx.TransactionKey, ref account.SecViewKey, i, tx.tx.POutputs[i].Amount),
+                                DecodedAmount = ((tx.tx.Version == 0 || tToP) && !tx.genesis) ? tx.tx.POutputs[i].Amount : KeyOps.GenAmountMaskRecover(ref txkey, ref account.SecViewKey, i, tx.tx.POutputs[i].Amount),
                                 LinkingTag = KeyOps.GenerateLinkingTag(ref outputSecKey),
                                 Encrypted = false,
                                 Account = account
@@ -575,7 +581,7 @@ namespace Discreet.Wallets.Extensions
                             if (utxo.UXKey.Value.ToHex() == "67ac33ab1a47c4b017c2e84d88c3e05b23b082c9ed359f87e1e4e77026843311"
                                 || utxo.UXKey.Value.ToHex() == "e85f4db372bf70a0d7881d8659e6870a89a08ff4d3e1fc6cb71c02bc184e0bbc")
                             {
-                                utxo.DecodedAmount = KeyOps.GenAmountMaskRecover(ref tx.tx.TransactionKey, ref account.SecViewKey, i, tx.tx.POutputs[i].Amount);
+                                utxo.DecodedAmount = KeyOps.GenAmountMaskRecover(ref txkey, ref account.SecViewKey, i, tx.tx.POutputs[i].Amount);
                             }
 
                             if (utxo.IsCoinbase)
@@ -596,7 +602,7 @@ namespace Discreet.Wallets.Extensions
                             else
                             {
                                 var checkCommitment = new Key(new byte[32]);
-                                var mask = KeyOps.GenCommitmentMaskRecover(ref tx.tx.TransactionKey, ref account.SecViewKey, i);
+                                var mask = KeyOps.GenCommitmentMaskRecover(ref txkey, ref account.SecViewKey, i);
                                 KeyOps.GenCommitment(ref checkCommitment, ref mask, utxo.DecodedAmount);
 
                                 if (checkCommitment != utxo.Commitment)
@@ -666,11 +672,13 @@ namespace Discreet.Wallets.Extensions
             internal FullTransaction tx;
             internal bool[] markedbalance;
             internal ulong timestamp;
+            internal bool genesis;
 
-            internal MarkableFullTransaction((ulong, FullTransaction) tx, Account account)
+            internal MarkableFullTransaction(((bool, ulong), FullTransaction) tx, Account account)
             {
                 this.tx = tx.Item2;
-                this.timestamp = tx.Item1;
+                this.timestamp = tx.Item1.Item2;
+                this.genesis = tx.Item1.Item1;
                 if (account.Type == 0) markedbalance = new bool[tx.Item2.NumPOutputs];
                 else if (account.Type == 1) markedbalance = new bool[tx.Item2.NumTOutputs];
                 else throw new ArgumentException(nameof(account));

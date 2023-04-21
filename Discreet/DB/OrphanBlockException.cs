@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Discreet.Coin.Models;
 
 namespace Discreet.DB
 {
@@ -10,11 +11,11 @@ namespace Discreet.DB
     {
         public long ChainHeight;
         public long BlockHeight;
-        public Coin.Block Block;
+        public Block Block;
 
         public OrphanBlockException(string msg) : base(msg) { }
 
-        public OrphanBlockException(string msg, long h, long b, Coin.Block bl) : base(msg)
+        public OrphanBlockException(string msg, long h, long b, Block bl) : base(msg)
         {
             ChainHeight = h; BlockHeight = b; Block = bl;
         }

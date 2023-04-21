@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Discreet.Coin;
+using Discreet.Coin.Models;
 
 namespace Discreet.DB
 {
@@ -59,9 +59,9 @@ namespace Discreet.DB
 
         public bool CheckSpentKey(Cipher.Key j) => curView.CheckSpentKey(j);
 
-        public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input) => curView.GetPubOutput(_input);
+        public TTXOutput GetPubOutput(TTXInput _input) => curView.GetPubOutput(_input);
 
-        public void RemovePubOutput(Coin.Transparent.TXInput _input) => curView.RemovePubOutput(_input);
+        public void RemovePubOutput(TTXInput _input) => curView.RemovePubOutput(_input);
 
         public uint[] GetOutputIndices(Cipher.SHA256 tx) => curView.GetOutputIndices(tx);
 
@@ -193,7 +193,7 @@ namespace Discreet.DB
 
         public void Flush(IEnumerable<UpdateEntry> updates) => curView.Flush(updates);
 
-        public Coin.Transparent.TXOutput MustGetPubOutput(Coin.Transparent.TXInput input)
+        public TTXOutput MustGetPubOutput(TTXInput input)
         {
             try
             {

@@ -2,7 +2,6 @@
 using Discreet.Cipher.Mnemonics;
 using Discreet.Coin;
 using Discreet.Common;
-using Discreet.Readable;
 using Discreet.RPC.Common;
 using Discreet.Wallets;
 using Discreet.WalletsLegacy;

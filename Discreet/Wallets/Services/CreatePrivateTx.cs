@@ -1,5 +1,6 @@
 ﻿using Discreet.Cipher;
 using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Wallets.Models;
 using System;
 using System.Collections.Generic;

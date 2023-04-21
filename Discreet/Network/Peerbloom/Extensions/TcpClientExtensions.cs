@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 using System.IO;
 using Discreet.Network.Core;
 using System.Security.Cryptography;
+using Discreet.Common.Serialize;
+using System.Reflection.PortableExecutable;
+using System.Xml.Linq;
 
 namespace Discreet.Network.Peerbloom.Extensions
 {
@@ -92,15 +95,21 @@ namespace Discreet.Network.Peerbloom.Extensions
                 uint _checksum = Common.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(_bytes)), 0);
                 if (_checksum != Header.Checksum)
                 {
-                    throw new Exception($"ReadPacketAsync: checksum mismatch; got {Header.Checksum}, but calculated {_checksum}");
+                    throw new Exception($"ReadPacketAsync: checksum mismatch; received {Header.Checksum}, but calculated {_checksum}");
                 }
 
-                Packet p = new Packet();
+                // fuckery with c# ref structs and async; this is safe.
+                var syncSafe = (PacketHeader header, byte[] data) =>
+                {
+                    var packet = new Packet();
 
-                p.Header = Header;
-                p.Body = Packet.DecodePacketBody(Header.Command, _bytes, 0);
+                    packet.Header = header;
+                    MemoryReader reader = new MemoryReader(data);
+                    packet.Body = Core.Packet.DecodePacketBody(header.Command, ref reader);
+                    return packet;
+                };
 
-                return p;
+                return syncSafe(Header, _bytes);
             }
             catch (Exception ex)
             {

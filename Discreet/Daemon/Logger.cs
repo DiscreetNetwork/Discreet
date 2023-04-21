@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Diagnostics;
+using System.Collections.Concurrent;
+using System.Threading;
 
 namespace Discreet.Daemon
 {
@@ -46,6 +48,8 @@ namespace Discreet.Daemon
         private StreamWriter openLog;
         private string openLogPath;
         private long bytesWritten = 0;
+
+        private ConcurrentQueue<(ConsoleColor, bool, string)> logQueue = new();
 
         public Logger(string logpath)
         {
@@ -110,6 +114,30 @@ namespace Discreet.Daemon
             }
         }
 
+        public void Start(CancellationToken token = default)
+        {
+            _ = Task.Run(() => _Start(token), token).ConfigureAwait(false);
+        }
+
+        private async Task _Start(CancellationToken token = default)
+        {
+            while (!token.IsCancellationRequested)
+            {
+                while (!logQueue.IsEmpty)
+                {
+                    logQueue.TryDequeue(out var log);
+
+                    if (log == default) break;
+
+                    if (log.Item2) logger.WriteToFile(log.Item3);
+                    if (Console.ForegroundColor != log.Item1) Console.ForegroundColor = log.Item1;
+                    Console.WriteLine(log.Item3);
+                }
+
+                await Task.Delay(25, token);
+            }
+        }
+
 
         public static void CrashLog(object sender, UnhandledExceptionEventArgs args)
         {
@@ -121,39 +149,18 @@ namespace Discreet.Daemon
 
         public static void Log(string msg)
         {
-            lock (writer_lock)
-            {
-                msg = $"[{DateTime.Now.Hour.ToString().PadLeft(2, '0')}:{DateTime.Now.Minute.ToString().PadLeft(2, '0')}:{DateTime.Now.Second.ToString().PadLeft(2, '0')}] " + msg;
-
-                Logger logger = GetLogger();
-
-                logger.WriteToFile(msg);
-
-                Console.WriteLine(msg);
-            }
+            msg = $"[{DateTime.Now.Hour.ToString().PadLeft(2, '0')}:{DateTime.Now.Minute.ToString().PadLeft(2, '0')}:{DateTime.Now.Second.ToString().PadLeft(2, '0')}] " + msg;
+            Logger logger = GetLogger();
+            logger.logQueue.Enqueue((ConsoleColor.White, true, msg));
         }
 
         public static void Log(string msg, string lvl, bool save = true, int verbose = 0, ConsoleColor color = ConsoleColor.White)
         {
             if (DaemonConfig.GetConfig().VerboseLevel.Value < verbose) return;
 
-            lock (writer_lock)
-            {
-                Console.ForegroundColor = color;
-
-                msg = $"[{DateTime.Now.Hour.ToString().PadLeft(2, '0')}:{DateTime.Now.Minute.ToString().PadLeft(2, '0')}:{DateTime.Now.Second.ToString().PadLeft(2, '0')}] [{lvl}] - " + msg;
-
-                Logger logger = GetLogger();
-
-                if (save)
-                {
-                    logger.WriteToFile(msg);
-                }
-
-                Console.WriteLine(msg);
-
-                Console.ResetColor();
-            }
+            msg = $"[{DateTime.Now.Hour.ToString().PadLeft(2, '0')}:{DateTime.Now.Minute.ToString().PadLeft(2, '0')}:{DateTime.Now.Second.ToString().PadLeft(2, '0')}] [{lvl}] - " + msg;
+            Logger logger = GetLogger();
+            logger.logQueue.Enqueue((color, save, msg));
         }
 
         public static void Info(string msg, bool save = true, int verbose = 0)

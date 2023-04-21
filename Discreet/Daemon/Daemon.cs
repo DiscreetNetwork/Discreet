@@ -13,6 +13,8 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using Discreet.RPC.Common;
 using Discreet.Wallets;
+using Discreet.Coin.Models;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Daemon
 {
@@ -52,7 +54,7 @@ namespace Discreet.Daemon
 
         public long Uptime { get; private set; }
 
-        public bool RPCLive { get; set; }
+        public bool RPCLive { get; set; } = false;
 
         private object MintLocker = new();
 
@@ -73,7 +75,7 @@ namespace Discreet.Daemon
 
             signingKey = Key.FromHex(config.SigningKey);
 
-            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d")))
+            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("9a9335ee5978090019e8cef5f814d44abac923e2ca1eaf5c7000d36cf31ab3f9")))
             {
                 IsMasternode = true;
             }
@@ -98,7 +100,7 @@ namespace Discreet.Daemon
 
             signingKey = Key.FromHex(config.SigningKey);
 
-            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d")))
+            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("9a9335ee5978090019e8cef5f814d44abac923e2ca1eaf5c7000d36cf31ab3f9")))
             {
                 IsMasternode = true;
             }
@@ -135,6 +137,8 @@ namespace Discreet.Daemon
 
         public async Task<bool> Start()
         {
+            Logger.GetLogger().Start(_cancellationToken);
+
             AppDomain.CurrentDomain.UnhandledException += (sender, e) => Logger.CrashLog(sender, e);
             Logger.Debug("Attached global exception handler.");
 
@@ -158,7 +162,6 @@ namespace Discreet.Daemon
                 }
             }
 
-            RPCLive = false;
             Logger.Info($"Starting RPC server...");
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
@@ -385,7 +388,7 @@ namespace Discreet.Daemon
                                 _height = _nextHeight;
                             }
 
-                            var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
+                            var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray() });
                             network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
 
                             while (handler.LastSeenHeight < _nextHeight && missedItems.Count == 0)
@@ -404,7 +407,7 @@ namespace Discreet.Daemon
                                             curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                         }
 
-                                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                         missedItems.Clear();
                                     }
                                 }
@@ -448,7 +451,7 @@ namespace Discreet.Daemon
                                 // begin re-sending requests for blocks
                                 toBeFulfilled = reget.Count;
 
-                                var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = reget.ToArray(), Count = (uint)reget.Count });
+                                var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = reget.ToArray() });
                                 network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 600000, callback: callback);
 
                                 var _nextHeight = reget.Select(x => x.ToInt64()).Max();
@@ -468,7 +471,7 @@ namespace Discreet.Daemon
                                                 curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                             }
 
-                                            network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                            network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                             missedItems.Clear();
                                         }
                                     }
@@ -594,7 +597,7 @@ namespace Discreet.Daemon
                             curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                         }
 
-                        var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
+                        var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray() });
                         network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
 
                         while (handler.LastSeenHeight < (minheight - 1) && missedItems.Count == 0)
@@ -613,7 +616,7 @@ namespace Discreet.Daemon
                                         curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                     }
 
-                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                     missedItems.Clear();
                                 }
                             }
@@ -631,7 +634,7 @@ namespace Discreet.Daemon
                     if (err != null)
                     {
                         Logger.Error($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}", err);
-                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
+                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
                     }
 
                     try

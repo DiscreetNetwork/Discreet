@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Discreet.Common.Serialize;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,40 +15,21 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public Connect() { }
 
-        public Connect(Stream s)
+        public Connect(MemoryStream s)
         {
-            Deserialize(s);
+            this.Deserialize(s);
         }
 
-        public Connect(byte[] b, uint offset)
+        public void Deserialize(ref MemoryReader reader)
         {
-            Deserialize(b, offset);
+            Endpoint = Utils.DeserializeEndpoint(ref reader);
         }
 
-        public void Deserialize(byte[] b, uint offset)
+        public void Serialize(BEBinaryWriter writer)
         {
-            Endpoint = Utils.DeserializeEndpoint(b, offset);
+            Utils.SerializeEndpoint(Endpoint, writer);
         }
 
-        public void Deserialize(Stream s)
-        {
-            Endpoint = Utils.DeserializeEndpoint(s);
-        }
-
-        public uint Serialize(byte[] b, uint offset)
-        {
-            Utils.SerializeEndpoint(Endpoint, b, offset);
-            return offset + 18;
-        }
-
-        public void Serialize(Stream s)
-        {
-            Utils.SerializeEndpoint(Endpoint, s);
-        }
-
-        public int Size()
-        {
-            return 18;
-        }
+        public int Size => 18;
     }
 }

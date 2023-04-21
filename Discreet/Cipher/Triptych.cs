@@ -23,7 +23,7 @@ namespace Discreet.Cipher
         [MarshalAs(UnmanagedType.Struct)]
         public Key zA, zC, z;
 
-        public Triptych(Coin.Triptych proof, Key linkingTag)
+        public Triptych(Coin.Models.Triptych proof, Key linkingTag)
         {
             J = linkingTag;
             K = proof.K;

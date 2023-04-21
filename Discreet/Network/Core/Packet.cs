@@ -5,21 +5,19 @@ using System.Text;
 using System.Threading.Tasks;
 using System.IO;
 using System.Security.Cryptography;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Network.Core
 {
-    public class Packet
+    public class Packet : ISerializable
     {
         public PacketHeader Header { get; set; }
 
         public IPacketBody Body { get; set; }
 
-        public Packet() { }
+        public int Size => Header.Size + Body.Size;
 
-        public Packet(Stream s)
-        {
-            Populate(s);
-        }
+        public Packet() { }
 
         public Packet(byte[] bytes)
         {
@@ -37,30 +35,16 @@ namespace Discreet.Network.Core
             return Header.Command;
         }
 
-        public void Populate(Stream s)
+        public void Serialize(BEBinaryWriter writer)
         {
-            Header = new PacketHeader(s);
+            Header.Serialize(writer);
+            Body.Serialize(writer);
+        }
 
-            byte[] bodyData = new byte[Header.Length];
-            int num = s.Read(bodyData);
-
-            if (Header.NetworkID != Daemon.DaemonConfig.GetConfig().NetworkID)
-            {
-                throw new Exception($"Discreet.Network.Core.Packet.Populate: wrong network ID; expected {Daemon.DaemonConfig.GetConfig().NetworkID} but got {Header.NetworkID}");
-            }
-
-            if (num < Header.Length)
-            {
-                throw new Exception($"Discreet.Network.Core.Packet.Populate: expected {Header.Length} bytes in payload, but got {num}");
-            }
-
-            uint _checksum = Common.Serialization.GetUInt32(SHA256.HashData(SHA256.HashData(bodyData)), 0);
-            if (_checksum != Header.Checksum)
-            {
-                throw new Exception($"Discreet.Network.Core.Packet.Populate: checksum mismatch; got {Header.Checksum}, but calculated {_checksum}");
-            }
-
-            Body = DecodePacketBody(Header.Command, bodyData, 0);
+        public void Deserialize(ref MemoryReader reader)
+        {
+            Header = reader.ReadSerializable<PacketHeader>();
+            Body = DecodePacketBody(Header.Command, ref reader);
         }
 
         public void Populate(byte[] bytes)
@@ -83,130 +67,40 @@ namespace Discreet.Network.Core
                 throw new Exception($"Discreet.Network.Core.Packet.Populate: checksum mismatch; got {Header.Checksum}, but calculated {_checksum}");
             }
 
-            Body = DecodePacketBody(Header.Command, bytes, 10);
+            var reader = new MemoryReader(bytes.AsMemory(10));
+            Body = DecodePacketBody(Header.Command, ref reader);
         }
 
-        public byte[] Serialize()
+        public static IPacketBody DecodePacketBody(PacketType t, ref MemoryReader reader)
         {
-            byte[] bytes = new byte[Header.Length + 10];
-            Header.Encode(bytes, 0);
-            Body.Serialize(bytes, 10);
-
-            return bytes;
-        }
-
-        public static IPacketBody DecodePacketBody(PacketType t, byte[] data, uint offset)
-        {
-            switch (t)
+            return t switch
             {
-                case PacketType.VERSION:
-                    return new Packets.Peerbloom.VersionPacket(data, offset);
-                case PacketType.VERACK:
-                    return new Packets.Peerbloom.VerAck(data, offset);
-                case PacketType.INVENTORY:
-                    return new Packets.InventoryPacket(data, offset);
-                case PacketType.GETBLOCKS:
-                    return new Packets.GetBlocksPacket(data, offset);
-                case PacketType.BLOCKS:
-                    return new Packets.BlocksPacket(data, offset);
-                case PacketType.GETHEADERS:
-                    return new Packets.GetHeadersPacket(data, offset);
-                case PacketType.HEADERS:
-                    return new Packets.HeadersPacket(data, offset);
-                case PacketType.GETTXS:
-                    return new Packets.GetTransactionsPacket(data, offset);
-                case PacketType.TXS:
-                    return new Packets.TransactionsPacket(data, offset);
-                case PacketType.NOTFOUND:
-                    return new Packets.NotFoundPacket(data, offset);
-                case PacketType.REJECT:
-                    return new Packets.RejectPacket(data, offset);
-                case PacketType.ALERT:
-                    return new Packets.AlertPacket(data, offset);
-                case PacketType.SENDTX:
-                    return new Packets.SendTransactionPacket(data, offset);
-                case PacketType.SENDBLOCK:
-                    return new Packets.SendBlockPacket(data, offset);
-                case PacketType.SENDMSG:
-                    return new Packets.SendMessagePacket(data, offset);
-                case PacketType.GETPOOL:
-                    return new Packets.GetPoolPacket(data, offset);
-                case PacketType.POOL:
-                    return new Packets.PoolPacket(data, offset);
-                case PacketType.REQUESTPEERS:
-                    return new Packets.Peerbloom.RequestPeers(data, offset);
-                case PacketType.REQUESTPEERSRESP:
-                    return new Packets.Peerbloom.RequestPeersResp(data, offset);
-                case PacketType.NETPING:
-                    return new Packets.Peerbloom.NetPing(data, offset);
-                case PacketType.NETPONG:
-                    return new Packets.Peerbloom.NetPong(data, offset);
-                case PacketType.OLDMESSAGE:
-                    return new Packets.Peerbloom.OldMessage(data, offset);
-                case PacketType.DISCONNECT:
-                    return new Packets.Peerbloom.Disconnect(data, offset);
-                case PacketType.NONE:
-                    throw new Exception("Discreet.Network.Core.Packet.DecodePacketBody: dummy packet received (PacketType.NONE)");
-                default:
-                    throw new Exception($"Discreet.Network.Core.Packet.DecodePacketBody: unknown packet type {t}");
-            }
-        }
-
-        public static IPacketBody DecodePacketBody(PacketType t, Stream s)
-        {
-            switch (t)
-            {
-                case PacketType.VERSION:
-                    return new Packets.Peerbloom.VersionPacket(s);
-                case PacketType.VERACK:
-                    return new Packets.Peerbloom.VerAck(s);
-                case PacketType.INVENTORY:
-                    return new Packets.InventoryPacket(s);
-                case PacketType.GETBLOCKS:
-                    return new Packets.GetBlocksPacket(s);
-                case PacketType.BLOCKS:
-                    return new Packets.BlocksPacket(s);
-                case PacketType.GETHEADERS:
-                    return new Packets.GetHeadersPacket(s);
-                case PacketType.HEADERS:
-                    return new Packets.HeadersPacket(s);
-                case PacketType.GETTXS:
-                    return new Packets.GetTransactionsPacket(s);
-                case PacketType.TXS:
-                    return new Packets.TransactionsPacket(s);
-                case PacketType.NOTFOUND:
-                    return new Packets.NotFoundPacket(s);
-                case PacketType.REJECT:
-                    return new Packets.RejectPacket(s);
-                case PacketType.ALERT:
-                    return new Packets.AlertPacket(s);
-                case PacketType.SENDTX:
-                    return new Packets.SendTransactionPacket(s);
-                case PacketType.SENDBLOCK:
-                    return new Packets.SendBlockPacket(s);
-                case PacketType.SENDMSG:
-                    return new Packets.SendMessagePacket(s);
-                case PacketType.GETPOOL:
-                    return new Packets.GetPoolPacket(s);
-                case PacketType.POOL:
-                    return new Packets.PoolPacket(s);
-                case PacketType.REQUESTPEERS:
-                    return new Packets.Peerbloom.RequestPeers(s);
-                case PacketType.REQUESTPEERSRESP:
-                    return new Packets.Peerbloom.RequestPeersResp(s);
-                case PacketType.NETPING:
-                    return new Packets.Peerbloom.NetPing(s);
-                case PacketType.NETPONG:
-                    return new Packets.Peerbloom.NetPong(s);
-                case PacketType.OLDMESSAGE:
-                    return new Packets.Peerbloom.OldMessage(s);
-                case PacketType.DISCONNECT:
-                    return new Packets.Peerbloom.Disconnect(s);
-                case PacketType.NONE:
-                    throw new Exception("Discreet.Network.Core.Packet.DecodePacketBody: dummy packet received (PacketType.NONE)");
-                default:
-                    throw new Exception($"Discreet.Network.Core.Packet.DecodePacketBody: unknown packet type {t}");
-            }
+                PacketType.VERSION => reader.ReadSerializable<Packets.Peerbloom.VersionPacket>(),
+                PacketType.VERACK => reader.ReadSerializable<Packets.Peerbloom.VerAck>(),
+                PacketType.INVENTORY => reader.ReadSerializable<Packets.InventoryPacket>(),
+                PacketType.GETBLOCKS => reader.ReadSerializable<Packets.GetBlocksPacket>(),
+                PacketType.BLOCKS => reader.ReadSerializable<Packets.BlocksPacket>(),
+                PacketType.GETHEADERS => reader.ReadSerializable<Packets.GetHeadersPacket>(),
+                PacketType.HEADERS => reader.ReadSerializable<Packets.HeadersPacket>(),
+                PacketType.GETTXS => reader.ReadSerializable<Packets.GetTransactionsPacket>(),
+                PacketType.TXS => reader.ReadSerializable<Packets.TransactionsPacket>(),
+                PacketType.NOTFOUND => reader.ReadSerializable<Packets.NotFoundPacket>(),
+                PacketType.REJECT => reader.ReadSerializable<Packets.RejectPacket>(),
+                PacketType.ALERT => reader.ReadSerializable<Packets.AlertPacket>(),
+                PacketType.SENDTX => reader.ReadSerializable<Packets.SendTransactionPacket>(),
+                PacketType.SENDBLOCK => reader.ReadSerializable<Packets.SendBlockPacket>(),
+                PacketType.SENDMSG => reader.ReadSerializable<Packets.SendMessagePacket>(),
+                PacketType.GETPOOL => reader.ReadSerializable<Packets.GetPoolPacket>(),
+                PacketType.POOL => reader.ReadSerializable<Packets.PoolPacket>(),
+                PacketType.REQUESTPEERS => reader.ReadSerializable<Packets.Peerbloom.RequestPeers>(),
+                PacketType.REQUESTPEERSRESP => reader.ReadSerializable<Packets.Peerbloom.RequestPeersResp>(),
+                PacketType.NETPING => reader.ReadSerializable<Packets.Peerbloom.NetPing>(),
+                PacketType.NETPONG => reader.ReadSerializable<Packets.Peerbloom.NetPong>(),
+                PacketType.OLDMESSAGE => reader.ReadSerializable<Packets.Peerbloom.OldMessage>(),
+                PacketType.DISCONNECT => reader.ReadSerializable<Packets.Peerbloom.Disconnect>(),
+                PacketType.NONE => throw new Exception("Discreet.Network.Core.Packet.DecodePacketBody: dummy packet received (PacketType.NONE)"),
+                _ => throw new Exception($"Discreet.Network.Core.Packet.DecodePacketBody: unknown packet type {t}"),
+            };
         }
     }
 }

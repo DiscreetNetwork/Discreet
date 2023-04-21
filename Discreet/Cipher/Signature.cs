@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Text;
 using System.Runtime.InteropServices;
 using System.IO;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Cipher
 {
     [StructLayout(LayoutKind.Sequential)]
-    public struct Signature
+    public struct Signature : ISerializable
     {
         [MarshalAs(UnmanagedType.Struct)]
         public Key s;
@@ -152,6 +153,22 @@ namespace Discreet.Cipher
         internal bool IsNull()
         {
             return s.Equals(Key.Z) && e.Equals(Key.Z);
+        }
+
+        public int Size => 96;
+
+        public void Serialize(BEBinaryWriter writer)
+        {
+            writer.WriteKey(s);
+            writer.WriteKey(e);
+            writer.WriteKey(y);
+        }
+
+        public void Deserialize(ref MemoryReader reader)
+        {
+            s = reader.ReadKey();
+            e = reader.ReadKey();
+            y = reader.ReadKey();
         }
     }
 }

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Discreet.Coin.Models;
+using Discreet.Common.Serialize;
 
 namespace Discreet.DB
 {
@@ -49,7 +51,7 @@ namespace Discreet.DB
             type = t;
         }
 
-        public UpdateEntry(Coin.Transparent.TXInput input)
+        public UpdateEntry(TTXInput input)
         {
             rule = UpdateRule.DEL;
             key = input.Serialize();
