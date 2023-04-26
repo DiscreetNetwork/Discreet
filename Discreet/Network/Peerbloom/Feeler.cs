@@ -102,6 +102,11 @@ namespace Discreet.Network.Peerbloom
             return rv;
         }
 
+        /// <summary>
+        /// Starts the Feeler.
+        /// </summary>
+        /// <param name="token"></param>
+        /// <returns></returns>
         public async Task Start(CancellationToken token)
         {
             while (!token.IsCancellationRequested && (Handler.GetHandler() == null || Handler.GetHandler().State != PeerState.Normal))
