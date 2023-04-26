@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using static NetMQ.NetMQSelector;
 
@@ -371,7 +372,7 @@ redo:
             {
                 foreach (var fi in chain.GetFiles())
                 {
-                    fi.Delete();
+                    if (!fi.Name.StartsWith("LOCK")) fi.Delete();
                 }
 
                 foreach (var di in chain.GetDirectories())
@@ -379,6 +380,11 @@ redo:
                     di.Delete(true);
                 }
             }
+
+            indexer_output = new U32(0);
+            indexer_tx = new U64(0);
+            height = new L64(-1);
+            rdb?.Dispose();
         }
 
         public Dictionary<long, Block> GetBlockCache()
