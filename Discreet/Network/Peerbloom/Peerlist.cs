@@ -669,7 +669,7 @@ namespace Discreet.Network.Peerbloom
             for (int i = 0; i < numNodes; i++)
             {
                 var nid = nIDs.ElementAtOrDefault(r.Next(0, nIDs.Count));
-                if (nid != default(uint))
+                if (nid == default)
                 {
                     continue;
                 }
