@@ -9,10 +9,6 @@
     <ApplicationIcon>Daemon_icon.ico</ApplicationIcon>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <PlatformTarget>x86</PlatformTarget>
-  </PropertyGroup>
-
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
@@ -43,6 +39,7 @@
     <PackageReference Include="RocksDB" Version="7.7.3.33461" />
     <PackageReference Include="xunit" Version="2.4.1" />
     <PackageReference Include="RocksDB" Version="7.1.1.28414" />
+    <Reference Include="bin/Debug/net6.0/linux-x64/aurem.dll" />
   </ItemGroup>
 
 </Project>

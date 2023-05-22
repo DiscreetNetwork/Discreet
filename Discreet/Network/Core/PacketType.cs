@@ -53,5 +53,8 @@ namespace Discreet.Network.Core
 
         /* DISCONNECT */
         DISCONNECT = 27,
+
+        /* AUREM */
+        SENDUNIT = 28,
     }
 }

@@ -89,6 +89,7 @@ namespace Discreet.Network.Core
                 PacketType.ALERT => reader.ReadSerializable<Packets.AlertPacket>(),
                 PacketType.SENDTX => reader.ReadSerializable<Packets.SendTransactionPacket>(),
                 PacketType.SENDBLOCK => reader.ReadSerializable<Packets.SendBlockPacket>(),
+                PacketType.SENDUNIT => reader.ReadSerializable<Packets.SendUnitPacket>(),
                 PacketType.SENDMSG => reader.ReadSerializable<Packets.SendMessagePacket>(),
                 PacketType.GETPOOL => reader.ReadSerializable<Packets.GetPoolPacket>(),
                 PacketType.POOL => reader.ReadSerializable<Packets.PoolPacket>(),

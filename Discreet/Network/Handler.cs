@@ -544,6 +544,7 @@ namespace Discreet.Network
                         await HandleMessage((SendMessagePacket)p.Body, conn.Receiver);
                         break;
                     case PacketType.SENDTX:
+                        await HandleSendUnit((SendUnitPacket)p.Body, conn.Receiver);
                         await HandleSendTx((SendTransactionPacket)p.Body, conn.Receiver);
                         break;
                     case PacketType.SENDBLOCK:
@@ -884,6 +885,7 @@ namespace Discreet.Network
 
         public async Task HandleGetTxs(GetTransactionsPacket p, IPEndPoint senderEndpoint)
         {
+            Console.WriteLine("handlegettxs");
             DB.DataView dataView = DB.DataView.GetView();
 
             List<FullTransaction> txs = new();
@@ -962,6 +964,11 @@ namespace Discreet.Network
             }
         }
 
+        public async Task HandleGetUnits(GetUnitsPacket p, IPEndPoint senderEndpoint)
+        {
+
+        }
+
         public async Task HandleGetPool(Core.Packets.GetPoolPacket p, Peerbloom.Connection conn)
         {
             var txpool = Daemon.TXPool.GetTXPool();
@@ -1003,6 +1010,7 @@ namespace Discreet.Network
 
         public async Task HandleSendTx(SendTransactionPacket p, IPEndPoint senderEndpoint)
         {
+            Console.WriteLine("handlesendtx");
             if (State == PeerState.Startup)
             {
                 return;
@@ -1067,8 +1075,14 @@ namespace Discreet.Network
             }
         }
 
+        public async Task HandleSendUnit(SendUnitPacket p, IPEndPoint senderEndpoint)
+        {
+
+        }
+
         public async Task HandleSendBlock(SendBlockPacket p, Peerbloom.Connection conn)
         {
+            Console.WriteLine("handlesend-block");
             if (State == PeerState.Startup)
             {
                 return;
