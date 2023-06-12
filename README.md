@@ -52,4 +52,4 @@ To setup a local environment, use a loopback address on port `9875` to have a si
 
 [ico-activity-commit]: https://img.shields.io/github/commit-activity/m/DiscreetNetwork/Discreet
 [ico-telegram]: https://img.shields.io/badge/@DiscreetNetwork-2CA5E0.svg?style=flat-square&logo=telegram&label=Telegram
-[link-telegram]: https://t.me/DiscreetNetwork
+[link-telegram]: https://t.me/discreet
