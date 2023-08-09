@@ -59,6 +59,31 @@ namespace Discreet.Common.Serialize
             return arr;
         }
 
+        public static ulong[] ReadUint64Array(this ref MemoryReader reader, int length = -1)
+        {
+            if (length < 0) length = reader.ReadInt32();
+            ulong[] arr = new ulong[length];
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                arr[i] = reader.ReadUInt64();
+            }
+            return arr;
+        }
+
+        public static void WriteUint64Array(this BEBinaryWriter writer, ulong[] arr, bool writeLength = true)
+        {
+            if (writeLength)
+            {
+                writer.Write(arr.Length);
+            }
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                writer.Write(arr[i]);
+            }
+        }
+
         public static T AsSerializable<T>(this byte[] data, int offset = 0) where T : ISerializable, new()
         {
             MemoryReader reader = new(data.AsMemory(offset));
