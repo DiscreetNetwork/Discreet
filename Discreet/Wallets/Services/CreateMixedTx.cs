@@ -48,7 +48,7 @@ namespace Discreet.Wallets.Services
                 secoutdata = secoutdata.Append(extraPair.Value);
             }
             var poutputs = _poutputs.ToArray();
-            var bp = BuildRangeProof(secoutdata);
+            var bp = poutputs.Length > 0 ? BuildRangeProof(secoutdata) : null;
 
             var tx = new MixedTransaction
             {
@@ -66,10 +66,10 @@ namespace Discreet.Wallets.Services
                 TInputs = Array.Empty<TTXInput>(),
                 TOutputs = toutputs,
                 RangeProofPlus = bp,
-                TransactionKey = txPublicKey,
                 TSignatures = Array.Empty<Signature>()
             };
 
+            if (tx.NumPOutputs > 0) tx.TransactionKey = txPublicKey;
             tx.SigningHash = tx.TXSigningHash();
             (var pseudos, var blindingFactors) = BuildPseudoOutputs(utxos, secoutdata);
             tx.PseudoOutputs = pseudos.ToArray();
