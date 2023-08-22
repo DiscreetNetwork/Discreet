@@ -18,6 +18,8 @@ namespace Discreet.Wallets.Models
         public SortedSet<UTXO> SortedUTXOs { get; set; }
         [JsonIgnore]
         public HashSet<HistoryTx> TxHistory { get; set; }
+        [JsonIgnore]
+        public HashSet<UTXO> SelectedUTXOs { get; set; }
 
         public Key? PubKey { get; set; }
 

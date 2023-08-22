@@ -62,16 +62,28 @@ namespace Discreet.Wallets.Services
             IEnumerable<UTXO> utxos;
             lock (account.SortedUTXOs)
             {
-                utxos = account.SortedUTXOs.TakeWhile(x =>
+                lock (account.SelectedUTXOs)
                 {
-                    if (neededAmount < totalAmount)
+                    List<UTXO> utxoList = new();
+                    foreach (var x in account.SortedUTXOs)
                     {
+                        if (account.SelectedUTXOs.Contains(x))
+                        {
+                            continue;
+                        }
+
+                        if (neededAmount >= totalAmount) break;
+
                         neededAmount += x.DecodedAmount;
-                        return true;
+                        account.SelectedUTXOs.Add(x);
+                        utxoList.Add(x);
                     }
-                    return false;
-                }).ToList();
+
+                    utxos = utxoList;
+                }
             }
+
+            if (neededAmount < totalAmount) throw new Exception("sending amount may be greater than available balance");
 
             return utxos;
         }
