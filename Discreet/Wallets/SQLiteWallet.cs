@@ -604,6 +604,7 @@ namespace Discreet.Wallets
             account.Encrypted = false;
             account.Wallet = this;
             account.UTXOs = new(new UTXOEqualityComparer());
+            account.SelectedUTXOs = new(new UTXOEqualityComparer());
             account.TxHistory = new(new HistoryTxEqualityComparer());
 
             if (parameters.Save)
@@ -908,6 +909,8 @@ namespace Discreet.Wallets
                 acc.DecryptHistoryTxs(txs);
                 acc.TxHistory = new HashSet<HistoryTx>(txs, new HistoryTxEqualityComparer());
 
+                acc.SelectedUTXOs = new(new UTXOEqualityComparer());
+
                 var lshb = LoadKey(acc.Address);
                 if (lshb != null)
                 {
@@ -933,6 +936,11 @@ namespace Discreet.Wallets
                         lock (account.UTXOs)
                         {
                             spents.ToList().ForEach(x => { account.UTXOs.Remove(x); account.Balance -= x.DecodedAmount; });
+                        }
+                        lock (account.SelectedUTXOs)
+                        {
+                            // check if utxos were selected, then remove them
+                            spents.ToList().ForEach(x => account.SelectedUTXOs.Remove(x));
                         }
                         if (account.SortedUTXOs != null)
                         {
@@ -1159,6 +1167,7 @@ namespace Discreet.Wallets
 
                     acc.Balance = resync ? 0 : lacc.Balance;
                     acc.UTXOs = new();
+                    acc.SelectedUTXOs = new(new UTXOEqualityComparer());
                     acc.TxHistory = new();
 
                     if (!resync && lacc.Syncer)

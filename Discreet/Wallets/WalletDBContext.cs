@@ -98,6 +98,7 @@ namespace Discreet.Wallets
             modelBuilder.Entity<Account>().Ignore(p => p.SecViewKey);
             modelBuilder.Entity<Account>().Ignore(p => p.Encrypted);
             modelBuilder.Entity<Account>().Ignore(p => p.SortedUTXOs);
+            modelBuilder.Entity<Account>().Ignore(p => p.SelectedUTXOs);
 
             modelBuilder.Entity<UTXO>().HasKey(p => p.Id);
             modelBuilder.Entity<UTXO>().Property(p => p.Id).HasColumnType("integer").ValueGeneratedOnAdd();
