@@ -689,9 +689,9 @@ namespace Discreet.Daemon
                 //WalletsLegacy.WalletManager.Instance.Wallets.Add(emissionsWallet);
                 Logger.Info($"Starting minter...");
                 var pauseChan = Channel.CreateUnbounded<bool>();
-                _ = DefaultBlockAuth.Instance.Start(DaemonConfig.GetConfig().AuConfig.DataSourcePort.Value, DaemonConfig.GetConfig().AuConfig.FinalizePort.Value, pauseChan.Writer);
-                _ = TestnetMinter(TimeSpan.FromSeconds(1), DaemonConfig.GetConfig().AuConfig.NProc.Value, DaemonConfig.GetConfig().AuConfig.Pid.Value, pauseChan.Reader);
-                _ = BlockReceiver();
+                _ = Task.Run(async () => await DefaultBlockAuth.Instance.Start(DaemonConfig.GetConfig().AuConfig.DataSourcePort.Value, DaemonConfig.GetConfig().AuConfig.FinalizePort.Value, pauseChan.Writer));
+                _ = Task.Run(async () => await TestnetMinter(TimeSpan.FromSeconds(1), DaemonConfig.GetConfig().AuConfig.NProc.Value, DaemonConfig.GetConfig().AuConfig.Pid.Value, pauseChan.Reader));
+                _ = Task.Run(async () => await BlockReceiver());
                 //_ = Minter();
 
                 await Task.Delay(500);

@@ -14,6 +14,7 @@ namespace Discreet.Daemon.BlockAuth
 
         public static List<Key> Defaults = new List<Key>
         {
+            Key.FromHex("60f13a18c379061795fd094be1e4043513fe00c94b3a9b5c0502949a1515970d"),
             Key.FromHex("554fdfa82121ac55400fdbfde3403f608843bfb7e2ae17f05eca6e2f70dda038"),
             Key.FromHex("d485ff6a2268e0bd2dc0c6b5d190044f8a84491b653b2b603d072ed6f13d1376"),
             Key.FromHex("ef72d2be9afe943b03f7eabe17fe53c327db6dc4012c4910daa196961b379eee"),
