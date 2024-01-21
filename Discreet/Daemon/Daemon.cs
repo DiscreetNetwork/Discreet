@@ -927,8 +927,9 @@ namespace Discreet.Daemon
             {
                 Logger.Info($"Discreet.Daemon: Minting new block...", verbose: 1);
 
+                var sigKey = DefaultBlockAuth.Instance.Keyring.SigningKeys[(int)((dataView.GetChainHeight() + 1) % DefaultBlockAuth.Instance.Keyring.SigningKeys.Count)];
                 var txs = txpool.GetTransactionsForBlock();
-                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), signingKey);
+                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), sigKey);
 
                 try
                 {
@@ -998,7 +999,7 @@ namespace Discreet.Daemon
 
             Logger.Info("Creating genesis block...");
 
-            var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
+            var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, DefaultBlockAuth.Instance.Keyring.SigningKeys.First());
             DB.ValidationCache vCache = new DB.ValidationCache(block);
             var exc = vCache.Validate();
             if (exc == null)
