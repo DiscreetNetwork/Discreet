@@ -221,6 +221,13 @@ namespace Discreet.Daemon
                 DbgConfig.ConfigureDefaults();
             }
 
+            if (AuConfig == null)
+            {
+                AuConfig = new AuthConfig();
+            }
+
+            AuConfig.ConfigureDefaults();
+
             if (APISets == null)
             {
                 APISets = new List<string>(new string[]
@@ -284,6 +291,9 @@ namespace Discreet.Daemon
         public NetworkConfig NetConfig { get; set; }
 
         public DebugConfig DbgConfig { get; set; }
+
+        public AuthConfig AuConfig { get; set; }
+
         public List<string> APISets { get; set; }
 
         public DaemonConfig()
@@ -340,6 +350,8 @@ namespace Discreet.Daemon
 
             NetConfig = new NetworkConfig();
             DbgConfig = new DebugConfig();
+            AuConfig = new AuthConfig();
+            AuConfig.ConfigureDefaults();
 
             APISets = new List<string>(new string[]
             {

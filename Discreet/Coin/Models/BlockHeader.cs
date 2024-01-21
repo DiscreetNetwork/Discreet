@@ -97,7 +97,7 @@ namespace Discreet.Coin.Models
             if (Extra == null || Extra.Length != 96) return false;
 
             var sig = new Signature(Extra);
-            return sig.Verify(BlockHash) && Block.IsMasternode(sig.y);
+            return sig.Verify(BlockHash) && Block.IsBlockAuthority(sig.y);
         }
     }
 }

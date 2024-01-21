@@ -15,6 +15,8 @@ using Discreet.RPC.Common;
 using Discreet.Wallets;
 using Discreet.Coin.Models;
 using Discreet.Common.Serialize;
+using Discreet.Daemon.BlockAuth;
+using System.Threading.Channels;
 
 namespace Discreet.Daemon
 {
@@ -37,7 +39,7 @@ namespace Discreet.Daemon
         Network.MessageCache messageCache;
         DB.DataView dataView;
         DaemonConfig config;
-        SQLiteWallet masternodeWallet;
+        SQLiteWallet emissionsWallet;
 
         RPC.RPCServer _rpcServer;
         Version.VersionBackgroundPoller _versionBackgroundPoller;
@@ -48,7 +50,7 @@ namespace Discreet.Daemon
 
         public static bool DebugMode { get; set; } = false;
 
-        public bool IsMasternode;
+        public bool IsBlockAuthority;
 
         private Key signingKey;
 
@@ -75,9 +77,9 @@ namespace Discreet.Daemon
 
             signingKey = Key.FromHex(config.SigningKey);
 
-            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("9a9335ee5978090019e8cef5f814d44abac923e2ca1eaf5c7000d36cf31ab3f9")))
+            if (DefaultBlockAuth.Instance.Keyring.Keys.Any(x => DefaultBlockAuth.Instance.Keyring.SigningKeys.Any(y => KeyOps.ScalarmultBase(y).Equals(x))))
             {
-                IsMasternode = true;
+                IsBlockAuthority = DaemonConfig.GetConfig().AuConfig.Author.Value;
             }
 
             _cancellationToken = _tokenSource.Token;
@@ -100,9 +102,9 @@ namespace Discreet.Daemon
 
             signingKey = Key.FromHex(config.SigningKey);
 
-            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("9a9335ee5978090019e8cef5f814d44abac923e2ca1eaf5c7000d36cf31ab3f9")))
+            if (DefaultBlockAuth.Instance.Keyring.Keys.Any(x => DefaultBlockAuth.Instance.Keyring.SigningKeys.Any(y => KeyOps.ScalarmultBase(y).Equals(x))))
             {
-                IsMasternode = true;
+                IsBlockAuthority = true;
             }
 
             _cancellationToken = _tokenSource.Token;
@@ -133,6 +135,7 @@ namespace Discreet.Daemon
             _rpcServer.Stop();
             ZMQ.Publisher.Instance.Stop();
             _tokenSource.Cancel();
+            DefaultBlockAuth.Instance.Stop();
         }
 
         public async Task<bool> Start()
@@ -147,13 +150,13 @@ namespace Discreet.Daemon
 
 
             Uptime = DateTime.Now.Ticks;
-            bool syncFromPeers = !IsMasternode;
+            bool syncFromPeers = !IsBlockAuthority;
 
-            if (IsMasternode && dataView.GetChainHeight() < 0)
+            if (IsBlockAuthority && dataView.GetChainHeight() < 0)
             {
                 if (!config.MintGenesis.Value)
                 {
-                    Logger.Critical("Cannot find any data on chain for masternode. Begin syncing from peers.");
+                    Logger.Critical("Cannot find any data on chain for block authority. Begin syncing from peers.");
                     syncFromPeers = true;
                 }
                 else
@@ -169,9 +172,9 @@ namespace Discreet.Daemon
 
             await network.Start();
             await network.Bootstrap();
-            if (syncFromPeers && IsMasternode)
+            if (syncFromPeers && IsBlockAuthority)
             {
-                Logger.Info("Masternode beginning connecting to peers.");
+                Logger.Info("Block authority beginning connecting to peers.");
                 await network.ConnectToPeers();
             }
             handler = network.handler;
@@ -196,7 +199,7 @@ namespace Discreet.Daemon
                 }
             }
 
-            // needed if a masternode goes offline and blocks are minted/propagated that it doesn't have
+            // needed if a block authority goes offline and blocks are minted/propagated that it doesn't have
             if (bestHeight > dataView.GetChainHeight())
             {
                 syncFromPeers = true;
@@ -659,33 +662,37 @@ namespace Discreet.Daemon
                 network.Send(messageCache.Versions.Keys.First(), new Network.Core.Packet(Network.Core.PacketType.GETPOOL, new Network.Core.Packets.GetPoolPacket()));
             }
             
-            if (IsMasternode)
+            if (IsBlockAuthority)
             {
                 Logger.Info("Loading Master Wallet...");
 
-                if (masternodeWallet == null)
+                if (emissionsWallet == null)
                 {
-                    //Wallet wallet = WalletDB.GetDB().TryGetWallet("DBG_MASTERNODE");
+                    //Wallet wallet = WalletDB.GetDB().TryGetWallet("TESTNET_EMISSIONS");
 
                     //wallet.Decrypt("password");
 
                     try
                     {
-                        SQLiteWallet wallet = SQLiteWallet.OpenWallet("DBG_MASTERNODE", "password");
-                        masternodeWallet = wallet;
+                        SQLiteWallet wallet = SQLiteWallet.OpenWallet("TESTNET_EMISSIONS", "password");
+                        emissionsWallet = wallet;
                     }
                     catch
                     {
                         // we haven't migrated yet
-                        Logger.Critical($"Migrating legacy masternode wallet to new wallet framework...");
-                        SQLiteWallet.WalletMigration.Migrate("DBG_MASTERNODE", "password");
-                        masternodeWallet = SQLiteWallet.Wallets["DBG_MASTERNODE"];
+                        Logger.Critical($"Migrating legacy emissions wallet to new wallet framework...");
+                        SQLiteWallet.WalletMigration.Migrate("TESTNET_EMISSIONS", "password");
+                        emissionsWallet = SQLiteWallet.Wallets["TESTNET_EMISSIONS"];
                     }
                 }
 
-                //WalletsLegacy.WalletManager.Instance.Wallets.Add(masternodeWallet);
+                //WalletsLegacy.WalletManager.Instance.Wallets.Add(emissionsWallet);
                 Logger.Info($"Starting minter...");
-                _ = Minter();
+                var pauseChan = Channel.CreateUnbounded<bool>();
+                _ = DefaultBlockAuth.Instance.Start(DaemonConfig.GetConfig().AuConfig.DataSourcePort.Value, DaemonConfig.GetConfig().AuConfig.FinalizePort.Value, pauseChan.Writer);
+                _ = TestnetMinter(TimeSpan.FromSeconds(1), DaemonConfig.GetConfig().AuConfig.NProc.Value, DaemonConfig.GetConfig().AuConfig.Pid.Value, pauseChan.Reader);
+                _ = BlockReceiver();
+                //_ = Minter();
 
                 await Task.Delay(500);
             }
@@ -734,6 +741,89 @@ namespace Discreet.Daemon
             {
                 ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
                 ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
+            }
+        }
+
+        public async Task TestnetMinter(TimeSpan interval, int n, int pid, ChannelReader<bool> pause)
+        {
+            DateTime lastProduced = DateTime.MinValue;
+            var ts = DateTime.UtcNow.Ticks;
+            DateTime currentBeginning = new DateTime(ts - (ts % interval.Ticks));
+            DateTime currentEnd = currentBeginning.Add(interval);
+            int numProduced = 0;
+            bool paused = true;
+            bool reloop = false;
+
+            // we start off paused, waiting for the first call to us
+            while (paused)
+            {
+                if (pause.TryRead(out var unpause) && !unpause)
+                {
+                    await Task.Delay(20);
+                }
+            }
+
+            while (!_tokenSource.IsCancellationRequested)
+            {
+                if (lastProduced == DateTime.MinValue)
+                {
+                    // update the beginning
+                    while (currentEnd < DateTime.UtcNow)
+                    {
+                        currentBeginning += interval;
+                        currentEnd += interval;
+                    }
+                }
+
+                while (DateTime.UtcNow < currentBeginning)
+                {
+                    if (pause.TryRead(out var doPause) && doPause)
+                    {
+                        paused = true;
+                        break;
+                    }
+
+                    await Task.Delay(20);
+                }
+
+                while (paused)
+                {
+                    if (pause.TryRead(out var unpause) && !unpause)
+                    {
+                        while (currentEnd < DateTime.UtcNow)
+                        {
+                            currentBeginning += interval;
+                            currentEnd += interval;
+                        }
+
+                        paused = false;
+                        reloop = true;
+
+                    }
+                    else
+                    {
+                        await Task.Delay(20);
+                    }
+                }
+
+                if (reloop)
+                {
+                    reloop = false;
+                    continue;
+                }
+
+                if (numProduced % n == pid)
+                {
+                    lock (MintLocker)
+                    {
+                        MintTestnetBlock();
+                    }
+                }
+
+                numProduced++;
+                currentBeginning += interval;
+                currentEnd += interval;
+                lastProduced = DateTime.Now;
             }
         }
 
@@ -802,7 +892,7 @@ namespace Discreet.Daemon
                 Logger.Info($"Discreet.Daemon: Minting new block...", verbose: 1);
 
                 var txs = txpool.GetTransactionsForBlock();
-                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["DBG_MASTERNODE"].Accounts[0].Address), signingKey);
+                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), signingKey);
 
                 try
                 {
@@ -831,6 +921,42 @@ namespace Discreet.Daemon
             }
         }
 
+        public void MintTestnetBlock()
+        {
+            try
+            {
+                Logger.Info($"Discreet.Daemon: Minting new block...", verbose: 1);
+
+                var txs = txpool.GetTransactionsForBlock();
+                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), signingKey);
+
+                try
+                {
+                    DB.ValidationCache vCache = new(blk);
+                    var vErr = vCache.Validate();
+                    if (vErr != null)
+                    {
+                        Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
+                    }
+                    vCache.Flush();
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message, e);
+                    ProcessBlock(blk, true);
+                    return;
+                }
+
+                ProcessBlock(blk);
+
+                DefaultBlockAuth.Instance.PublishBlockToAurem(blk);
+            }
+            catch (Exception e)
+            {
+                Logger.Error("Minting block failed: " + e.Message, e);
+            }
+        }
+
         public void BuildGenesis()
         {
             /* time to build the megablock */
@@ -841,13 +967,13 @@ namespace Discreet.Daemon
             List<StealthAddress> addresses = new List<StealthAddress>();
             List<ulong> coins = new List<ulong>();
 
-            //Wallet wallet = new Wallet("DBG_MASTERNODE", "password");
+            //Wallet wallet = new Wallet("TESTNET_EMISSIONS", "password");
 
             //wallet.Save(true);
 
             //WalletManager.Instance.Wallets.Add(wallet);
 
-            var wallet = SQLiteWallet.CreateWallet(new Wallets.Models.CreateWalletParameters("DBG_MASTERNODE", "password").Scan().SetNumStealthAddresses(1).SetNumTransparentAddresses(0).SetDeterministic().SetEncrypted());
+            var wallet = SQLiteWallet.CreateWallet(new Wallets.Models.CreateWalletParameters("TESTNET_EMISSIONS", "password").Scan().SetNumStealthAddresses(1).SetNumTransparentAddresses(0).SetDeterministic().SetEncrypted());
 
             /*while (_input != "EXIT")
             {
@@ -892,6 +1018,14 @@ namespace Discreet.Daemon
             ProcessBlock(block);
 
             Logger.Info("Successfully created the genesis block.");
+        }
+
+        public async Task BlockReceiver()
+        {
+            await foreach (var blk in DefaultBlockAuth.Instance.Finalized.ReadAllAsync())
+            {
+                network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
+            }
         }
 
         public static Daemon Init()

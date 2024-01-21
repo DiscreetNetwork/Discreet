@@ -284,13 +284,12 @@ namespace Discreet.Coin.Models
             if (Header.Extra == null || Header.Extra.Length != 96) return false;
 
             var sig = new Signature(Header.Extra);
-            return sig.Verify(Header.BlockHash) && IsMasternode(sig.y);
+            return sig.Verify(Header.BlockHash) && IsBlockAuthority(sig.y);
         }
 
-        public static bool IsMasternode(Key k)
+        public static bool IsBlockAuthority(Key k)
         {
-            //TODO: Implement hardcoded masternode IDs
-            return k == Key.FromHex("9a9335ee5978090019e8cef5f814d44abac923e2ca1eaf5c7000d36cf31ab3f9");
+            return Daemon.BlockAuth.DefaultBlockAuth.Instance.Keyring.Keys.Any(x => k == x);
             //return true;
         }
     }

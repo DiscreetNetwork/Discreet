@@ -419,7 +419,7 @@ namespace Discreet.Network.Peerbloom
 
                     if (numAttempts > 10)
                     {
-                        Daemon.Logger.Critical("Reached limit for number of attempts on current peerlist. If masternode, network is offline.");
+                        Daemon.Logger.Critical("Reached limit for number of attempts on current peerlist. If block authority, network is offline.");
                         break;
                     }
                 }

@@ -8,7 +8,7 @@ namespace Discreet.Cipher
     public static class KeyOps
     {
         public static void GenerateKeypair(ref Key sk, ref Key pk) => Native.Native.Instance.GenerateKeypair(ref sk, ref pk);
-        public static (Key, Key) GenerateKeypair()
+        public static (Key Sk, Key Pk) GenerateKeypair()
         {
             Key sk = new(new byte[32]);
             Key pk = new(new byte[32]);
@@ -33,6 +33,13 @@ namespace Discreet.Cipher
         public static void ScalarmultBase(ref Key ag, ref Key a) => Native.Native.Instance.ScalarmultBase(ref ag, ref a);
 
         public static Key ScalarmultBase(ref Key a)
+        {
+            Key ag = new Key(new byte[32]);
+            ScalarmultBase(ref ag, ref a);
+            return ag;
+        }
+
+        public static Key ScalarmultBase(Key a)
         {
             Key ag = new Key(new byte[32]);
             ScalarmultBase(ref ag, ref a);

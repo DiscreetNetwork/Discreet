@@ -196,7 +196,7 @@ namespace Discreet.DB
             /* check signature data */
             if ((block.Header.Version == 1 || block.Header.Version == 2) && !block.CheckSignature())
             {
-                return new VerifyException("Block", "Block signature is invalid and/or does not come from a masternode");
+                return new VerifyException("Block", "Block signature is invalid and/or does not come from a valid block authority");
             }
 
             /* special rules for genesis block */
