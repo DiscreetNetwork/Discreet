@@ -759,8 +759,11 @@ namespace Discreet.Daemon
             {
                 if (pause.TryRead(out var unpause) && !unpause)
                 {
-                    await Task.Delay(20);
+                    paused = false;
+                    break;
                 }
+
+                await Task.Delay(20);
             }
 
             while (!_tokenSource.IsCancellationRequested)
@@ -798,7 +801,6 @@ namespace Discreet.Daemon
 
                         paused = false;
                         reloop = true;
-
                     }
                     else
                     {

@@ -39,49 +39,61 @@ namespace Discreet.Daemon.BlockAuth
         /// <returns></returns>
         public async Task Start(int dataPort, int finalizePort, ChannelWriter<bool> pause)
         {
-            _data.Bind($"tcp://localhost:{dataPort}");
-            _finalize.Bind($"tcp://localhost:{finalizePort}");
+            _data.Bind($"tcp://*:{dataPort}");
+            _finalize.Connect($"tcp://localhost:{finalizePort}");
 
             _finalize.Subscribe("final");
             _finalize.Subscribe("pause");
 
             while (!_cts.IsCancellationRequested)
             {
-                (var topic, _) = await _finalize.ReceiveFrameBytesAsync();
-                (var data, _) = await _finalize.ReceiveFrameBytesAsync();
-
-                if (topic == null)
+                try
                 {
-                    Logger.Error($"DefaultBlockAuth.Start: failed to receive a finalize topic from Aurem");
-                }
+                    var topic = _finalize.ReceiveFrameBytes();
+                    var data = _finalize.ReceiveFrameBytes();
 
-                if (data == null)
-                {
-                    Logger.Error("DefaultBlockAuth.Start: failed to received finalized data from Aurem");
-                }
+                    Logger.Debug("DefaultBlockAuth: received frame");
 
-                var topicS = Encoding.UTF8.GetString(topic);
-
-                if (topicS == "pause")
-                {
-                    if (data.Length > 0 && data[0] == 0)
+                    if (topic == null)
                     {
-                        await pause.WriteAsync(true);
+                        Logger.Error($"DefaultBlockAuth.Start: failed to receive a finalize topic from Aurem");
                     }
-                    else if (data.Length > 0)
+
+                    if (data == null)
                     {
-                        await pause.WriteAsync(false);
+                        Logger.Error("DefaultBlockAuth.Start: failed to received finalized data from Aurem");
+                    }
+
+                    var topicS = Encoding.UTF8.GetString(topic);
+
+                    if (topicS == "pause")
+                    {
+                        if (data.Length > 0 && data[0] == 0)
+                        {
+                            Logger.Info("DefaultBlockAuth: received signal from Aurem to pause minting", verbose: 3);
+                            await pause.WriteAsync(true);
+                        }
+                        else if (data.Length > 0)
+                        {
+                            Logger.Info("DefaultBlockAuth: received signal from Aurem to resume minting", verbose: 3);
+                            await pause.WriteAsync(false);
+                        }
+                    }
+                    else if (topicS == "final")
+                    {
+                        var b = new Block();
+                        b.Deserialize(data);
+                        Logger.Info("DefaultBlockAuth: received finalized data from Aurem", verbose: 3);
+                        await _finalizedBlocks.Writer.WriteAsync(b);
+                    }
+                    else
+                    {
+                        Logger.Error($"DefaultBlockAuth.Start: failed to receive correct finalize topic from Aurem");
                     }
                 }
-                else if (topicS == "final")
+                catch (Exception ex)
                 {
-                    var b = new Block();
-                    b.Deserialize(data);
-                    await _finalizedBlocks.Writer.WriteAsync(b);
-                }
-                else
-                {
-                    Logger.Error($"DefaultBlockAuth.Start: failed to receive correct finalize topic from Aurem");
+                    Logger.Error($"DefaultBlockAuth: {ex.Message}", ex);
                 }
             }
         }
@@ -96,6 +108,7 @@ namespace Discreet.Daemon.BlockAuth
 
         public void PublishBlockToAurem(Block b)
         {
+            Logger.Info($"DefaultBlockAuth: sending block data for height {b.Header.Height} to Aurem", verbose: 3);
             _data.SendMoreFrame("data").SendFrame(b.Serialize());
         }
     }
