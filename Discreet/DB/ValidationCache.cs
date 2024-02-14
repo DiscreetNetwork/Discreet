@@ -178,11 +178,11 @@ namespace Discreet.DB
                 /* now verify output amount matches commitment */
                 Cipher.Key feeComm = new(new byte[32]);
                 Cipher.Key _I = Cipher.Key.Copy(Cipher.Key.I);
-                Cipher.KeyOps.GenCommitment(ref feeComm, ref _I, block.Header.Fee + Config.STANDARD_BLOCK_REWARD);
+                Cipher.KeyOps.GenCommitment(ref feeComm, ref _I, block.Header.Fee + Block.GetEmissions(block.Header.Height));
 
                 if (!feeComm.Equals(coinbase.Outputs[0].Commitment))
                 {
-                    return new VerifyException("Block", "Coinbase transaction in block does not balance with fee commitment");
+                    return new VerifyException("Block", "Coinbase transaction in block does not balance with fee + reward commitment");
                 }
             }
 

@@ -473,6 +473,7 @@ namespace Discreet.Network
                 case PacketType.POOL:
                     return true;
                 case PacketType.SENDBLOCK:
+                case PacketType.SENDBLOCKS:
                 case PacketType.ALERT:
                 case PacketType.NONE:
                 case PacketType.INVENTORY:
@@ -548,6 +549,9 @@ namespace Discreet.Network
                         break;
                     case PacketType.SENDBLOCK:
                         await HandleSendBlock((SendBlockPacket)p.Body, conn);
+                        break;
+                    case PacketType.SENDBLOCKS:
+                        await HandleSendBlocks((SendBlocksPacket)p.Body, conn);
                         break;
                     case PacketType.GETPOOL:
                         await HandleGetPool((GetPoolPacket)p.Body, conn);
@@ -1067,7 +1071,7 @@ namespace Discreet.Network
             }
         }
 
-        public async Task HandleSendBlock(SendBlockPacket p, Peerbloom.Connection conn)
+        public async Task HandleSendBlock(SendBlockPacket p, Peerbloom.Connection conn, bool doBroadcast = true)
         {
             if (State == PeerState.Startup)
             {
@@ -1119,7 +1123,7 @@ namespace Discreet.Network
             {
                 MessageCache.GetMessageCache().BlockCache[p.Block.Header.Height] = p.Block;
 
-                Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
+                if (doBroadcast) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
                 return;
             }
             else
@@ -1175,7 +1179,7 @@ namespace Discreet.Network
                         return;
                     }
 
-                    Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
+                    if (doBroadcast) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
 
                     try
                     {
@@ -1197,6 +1201,24 @@ namespace Discreet.Network
                     Daemon.Logger.Info($"HandleSendBlock: already have block at height {p.Block.Header.Height} ({p.Block.Header.BlockHash.ToHexShort()}, prev block {p.Block.Header.PreviousBlock.ToHexShort()})", verbose: 3);
                 }
             }
+        }
+
+        public async Task HandleSendBlocks(SendBlocksPacket p, Peerbloom.Connection conn)
+        {
+            // ensure blocks are sorted
+            if (p.Error != null)
+            {
+                await HandleSendBlock(new SendBlockPacket { Block = null, Error = p.Error }, conn, false);
+                return;
+            }
+
+            var propagate = p.Blocks.Any(x => !DB.DataView.GetView().BlockExists(x.Hash()));
+            foreach (var block in p.Blocks.OrderBy(x => x.Header.Height))
+            {
+                await HandleSendBlock(new SendBlockPacket { Block = block }, conn, false);
+            }
+
+            if (propagate) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCKS, p));
         }
 
         public async Task HandleBlocks(BlocksPacket p, Peerbloom.Connection conn)

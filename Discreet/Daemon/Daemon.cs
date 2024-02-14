@@ -997,7 +997,7 @@ namespace Discreet.Daemon
 
             //addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
             addresses.Add(new StealthAddress(wallet.Accounts[0].Address));
-            coins.Add(900_000_000_0_000_000_000UL);
+            coins.Add(45_000_000_0_000_000_000UL);
 
             Logger.Info("Creating genesis block...");
 
@@ -1025,9 +1025,45 @@ namespace Discreet.Daemon
 
         public async Task BlockReceiver()
         {
-            await foreach (var blk in DefaultBlockAuth.Instance.Finalized.ReadAllAsync())
+            TimeSpan clusterTime = TimeSpan.FromMilliseconds(50);
+            DateTime clusterDT = DateTime.Now;
+            List<Block> clusterBlocks = new List<Block>();
+
+            // old logic for receiving. We now try to cluster blocks if multiple blocks are received in a short timespan.
+            //await foreach (var blk in DefaultBlockAuth.Instance.Finalized.ReadAllAsync())
+            //{
+            //    network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
+            //}
+
+            while (!_tokenSource.IsCancellationRequested)
             {
-                network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
+                var success = DefaultBlockAuth.Instance.Finalized.TryRead(out var blk);
+                if (success)
+                {
+                    clusterBlocks.Add(blk);
+                }
+
+                if (DateTime.Now.Subtract(clusterDT) < clusterTime)
+                {
+                    await Task.Delay(1);
+                    continue;
+                }
+                else if (clusterBlocks.Count > 1)
+                {
+                    network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCKS, new Network.Core.Packets.SendBlocksPacket { Blocks = clusterBlocks.OrderBy(x => x.Header.Height).ToArray() }));
+                    clusterDT = DateTime.Now;
+                    clusterBlocks = new();
+                }
+                else if (clusterBlocks.Count == 1)
+                {
+                    network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = clusterBlocks.First() }));
+                    clusterDT = DateTime.Now;
+                    clusterBlocks = new();
+                }
+                else
+                {
+                    await Task.Delay(50);
+                }
             }
         }
 
