@@ -9,13 +9,19 @@ using System.Diagnostics;
 using Cryptography.ECDSA;
 using Discreet.Cipher.Mnemonics;
 using Discreet.Coin;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 using System.IO;
 using Discreet.RPC;
 using Discreet.Common;
 using Discreet.RPC.Common;
 using System.Net;
 using System.Reflection;
+using Discreet.DB;
+using Discreet.Wallets.Utilities;
+using Discreet.Wallets.Models;
+using Discreet.Common.Serialize;
+using Discreet.Network;
+using Discreet.Network.Core.Packets.Peerbloom;
 
 namespace Discreet
 {
@@ -37,5 +43,5 @@ namespace Discreet
 
             await daemon.MainLoop();
         }
-	}
+    }
 }

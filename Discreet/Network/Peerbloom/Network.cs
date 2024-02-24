@@ -156,7 +156,7 @@ namespace Discreet.Network.Peerbloom
 
             ConnectingPeers.Remove(conn.Receiver, out _);
 
-            if (InboundConnectedPeers.Count == Constants.PEERBLOOM_MAX_INBOUND_CONNECTIONS)
+            if (InboundConnectedPeers.Count == Daemon.DaemonConfig.GetConfig().NetConfig.MaxInboundConnections.Value)
             {
                 Daemon.Logger.Warn($"Network.AddInboundConnection: Currently connected to max inbound peers; dropping new connection with peer {conn.Receiver}");
 
@@ -195,7 +195,7 @@ namespace Discreet.Network.Peerbloom
 
             ConnectingPeers.Remove(conn.Receiver, out _);
 
-            if (OutboundConnectedPeers.Count == Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
+            if (OutboundConnectedPeers.Count == Daemon.DaemonConfig.GetConfig().NetConfig.MaxOutboundConnections.Value)
             {
                 Daemon.Logger.Warn($"Network.AddOutboundConnection: Currently connected to max outbound peers; dropping new connection with peer {conn.Receiver}");
                 
@@ -385,6 +385,60 @@ namespace Discreet.Network.Peerbloom
             _shutdownTokenSource.Cancel();
         }
 
+        public async Task ConnectToPeers()
+        {
+            int NumberConnections = (Daemon.Daemon.DebugMode ? 1 : 2);
+
+            if (peerlist.NumTried > 0)
+            {
+                Daemon.Logger.Info("Attempting to connect to known peers...");
+
+                List<Peer> checkedPeers = new List<Peer>();
+                Peer peer;
+                int timeoutLength = 5000;
+                int numAttempts = 1;
+                do
+                {
+                    (peer, _) = peerlist.Select(false, true);
+
+                    if (checkedPeers.Contains(peer)) continue;
+
+                    Connection conn = new Connection(peer.Endpoint, this, LocalNode, true);
+
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, timeoutLength, numAttempts);
+                    peerlist.Attempt(peer.Endpoint, !success);
+
+                    checkedPeers.Add(peer);
+                    if (peerlist.NumTried == checkedPeers.Count && !success)
+                    {
+                        Daemon.Logger.Warn("Could not find any online/valid peers. Increasing timeout length and allowed attempts.", verbose: 1);
+                        timeoutLength += 5000;
+                        numAttempts++;
+                        checkedPeers.Clear();
+                    }
+
+                    if (numAttempts > 10)
+                    {
+                        Daemon.Logger.Critical("Reached limit for number of attempts on current peerlist. If block authority, network is offline.");
+                        break;
+                    }
+                }
+                while (peer != null && OutboundConnectedPeers.Count < NumberConnections && checkedPeers.Count < peerlist.NumTried);
+            }
+
+            if (OutboundConnectedPeers.Count > 0)
+            {
+                Daemon.Logger.Info($"Successfully connected to {OutboundConnectedPeers.Count} peers");
+                _ = Task.Run(() => RunNetwork()).ConfigureAwait(false);
+                IsBootstrapping = false;
+                return;
+            }
+            else
+            {
+                throw new Exception("Network is offline.");
+            }
+        }
+
         public async Task Bootstrap()
         {
             IsBootstrapping = true;
@@ -407,6 +461,34 @@ namespace Discreet.Network.Peerbloom
 
             handler.Start(_shutdownTokenSource.Token);
 
+            // try to connect to "default" peers in network config
+            if (Daemon.DaemonConfig.GetConfig().NetConfig.Peers.Count > 0)
+            {
+                var dendpoints = Daemon.DaemonConfig.GetConfig().NetConfig.Peers;
+
+                while (dendpoints.Count > 0)
+                {
+                    var dendpoint = dendpoints[0];
+                    Peer dpeer;
+
+                    if (peerlist.FindPeer(dendpoint, out _) != null)
+                    {
+                        dpeer = peerlist.FindPeer(dendpoint, out _);
+                    }
+                    else
+                    {
+                        peerlist.AddNew(dendpoint, IPEndPoint.Parse("0.0.0.0:0"), 0, 0);
+                        dpeer = peerlist.FindPeer(dendpoint, out _);
+                    }
+
+                    Connection conn = new Connection(dpeer.Endpoint, this, LocalNode, true);
+                    bool success = await conn.Connect(true, _shutdownTokenSource.Token, false, 10000, 5);
+                    peerlist.Attempt(dpeer.Endpoint, !success);
+
+                    dendpoints.RemoveAt(0);
+                }
+            }
+
             // This check is in case THIS device, is the bootstrap node. In that case, it should not try to bootstrap itself, as it is the first node in the network
             // Eventually this check needs to be modified, when we include multiple bootstrap nodes
             // For now: make sure the int we check against, matches the port of the bootstrap node, in the line above
@@ -428,7 +510,7 @@ namespace Discreet.Network.Peerbloom
 
             int NumberConnections = (Daemon.Daemon.DebugMode ? 1 : 2);
 
-            if (peerlist.NumTried > 0)
+            if (peerlist.NumTried > 0 && OutboundConnectedPeers.Count < NumberConnections)
             {
                 Daemon.Logger.Info("Attempting to connect to known peers...");
 
@@ -440,7 +522,17 @@ namespace Discreet.Network.Peerbloom
                 {
                     (peer, _) = peerlist.Select(false, true);
 
+                    if (peer == null)
+                    {
+                        numAttempts++;
+                        checkedPeers.Clear();
+                        continue;
+                    }
+
                     if (checkedPeers.Contains(peer)) continue;
+
+                    // we want to skip over peers in the "default" peers list.
+                    if (Daemon.DaemonConfig.GetConfig().NetConfig.Peers.Contains(peer.Endpoint)) continue;
 
                     Connection conn = new Connection(peer.Endpoint, this, LocalNode, true);
 
@@ -573,6 +665,13 @@ namespace Discreet.Network.Peerbloom
                             numBootstrapFailures++;
                             continue;
                         }
+                    }
+
+                    if (numConnected == 0)
+                    {
+                        Daemon.Logger.Warn("Could not find any online/valid peers. Restarting bootstrap.");
+                        numBootstrapFailures++;
+                        continue;
                     }
                 }
                 else
@@ -743,7 +842,7 @@ namespace Discreet.Network.Peerbloom
 
                 if (_shutdownTokenSource.IsCancellationRequested) return;
 
-                if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Constants.PEERBLOOM_MAX_OUTBOUND_CONNECTIONS)
+                if (_network.OutboundConnectedPeers.Count + _network.ConnectingPeers.Count < Daemon.DaemonConfig.GetConfig().NetConfig.MaxOutboundConnections.Value)
                 {
                     (Peer p, _) = peerlist.Select(false, true);
                     

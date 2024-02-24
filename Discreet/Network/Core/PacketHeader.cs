@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Network.Core
 {
-    public class PacketHeader
+    public class PacketHeader : ISerializable
     {
         public byte NetworkID { get; set; }
         public PacketType Command { get; set; }
@@ -15,74 +16,42 @@ namespace Discreet.Network.Core
         public uint Checksum { get; set; }
 
         ///<summary>returns the size of the packet header, in bytes. </summary>
-        public static uint Size()
-        {
-            return 10;
-        }
+        public int Size => 10;
 
         public PacketHeader() { }
 
-        public PacketHeader(Stream s)
-        {
-            Decode(s);
-        }
-
         public PacketHeader(byte[] b)
         {
-            Decode(b, 0);
+            this.Deserialize(b);
         }
 
-        public PacketHeader(byte[] b, uint offset)
+        public PacketHeader(byte[] b, int offset)
         {
-            Decode(b, offset);
+            this.Deserialize(b, offset);
         }
 
         public PacketHeader(PacketType type, IPacketBody body)
         {
             NetworkID = Daemon.DaemonConfig.GetConfig().NetworkID.Value;
             Command = type;
-            Length = (uint)body.Size();
+            Length = (uint)body.Size;
             Checksum = body.Checksum();
         }
 
-        public void Encode(Stream s)
+        public void Serialize(BEBinaryWriter writer)
         {
-            s.WriteByte(NetworkID);
-            s.WriteByte((byte)Command);
-            s.Write(Coin.Serialization.UInt32(Length));
-            s.Write(Coin.Serialization.UInt32(Checksum));
+            writer.Write(NetworkID);
+            writer.Write((byte)Command);
+            writer.Write(Length);
+            writer.Write(Checksum);
         }
 
-        public void Encode(byte[] buf, uint offset)
+        public void Deserialize(ref MemoryReader reader)
         {
-            buf[offset] = NetworkID;
-            buf[offset + 1] = (byte)Command;
-
-            Coin.Serialization.CopyData(buf, offset + 2, Length);
-            Coin.Serialization.CopyData(buf, offset + 6, Checksum);
-        }
-
-        public void Decode(Stream s)
-        {
-            NetworkID = (byte)s.ReadByte();
-            Command = (PacketType)s.ReadByte();
-
-            byte[] uintbuf = new byte[4];
-
-            s.Read(uintbuf);
-            Length = Coin.Serialization.GetUInt32(uintbuf, 0);
-
-            s.Read(uintbuf);
-            Checksum = Coin.Serialization.GetUInt32(uintbuf, 0);
-        }
-
-        public void Decode(byte[] buf, uint offset)
-        {
-            NetworkID = buf[offset];
-            Command = (PacketType)buf[offset + 1];
-
-            Length = Coin.Serialization.GetUInt32(buf, offset + 2);
-            Checksum = Coin.Serialization.GetUInt32(buf, offset + 6);
+            NetworkID = reader.ReadUInt8();
+            Command = (PacketType)reader.ReadUInt8();
+            Length = reader.ReadUInt32();
+            Checksum = reader.ReadUInt32();
         }
     }
 }

@@ -36,7 +36,7 @@ namespace Discreet.RPC.Endpoints
 
         public class Blockchain
         {
-            public Readable.BlockHeader Head { get; set; }
+            public Coin.Models.BlockHeader Head { get; set; }
             public int TxPoolSize { get; set; }
             public TimeSpan TimeSinceLastBlock { get; set; }
         }
@@ -68,10 +68,10 @@ namespace Discreet.RPC.Endpoints
                 var _in = _network.InboundConnectedPeers.Count;
                 var _out = _network.OutboundConnectedPeers.Count;
                 var _con = _network.ConnectingPeers.Count;
-                var _wal = _daemon.wallets.Count;
+                var _wal = WalletsLegacy.WalletManager.Instance.Wallets.Count;
                 var _state = _handler.State;
                 var _ver = _handler.MakeVersionPacket();
-                var _head = (Readable.BlockHeader)dataView.GetBlockHeader(dataView.GetChainHeight()).ToReadable();
+                var _head = dataView.GetBlockHeader(dataView.GetChainHeight());
                 var _tsz = _txpool.GetTransactions().Count;
                 var _blk = TimeSpan.FromTicks(DateTime.UtcNow.Ticks - (long)_head.Timestamp);
 

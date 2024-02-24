@@ -30,13 +30,13 @@ namespace Discreet.Network.Peerbloom
 
             Core.Utils.SerializeEndpoint(Endpoint, data, 0);
             Core.Utils.SerializeEndpoint(Source, data, 18);
-            Coin.Serialization.CopyData(data, 36, LastSeen);
-            Coin.Serialization.CopyData(data, 44, FirstSeen);
-            Coin.Serialization.CopyData(data, 52, InTried);
-            Coin.Serialization.CopyData(data, 53, NumFailedConnectionAttempts);
-            Coin.Serialization.CopyData(data, 57, LastSuccess);
-            Coin.Serialization.CopyData(data, 65, LastAttempt);
-            Coin.Serialization.CopyData(data, 73, RefCount);
+            Common.Serialization.CopyData(data, 36, LastSeen);
+            Common.Serialization.CopyData(data, 44, FirstSeen);
+            Common.Serialization.CopyData(data, 52, InTried);
+            Common.Serialization.CopyData(data, 53, NumFailedConnectionAttempts);
+            Common.Serialization.CopyData(data, 57, LastSuccess);
+            Common.Serialization.CopyData(data, 65, LastAttempt);
+            Common.Serialization.CopyData(data, 73, RefCount);
             return data;
         }
 
@@ -51,13 +51,13 @@ namespace Discreet.Network.Peerbloom
         {
             Endpoint = Core.Utils.DeserializeEndpoint(data, 0);
             Source = Core.Utils.DeserializeEndpoint(data, 18);
-            LastSeen = Coin.Serialization.GetInt64(data, 36);
-            FirstSeen = Coin.Serialization.GetInt64(data, 44);
-            InTried = Coin.Serialization.GetBool(data, 52);
-            NumFailedConnectionAttempts = Coin.Serialization.GetInt32(data, 53);
-            LastSuccess = Coin.Serialization.GetInt64(data, 57);
-            LastAttempt = Coin.Serialization.GetInt64(data, 65);
-            RefCount = Coin.Serialization.GetInt32(data, 73);
+            LastSeen = Common.Serialization.GetInt64(data, 36);
+            FirstSeen = Common.Serialization.GetInt64(data, 44);
+            InTried = Common.Serialization.GetBool(data, 52);
+            NumFailedConnectionAttempts = Common.Serialization.GetInt32(data, 53);
+            LastSuccess = Common.Serialization.GetInt64(data, 57);
+            LastAttempt = Common.Serialization.GetInt64(data, 65);
+            RefCount = Common.Serialization.GetInt32(data, 73);
         }
 
         public Peer(IPEndPoint endpoint, IPEndPoint source, long lastSeen, long firstSeen)

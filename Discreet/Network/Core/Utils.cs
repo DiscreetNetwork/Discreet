@@ -5,6 +5,7 @@ using System.Net;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Network.Core
 {
@@ -47,6 +48,13 @@ namespace Discreet.Network.Core
             _port |= s.ReadByte();
 
             return new IPEndPoint(addr, _port);
+        }
+
+        public static IPEndPoint DeserializeEndpoint(ref MemoryReader reader)
+        {
+            byte[] _addr = reader.ReadByteArray(18);
+
+            return DeserializeEndpoint(_addr, 0);
         }
 
         public static bool IsIPv4(ReadOnlySpan<byte> b)
@@ -97,6 +105,11 @@ namespace Discreet.Network.Core
             SerializeEndpoint(p, rv, 0);
 
             return rv;
+        }
+
+        public static void SerializeEndpoint(IPEndPoint p, BEBinaryWriter writer)
+        {
+            writer.Write(SerializeEndpoint(p));
         }
     }
 }

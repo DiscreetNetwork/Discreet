@@ -28,8 +28,8 @@ namespace Discreet.Daemon
 
                     var _options = new JsonSerializerOptions();
 
-                    _options.Converters.Add(new RPC.Converters.IPAddressConverter());
-                    _options.Converters.Add(new RPC.Converters.IPEndPointConverter());
+                    _options.Converters.Add(new Common.Converters.IPAddressConverter());
+                    _options.Converters.Add(new Common.Converters.IPEndPointConverter());
 
                     if (File.Exists(configPath))
                     {
@@ -72,8 +72,8 @@ namespace Discreet.Daemon
         {
             var _options = new JsonSerializerOptions();
 
-            _options.Converters.Add(new RPC.Converters.IPAddressConverter());
-            _options.Converters.Add(new RPC.Converters.IPEndPointConverter());
+            _options.Converters.Add(new Common.Converters.IPAddressConverter());
+            _options.Converters.Add(new Common.Converters.IPEndPointConverter());
 
             if (!Directory.Exists(DaemonPath)) Directory.CreateDirectory(DaemonPath);
 
@@ -192,6 +192,21 @@ namespace Discreet.Daemon
                 SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
             }
 
+            if (MintGenesis == null)
+            {
+                MintGenesis = false;
+            }
+
+            if (MaxLogfileSize == null)
+            {
+                MaxLogfileSize = 10 * 1024 * 1024;
+            }
+
+            if (MaxNumLogfiles == null)
+            {
+                MaxNumLogfiles = 0;
+            }
+
             if (NetConfig == null)
             {
                 NetConfig = new NetworkConfig();
@@ -201,6 +216,17 @@ namespace Discreet.Daemon
             {
                 DbgConfig = new DebugConfig();
             }
+            else
+            {
+                DbgConfig.ConfigureDefaults();
+            }
+
+            if (AuConfig == null)
+            {
+                AuConfig = new AuthConfig();
+            }
+
+            AuConfig.ConfigureDefaults();
 
             if (APISets == null)
             {
@@ -257,9 +283,17 @@ namespace Discreet.Daemon
 
         public string SigningKey { get; set; }
 
+        public bool? MintGenesis { get; set; }
+
+        public long? MaxLogfileSize { get; set; }
+        public int? MaxNumLogfiles { get; set; }
+
         public NetworkConfig NetConfig { get; set; }
 
         public DebugConfig DbgConfig { get; set; }
+
+        public AuthConfig AuConfig { get; set; }
+
         public List<string> APISets { get; set; }
 
         public DaemonConfig()
@@ -309,8 +343,15 @@ namespace Discreet.Daemon
 
             SigningKey = Cipher.KeyOps.GenerateSeckey().ToHex();
 
+            MintGenesis = false;
+
+            MaxLogfileSize = 10 * 1024 * 1024;
+            MaxNumLogfiles = 0;
+
             NetConfig = new NetworkConfig();
             DbgConfig = new DebugConfig();
+            AuConfig = new AuthConfig();
+            AuConfig.ConfigureDefaults();
 
             APISets = new List<string>(new string[]
             {

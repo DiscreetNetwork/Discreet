@@ -1,11 +1,15 @@
-﻿using Discreet.Coin;
+﻿using Discreet.Coin.Models;
+using Discreet.Common;
+using Discreet.Common.Serialize;
 using RocksDbSharp;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using static NetMQ.NetMQSelector;
 
 namespace Discreet.DB
 {
@@ -65,18 +69,22 @@ namespace Discreet.DB
             }
         }
 
+        public static readonly Cipher.Key[] obsoleteSigningKeys = new Cipher.Key[] {
+            Cipher.Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d"),
+        };
+
         public ChainDB(string path)
         {
             try
             {
                 if (File.Exists(path)) throw new Exception("ArchiveDB: expects a valid directory path, not a file");
-
+redo:
                 if (!Directory.Exists(path))
                 {
                     Directory.CreateDirectory(path);
                 }
 
-                var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies().SetKeepLogFileNum(5);
+                var options = new DbOptions().SetCreateIfMissing().SetCreateMissingColumnFamilies().SetKeepLogFileNum(5).SetKeepLogFileNum(5).SetMaxTotalWalSize(5UL * 1048576000UL);
 
                 var _colFamilies = new ColumnFamilies
                 {
@@ -146,11 +154,45 @@ namespace Discreet.DB
                 }
 
                 folder = path;
+
+                // test and see if we're obsolete
+                if (height.Value >= 0)
+                {
+                    var block = GetBlock(height.Value);
+                    if (block != null && block.Header.ExtraLen == 96)
+                    {
+                        var sig = new Cipher.Signature(block.Header.Extra);
+                        if (obsoleteSigningKeys.Any(x => x == sig.y))
+                        {
+                            DropEverything(path);
+                            goto redo;
+                        }
+                    }
+                }
             }
             catch (Exception ex)
             {
                 Daemon.Logger.Fatal($"ArchiveDB: failed to create the database: {ex}");
             }
+        }
+
+        public IEnumerable<Block> GetBlocks(long startHeight, long limit)
+        {
+            if (limit <= 0) limit = long.MaxValue;
+
+            var iter = rdb.NewIterator(cf: Blocks);
+            iter.SeekToFirst();
+            iter.Seek(Serialization.Int64(startHeight));
+            while (iter.Valid() && limit > 0)
+            {
+                Block block = new();
+                block.Deserialize(iter.Value());
+                iter = iter.Next();
+                limit--;
+                yield return block;
+            }
+
+            if (!iter.Valid()) iter.Dispose();
         }
 
         /// <summary>
@@ -292,7 +334,7 @@ namespace Discreet.DB
                 for (int i = 0; i < tx.NumTOutputs; i++)
                 {
                     tx.TOutputs[i].TransactionSrc = tx.TxID;
-                    rdb.Put(new Coin.Transparent.TXInput { TxSrc = tx.TOutputs[i].TransactionSrc, Offset = (byte)i }.Serialize(), tx.TOutputs[i].Serialize(), cf: PubOutputs);
+                    rdb.Put(new TTXInput { TxSrc = tx.TOutputs[i].TransactionSrc, Offset = (byte)i }.Serialize(), tx.TOutputs[i].Serialize(), cf: PubOutputs);
                 }
             }
 
@@ -321,6 +363,28 @@ namespace Discreet.DB
             rdb.Put(txhash.Bytes, Serialization.UInt64(txIndex), cf: TxIndices);
             byte[] txraw = tx.Serialize();
             rdb.Put(Serialization.UInt64(txIndex), txraw, cf: Txs);
+        }
+
+        public void DropEverything(string path)
+        {
+            System.IO.DirectoryInfo chain = new(path);
+            if (chain.Exists)
+            {
+                foreach (var fi in chain.GetFiles())
+                {
+                    if (!fi.Name.StartsWith("LOCK")) fi.Delete();
+                }
+
+                foreach (var di in chain.GetDirectories())
+                {
+                    di.Delete(true);
+                }
+            }
+
+            indexer_output = new U32(0);
+            indexer_tx = new U64(0);
+            height = new L64(-1);
+            rdb?.Dispose();
         }
 
         public Dictionary<long, Block> GetBlockCache()
@@ -630,7 +694,7 @@ namespace Discreet.DB
             return rdb.Get(j.bytes, cf: SpentKeys) == null;
         }
 
-        public Coin.Transparent.TXOutput GetPubOutput(Coin.Transparent.TXInput _input)
+        public TTXOutput GetPubOutput(TTXInput _input)
         {
             var result = rdb.Get(_input.Serialize(), cf: PubOutputs);
 
@@ -639,12 +703,12 @@ namespace Discreet.DB
                 throw new Exception($"Discreet.StateDB.GetPubOutput: database get exception: could not find transparent tx output with index {_input}");
             }
 
-            var txo = new Coin.Transparent.TXOutput();
+            var txo = new TTXOutput();
             txo.Deserialize(result);
             return txo;
         }
 
-        public void RemovePubOutput(Coin.Transparent.TXInput _input)
+        public void RemovePubOutput(TTXInput _input)
         {
             rdb.Remove(_input.Serialize(), cf: PubOutputs);
         }

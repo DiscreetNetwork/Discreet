@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Discreet.Common.Serialize;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -16,47 +17,18 @@ namespace Discreet.Network.Core.Packets.Peerbloom
 
         public RequestPeers() { }
 
-        public RequestPeers(Stream s)
+        public void Serialize(BEBinaryWriter writer)
         {
-            Deserialize(s);
+            Utils.SerializeEndpoint(Endpoint, writer);
+            writer.Write(MaxPeers);
         }
 
-        public RequestPeers(byte[] b, uint offset)
+        public void Deserialize(ref MemoryReader reader)
         {
-            Deserialize(b, offset);
+            Endpoint = Utils.DeserializeEndpoint(ref reader);
+            MaxPeers = reader.ReadInt32();
         }
 
-        public void Deserialize(byte[] b, uint offset)
-        {
-
-            Endpoint = Utils.DeserializeEndpoint(b, offset);
-            offset += 18;
-            MaxPeers = Coin.Serialization.GetInt32(b, offset);
-        }
-
-        public void Deserialize(Stream s)
-        {
-            Endpoint = Utils.DeserializeEndpoint(s);
-            MaxPeers = Coin.Serialization.GetInt32(s);
-        }
-
-        public uint Serialize(byte[] b, uint offset)
-        {
-            Utils.SerializeEndpoint(Endpoint, b, offset);
-            offset += 18;
-            Coin.Serialization.CopyData(b, offset, MaxPeers);
-            return offset + 4;
-        }
-
-        public void Serialize(Stream s)
-        {
-            Utils.SerializeEndpoint(Endpoint, s);
-            Coin.Serialization.CopyData(s, MaxPeers);
-        }
-
-        public int Size()
-        {
-            return 22;
-        }
+        public int Size => 22;
     }
 }

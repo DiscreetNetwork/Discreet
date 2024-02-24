@@ -15,6 +15,8 @@ namespace Discreet.Coin
             BP_PLUS = 2, /* triptych and bulletproof+ */
             TRANSPARENT = 3, /* bitcoin-style */
             MIXED = 4, /* zcash-style */
+
+            END, /* get the end */
         }
 
         /* DEBUG must be set to false outside of tests. */

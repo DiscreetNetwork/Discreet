@@ -22,16 +22,14 @@ namespace Discreet.Network.Core
         TXS = 7,
         GETHEADERS = 9,
         HEADERS = 10,
+        GETPOOL = 11,
+        POOL = 12,
 
         /* currently unused for testnet */
 
-        //GETTXSINBLOCK = 11, 
+        //GETTXSINBLOCK = 13, 
 
-        NOTFOUND = 12,
-
-        /* TESTING LIVE CONNECTION */
-        //PING = 13,
-        //PONG = 14,
+        NOTFOUND = 14,
 
         /* USED FOR GOSSIPING REJECTION */
         REJECT = 15,
@@ -55,5 +53,9 @@ namespace Discreet.Network.Core
 
         /* DISCONNECT */
         DISCONNECT = 27,
+
+        /* EXT: USED FOR SENDING/PROPAGATING CONSENSUS DATA */
+        SENDBLOCKS = 28,
+        SENDPREBLOCK = 29,
     }
 }

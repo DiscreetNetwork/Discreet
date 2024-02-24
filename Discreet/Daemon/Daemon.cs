@@ -4,13 +4,19 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Discreet.Coin;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 using Discreet.Common.Exceptions;
 using Discreet.Cipher;
 using System.Net;
 using System.Threading;
 using System.Collections.Concurrent;
 using System.Reflection;
+using Discreet.RPC.Common;
+using Discreet.Wallets;
+using Discreet.Coin.Models;
+using Discreet.Common.Serialize;
+using Discreet.Daemon.BlockAuth;
+using System.Threading.Channels;
 
 namespace Discreet.Daemon
 {
@@ -26,7 +32,6 @@ namespace Discreet.Daemon
     /* Manages all blockchain operations. Contains the wallet manager, logger, Network manager, RPC manager, DB manager and TXPool manager. */
     public class Daemon
     {
-        public ConcurrentBag<Wallet> wallets;
         TXPool txpool;
 
         Network.Handler handler;
@@ -34,6 +39,7 @@ namespace Discreet.Daemon
         Network.MessageCache messageCache;
         DB.DataView dataView;
         DaemonConfig config;
+        SQLiteWallet emissionsWallet;
 
         RPC.RPCServer _rpcServer;
         Version.VersionBackgroundPoller _versionBackgroundPoller;
@@ -42,24 +48,20 @@ namespace Discreet.Daemon
         CancellationToken _cancellationToken;
         CancellationTokenSource _tokenSource = new CancellationTokenSource();
 
-        ConcurrentDictionary<object, ConcurrentQueue<SHA256>> syncerQueues;
-
         public static bool DebugMode { get; set; } = false;
 
-        public bool IsMasternode;
+        public bool IsBlockAuthority;
 
         private Key signingKey;
 
         public long Uptime { get; private set; }
 
-        public bool RPCLive { get; set; }
+        public bool RPCLive { get; set; } = false;
 
         private object MintLocker = new();
 
         public Daemon()
         {
-            wallets = new ConcurrentBag<Wallet>();
-
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
@@ -75,12 +77,10 @@ namespace Discreet.Daemon
 
             signingKey = Key.FromHex(config.SigningKey);
 
-            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d")))
+            if (DefaultBlockAuth.Instance.Keyring.Keys.Any(x => DefaultBlockAuth.Instance.Keyring.SigningKeys.Any(y => KeyOps.ScalarmultBase(y).Equals(x))))
             {
-                IsMasternode = true;
+                IsBlockAuthority = DaemonConfig.GetConfig().AuConfig.Author.Value;
             }
-
-            syncerQueues = new ConcurrentDictionary<object, ConcurrentQueue<SHA256>>();
 
             _cancellationToken = _tokenSource.Token;
         }
@@ -93,8 +93,6 @@ namespace Discreet.Daemon
             _ = _versionBackgroundPoller.StartBackgroundPoller();
 
             // re-create everything
-            wallets = new ConcurrentBag<Wallet>();
-
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
@@ -104,15 +102,13 @@ namespace Discreet.Daemon
 
             signingKey = Key.FromHex(config.SigningKey);
 
-            if (KeyOps.ScalarmultBase(ref signingKey).Equals(Key.FromHex("806d68717bcdffa66ba465f906c2896aaefc14756e67381f1b9d9772d03fd97d")))
+            if (DefaultBlockAuth.Instance.Keyring.Keys.Any(x => DefaultBlockAuth.Instance.Keyring.SigningKeys.Any(y => KeyOps.ScalarmultBase(y).Equals(x))))
             {
-                IsMasternode = true;
+                IsBlockAuthority = true;
             }
 
-            syncerQueues = new ConcurrentDictionary<object, ConcurrentQueue<SHA256>>();
-
             _cancellationToken = _tokenSource.Token;
-            RPC.RPCEndpointResolver.ClearEndpoints();
+            RPCEndpointResolver.ClearEndpoints();
 
             Logger.Info("Restarting Daemon...");
             bool success = await Start();
@@ -139,10 +135,13 @@ namespace Discreet.Daemon
             _rpcServer.Stop();
             ZMQ.Publisher.Instance.Stop();
             _tokenSource.Cancel();
+            DefaultBlockAuth.Instance.Stop();
         }
 
         public async Task<bool> Start()
         {
+            Logger.GetLogger().Start(_cancellationToken);
+
             AppDomain.CurrentDomain.UnhandledException += (sender, e) => Logger.CrashLog(sender, e);
             Logger.Debug("Attached global exception handler.");
 
@@ -151,13 +150,21 @@ namespace Discreet.Daemon
 
 
             Uptime = DateTime.Now.Ticks;
+            bool syncFromPeers = !IsBlockAuthority;
 
-            if (IsMasternode && dataView.GetChainHeight() < 0)
+            if (IsBlockAuthority && dataView.GetChainHeight() < 0)
             {
-                BuildGenesis();
+                if (!config.MintGenesis.Value)
+                {
+                    Logger.Critical("Cannot find any data on chain for block authority. Begin syncing from peers.");
+                    syncFromPeers = true;
+                }
+                else
+                {
+                    BuildGenesis();
+                }
             }
 
-            RPCLive = false;
             Logger.Info($"Starting RPC server...");
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
@@ -165,29 +172,41 @@ namespace Discreet.Daemon
 
             await network.Start();
             await network.Bootstrap();
+            if (syncFromPeers && IsBlockAuthority)
+            {
+                Logger.Info("Block authority beginning connecting to peers.");
+                await network.ConnectToPeers();
+            }
             handler = network.handler;
             handler.daemon = this;
+
+            //Logger.Info($"Starting wallet manager...");
+            //_ = Task.Run(() => WalletManager.Instance.Start(_cancellationToken)).ConfigureAwait(false);
 
             handler.SetState(Network.PeerState.Startup);
             RPCLive = true;
             ZMQ.Publisher.Instance.Publish("daemonstatechanged", "ready");
 
-            if (!IsMasternode && !(DaemonConfig.GetConfig().DbgConfig.DebugMode.Value && DaemonConfig.GetConfig().DbgConfig.SkipSyncing.Value))
+            /* get height of chain */
+            long bestHeight = dataView.GetChainHeight();
+            IPEndPoint bestPeer = null;
+            foreach (var ver in messageCache.Versions)
             {
-
-                /* get height of chain */
-                long bestHeight = dataView.GetChainHeight();
-                IPEndPoint bestPeer = null;
-
-                foreach (var ver in messageCache.Versions)
+                if (ver.Value.Height > bestHeight)
                 {
-                    if (ver.Value.Height > bestHeight)
-                    {
-                        bestPeer = ver.Key;
-                        bestHeight = ver.Value.Height;
-                    }
+                    bestPeer = ver.Key;
+                    bestHeight = ver.Value.Height;
                 }
+            }
 
+            // needed if a block authority goes offline and blocks are minted/propagated that it doesn't have
+            if (bestHeight > dataView.GetChainHeight())
+            {
+                syncFromPeers = true;
+            }
+
+            if (syncFromPeers && !(DaemonConfig.GetConfig().DbgConfig.DebugMode.Value && DaemonConfig.GetConfig().DbgConfig.SkipSyncing.Value))
+            {
                 /* among peers, find each of their associated heights */
                 List<(IPEndPoint, long)> peersAndHeights = new();
                 foreach (var ver in messageCache.Versions)
@@ -252,9 +271,9 @@ namespace Discreet.Daemon
                         Logger.Info($"Fetching block headers {_hheight + 1} to {_newHheight}");
 
                         byte[] zmqSync = new byte[12];
-                        Coin.Serialization.CopyData(zmqSync, 0, (int)(_hheight + 1));
-                        Coin.Serialization.CopyData(zmqSync, 4, (int)(_newHheight));
-                        Coin.Serialization.CopyData(zmqSync, 8, 0.25f * ((float)(_hheight + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
+                        Common.Serialization.CopyData(zmqSync, 0, (int)(_hheight + 1));
+                        Common.Serialization.CopyData(zmqSync, 4, (int)(_newHheight));
+                        Common.Serialization.CopyData(zmqSync, 8, 0.25f * ((float)(_hheight + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
                         ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSync);
 
                         toBeFulfilled = _newHheight - _hheight;
@@ -303,9 +322,9 @@ namespace Discreet.Daemon
                 Logger.Info($"Grabbed headers; grabbing blocks");
 
                 byte[] zmqSyncH = new byte[12];
-                Coin.Serialization.CopyData(zmqSyncH, 0, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncH, 4, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncH, 8, 0.25f);
+                Common.Serialization.CopyData(zmqSyncH, 0, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncH, 4, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncH, 8, 0.25f);
                 ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncH);
 
                 // restart all data
@@ -335,9 +354,9 @@ namespace Discreet.Daemon
                         Logger.Info($"Fetching blocks {chunk + 1} to {_newHeight}");
 
                         byte[] zmqSync = new byte[12];
-                        Coin.Serialization.CopyData(zmqSync, 0, (int)(chunk + 1));
-                        Coin.Serialization.CopyData(zmqSync, 4, (int)(_newHeight));
-                        Coin.Serialization.CopyData(zmqSync, 8, 0.25f + 0.74f * ((float)(chunk + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
+                        Common.Serialization.CopyData(zmqSync, 0, (int)(chunk + 1));
+                        Common.Serialization.CopyData(zmqSync, 4, (int)(_newHeight));
+                        Common.Serialization.CopyData(zmqSync, 8, 0.25f + 0.74f * ((float)(chunk + 1 - beginningHeight) / (float)(bestHeight - beginningHeight)));
                         ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSync);
 
                         Network.Peerbloom.Connection curConn;
@@ -372,7 +391,7 @@ namespace Discreet.Daemon
                                 _height = _nextHeight;
                             }
 
-                            var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
+                            var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray() });
                             network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
 
                             while (handler.LastSeenHeight < _nextHeight && missedItems.Count == 0)
@@ -391,7 +410,7 @@ namespace Discreet.Daemon
                                             curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                         }
 
-                                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                        network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                         missedItems.Clear();
                                     }
                                 }
@@ -406,7 +425,7 @@ namespace Discreet.Daemon
                             }
                         }
 
-                        // process dem blocks
+                        // process blocks
 
                         Exception exc = null;
                         var _beginHeight = chunk + 1;
@@ -427,11 +446,6 @@ namespace Discreet.Daemon
                                 {
                                     foreach (var block in goodBlocks)
                                     {
-                                        foreach (var toq in syncerQueues)
-                                        {
-                                            toq.Value.Enqueue(block.Header.BlockHash);
-                                        }
-
                                         ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
                                         ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
                                     }
@@ -440,7 +454,7 @@ namespace Discreet.Daemon
                                 // begin re-sending requests for blocks
                                 toBeFulfilled = reget.Count;
 
-                                var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = reget.ToArray(), Count = (uint)reget.Count });
+                                var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = reget.ToArray() });
                                 network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 600000, callback: callback);
 
                                 var _nextHeight = reget.Select(x => x.ToInt64()).Max();
@@ -460,7 +474,7 @@ namespace Discreet.Daemon
                                                 curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                             }
 
-                                            network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                            network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                             missedItems.Clear();
                                         }
                                     }
@@ -516,9 +530,9 @@ namespace Discreet.Daemon
                 handler.SetState(Network.PeerState.Processing);
 
                 byte[] zmqSyncB = new byte[12];
-                Coin.Serialization.CopyData(zmqSyncB, 0, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncB, 4, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncB, 8, 0.99f);
+                Common.Serialization.CopyData(zmqSyncB, 0, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncB, 4, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncB, 8, 0.99f);
                 ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncB);
 
                 //var blocks = db.GetBlockCache();
@@ -586,7 +600,7 @@ namespace Discreet.Daemon
                             curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                         }
 
-                        var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray(), Count = (uint)blocksToGet.Count });
+                        var getBlocksPacket = new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = blocksToGet.ToArray() });
                         network.SendRequest(curConn, getBlocksPacket, durationMilliseconds: 300000, callback: callback);
 
                         while (handler.LastSeenHeight < (minheight - 1) && missedItems.Count == 0)
@@ -605,7 +619,7 @@ namespace Discreet.Daemon
                                         curConn = (usablePeers.Count > 0) ? network.GetPeer(usablePeers[0]) : network.GetPeer(bestPeer);
                                     }
 
-                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = (uint)missedItems.Count, Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
+                                    network.SendRequest(curConn, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = missedItems.Select(x => x.Hash).ToArray() }), durationMilliseconds: 300000, callback: callback);
                                     missedItems.Clear();
                                 }
                             }
@@ -623,7 +637,7 @@ namespace Discreet.Daemon
                     if (err != null)
                     {
                         Logger.Error($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}", err);
-                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Count = 1, Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
+                        network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
                     }
 
                     try
@@ -635,35 +649,50 @@ namespace Discreet.Daemon
                         Logger.Error(e.Message, e);
                     }
 
-                    foreach (var toq in syncerQueues)
-                    {
-                        toq.Value.Enqueue(block.Header.BlockHash);
-                    }
-
                     beginningHeight++;
                 }
 
                 byte[] zmqSyncF = new byte[12];
-                Coin.Serialization.CopyData(zmqSyncF, 0, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncF, 4, (int)(bestHeight));
-                Coin.Serialization.CopyData(zmqSyncF, 8, 1.0f);
+                Common.Serialization.CopyData(zmqSyncF, 0, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncF, 4, (int)(bestHeight));
+                Common.Serialization.CopyData(zmqSyncF, 8, 1.0f);
                 ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncF);
+
+                Logger.Info("Fetching TXPool...");
+                network.Send(messageCache.Versions.Keys.First(), new Network.Core.Packet(Network.Core.PacketType.GETPOOL, new Network.Core.Packets.GetPoolPacket()));
             }
-            else if (IsMasternode)
+            
+            if (IsBlockAuthority)
             {
-                Logger.Info($"Starting minter...");
-                _ = Minter();
+                Logger.Info("Loading Master Wallet...");
 
-                if (wallets.IsEmpty)
+                if (emissionsWallet == null)
                 {
-                    Wallet wallet = WalletDB.GetDB().TryGetWallet("DBG_MASTERNODE");
+                    //Wallet wallet = WalletDB.GetDB().TryGetWallet("TESTNET_EMISSIONS");
 
-                    wallet.Decrypt("password");
+                    //wallet.Decrypt("password");
 
-                    wallets.Add(wallet);
+                    try
+                    {
+                        SQLiteWallet wallet = SQLiteWallet.OpenWallet("TESTNET_EMISSIONS", "password");
+                        emissionsWallet = wallet;
+                    }
+                    catch
+                    {
+                        // we haven't migrated yet
+                        Logger.Critical($"Migrating legacy emissions wallet to new wallet framework...");
+                        SQLiteWallet.WalletMigration.Migrate("TESTNET_EMISSIONS", "password");
+                        emissionsWallet = SQLiteWallet.Wallets["TESTNET_EMISSIONS"];
+                    }
                 }
 
-                _ = Task.Run(() => WalletSyncer(wallets.First(), true)).ConfigureAwait(false);
+                //WalletsLegacy.WalletManager.Instance.Wallets.Add(emissionsWallet);
+                Logger.Info($"Starting minter...");
+                var pauseChan = Channel.CreateUnbounded<bool>();
+                _ = Task.Run(async () => await DefaultBlockAuth.Instance.Start(DaemonConfig.GetConfig().AuConfig.DataSourcePort.Value, DaemonConfig.GetConfig().AuConfig.FinalizePort.Value, pauseChan.Writer));
+                _ = Task.Run(async () => await TestnetMinter(TimeSpan.FromSeconds(1), DaemonConfig.GetConfig().AuConfig.NProc.Value, DaemonConfig.GetConfig().AuConfig.Pid.Value, pauseChan.Reader));
+                _ = Task.Run(async () => await BlockReceiver());
+                //_ = Minter();
 
                 await Task.Delay(500);
             }
@@ -710,166 +739,94 @@ namespace Discreet.Daemon
 
             if (!failed)
             {
-                foreach (var toq in syncerQueues)
-                {
-                    toq.Value.Enqueue(block.Header.BlockHash);
-                }
-
                 ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
                 ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
             }
         }
 
-        public async Task WalletSyncer(Wallet wallet, bool scanForFunds)
+        public async Task TestnetMinter(TimeSpan interval, int n, int pid, ChannelReader<bool> pause)
         {
-            CancellationTokenSource _tokenSource = new CancellationTokenSource();
-            wallet.syncer = _tokenSource;
+            DateTime lastProduced = DateTime.MinValue;
+            var ts = DateTime.UtcNow.Ticks;
+            DateTime currentBeginning = new DateTime(ts - (ts % interval.Ticks));
+            DateTime currentEnd = currentBeginning.Add(interval);
+            int numProduced = 0;
+            bool paused = true;
+            bool reloop = false;
 
-            ConcurrentQueue<SHA256> queue = new ConcurrentQueue<SHA256>();
-
-            syncerQueues[wallet] = queue;
-
-            if (scanForFunds)
+            // we start off paused, waiting for the first call to us
+            while (paused)
             {
-                wallet.Synced = false;
-
-                var initialChainHeight = dataView.GetChainHeight();
-
-                while (wallet.LastSeenHeight < initialChainHeight && !_tokenSource.IsCancellationRequested)
+                if (pause.TryRead(out var unpause) && !unpause)
                 {
-                    wallet.ProcessBlock(dataView.GetBlock(wallet.LastSeenHeight + 1));
+                    paused = false;
+                    break;
                 }
 
-                while ((!queue.IsEmpty || handler.State != Network.PeerState.Normal) && !_tokenSource.IsCancellationRequested)
-                {
-                    SHA256 blockHash;
-                    bool success = queue.TryDequeue(out blockHash);
-
-                    if (!success)
-                    {
-                        await Task.Delay(100, _tokenSource.Token);
-                        continue;
-                    }
-
-                    wallet.ProcessBlock(dataView.GetBlock(blockHash));
-                }
+                await Task.Delay(20);
             }
-
-            wallet.Synced = !_tokenSource.IsCancellationRequested;
 
             while (!_tokenSource.IsCancellationRequested)
             {
-                long _height = dataView.GetChainHeight();
-
-                if (_height > wallet.LastSeenHeight)
+                if (lastProduced == DateTime.MinValue)
                 {
-                    wallet.Synced = false;
-
-                    for (long k = wallet.LastSeenHeight + 1; k <= _height; k++)
+                    // update the beginning
+                    while (currentEnd < DateTime.UtcNow)
                     {
-                        wallet.ProcessBlock(dataView.GetBlock(k));
+                        currentBeginning += interval;
+                        currentEnd += interval;
                     }
-
-                    wallet.Synced = true;
                 }
 
-                await Task.Delay(100, _tokenSource.Token);
-            }
-
-            syncerQueues.TryRemove(wallet, out _);
-        }
-
-        public async Task AddressSyncer(WalletAddress address)
-        {
-            CancellationTokenSource _tokenSource = new CancellationTokenSource();
-            address.syncerSource = _tokenSource;
-
-            ConcurrentQueue<SHA256> queue = new ConcurrentQueue<SHA256>();
-
-            syncerQueues[address] = queue;
-
-            address.Synced = false;
-            address.Syncer = true;
-
-            var initialChainHeight = dataView.GetChainHeight();
-
-            while (address.LastSeenHeight < initialChainHeight && address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
-            {
-                address.ProcessBlock(dataView.GetBlock(address.LastSeenHeight + 1));
-            }
-
-            if (address.LastSeenHeight == address.wallet.LastSeenHeight)
-            {
-                syncerQueues.Remove(address, out _);
-
-                address.Synced = true;
-                address.Syncer = false;
-                ZMQ.Publisher.Instance.Publish("addresssynced", address.Address);
-                return;
-            }
-            else if (_tokenSource.IsCancellationRequested)
-            {
-                return;
-            }
-
-            while ((!queue.IsEmpty || handler.State != Network.PeerState.Normal) && address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
-            {
-                SHA256 blockHash;
-                bool success = queue.TryDequeue(out blockHash);
-
-                if (!success)
+                while (DateTime.UtcNow < currentBeginning)
                 {
-                    await Task.Delay(100, _tokenSource.Token);
+                    if (pause.TryRead(out var doPause) && doPause)
+                    {
+                        paused = true;
+                        break;
+                    }
+
+                    await Task.Delay(20);
+                }
+
+                while (paused)
+                {
+                    if (pause.TryRead(out var unpause) && !unpause)
+                    {
+                        while (currentEnd < DateTime.UtcNow)
+                        {
+                            currentBeginning += interval;
+                            currentEnd += interval;
+                        }
+
+                        paused = false;
+                        reloop = true;
+                    }
+                    else
+                    {
+                        await Task.Delay(20);
+                    }
+                }
+
+                if (reloop)
+                {
+                    reloop = false;
                     continue;
                 }
 
-                address.ProcessBlock(dataView.GetBlock(blockHash));
-            }
-
-            if (address.LastSeenHeight == address.wallet.LastSeenHeight)
-            {
-                syncerQueues.Remove(address, out _);
-
-                address.Synced = true;
-                address.Syncer = false;
-                ZMQ.Publisher.Instance.Publish("addresssynced", address.Address);
-                return;
-            }
-            else if (_tokenSource.IsCancellationRequested)
-            {
-                return;
-            }
-
-            while (address.LastSeenHeight < address.wallet.LastSeenHeight && !_tokenSource.IsCancellationRequested)
-            {
-                while (!queue.IsEmpty && !_tokenSource.IsCancellationRequested && address.LastSeenHeight < address.wallet.LastSeenHeight)
+                if (numProduced % n == pid)
                 {
-                    SHA256 blockHash;
-                    bool success = queue.TryDequeue(out blockHash);
-
-                    if (!success)
+                    lock (MintLocker)
                     {
-                        await Task.Delay(100, _tokenSource.Token);
-                        continue;
+                        MintTestnetBlock();
                     }
-
-                    address.ProcessBlock(dataView.GetBlock(blockHash));
                 }
 
-                await Task.Delay(100, _tokenSource.Token);
+                numProduced++;
+                currentBeginning += interval;
+                currentEnd += interval;
+                lastProduced = DateTime.Now;
             }
-
-            if (_tokenSource.IsCancellationRequested)
-            {
-                return;
-            }
-
-            syncerQueues.Remove(address, out _);
-
-            address.Synced = true;
-            address.Syncer = false;
-            ZMQ.Publisher.Instance.Publish("addresssynced", address.Address);
-            return;
         }
 
         public async Task Minter()
@@ -937,7 +894,7 @@ namespace Discreet.Daemon
                 Logger.Info($"Discreet.Daemon: Minting new block...", verbose: 1);
 
                 var txs = txpool.GetTransactionsForBlock();
-                var blk = Block.Build(txs, (StealthAddress)wallets.First().Addresses[0].GetAddress(), signingKey);
+                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), signingKey);
 
                 try
                 {
@@ -966,6 +923,43 @@ namespace Discreet.Daemon
             }
         }
 
+        public void MintTestnetBlock()
+        {
+            try
+            {
+                Logger.Info($"Discreet.Daemon: Minting new block...", verbose: 1);
+
+                var sigKey = DefaultBlockAuth.Instance.Keyring.SigningKeys[(int)((dataView.GetChainHeight() + 1) % DefaultBlockAuth.Instance.Keyring.SigningKeys.Count)];
+                var txs = txpool.GetTransactionsForBlock();
+                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), sigKey);
+
+                try
+                {
+                    DB.ValidationCache vCache = new(blk);
+                    var vErr = vCache.Validate();
+                    if (vErr != null)
+                    {
+                        Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
+                    }
+                    vCache.Flush();
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(new DatabaseException("Daemon.Mint", e.Message).Message, e);
+                    ProcessBlock(blk, true);
+                    return;
+                }
+
+                ProcessBlock(blk);
+
+                DefaultBlockAuth.Instance.PublishBlockToAurem(blk);
+            }
+            catch (Exception e)
+            {
+                Logger.Error("Minting block failed: " + e.Message, e);
+            }
+        }
+
         public void BuildGenesis()
         {
             /* time to build the megablock */
@@ -976,11 +970,13 @@ namespace Discreet.Daemon
             List<StealthAddress> addresses = new List<StealthAddress>();
             List<ulong> coins = new List<ulong>();
 
-            Wallet wallet = new Wallet("DBG_MASTERNODE", "password");
+            //Wallet wallet = new Wallet("TESTNET_EMISSIONS", "password");
 
-            wallet.Save(true);
+            //wallet.Save(true);
 
-            wallets.Add(wallet);
+            //WalletManager.Instance.Wallets.Add(wallet);
+
+            var wallet = SQLiteWallet.CreateWallet(new Wallets.Models.CreateWalletParameters("TESTNET_EMISSIONS", "password").Scan().SetNumStealthAddresses(1).SetNumTransparentAddresses(0).SetDeterministic().SetEncrypted());
 
             /*while (_input != "EXIT")
             {
@@ -999,12 +995,13 @@ namespace Discreet.Daemon
                 coins.Add(ulong.Parse(_input));
             }*/
 
-            addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
-            coins.Add(900_000_000_0_000_000_000UL);
+            //addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
+            addresses.Add(new StealthAddress(wallet.Accounts[0].Address));
+            coins.Add(45_000_000_0_000_000_000UL);
 
             Logger.Info("Creating genesis block...");
 
-            var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, signingKey);
+            var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, DefaultBlockAuth.Instance.Keyring.SigningKeys.First());
             DB.ValidationCache vCache = new DB.ValidationCache(block);
             var exc = vCache.Validate();
             if (exc == null)
@@ -1024,6 +1021,50 @@ namespace Discreet.Daemon
             ProcessBlock(block);
 
             Logger.Info("Successfully created the genesis block.");
+        }
+
+        public async Task BlockReceiver()
+        {
+            TimeSpan clusterTime = TimeSpan.FromMilliseconds(200);
+            DateTime clusterDT = DateTime.Now;
+            List<Block> clusterBlocks = new List<Block>();
+
+            // old logic for receiving. We now try to cluster blocks if multiple blocks are received in a short timespan.
+            //await foreach (var blk in DefaultBlockAuth.Instance.Finalized.ReadAllAsync())
+            //{
+            //    network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = blk }));
+            //}
+
+            while (!_tokenSource.IsCancellationRequested)
+            {
+                var success = DefaultBlockAuth.Instance.Finalized.TryRead(out var blk);
+                if (success)
+                {
+                    clusterBlocks.Add(blk);
+                }
+
+                if (DateTime.Now.Subtract(clusterDT) < clusterTime)
+                {
+                    await Task.Delay(1);
+                    continue;
+                }
+                else if (clusterBlocks.Count > 1)
+                {
+                    network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCKS, new Network.Core.Packets.SendBlocksPacket { Blocks = clusterBlocks.OrderBy(x => x.Header.Height).ToArray() }));
+                    clusterDT = DateTime.Now;
+                    clusterBlocks = new();
+                }
+                else if (clusterBlocks.Count == 1)
+                {
+                    network.Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDBLOCK, new Network.Core.Packets.SendBlockPacket { Block = clusterBlocks.First() }));
+                    clusterDT = DateTime.Now;
+                    clusterBlocks = new();
+                }
+                else
+                {
+                    await Task.Delay(50);
+                }
+            }
         }
 
         public static Daemon Init()

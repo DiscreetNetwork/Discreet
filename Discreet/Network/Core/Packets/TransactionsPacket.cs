@@ -4,92 +4,34 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Discreet.Coin.Models;
+using Discreet.Common.Serialize;
 
 namespace Discreet.Network.Core.Packets
 {
     public class TransactionsPacket: IPacketBody
     {
-        public uint TxsLen { get; set; }
-        public Coin.FullTransaction[] Txs { get; set; }
+        public int TxsLen { get => Txs?.Length ?? 0; }
+        public FullTransaction[] Txs { get; set; }
 
         public TransactionsPacket()
         {
 
         }
 
-        public TransactionsPacket(byte[] b, uint offset)
+        public void Serialize(BEBinaryWriter writer)
         {
-            Deserialize(b, offset);
+            writer.WriteSerializableArray(Txs);
         }
 
-        public TransactionsPacket(Stream s)
+        public void Deserialize(ref MemoryReader reader)
         {
-            Deserialize(s);
+            Txs = reader.ReadSerializableArray<FullTransaction>();
         }
 
-        public void Deserialize(byte[] b, uint offset)
+        public int Size
         {
-            TxsLen = Coin.Serialization.GetUInt32(b, offset);
-            offset += 4;
-
-            Txs = new Coin.FullTransaction[TxsLen];
-            for (int i = 0; i < TxsLen; i++)
-            {
-                Txs[i] = new Coin.FullTransaction();
-                offset += Txs[i].Deserialize(b, offset);
-            }
-        }
-
-        public void Deserialize(Stream s)
-        {
-            using MemoryStream _ms = new MemoryStream();
-
-            byte[] buf = new byte[4096];
-            int bytesRead;
-
-            while ((bytesRead = s.Read(buf, 0, buf.Length)) > 0)
-            {
-                _ms.Write(buf, 0, bytesRead);
-            }
-
-            /* currently fall back on other Deserialize until ICoin implements Marshal/Unmarshal with a stream parameter */
-            Deserialize(_ms.ToArray(), 0);
-        }
-
-        public uint Serialize(byte[] b, uint offset)
-        {
-            Coin.Serialization.CopyData(b, offset, TxsLen);
-            offset += 4;
-
-            for (int i = 0; i < TxsLen; i++)
-            {
-                Txs[i].Serialize(b, offset);
-                offset += Txs[i].Size();
-            }
-
-            return offset;
-        }
-
-        public void Serialize(Stream s)
-        {
-            s.Write(Coin.Serialization.UInt32(TxsLen));
-
-            foreach (Coin.FullTransaction tx in Txs)
-            {
-                s.Write(tx.Serialize());
-            }
-        }
-
-        public int Size()
-        {
-            int rv = 4;
-
-            foreach (Coin.FullTransaction tx in Txs)
-            {
-                rv += (int)tx.Size();
-            }
-
-            return rv;
+            get => 4 + Txs?.Select(x => x.Size).Aggregate(0, (x, y) => x + y) ?? 0;
         }
     }
 }

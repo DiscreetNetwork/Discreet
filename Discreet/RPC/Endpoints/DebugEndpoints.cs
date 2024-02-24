@@ -1,8 +1,9 @@
 ﻿using Discreet.Coin;
+using Discreet.Coin.Models;
 using Discreet.Daemon;
 using Discreet.Network;
 using Discreet.RPC.Common;
-using Discreet.Wallets;
+using Discreet.WalletsLegacy;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,11 +20,11 @@ namespace Discreet.RPC.Endpoints
             {
                 var _daemon = Handler.GetHandler().daemon;
 
-                if (_daemon.IsMasternode)
+                if (_daemon.IsBlockAuthority)
                 {
-                    var wallet = _daemon.wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
+                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == "TESTNET_EMISSIONS").FirstOrDefault();
 
-                    if (wallet == null) return new RPCError("fatal error occurred. Masternode does not have a faucet.");
+                    if (wallet == null) return new RPCError("fatal error occurred. Block authority does not have a faucet.");
 
                     var tx = wallet.Addresses[0].CreateTransaction(new StealthAddress(address), amount).Item2.ToFull();
 
@@ -40,7 +41,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 else
                 {
-                    return new RPCError("you are not a masternode!");
+                    return new RPCError("you are not a valid block authority!");
                 }
             }
             catch (Exception ex)
@@ -53,7 +54,7 @@ namespace Discreet.RPC.Endpoints
 
         public class DbgFaucetTransparentRV
         {
-            public Readable.FullTransaction Tx { get; set; }
+            public FullTransaction Tx { get; set; }
             public string Txid { get; set; }
             public string Verify { get; set; }
         }
@@ -75,7 +76,7 @@ namespace Discreet.RPC.Endpoints
             {
                 var _daemon = Handler.GetHandler().daemon;
 
-                var wal = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+                var wal = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wal == null)
                 {
@@ -103,7 +104,7 @@ namespace Discreet.RPC.Endpoints
             {
                 var _daemon = Handler.GetHandler().daemon;
 
-                var wal = _daemon.wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
+                var wal = WalletManager.Instance.Wallets.Where(x => x.Addresses.Where(y => y.Address == address).FirstOrDefault() != null).FirstOrDefault();
 
                 if (wal == null)
                 {
@@ -139,11 +140,11 @@ namespace Discreet.RPC.Endpoints
             {
                 var _daemon = Handler.GetHandler().daemon;
 
-                if (_daemon.IsMasternode)
+                if (_daemon.IsBlockAuthority)
                 {
-                    var wallet = _daemon.wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
+                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == "TESTNET_EMISSIONS").FirstOrDefault();
 
-                    if (wallet == null) return new RPCError("fatal error occurred. Masternode does not have a faucet.");
+                    if (wallet == null) return new RPCError("fatal error occurred. Block authority does not have a faucet.");
 
                     var tx = wallet.Addresses[0].CreateTransaction(new IAddress[] { new TAddress(address) }, new ulong[] { amount }).ToFull();
 
@@ -163,14 +164,14 @@ namespace Discreet.RPC.Endpoints
 
                     return new DbgFaucetTransparentRV
                     {
-                        Tx = (Readable.FullTransaction)tx.ToReadable(),
+                        Tx = tx,
                         Txid = tx.Hash().ToHex(),
                         Verify = _verify
                     };
                 }
                 else
                 {
-                    return new RPCError("you are not a masternode!");
+                    return new RPCError("you are not a valid block authority!");
                 }
             }
             catch (Exception ex)
@@ -250,7 +251,7 @@ namespace Discreet.RPC.Endpoints
         [RPCEndpoint(endpoint_name: "dbg_send_message")]
         public static object SendMessage(string message)
         {
-            _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDMSG, new Network.Core.Packets.SendMessagePacket { MessageLen = (uint)Encoding.UTF8.GetBytes(message).Length, Message = message }));
+            _ = Network.Peerbloom.Network.GetNetwork().Broadcast(new Network.Core.Packet(Network.Core.PacketType.SENDMSG, new Network.Core.Packets.SendMessagePacket { Message = message }));
 
             return true;
         }

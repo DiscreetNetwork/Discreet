@@ -4,6 +4,7 @@ using System.Text;
 using System.Runtime.InteropServices;
 using Discreet.Common;
 using System.IO;
+using Discreet.Common.Exceptions;
 
 namespace Discreet.Coin
 {
@@ -30,19 +31,15 @@ namespace Discreet.Coin
         public static byte VERSION = 1;
     }
     
-    [StructLayout(LayoutKind.Sequential)]
     /**
      * TAddress is the Discreet Transparent address class.
      */
     public class TAddress: IAddress
     {
-        [MarshalAs(UnmanagedType.U1)]
         public byte version;
 
-        [MarshalAs(UnmanagedType.Struct)]
         public Cipher.RIPEMD160 hash;
 
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
         public byte[] checksum;
 
         public TAddress(Cipher.Key pk)
@@ -190,22 +187,17 @@ namespace Discreet.Coin
         }
     }
 
-    [StructLayout(LayoutKind.Sequential)]
     /**
      * StealthAddress is the Discreet shielded/private address class (i.e. dual key wallet).
      */
     public class StealthAddress : IAddress
     {
-        [MarshalAs(UnmanagedType.U1)]
         public byte version;
 
-        [MarshalAs(UnmanagedType.Struct)]
         public Cipher.Key spend;
 
-        [MarshalAs(UnmanagedType.Struct)]
         public Cipher.Key view;
 
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
         public byte[] checksum;
 
         public StealthAddress(Cipher.Key vk, Cipher.Key sk)
