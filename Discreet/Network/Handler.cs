@@ -473,6 +473,7 @@ namespace Discreet.Network
                 case PacketType.POOL:
                     return true;
                 case PacketType.SENDBLOCK:
+                case PacketType.SENDBLOCKS:
                 case PacketType.ALERT:
                 case PacketType.NONE:
                 case PacketType.INVENTORY:
@@ -548,6 +549,9 @@ namespace Discreet.Network
                         break;
                     case PacketType.SENDBLOCK:
                         await HandleSendBlock((SendBlockPacket)p.Body, conn);
+                        break;
+                    case PacketType.SENDBLOCKS:
+                        await HandleSendBlocks((SendBlocksPacket)p.Body, conn);
                         break;
                     case PacketType.GETPOOL:
                         await HandleGetPool((GetPoolPacket)p.Body, conn);
@@ -1067,7 +1071,31 @@ namespace Discreet.Network
             }
         }
 
-        public async Task HandleSendBlock(SendBlockPacket p, Peerbloom.Connection conn)
+        // TODO: finish preblock
+        public async Task HandleSendPreblock(SendPreblockPacket p, Peerbloom.Connection conn, bool doBroadcast = true)
+        {
+            if (State != PeerState.Normal) return;
+
+            if (p.Error != null && p.Error != "")
+            {
+                RejectPacket resp = new RejectPacket
+                {
+                    RejectedType = PacketType.SENDBLOCK,
+                    Reason = p.Error,
+                    Data = Array.Empty<byte>(),
+                    Code = RejectionCode.MALFORMED,
+                };
+
+                Daemon.Logger.Error($"Malformed block received from peer {conn.Receiver}: {p.Error}");
+
+                Peerbloom.Network.GetNetwork().Send(conn.Receiver, new Packet(PacketType.REJECT, resp));
+                return;
+            }
+
+            //if ()
+        }
+
+        public async Task HandleSendBlock(SendBlockPacket p, Peerbloom.Connection conn, bool doBroadcast = true)
         {
             if (State == PeerState.Startup)
             {
@@ -1119,7 +1147,7 @@ namespace Discreet.Network
             {
                 MessageCache.GetMessageCache().BlockCache[p.Block.Header.Height] = p.Block;
 
-                Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
+                if (doBroadcast) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
                 return;
             }
             else
@@ -1134,7 +1162,7 @@ namespace Discreet.Network
                     {
                         if (!MessageCache.GetMessageCache().OrphanBlockParents.ContainsKey(p.Block.Header.PreviousBlock))
                         {
-                            Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added; querying {conn.Receiver} for previous block");
+                            Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 3);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = 0;
                             Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Block.Header.PreviousBlock } }), durationMilliseconds: 60000);
@@ -1142,7 +1170,7 @@ namespace Discreet.Network
                         }
                         else
                         {
-                            Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added");
+                            Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added", verbose: 3);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = 0;
                             return;
@@ -1175,7 +1203,7 @@ namespace Discreet.Network
                         return;
                     }
 
-                    Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
+                    if (doBroadcast) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCK, p));
 
                     try
                     {
@@ -1197,6 +1225,24 @@ namespace Discreet.Network
                     Daemon.Logger.Info($"HandleSendBlock: already have block at height {p.Block.Header.Height} ({p.Block.Header.BlockHash.ToHexShort()}, prev block {p.Block.Header.PreviousBlock.ToHexShort()})", verbose: 3);
                 }
             }
+        }
+
+        public async Task HandleSendBlocks(SendBlocksPacket p, Peerbloom.Connection conn)
+        {
+            // ensure blocks are sorted
+            if (p.Error != null)
+            {
+                await HandleSendBlock(new SendBlockPacket { Block = null, Error = p.Error }, conn, false);
+                return;
+            }
+
+            var propagate = p.Blocks.Any(x => !DB.DataView.GetView().BlockExists(x.Hash()));
+            foreach (var block in p.Blocks.OrderBy(x => x.Header.Height))
+            {
+                await HandleSendBlock(new SendBlockPacket { Block = block }, conn, false);
+            }
+
+            if (propagate) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCKS, p));
         }
 
         public async Task HandleBlocks(BlocksPacket p, Peerbloom.Connection conn)
@@ -1262,7 +1308,7 @@ namespace Discreet.Network
                     {
                         if (!MessageCache.GetMessageCache().OrphanBlockParents.ContainsKey(p.Blocks[0].Header.PreviousBlock))
                         {
-                            Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 1);
+                            Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 3);
 
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = 0;

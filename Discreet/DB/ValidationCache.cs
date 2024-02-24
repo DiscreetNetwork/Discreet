@@ -178,11 +178,11 @@ namespace Discreet.DB
                 /* now verify output amount matches commitment */
                 Cipher.Key feeComm = new(new byte[32]);
                 Cipher.Key _I = Cipher.Key.Copy(Cipher.Key.I);
-                Cipher.KeyOps.GenCommitment(ref feeComm, ref _I, block.Header.Fee + Config.STANDARD_BLOCK_REWARD);
+                Cipher.KeyOps.GenCommitment(ref feeComm, ref _I, block.Header.Fee + Block.GetEmissions(block.Header.Height));
 
                 if (!feeComm.Equals(coinbase.Outputs[0].Commitment))
                 {
-                    return new VerifyException("Block", "Coinbase transaction in block does not balance with fee commitment");
+                    return new VerifyException("Block", "Coinbase transaction in block does not balance with fee + reward commitment");
                 }
             }
 
@@ -196,7 +196,7 @@ namespace Discreet.DB
             /* check signature data */
             if ((block.Header.Version == 1 || block.Header.Version == 2) && !block.CheckSignature())
             {
-                return new VerifyException("Block", "Block signature is invalid and/or does not come from a masternode");
+                return new VerifyException("Block", "Block signature is invalid and/or does not come from a valid block authority");
             }
 
             /* special rules for genesis block */

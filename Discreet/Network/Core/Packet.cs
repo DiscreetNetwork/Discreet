@@ -98,6 +98,8 @@ namespace Discreet.Network.Core
                 PacketType.NETPONG => reader.ReadSerializable<Packets.Peerbloom.NetPong>(),
                 PacketType.OLDMESSAGE => reader.ReadSerializable<Packets.Peerbloom.OldMessage>(),
                 PacketType.DISCONNECT => reader.ReadSerializable<Packets.Peerbloom.Disconnect>(),
+                PacketType.SENDBLOCKS => reader.ReadSerializable<Packets.SendBlocksPacket>(),
+                PacketType.SENDPREBLOCK => reader.ReadSerializable<Packets.SendPreblockPacket>(),
                 PacketType.NONE => throw new Exception("Discreet.Network.Core.Packet.DecodePacketBody: dummy packet received (PacketType.NONE)"),
                 _ => throw new Exception($"Discreet.Network.Core.Packet.DecodePacketBody: unknown packet type {t}"),
             };

@@ -97,7 +97,7 @@ namespace Discreet.Coin.Models
                 block.Header.PreviousBlock = new SHA256(new byte[32], false);
             }
 
-            if ((block.Header.Fee > 0 || Config.STANDARD_BLOCK_REWARD > 0) && miner != null)
+            if ((block.Header.Fee > 0 || GetEmissions(block.Header.Height) > 0) && miner != null)
             {
                 /* Construct miner TX */
                 Transaction minertx = new();
@@ -116,11 +116,11 @@ namespace Discreet.Coin.Models
                 /* the mask is always 1 for miner tx */
                 Key mask = Key.I;
                 var minerComm = minerOutput.Commitment;
-                KeyOps.GenCommitment(ref minerComm, ref mask, block.Header.Fee + Config.STANDARD_BLOCK_REWARD);
+                KeyOps.GenCommitment(ref minerComm, ref mask, block.Header.Fee + GetEmissions(block.Header.Height));
                 minerOutput.Commitment = minerComm;
 
                 minerOutput.UXKey = KeyOps.DKSAP(ref r, miner.view, miner.spend, 0);
-                minerOutput.Amount = block.Header.Fee + Config.STANDARD_BLOCK_REWARD;
+                minerOutput.Amount = block.Header.Fee + GetEmissions(block.Header.Height);
 
                 minertx.Outputs = new TXOutput[1] { minerOutput };
 
@@ -136,7 +136,7 @@ namespace Discreet.Coin.Models
 
             if (signingKey != default)
             {
-                if ((block.Header.Fee > 0 || Config.STANDARD_BLOCK_REWARD > 0) && miner != null)
+                if ((block.Header.Fee > 0 || GetEmissions(block.Header.Height) > 0) && miner != null)
                 {
                     block.Header.Version = 2;
                 }
@@ -284,14 +284,73 @@ namespace Discreet.Coin.Models
             if (Header.Extra == null || Header.Extra.Length != 96) return false;
 
             var sig = new Signature(Header.Extra);
-            return sig.Verify(Header.BlockHash) && IsMasternode(sig.y);
+            return sig.Verify(Header.BlockHash) && IsBlockAuthority(sig.y);
         }
 
-        public static bool IsMasternode(Key k)
+        public static bool IsBlockAuthority(Key k)
         {
-            //TODO: Implement hardcoded masternode IDs
-            return k == Key.FromHex("9a9335ee5978090019e8cef5f814d44abac923e2ca1eaf5c7000d36cf31ab3f9");
+            return Daemon.BlockAuth.DefaultBlockAuth.Instance.Keyring.Keys.Any(x => k == x);
             //return true;
+        }
+
+        public static ulong GetEmissions(long height)
+        {
+            if (height > 200_000_000L)
+            {
+                return 0_15000_00000UL;
+            }
+            else if (height > 160_000_000L)
+            {
+                return 0_25000_00000UL;
+            }
+            else if (height > 140_000_000L)
+            {
+                return 0_40000_00000UL;
+            }
+            else if (height > 120_000_000L)
+            {
+                return 0_60000_00000UL;
+            }
+            else if (height > 100_000_000L)
+            {
+                return 0_80000_00000UL;
+            }
+            else if (height > 70_000_000L)
+            {
+                return 1_00000_00000UL;
+            }
+            else if (height > 50_000_000L)
+            {
+                return 1_20000_00000UL;
+            }
+            else if (height > 45_000_000L)
+            {
+                return 1_40000_00000UL;
+            }
+            else if (height > 37_000_000L)
+            {
+                return 1_50000_00000UL;
+            }
+            else if (height > 27_000_000L)
+            {
+                return 1_60000_00000UL;
+            }
+            else if (height > 18_000_000L)
+            {
+                return 2_00000_00000UL;
+            }
+            else if (height > 9_000_000L)
+            {
+                return 3_00000_00000UL;
+            }
+            else if (height > 0)
+            {
+                return 5_00000_00000UL;
+            }
+            else
+            {
+                return 0UL;
+            }
         }
     }
 }

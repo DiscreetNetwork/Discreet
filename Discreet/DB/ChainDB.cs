@@ -155,7 +155,7 @@ redo:
 
                 folder = path;
 
-                // test and see if we're obsolete 
+                // test and see if we're obsolete
                 if (height.Value >= 0)
                 {
                     var block = GetBlock(height.Value);

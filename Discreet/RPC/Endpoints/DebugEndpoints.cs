@@ -20,11 +20,11 @@ namespace Discreet.RPC.Endpoints
             {
                 var _daemon = Handler.GetHandler().daemon;
 
-                if (_daemon.IsMasternode)
+                if (_daemon.IsBlockAuthority)
                 {
-                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
+                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == "TESTNET_EMISSIONS").FirstOrDefault();
 
-                    if (wallet == null) return new RPCError("fatal error occurred. Masternode does not have a faucet.");
+                    if (wallet == null) return new RPCError("fatal error occurred. Block authority does not have a faucet.");
 
                     var tx = wallet.Addresses[0].CreateTransaction(new StealthAddress(address), amount).Item2.ToFull();
 
@@ -41,7 +41,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 else
                 {
-                    return new RPCError("you are not a masternode!");
+                    return new RPCError("you are not a valid block authority!");
                 }
             }
             catch (Exception ex)
@@ -140,11 +140,11 @@ namespace Discreet.RPC.Endpoints
             {
                 var _daemon = Handler.GetHandler().daemon;
 
-                if (_daemon.IsMasternode)
+                if (_daemon.IsBlockAuthority)
                 {
-                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == "DBG_MASTERNODE").FirstOrDefault();
+                    var wallet = WalletManager.Instance.Wallets.Where(x => x.Label == "TESTNET_EMISSIONS").FirstOrDefault();
 
-                    if (wallet == null) return new RPCError("fatal error occurred. Masternode does not have a faucet.");
+                    if (wallet == null) return new RPCError("fatal error occurred. Block authority does not have a faucet.");
 
                     var tx = wallet.Addresses[0].CreateTransaction(new IAddress[] { new TAddress(address) }, new ulong[] { amount }).ToFull();
 
@@ -171,7 +171,7 @@ namespace Discreet.RPC.Endpoints
                 }
                 else
                 {
-                    return new RPCError("you are not a masternode!");
+                    return new RPCError("you are not a valid block authority!");
                 }
             }
             catch (Exception ex)
