@@ -666,6 +666,13 @@ namespace Discreet.Network.Peerbloom
                             continue;
                         }
                     }
+
+                    if (numConnected == 0)
+                    {
+                        Daemon.Logger.Warn("Could not find any online/valid peers. Restarting bootstrap.");
+                        numBootstrapFailures++;
+                        continue;
+                    }
                 }
                 else
                 {

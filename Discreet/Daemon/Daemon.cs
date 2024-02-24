@@ -1025,7 +1025,7 @@ namespace Discreet.Daemon
 
         public async Task BlockReceiver()
         {
-            TimeSpan clusterTime = TimeSpan.FromMilliseconds(50);
+            TimeSpan clusterTime = TimeSpan.FromMilliseconds(200);
             DateTime clusterDT = DateTime.Now;
             List<Block> clusterBlocks = new List<Block>();
 

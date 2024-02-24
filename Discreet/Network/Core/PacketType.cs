@@ -56,5 +56,6 @@ namespace Discreet.Network.Core
 
         /* EXT: USED FOR SENDING/PROPAGATING CONSENSUS DATA */
         SENDBLOCKS = 28,
+        SENDPREBLOCK = 29,
     }
 }
