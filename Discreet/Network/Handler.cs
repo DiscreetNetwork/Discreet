@@ -859,14 +859,17 @@ namespace Discreet.Network
                     }
                 }
 
-                totalBlockSize += blockToAdd.Header.BlockSize;
-
-                // break into chunks if request is too large
-                if (totalBlockSize > 15_000_000)
+                if (blockToAdd != null)
                 {
-                    Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { Blocks = blocks.ToArray() }));
-                    blocks.Clear();
-                    totalBlockSize = 0;
+                    totalBlockSize += blockToAdd.Header.BlockSize;
+
+                    // break into chunks if request is too large
+                    if (totalBlockSize > 15_000_000)
+                    {
+                        Peerbloom.Network.GetNetwork().Send(senderEndpoint, new Packet(PacketType.BLOCKS, new BlocksPacket { Blocks = blocks.ToArray() }));
+                        blocks.Clear();
+                        totalBlockSize = 0;
+                    }
                 }
             }
 
@@ -1062,8 +1065,8 @@ namespace Discreet.Network
                 }
 
                 // the event is raised only if (1) tx hasn't been seen before and (2) tx isn't malformed.
-                OnTransactionReceived?.Invoke(new TransactionReceivedEventArgs { Tx = p.Tx, Success = err == null });
-                
+                //OnTransactionReceived?.Invoke(new TransactionReceivedEventArgs { Tx = p.Tx, Success = err == null });
+
                 ZMQ.Publisher.Instance.Publish("txhash", p.Tx.Hash().ToHex());
                 ZMQ.Publisher.Instance.Publish("txraw", p.Tx.Readable());
 
@@ -1216,7 +1219,17 @@ namespace Discreet.Network
                     }
 
                     OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = p.Block });
+                    // invoke ontxsuccess
+                    foreach (var tx in p.Block.Transactions)
+                    {
+                        if (tx.Version == 0)
+                        {
+                            continue;
+                        }
 
+                        // the event is raised only if (1) tx hasn't been seen before and (2) tx isn't malformed.
+                        OnTransactionReceived?.Invoke(new TransactionReceivedEventArgs { Tx = tx, Success = true });
+                    }
                     /* check orphan data and process accordingly */
                     AcceptOrphans(p.Block.Header.BlockHash);
                 }
