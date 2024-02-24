@@ -1074,24 +1074,34 @@ namespace Discreet.Daemon
 
             if (config.BootstrapNode == null)
             {
-
+                config.BootstrapNode = "testnet.bootstrap.discreet.net";
                 bool didResolve = false;
+                bool didReject = false;
 
-                while (!didResolve)
+                do
                 {
                     try
                     {
-                        Console.Write("Boostrap node: ");
-                        IPAddress[] resolvedDNS = Dns.GetHostAddresses(Console.ReadLine());
+                        IPAddress[] resolvedDNS;
+                        if (didReject)
+                        {
+                            Console.Write("Boostrap node: ");
+                            resolvedDNS = Dns.GetHostAddresses(Console.ReadLine());
+                        }
+                        else
+                        {
+                            resolvedDNS = Dns.GetHostAddresses(config.BootstrapNode);
+                        }
 
                         config.BootstrapNode = resolvedDNS[0].ToString();
                         didResolve = true;
                     }
                     catch (Exception)
                     {
+                        didReject = true;
                         Logger.Error("Not a valid bootstrap node. Network might be temporarily down for maintenance.");
                     }
-                } 
+                } while (!didResolve);
             }
 
             DaemonConfig.SetConfig(config);
