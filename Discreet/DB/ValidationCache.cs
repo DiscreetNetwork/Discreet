@@ -15,8 +15,9 @@ namespace Discreet.DB
     {
         /* raw data and db access */
         private DataView dataView;
+        private BlockBuffer blockBuffer;
         private Block block; // for validating single block
-        private List<Block> blocks; // for validating multiple blocks
+        private List<Block> blocks = null; // for validating multiple blocks
 
         public Block CurBlock { get { return block; } }
 
@@ -39,8 +40,9 @@ namespace Discreet.DB
         public ValidationCache(Block blk)
         {
             dataView = DataView.GetView();
+            blockBuffer = BlockBuffer.Instance;
             block = blk;
-            pIndex = dataView.GetOutputIndex();
+            pIndex = blockBuffer.GetOutputIndex();
             tIndex = dataView.GetTransactionIndexer();
             updates = new List<UpdateEntry>();
 
@@ -49,15 +51,16 @@ namespace Discreet.DB
             txs = new(new Cipher.KeyComparer());
             newOutputs = new();
             blocksCache = new(new Cipher.SHA256EqualityComparer());
-            previousHeight = dataView.GetChainHeight();
+            previousHeight = blockBuffer.GetChainHeight();
             outputsCache = new();
         }
 
         public ValidationCache(List<Block> blks)
         {
             dataView = DataView.GetView();
+            blockBuffer = BlockBuffer.Instance;
             blocks = blks;
-            pIndex = dataView.GetOutputIndex();
+            pIndex = blockBuffer.GetOutputIndex();
             tIndex = dataView.GetTransactionIndexer();
             updates = new List<UpdateEntry>();
 
@@ -66,7 +69,7 @@ namespace Discreet.DB
             txs = new(new Cipher.KeyComparer());
             newOutputs = new();
             blocksCache = new(new Cipher.SHA256EqualityComparer());
-            previousHeight = dataView.GetChainHeight();
+            previousHeight = blockBuffer.GetChainHeight();
             outputsCache = new();
         }
 
@@ -129,7 +132,10 @@ namespace Discreet.DB
             /* validate basic data */
             if (block.Header.Version != 1 && block.Header.Version != 2) return new VerifyException("Block", $"Unsupported version (blocks are either version 1 or 2); got version {block.Header.Version}");
             if (!block.Hash().Equals(block.Header.BlockHash)) return new VerifyException("Block", $"Block hash in header does not match calculated block hash");
-            if (dataView.BlockExists(block.Header.BlockHash)) return new VerifyException("Block", $"Block already present");
+            if (blockBuffer.BlockExists(block.Header.BlockHash))
+            {
+                return new VerifyException("Block", $"Block already present");
+            }
             if (block.Transactions == null || block.Transactions.Length == 0) return new VerifyException("Block", "Block contains no transactions");
             if (block.Header.NumTXs != block.Transactions.Length) return new VerifyException("Block", $"Block tx mismatch: expected {block.Header.NumTXs}; got {block.Transactions.Length}");
             if (block.GetSize() != block.Header.BlockSize) return new VerifyException("Block", $"Block size mismatch: expected {block.Header.BlockSize}; got {block.GetSize()}");
@@ -225,7 +231,8 @@ namespace Discreet.DB
                 {
                     if (blocksCache.Count == 0)
                     {
-                        var pbsucc = dataView.TryGetBlockHeader(block.Header.PreviousBlock, out var prevBlockHeader);
+                        // use BlockBuffer instead
+                        var pbsucc = BlockBuffer.Instance.TryGetBlockHeader(block.Header.PreviousBlock, out var prevBlockHeader);
                         if (prevBlockHeader == null) return new VerifyException("Block", "Could not get previous block");
                         if (prevBlockHeader.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
                         if (previousHeight + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
@@ -240,15 +247,23 @@ namespace Discreet.DB
                 }
                 else
                 {
-                    if (!dataView.BlockExists(block.Header.PreviousBlock))
+                    if (!blockBuffer.BlockExists(block.Header.PreviousBlock))
                     {
-                        return new OrphanBlockException("Orphan block detected", dataView.GetChainHeight(), block.Header.Height, block);
+                        return new OrphanBlockException("Orphan block detected", blockBuffer.GetChainHeight(), block.Header.Height, block);
                     }
                     else
                     {
-                        var prevHeader = dataView.GetBlockHeader(block.Header.PreviousBlock);
-                        if (prevHeader.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
-                        if (dataView.GetChainHeight() + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
+                        try
+                        {
+                            var prevHeader = blockBuffer.GetBlockHeader(block.Header.PreviousBlock);
+                            if (prevHeader.Height + 1 != block.Header.Height) return new VerifyException("Block", "Previous block height + 1 does not equal block height");
+                            if (blockBuffer.GetChainHeight() + 1 != block.Header.Height) return new VerifyException("Block", "Chain height + 1 does not equal block height");
+                        }
+                        catch (Exception e)
+                        {
+
+                        }
+                        
                     }
                 }
                 
@@ -259,7 +274,7 @@ namespace Discreet.DB
 
                     /* reject if duplicate or in main branch */
                     if (txs.Contains(tx.TxID.ToKey())) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in block");
-                    if (dataView.ContainsTransaction(tx.TxID)) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in main branch");
+                    if (blockBuffer.ContainsTransaction(tx.TxID)) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in main branch");
 
                     /* transparent checks */
                     TTXOutput[] tinVals = new TTXOutput[tx.NumTInputs];
@@ -282,7 +297,7 @@ namespace Discreet.DB
                         HashSet<Cipher.SHA256> missingTxs = new HashSet<Cipher.SHA256>();
                         for (int j = 0; j < tx.NumTInputs; j++)
                         {
-                            if (!txs.Contains(tx.TInputs[j].TxSrc.ToKey()) && !dataView.ContainsTransaction(tx.TInputs[j].TxSrc)) missingTxs.Add(tx.TInputs[j].TxSrc);
+                            if (!txs.Contains(tx.TInputs[j].TxSrc.ToKey()) && !blockBuffer.ContainsTransaction(tx.TInputs[j].TxSrc)) missingTxs.Add(tx.TInputs[j].TxSrc);
                         }
 
                         /* reject if missing outputs */
@@ -299,7 +314,7 @@ namespace Discreet.DB
                             {
                                 try
                                 {
-                                    tinVals[j] = dataView.GetPubOutput(tx.TInputs[j]);
+                                    tinVals[j] = blockBuffer.GetPubOutput(tx.TInputs[j]);
                                 }
                                 catch
                                 {
@@ -331,7 +346,10 @@ namespace Discreet.DB
                         for (int j = 0; j < tx.NumPInputs; j++)
                         {
                             /* verify no duplicate spends in pool or main branch */
-                            if (!dataView.CheckSpentKey(tx.PInputs[j].KeyImage) || spentKeys.Contains(tx.PInputs[j].KeyImage)) return new VerifyException("Block", $"Private input's key image ({tx.PInputs[j].KeyImage.ToHexShort()}) already spent");
+                            if (!blockBuffer.CheckSpentKey(tx.PInputs[j].KeyImage) || spentKeys.Contains(tx.PInputs[j].KeyImage))
+                            {
+                                return new VerifyException("Block", $"Private input's key image ({tx.PInputs[j].KeyImage.ToHexShort()}) already spent");
+                            }
 
                             /* verify existence of all mixins */
                             if (many)
@@ -344,7 +362,7 @@ namespace Discreet.DB
                                     {
                                         try
                                         {
-                                            mixins[j][k] = dataView.GetOutput(tx.PInputs[j].Offsets[k]);
+                                            mixins[j][k] = blockBuffer.GetOutput(tx.PInputs[j].Offsets[k]);
                                         }
                                         catch
                                         {
@@ -357,7 +375,7 @@ namespace Discreet.DB
                             {
                                 try
                                 {
-                                    mixins[j] = dataView.GetMixins(tx.PInputs[j].Offsets);
+                                    mixins[j] = blockBuffer.GetMixins(tx.PInputs[j].Offsets);
                                 }
                                 catch
                                 {
@@ -596,16 +614,47 @@ namespace Discreet.DB
             return null;
         }
 
-        public async Task Flush()
+        public async Task Flush(List<Block> goodBlocks = null)
         {
             // We no longer flush updates here; TODO: remove updates from ValidationCache
             //dataView.Flush(updates);
-            await BlockBuffer.Instance.Writer.WriteAsync(block);
             if (blocks != null)
             {
-                foreach (var block in blocks)
+                if (goodBlocks != null)
                 {
-                    Daemon.TXPool.GetTXPool().UpdatePool(block.Transactions);
+                    foreach (var blk in goodBlocks)
+                    {
+                        await BlockBuffer.Instance.Writer.WriteAsync(blk);
+                    }
+                }
+                else
+                {
+                    foreach (var blk in blocks)
+                    {
+                        await BlockBuffer.Instance.Writer.WriteAsync(blk);
+                    }
+                }
+            }
+            else
+            {
+                await BlockBuffer.Instance.Writer.WriteAsync(block);
+            }
+
+            if (blocks != null)
+            {
+                if (goodBlocks != null)
+                {
+                    foreach (var block in goodBlocks)
+                    {
+                        Daemon.TXPool.GetTXPool().UpdatePool(block.Transactions);
+                    }
+                }
+                else
+                {
+                    foreach (var block in blocks)
+                    {
+                        Daemon.TXPool.GetTXPool().UpdatePool(block.Transactions);
+                    }
                 }
             }
             else

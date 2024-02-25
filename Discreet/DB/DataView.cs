@@ -152,6 +152,7 @@ namespace Discreet.DB
             }
             catch (Exception ex)
             {
+                // Feb 24 2024 11:27 PM: why do we log on attempting to get a block header?
                 Daemon.Logger.Error(ex.Message, ex);
                 header = null;
                 return false;

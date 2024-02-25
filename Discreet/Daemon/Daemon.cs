@@ -442,7 +442,7 @@ namespace Discreet.Daemon
                                 // first, flush valid blocks
                                 Logger.Error(exc.Message, exc);
                                 Logger.Error($"An invalid block was found during syncing (height {_beginHeight}). Re-requesting all future blocks (up to height {_newHeight}) and flushing valid blocks to disk");
-                                await vcache.Flush();
+                                await vcache.Flush(goodBlocks);
 
                                 // publish to ZMQ and syncer queues 
                                 if (goodBlocks != null && goodBlocks.Count > 0)
