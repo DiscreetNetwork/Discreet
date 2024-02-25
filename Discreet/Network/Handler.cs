@@ -1198,7 +1198,7 @@ namespace Discreet.Network
                     /* accept block and propagate */
                     try
                     {
-                        vCache.Flush();
+                        await vCache.Flush();
                     }
                     catch (Exception e)
                     {
@@ -1231,7 +1231,7 @@ namespace Discreet.Network
                         OnTransactionReceived?.Invoke(new TransactionReceivedEventArgs { Tx = tx, Success = true });
                     }
                     /* check orphan data and process accordingly */
-                    AcceptOrphans(p.Block.Header.BlockHash);
+                    await AcceptOrphans(p.Block.Header.BlockHash);
                 }
                 else
                 {
@@ -1249,13 +1249,18 @@ namespace Discreet.Network
                 return;
             }
 
-            var propagate = p.Blocks.Any(x => !DB.DataView.GetView().BlockExists(x.Hash()));
+            // don't propagate endlessly
+            var propagate = p.Blocks.Where(x => !DB.DataView.GetView().BlockExists(x.Hash()));
+            if (propagate.Any())
+            {
+                propagate = propagate.Where(x => !MessageCache.GetMessageCache().OrphanBlocks.ContainsKey(x.Header.BlockHash));
+            }
             foreach (var block in p.Blocks.OrderBy(x => x.Header.Height))
             {
                 await HandleSendBlock(new SendBlockPacket { Block = block }, conn, false);
             }
 
-            if (propagate) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCKS, p));
+            if (propagate.Any()) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCKS, p));
         }
 
         public async Task HandleBlocks(BlocksPacket p, Peerbloom.Connection conn)
@@ -1349,7 +1354,7 @@ namespace Discreet.Network
                     Daemon.Logger.Info($"HandleBlocks: Root found for orphan branch beginning with block {p.Blocks[0].Header.BlockHash.ToHexShort()}", verbose: 1);
                     try
                     {
-                        vCache.Flush();
+                        await vCache.Flush();
                     }
                     catch (Exception e)
                     {
@@ -1368,7 +1373,7 @@ namespace Discreet.Network
                     }
 
                     /* recursively accept orphan blocks from message cache */
-                    AcceptOrphans(p.Blocks[0].Header.BlockHash);
+                    await AcceptOrphans(p.Blocks[0].Header.BlockHash);
 
                     //success
                     fulfilled.ForEach(x => x.callback?.Invoke(x.peer, x.vector, true, RequestCallbackContext.SUCCESS));
@@ -1534,7 +1539,7 @@ namespace Discreet.Network
         /// Accepts all blocks on an orphan branch, if any.
         /// </summary>
         /// <param name="bHash"></param>
-        public void AcceptOrphans(Cipher.SHA256 bHash)
+        public async Task AcceptOrphans(Cipher.SHA256 bHash)
         {
             MessageCache mCache = MessageCache.GetMessageCache();
             while (mCache.OrphanBlocks.ContainsKey(bHash))
@@ -1551,7 +1556,7 @@ namespace Discreet.Network
 
                 try
                 {
-                    vCache.Flush();
+                    await vCache.Flush();
                 }
                 catch (Exception e)
                 {

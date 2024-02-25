@@ -106,19 +106,19 @@ namespace Discreet.Network
         {
             if (BlockCache.ContainsKey(blk.Header.Height))
             {
-                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!");
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!", verbose: 3);
                 return (true, "");
             }
 
             if (blk.Transactions == null || blk.Transactions.Length == 0 || blk.Header.NumTXs == 0)
             {
-                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has no transactions!");
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has no transactions!", verbose: 2);
                 return (false, "block has no transactions");
             }
 
             if ((long)blk.Header.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
             {
-                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} from too far in the future!");
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} from too far in the future!", verbose: 1);
                 return (false, "block too far from future");
             }
 
@@ -127,14 +127,14 @@ namespace Discreet.Network
             {
                 if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
                 {
-                    Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
+                    Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has a transaction without inputs or outputs!", verbose: 1);
                     return (false, "invalid transactions");
                 }
             }
 
             if (blk.GetMerkleRoot() != blk.Header.MerkleRoot)
             {
-                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has invalid Merkle root");
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has invalid Merkle root", verbose: 1);
                 return (false, "invalid merkle root");
             }
 

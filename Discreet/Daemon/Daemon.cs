@@ -58,7 +58,7 @@ namespace Discreet.Daemon
 
         public bool RPCLive { get; set; } = false;
 
-        private object MintLocker = new();
+        private SemaphoreSlim MintLocker = new(1, 1);
 
         public Daemon()
         {
@@ -161,7 +161,7 @@ namespace Discreet.Daemon
                 }
                 else
                 {
-                    BuildGenesis();
+                    await BuildGenesis();
                 }
             }
 
@@ -169,6 +169,9 @@ namespace Discreet.Daemon
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
             _ = Task.Factory.StartNew(async () => await ZMQ.Publisher.Instance.Start(DaemonConfig.GetConfig().ZMQPort.Value));
+
+            Logger.Info($"Starting Block Buffer...");
+            _ = Task.Factory.StartNew(async () => await DB.BlockBuffer.Instance.Start());
 
             await network.Start();
             await network.Bootstrap();
@@ -439,7 +442,7 @@ namespace Discreet.Daemon
                                 // first, flush valid blocks
                                 Logger.Error(exc.Message, exc);
                                 Logger.Error($"An invalid block was found during syncing (height {_beginHeight}). Re-requesting all future blocks (up to height {_newHeight}) and flushing valid blocks to disk");
-                                vcache.Flush();
+                                await vcache.Flush();
 
                                 // publish to ZMQ and syncer queues 
                                 if (goodBlocks != null && goodBlocks.Count > 0)
@@ -490,7 +493,7 @@ namespace Discreet.Daemon
                             }
                             else
                             {
-                                vcache.Flush();
+                                await vcache.Flush();
                             }
                         } while (exc != null);
                     }
@@ -642,7 +645,7 @@ namespace Discreet.Daemon
 
                     try
                     {
-                        vCache.Flush();
+                        await vCache.Flush();
                     }
                     catch (Exception e)
                     {
@@ -816,10 +819,9 @@ namespace Discreet.Daemon
 
                 if (numProduced % n == pid)
                 {
-                    lock (MintLocker)
-                    {
-                        MintTestnetBlock();
-                    }
+                    await MintLocker.WaitAsync();
+                    await MintTestnetBlock();
+                    MintLocker.Release();
                 }
 
                 numProduced++;
@@ -841,14 +843,13 @@ namespace Discreet.Daemon
                 //
                 //    Mint();
                 //}
-                lock (MintLocker)
-                {
-                    MintTestnet();
-                }
+                await MintLocker.WaitAsync();
+                await MintTestnet();
+                MintLocker.Release();
             }
         }
 
-        public void Mint()
+        public async Task Mint()
         {
             /*if (wallet.Addresses[0].Type != 0)
             {
@@ -872,7 +873,7 @@ namespace Discreet.Daemon
                     {
                         Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
                     }
-                    vCache.Flush();
+                    await vCache.Flush();
                 }
                 catch (Exception e)
                 {
@@ -887,7 +888,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public void MintTestnet()
+        public async Task MintTestnet()
         {
             try
             {
@@ -904,7 +905,7 @@ namespace Discreet.Daemon
                     {
                         Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
                     }
-                    vCache.Flush();
+                    await vCache.Flush();
                 }
                 catch (Exception e)
                 {
@@ -923,7 +924,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public void MintTestnetBlock()
+        public async Task MintTestnetBlock()
         {
             try
             {
@@ -941,7 +942,7 @@ namespace Discreet.Daemon
                     {
                         Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
                     }
-                    vCache.Flush();
+                    await vCache.Flush();
                 }
                 catch (Exception e)
                 {
@@ -960,7 +961,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public void BuildGenesis()
+        public async Task BuildGenesis()
         {
             /* time to build the megablock */
             //Console.WriteLine("Please, enter the wallets and amounts (input stop token EXIT when finished)");
@@ -1011,7 +1012,7 @@ namespace Discreet.Daemon
 
             try
             {
-                vCache.Flush();
+                await vCache.Flush();
             }
             catch (Exception e)
             {

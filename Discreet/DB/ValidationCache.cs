@@ -596,9 +596,11 @@ namespace Discreet.DB
             return null;
         }
 
-        public void Flush()
+        public async Task Flush()
         {
-            dataView.Flush(updates);
+            // We no longer flush updates here; TODO: remove updates from ValidationCache
+            //dataView.Flush(updates);
+            await BlockBuffer.Instance.Writer.WriteAsync(block);
             if (blocks != null)
             {
                 foreach (var block in blocks)
@@ -612,12 +614,12 @@ namespace Discreet.DB
             }
         }
 
-        public static void Process(Block block)
+        public static async Task Process(Block block)
         {
             ValidationCache vCache = new ValidationCache(block);
             var exc = vCache.Validate();
             if (exc != null) throw exc;
-            vCache.Flush();
+            await vCache.Flush();
         }
     }
 }
