@@ -42,6 +42,10 @@ namespace Discreet.DB
             _buffer = Channel.CreateUnbounded<Block>();
         }
 
+        /// <summary>
+        /// Starts the block buffer's flusher.
+        /// </summary>
+        /// <returns></returns>
         public async Task Start()
         {
             List<Block> buf = new List<Block>();
