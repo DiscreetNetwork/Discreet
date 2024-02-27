@@ -50,7 +50,7 @@ namespace Discreet.DB
         private uint _pIndex;
         private readonly object _pLock = new object();
 
-        private ReaderWriterLockSlim _readWriteLock = new ReaderWriterLockSlim();
+        private static readonly Block _signaler = new Block();
 
         /// <summary>
         /// Tries to get a block header from either the DataView or the BlockBuffer's buffer.
@@ -226,6 +226,11 @@ namespace Discreet.DB
             }
         }
 
+        public async Task ForceFlush()
+        {
+            await _buffer.Writer.WriteAsync(_signaler);
+        }
+
         /// <summary>
         /// Starts the block buffer's flusher.
         /// </summary>
@@ -238,31 +243,51 @@ namespace Discreet.DB
 
             await foreach(var block in _buffer.Reader.ReadAllAsync())
             {
-                if (_flushEveryBlock)
-                {
-                    Flush(new List<Block> { block });
-                }
-                else
+                if (block == _signaler)
                 {
                     lock (buffer)
                     {
-                        buffer.Add(block);
+                        if (buffer.Count == 0)
+                        {
+                            continue;
+                        }
                     }
 
-                    UpdateBuffers(block);
+                    Flush(buffer);
 
-                    // check received
-                    if (DateTime.Now.Subtract(lastFlush) > _flushInterval)
+                    lock (buffer)
                     {
-                        // flush
-                        Flush(buffer);
-
+                        buffer.Clear();
+                    }
+                }
+                else
+                {
+                    if (_flushEveryBlock)
+                    {
+                        Flush(new List<Block> { block });
+                    }
+                    else
+                    {
                         lock (buffer)
                         {
-                            buffer.Clear();
+                            buffer.Add(block);
                         }
 
-                        lastFlush = DateTime.Now;
+                        UpdateBuffers(block);
+
+                        // check received
+                        if (DateTime.Now.Subtract(lastFlush) > _flushInterval)
+                        {
+                            // flush
+                            Flush(buffer);
+
+                            lock (buffer)
+                            {
+                                buffer.Clear();
+                            }
+
+                            lastFlush = DateTime.Now;
+                        }
                     }
                 }
             }

@@ -355,6 +355,7 @@ namespace Discreet.DB
                             if (many)
                             {
                                 mixins[j] = new TXOutput[64];
+
                                 for (int k = 0; k < 64; k++)
                                 {
                                     bool mixinSuccess = outputsCache.TryGetValue(tx.PInputs[j].Offsets[k], out mixins[j][k]);
@@ -614,7 +615,7 @@ namespace Discreet.DB
             return null;
         }
 
-        public async Task Flush(List<Block> goodBlocks = null)
+        public async Task Flush(List<Block> goodBlocks = null, bool force = false)
         {
             // We no longer flush updates here; TODO: remove updates from ValidationCache
             //dataView.Flush(updates);
@@ -661,6 +662,8 @@ namespace Discreet.DB
             {
                 Daemon.TXPool.GetTXPool().UpdatePool(block.Transactions);
             }
+
+            if (force) await BlockBuffer.Instance.ForceFlush();
         }
 
         public static async Task Process(Block block)
