@@ -3,6 +3,7 @@ using Discreet.Coin.Models;
 using Discreet.Common;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
+using Discreet.Daemon;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -482,7 +483,6 @@ namespace Discreet.DB
                         Array.Copy(tx.SigningHash.Bytes, data, 32);
                         Array.Copy(tx.TInputs[j].Hash(tinVals[j]).Bytes, 0, data, 32, 32);
                         Cipher.SHA256 checkSig = Cipher.SHA256.HashData(data);
-
                         if (!tx.TSignatures[j].Verify(checkSig)) return new VerifyException("Block", $"Transparent input at index {j} has invalid signature");
                     }
 
@@ -495,6 +495,11 @@ namespace Discreet.DB
                         Cipher.Key[] P = mixins[j].Select(x => x.Commitment).ToArray();
 
                         var sigexc = tx.PSignatures[j].Verify(M, P, tx.PseudoOutputs[j], tx.SigningHash.ToKey(), tx.PInputs[j].KeyImage);
+                        Console.WriteLine($"ValidationCache.{block.Header.Height}.{tx.TxID.ToHex()[0..8]}.{j}: {sigexc == null}");
+                        if (block.Header.Height == 1945)
+                        {
+                            Environment.Exit(0);
+                        }
                         if (sigexc != null) return sigexc;
                     }
 
