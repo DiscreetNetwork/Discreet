@@ -22,6 +22,12 @@ using Discreet.Wallets.Models;
 using Discreet.Common.Serialize;
 using Discreet.Network;
 using Discreet.Network.Core.Packets.Peerbloom;
+using Discreet.Coin.Models;
+using System.Text.Json;
+using Discreet.Coin.Converters;
+using Discreet.Common.Converters;
+using System.Text.Json.Serialization;
+using Discreet.Wallets;
 
 namespace Discreet
 {

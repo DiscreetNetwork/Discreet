@@ -7,6 +7,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Policy;
 using System.Text;
 using System.Threading;
 using System.Threading.Channels;
@@ -17,8 +18,9 @@ namespace Discreet.DB
     /// <summary>
     /// Provides a multiple-writer, single-reader instance for writing blocks to the blockchain. Can be configured to write periodically or on each new block.
     /// Maintains an internal state for the ValidationCache for validating block data prior to writing to the database.
+    /// Wraps DataView for providing an IView.
     /// </summary>
-    public class BlockBuffer
+    public class BlockBuffer : IView
     {
         private Channel<Block> _buffer;
 
@@ -41,7 +43,7 @@ namespace Discreet.DB
         private static bool _flushEveryBlock = false;
         public static bool FlushEveryBlock { set { _flushEveryBlock = value; } }
 
-        private List<Block> buffer;
+        private List<Block> buffer = new List<Block>();
         private HashSet<Key> spentKeys = new HashSet<Key>();
         private ConcurrentDictionary<long, Block> blockCache = new ConcurrentDictionary<long, Block>();
         private ConcurrentDictionary<uint, TXOutput> outputCache = new ConcurrentDictionary<uint, TXOutput>();
@@ -50,7 +52,9 @@ namespace Discreet.DB
         private uint _pIndex;
         private readonly object _pLock = new object();
 
-        private ReaderWriterLockSlim _readWriteLock = new ReaderWriterLockSlim();
+        private DataView _view;
+
+        private static readonly Block _signaler = new Block();
 
         /// <summary>
         /// Tries to get a block header from either the DataView or the BlockBuffer's buffer.
@@ -60,7 +64,7 @@ namespace Discreet.DB
         /// <returns></returns>
         public bool TryGetBlockHeader(SHA256 hash, out BlockHeader header)
         {
-            var err = DataView.GetView().TryGetBlockHeader(hash, out var rv);
+            var err =_view.TryGetBlockHeader(hash, out var rv);
             if (err)
             {
                 header = rv;
@@ -100,7 +104,7 @@ namespace Discreet.DB
         {
             try
             {
-                return DataView.GetView().GetBlockHeader(hash);
+                return _view.GetBlockHeader(hash);
             }
             catch (Exception e)
             {
@@ -122,9 +126,35 @@ namespace Discreet.DB
             }
         }
 
+        public BlockHeader GetBlockHeader(long height)
+        {
+            try
+            {
+                return _view.GetBlockHeader(height);
+            }
+            catch (Exception e)
+            {
+                try
+                {
+                    Block blk = null;
+                    lock (buffer)
+                    {
+                        blk = buffer.Where(x => x.Header.Height == height).FirstOrDefault();
+                    }
+
+                    if (blk == null) throw new Exception();
+                    return blk.Header;
+                }
+                catch
+                {
+                    throw e;
+                }
+            }
+        }
+
         public bool BlockExists(SHA256 hash)
         {
-            var succ = DataView.GetView().BlockExists(hash);
+            var succ = _view.BlockExists(hash);
             
             if (succ)
             {
@@ -159,7 +189,7 @@ namespace Discreet.DB
         {
             try
             {
-                return DataView.GetView().GetPubOutput(tin);
+                return _view.GetPubOutput(tin);
             }
             catch (Exception e)
             {
@@ -178,7 +208,7 @@ namespace Discreet.DB
         {
             lock (spentKeys)
             {
-                return DataView.GetView().CheckSpentKey(k) && !spentKeys.Contains(k);
+                return _view.CheckSpentKey(k) && !spentKeys.Contains(k);
             }
         }
 
@@ -215,6 +245,7 @@ namespace Discreet.DB
         public BlockBuffer()
         {
             _buffer = Channel.CreateUnbounded<Block>();
+            _view = DataView.GetView();
         }
 
         public long GetChainHeight()
@@ -226,6 +257,11 @@ namespace Discreet.DB
             }
         }
 
+        public async Task ForceFlush()
+        {
+            await _buffer.Writer.WriteAsync(_signaler);
+        }
+
         /// <summary>
         /// Starts the block buffer's flusher.
         /// </summary>
@@ -233,40 +269,192 @@ namespace Discreet.DB
         public async Task Start()
         {
             _pIndex = DataView.GetView().GetOutputIndex();
-            buffer = new List<Block>();
             DateTime lastFlush = DateTime.MinValue;
 
             await foreach(var block in _buffer.Reader.ReadAllAsync())
             {
-                if (_flushEveryBlock)
-                {
-                    Flush(new List<Block> { block });
-                }
-                else
+                if (block == _signaler)
                 {
                     lock (buffer)
                     {
-                        buffer.Add(block);
+                        if (buffer.Count == 0)
+                        {
+                            continue;
+                        }
                     }
 
-                    UpdateBuffers(block);
+                    Flush(buffer);
 
-                    // check received
-                    if (DateTime.Now.Subtract(lastFlush) > _flushInterval)
+                    lock (buffer)
                     {
-                        // flush
-                        Flush(buffer);
-
+                        buffer.Clear();
+                    }
+                }
+                else
+                {
+                    if (_flushEveryBlock)
+                    {
+                        Flush(new List<Block> { block });
+                    }
+                    else
+                    {
                         lock (buffer)
                         {
-                            buffer.Clear();
+                            buffer.Add(block);
                         }
 
-                        lastFlush = DateTime.Now;
+                        UpdateBuffers(block);
+
+                        // check received
+                        if (DateTime.Now.Subtract(lastFlush) > _flushInterval)
+                        {
+                            // flush
+                            Flush(buffer);
+
+                            lock (buffer)
+                            {
+                                buffer.Clear();
+                            }
+
+                            lastFlush = DateTime.Now;
+                        }
                     }
                 }
             }
         }
+
+        public IEnumerable<Block> GetBlocks(long startHeight, long limit) => _view.GetBlocks(startHeight, limit);
+
+        public void AddBlockToCache(Block blk) => _view.AddBlockToCache(blk);
+
+        public bool BlockCacheHas(SHA256 blk) => _view.BlockCacheHas(blk);
+
+        public void ClearBlockCache() => _view.ClearBlockCache();
+
+        public void AddBlock(Block blk) => _buffer.Writer.TryWrite(blk);
+
+        public Dictionary<long, Block> GetBlockCache() => _view.GetBlockCache();
+
+        public void RemovePubOutput(TTXInput inp) => _view.RemovePubOutput(inp);
+
+        public uint[] GetOutputIndices(SHA256 hash) => _view.GetOutputIndices(hash);
+
+        public (TXOutput[], int) GetMixins(uint idx) => _view.GetMixins(idx);
+
+        public (TXOutput[], int) GetMixinsUniform(uint idx) => _view.GetMixinsUniform(idx);
+
+        public FullTransaction GetTransaction(SHA256 hash)
+        {
+            try
+            {
+                return _view.GetTransaction(hash);
+            }
+            catch(Exception e)
+            {
+                try
+                {
+                    return transactionCache[hash];
+                }
+                catch
+                {
+                    throw e;
+                }
+            }
+        }
+
+        public FullTransaction GetTransaction(ulong txid) => _view.GetTransaction(txid);
+
+        public Block GetBlock(long height)
+        {
+            try
+            {
+                return _view.GetBlock(height);
+            }
+            catch (Exception e)
+            {
+                try
+                {
+                    Block blk = null;
+                    lock (buffer)
+                    {
+                        blk = buffer.Where(x => x.Header.Height == height).FirstOrDefault();
+                    }
+
+                    if (blk == null) throw new Exception();
+                    return blk;
+                }
+                catch
+                {
+                    throw e;
+                }
+            }
+        }
+
+        public Block GetBlock(SHA256 hash)
+        {
+            try
+            {
+                return _view.GetBlock(hash);
+            }
+            catch (Exception e)
+            {
+                try
+                {
+                    Block blk = null;
+                    lock (buffer)
+                    {
+                        blk = buffer.Where(x => x.Header.BlockHash == hash).FirstOrDefault();
+                    }
+
+                    if (blk == null) throw new Exception();
+                    return blk;
+                }
+                catch
+                {
+                    throw e;
+                }
+            }
+        }
+
+        public ulong GetTransactionIndexer() => _view.GetTransactionIndexer();
+
+        public ulong GetTransactionIndex(SHA256 h) => _view.GetTransactionIndex(h);
+
+        public long GetBlockHeight(SHA256 hash)
+        {
+            try
+            {
+                return _view.GetBlockHeight(hash);
+            }
+            catch (Exception e)
+            {
+                try
+                {
+                    Block blk = null;
+                    lock (buffer)
+                    {
+                        blk = buffer.Where(x => x.Header.BlockHash == hash).FirstOrDefault();
+                    }
+
+                    if (blk == null) throw new Exception();
+                    return blk.Header.Height;
+                }
+                catch
+                {
+                    throw e;
+                }
+            }
+        }
+
+        public bool BlockHeightExists(long h)
+        {
+            lock (buffer)
+            {
+                return _view.BlockHeightExists(h) || buffer.Any(x => x.Header.Height == h);
+            }
+        }
+
+        public void Flush(IEnumerable<UpdateEntry> updates) => throw new Exception("Discreet.DB.BlockBuffer: cannot directly update the block buffer's database!");
 
         private void UpdateBuffers(Block block)
         {

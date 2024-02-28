@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Discreet.Coin.Models;
+using Discreet.DB;
 using Discreet.Network.Core;
 using Discreet.Network.Core.Packets;
 
@@ -821,7 +822,7 @@ namespace Discreet.Network
 
         public async Task HandleGetBlocks(GetBlocksPacket p, IPEndPoint senderEndpoint)
         {
-            DB.DataView dataView = DB.DataView.GetView();
+            IView dataView = BlockBuffer.Instance;
 
             List<Block> blocks = new();
             List<InventoryVector> notFound = new();
@@ -1034,7 +1035,7 @@ namespace Discreet.Network
             var txhash = p.Tx.TxID;
 
             /* sometimes a SendTx can occur as propagation for a recently added block */
-            if (DB.DataView.GetView().ContainsTransaction(txhash))
+            if (BlockBuffer.Instance.ContainsTransaction(txhash))
             {
                 Daemon.Logger.Debug($"HandleSendTx: Transaction received was in a previous block");
                 return;
@@ -1155,7 +1156,7 @@ namespace Discreet.Network
             }
             else
             {
-                if (!DB.DataView.GetView().BlockExists(p.Block.Header.BlockHash))
+                if (!BlockBuffer.Instance.BlockExists(p.Block.Header.BlockHash))
                 {
                     /* create validation cache and perform check */
                     DB.ValidationCache vCache = new DB.ValidationCache(p.Block);
@@ -1167,7 +1168,7 @@ namespace Discreet.Network
                         {
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 3);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
-                            MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = 0;
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = p.Block.Header.PreviousBlock;
                             Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Block.Header.PreviousBlock } }), durationMilliseconds: 60000);
                             return;
                         }
@@ -1175,7 +1176,8 @@ namespace Discreet.Network
                         {
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added", verbose: 3);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
-                            MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = 0;
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = p.Block.Header.PreviousBlock;
+                            CheckRoot(p.Block, conn);
                             return;
                         }
                     }
@@ -1250,7 +1252,7 @@ namespace Discreet.Network
             }
 
             // don't propagate endlessly
-            var propagate = p.Blocks.Where(x => !DB.DataView.GetView().BlockExists(x.Hash()));
+            var propagate = p.Blocks.Where(x => !BlockBuffer.Instance.BlockExists(x.Hash()));
             if (propagate.Any())
             {
                 propagate = propagate.Where(x => !MessageCache.GetMessageCache().OrphanBlocks.ContainsKey(x.Header.BlockHash));
@@ -1274,7 +1276,7 @@ namespace Discreet.Network
             }
             if (State == PeerState.Syncing)
             {
-                DB.DataView dataView = DB.DataView.GetView();
+                IView dataView = BlockBuffer.Instance;
                 fulfilled.Sort((x, y) => x.block.Header.Height.CompareTo(y.block.Header.Height));
 
                 foreach (var ivref in fulfilled)
@@ -1312,7 +1314,7 @@ namespace Discreet.Network
                     Daemon.Logger.Error("HandleBlocks: queried peer returned more than one block (not syncing; orphan block most likely)");
                     return;
                 }
-                if (DB.DataView.GetView().BlockExists(p.Blocks[0].Header.BlockHash))
+                if (BlockBuffer.Instance.BlockExists(p.Blocks[0].Header.BlockHash))
                 {
                     Daemon.Logger.Error("HandleBlocks: queried peer returned an existing block; ignoring");
                 }
@@ -1329,7 +1331,7 @@ namespace Discreet.Network
                             Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 3);
 
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
-                            MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = 0;
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = p.Blocks[0].Header.PreviousBlock;
                             Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Blocks[0].Header.PreviousBlock } }), durationMilliseconds: 60000);
                             return;
                         }
@@ -1337,7 +1339,8 @@ namespace Discreet.Network
                         {
                             Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added", verbose: 1);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
-                            MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = 0;
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = p.Blocks[0].Header.PreviousBlock;
+                            CheckRoot(p.Blocks[0], conn);
                             return;
                         }
                     }
@@ -1535,6 +1538,19 @@ namespace Discreet.Network
             }
         }
 
+        public void CheckRoot(Block block, Peerbloom.Connection conn)
+        {
+            MessageCache mCache = MessageCache.GetMessageCache();
+            var hash = block.Header.PreviousBlock;
+            while (mCache.OrphanBlockParents.ContainsKey(hash))
+            {
+                hash = mCache.OrphanBlockParents[hash];
+            }
+
+            // request previous block
+            Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { hash } }), durationMilliseconds: 60000);
+        }
+
         /// <summary>
         /// Accepts all blocks on an orphan branch, if any.
         /// </summary>
@@ -1547,6 +1563,11 @@ namespace Discreet.Network
                 mCache.OrphanBlocks.Remove(bHash, out var block);
                 DB.ValidationCache vCache = new DB.ValidationCache(block);
                 var err = vCache.Validate();
+                if (err is OrphanBlockException)
+                {
+                    // simply return
+                    return;
+                }
                 if (err != null)
                 {
                     Daemon.Logger.Error($"AcceptOrphans: Malformed or invalid block in orphan branch {bHash.ToHexShort()} (height {block.Header.Height}): {err.Message}; tossing branch", err);

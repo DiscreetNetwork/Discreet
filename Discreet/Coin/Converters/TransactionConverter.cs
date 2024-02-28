@@ -70,6 +70,7 @@ namespace Discreet.Coin.Converters
             reader.Read();
             version = reader.GetByte();
             if (version >= (byte)Config.TransactionVersions.END) throw new JsonException("FullTransaction version exceeds defined range");
+            transaction.Version = version;
 
             switch (version)
             {
@@ -85,7 +86,7 @@ namespace Discreet.Coin.Converters
 
             while (reader.Read())
             {
-                if (reader.TokenType == JsonTokenType.EndObject) return transaction;
+                if (reader.TokenType == JsonTokenType.EndObject) break;
 
                 if (reader.TokenType == JsonTokenType.PropertyName)
                 {
@@ -206,6 +207,16 @@ namespace Discreet.Coin.Converters
                 }
             }
 
+            if (transaction.Version == 3)
+            {
+                transaction.NumTInputs = transaction.NumInputs;
+                transaction.NumTOutputs = transaction.NumOutputs;
+            }
+            else if (transaction.Version == 2 || transaction.Version == 1 || transaction.Version == 0)
+            {
+                transaction.NumPInputs = transaction.NumInputs;
+                transaction.NumPOutputs = transaction.NumOutputs;
+            }
             return transaction;
         }
 
