@@ -281,6 +281,25 @@ namespace Discreet.Network
                 });
                 return (true, fulfilled);
             }
+            else if (packet is NotFoundPacket p)
+            {
+                List<InventoryVectorRef> notFounds = new List<InventoryVectorRef>();
+                foreach (var vec in p.Inventory)
+                {
+                    var binv = new InventoryVectorRef(vec);
+                    bool remsuccess = reqset.TryGetValue(binv, out var trueinv);
+                    if (!remsuccess || trueinv == null) return (false, null);
+                    notFounds.Add(trueinv);
+                }
+
+                notFounds.ForEach(x =>
+                {
+                    reqset.Remove(x);
+                    InventoryTimeouts.Remove(x, out _);
+                });
+
+                return (true, notFounds);
+            }
             else
             {
                 Daemon.Logger.Error($"Handler.CheckFulfillment: cannot check packet of type {packet.GetType()}");
@@ -1465,8 +1484,6 @@ namespace Discreet.Network
             }
             if (State == PeerState.Syncing)
             {
-                DB.DataView dataView = DB.DataView.GetView();
-
                 fulfilled.Sort((x,y) => x.header.Height.CompareTo(y.header.Height));
 
                 foreach (var ivref in fulfilled)

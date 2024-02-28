@@ -7,6 +7,7 @@ using Discreet.Network.Core.Packets;
 using System.Net;
 using System.Collections.Concurrent;
 using Discreet.Coin.Models;
+using Discreet.DB;
 
 namespace Discreet.Network
 {
@@ -53,7 +54,7 @@ namespace Discreet.Network
 
         public bool AddHeaderToCache(BlockHeader header)
         {
-            var dataView = DB.DataView.GetView();
+            var dataView = BlockBuffer.Instance;
             var _curHeight = dataView.GetChainHeight();
 
             if (header == null) return false;
