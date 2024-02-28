@@ -717,7 +717,7 @@ namespace Discreet.Network
                 Version = Daemon.DaemonConfig.GetConfig().NetworkVersion.Value,
                 Services = Services,
                 Timestamp = DateTime.UtcNow.Ticks,
-                Height = DB.DataView.GetView().GetChainHeight(),
+                Height = BlockBuffer.Instance.GetChainHeight(),
                 Port = Daemon.DaemonConfig.GetConfig().Port.Value,
                 Syncing = State == PeerState.Syncing
             };
