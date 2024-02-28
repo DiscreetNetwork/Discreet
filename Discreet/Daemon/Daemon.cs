@@ -17,6 +17,7 @@ using Discreet.Coin.Models;
 using Discreet.Common.Serialize;
 using Discreet.Daemon.BlockAuth;
 using System.Threading.Channels;
+using Discreet.DB;
 
 namespace Discreet.Daemon
 {
@@ -37,7 +38,7 @@ namespace Discreet.Daemon
         Network.Handler handler;
         Network.Peerbloom.Network network;
         Network.MessageCache messageCache;
-        DB.DataView dataView;
+        IView dataView;
         DaemonConfig config;
         SQLiteWallet emissionsWallet;
 
@@ -65,7 +66,7 @@ namespace Discreet.Daemon
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
-            dataView = DB.DataView.GetView();
+            dataView = BlockBuffer.Instance;
 
             config = DaemonConfig.GetConfig();
 
@@ -96,7 +97,7 @@ namespace Discreet.Daemon
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
-            dataView = DB.DataView.GetView();
+            dataView = BlockBuffer.Instance;
 
             config = DaemonConfig.GetConfig();
 
@@ -571,7 +572,7 @@ namespace Discreet.Daemon
                     beginningHeight++;
                 }*/
 
-                beginningHeight = dataView.GetChainHeight() + 1;
+                beginningHeight = BlockBuffer.Instance.GetChainHeight() + 1;
 
                 while (!messageCache.BlockCache.IsEmpty)
                 {
@@ -584,7 +585,7 @@ namespace Discreet.Daemon
                         // re-request all blocks up to current minimum height
                         var minheight = messageCache.BlockCache.Keys.Min();
 
-                        handler.LastSeenHeight = dataView.GetChainHeight();
+                        handler.LastSeenHeight = BlockBuffer.Instance.GetChainHeight();
                         toBeFulfilled = 0;
                         missedItems.Clear();
                         usablePeers.Clear();
@@ -714,7 +715,7 @@ namespace Discreet.Daemon
             if (DaemonConfig.GetConfig().DbgConfig.CheckBlockchain.Value)
             {
                 Logger.Debug("Checking for missing blocks...");
-                var blockchainHeight = dataView.GetChainHeight();
+                var blockchainHeight = BlockBuffer.Instance.GetChainHeight();
                 List<long> missingBlocks = new();
                 for (long i = 0; i < blockchainHeight; i++)
                 {
