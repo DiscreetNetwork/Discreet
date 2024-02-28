@@ -136,7 +136,7 @@ namespace Discreet.DB
             if (!block.Hash().Equals(block.Header.BlockHash)) return new VerifyException("Block", $"Block hash in header does not match calculated block hash");
             if (blockBuffer.BlockExists(block.Header.BlockHash))
             {
-                return new VerifyException("Block", $"Block already present");
+                return new AlreadyPresentException("Block", $"Block already present");
             }
             if (block.Transactions == null || block.Transactions.Length == 0) return new VerifyException("Block", "Block contains no transactions");
             if (block.Header.NumTXs != block.Transactions.Length) return new VerifyException("Block", $"Block tx mismatch: expected {block.Header.NumTXs}; got {block.Transactions.Length}");

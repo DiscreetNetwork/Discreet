@@ -437,7 +437,11 @@ namespace Discreet.Daemon
                         {
                             var vcache = new DB.ValidationCache(messageCache.GetAllCachedBlocks(_beginHeight, _newHeight));
                             (exc, _beginHeight, var goodBlocks, var reget) = vcache.ValidateReturnFailures();
-
+                            if (exc is AlreadyPresentException apex)
+                            {
+                                // ignore this
+                                exc = null;
+                            }
                             if (exc != null && reget != null)
                             {
                                 // first, flush valid blocks

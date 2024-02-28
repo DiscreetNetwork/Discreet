@@ -892,7 +892,7 @@ namespace Discreet.Network
 
         public async Task HandleGetTxs(GetTransactionsPacket p, IPEndPoint senderEndpoint)
         {
-            DB.DataView dataView = DB.DataView.GetView();
+            IView dataView = BlockBuffer.Instance;
 
             List<FullTransaction> txs = new();
             List<InventoryVector> notFound = new();
@@ -1386,7 +1386,7 @@ namespace Discreet.Network
 
         public async Task HandleGetHeaders(GetHeadersPacket p, Peerbloom.Connection conn)
         {
-            DB.DataView dataView = DB.DataView.GetView();
+            IView dataView = BlockBuffer.Instance;
 
             List<BlockHeader> headers = new();
             List<InventoryVector> notFound = new();
