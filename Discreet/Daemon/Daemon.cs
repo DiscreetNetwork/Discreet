@@ -662,7 +662,8 @@ namespace Discreet.Daemon
                 ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncF);
 
                 Logger.Info("Fetching TXPool...");
-                network.Send(messageCache.Versions.Keys.First(), new Network.Core.Packet(Network.Core.PacketType.GETPOOL, new Network.Core.Packets.GetPoolPacket()));
+                var conn2fetch = messageCache.Versions.Keys.FirstOrDefault() ?? network.OutboundConnectedPeers.Keys.FirstOrDefault();
+                network.Send(conn2fetch, new Network.Core.Packet(Network.Core.PacketType.GETPOOL, new Network.Core.Packets.GetPoolPacket()));
             }
             
             if (IsBlockAuthority)
