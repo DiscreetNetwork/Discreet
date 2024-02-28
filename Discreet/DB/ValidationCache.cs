@@ -495,11 +495,6 @@ namespace Discreet.DB
                         Cipher.Key[] P = mixins[j].Select(x => x.Commitment).ToArray();
 
                         var sigexc = tx.PSignatures[j].Verify(M, P, tx.PseudoOutputs[j], tx.SigningHash.ToKey(), tx.PInputs[j].KeyImage);
-                        Console.WriteLine($"ValidationCache.{block.Header.Height}.{tx.TxID.ToHex()[0..8]}.{j}: {sigexc == null}");
-                        if (block.Header.Height == 1945)
-                        {
-                            Environment.Exit(0);
-                        }
                         if (sigexc != null) return sigexc;
                     }
 

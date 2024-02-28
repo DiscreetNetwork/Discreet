@@ -25,6 +25,7 @@ namespace Discreet.Network
             }
         }
 
+        // TODO: February 27 2024 9:30 PM - look into LRU caching for these; simple finite size ConcurrentQueue would work.
         public ConcurrentBag<string> Messages;
         public ConcurrentBag<RejectPacket> Rejections;
         public HashSet<AlertPacket> Alerts;
@@ -36,7 +37,7 @@ namespace Discreet.Network
         private long _headerMax = -1;
 
         public ConcurrentDictionary<Cipher.SHA256, Block> OrphanBlocks;
-        public ConcurrentDictionary<Cipher.SHA256, int> OrphanBlockParents = new(new Cipher.SHA256EqualityComparer());
+        public ConcurrentDictionary<Cipher.SHA256, Cipher.SHA256> OrphanBlockParents = new(new Cipher.SHA256EqualityComparer());
 
         public MessageCache()
         {

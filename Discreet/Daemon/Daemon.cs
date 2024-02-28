@@ -997,31 +997,39 @@ namespace Discreet.Daemon
             }*/
 
             //addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
-            addresses.Add(new StealthAddress(wallet.Accounts[0].Address));
-            coins.Add(45_000_000_0_000_000_000UL);
-
-            Logger.Info("Creating genesis block...");
-
-            var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, DefaultBlockAuth.Instance.Keyring.SigningKeys.First());
-            DB.ValidationCache vCache = new DB.ValidationCache(block);
-            var exc = vCache.Validate();
-            if (exc == null)
-                Logger.Info("Genesis block successfully created.");
-            else
-                throw new Exception($"Could not create genesis block: {exc}");
-
             try
             {
-                await vCache.Flush();
+                addresses.Add(new StealthAddress(wallet.Accounts[0].Address));
+                coins.Add(45_000_000_0_000_000_000UL);
+
+                Logger.Info("Creating genesis block...");
+
+                var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, DefaultBlockAuth.Instance.Keyring.SigningKeys.First());
+                DB.ValidationCache vCache = new DB.ValidationCache(block);
+                var exc = vCache.Validate();
+                if (exc == null)
+                    Logger.Info("Genesis block successfully created.");
+                else
+                    throw new Exception($"Could not create genesis block: {exc}");
+
+                try
+                {
+                    await vCache.Flush();
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message, e);
+                }
+
+                ProcessBlock(block);
+
+                Logger.Info("Successfully created the genesis block.");
             }
             catch (Exception e)
             {
-                Logger.Error(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message, e);
+                await Console.Out.WriteLineAsync($"{e.GetType().Name}: {e.Message}\n{e.StackTrace}");
+                Environment.Exit(1);
             }
-
-            ProcessBlock(block);
-
-            Logger.Info("Successfully created the genesis block.");
         }
 
         public async Task BlockReceiver()
