@@ -88,6 +88,8 @@ namespace Discreet.Network
 
         public ConcurrentQueue<(Core.Packet, Peerbloom.Connection)> InboundPacketQueue = new();
 
+        //private ConcurrentQueue<> _seenPropagation = new ConcurrentQueue<uint>();
+
         /* back reference to the Daemon */
         public Daemon.Daemon daemon;
 
@@ -1215,6 +1217,8 @@ namespace Discreet.Network
             }
             else
             {
+                Daemon.Logger.Info($"HandleSendBlock: received block with height {p.Block.Header.Height}", verbose: 99999);
+
                 if (!BlockBuffer.Instance.BlockExists(p.Block.Header.BlockHash))
                 {
                     /* create validation cache and perform check */
@@ -1324,6 +1328,7 @@ namespace Discreet.Network
             {
                 propagate = propagate.Where(x => !MessageCache.GetMessageCache().OrphanBlocks.ContainsKey(x.Header.BlockHash));
             }
+
             foreach (var block in p.Blocks.OrderBy(x => x.Header.Height))
             {
                 await HandleSendBlock(new SendBlockPacket { Block = block }, conn, false);
@@ -1381,6 +1386,9 @@ namespace Discreet.Network
                     Daemon.Logger.Error("HandleBlocks: queried peer returned more than one block (not syncing; orphan block most likely)");
                     return;
                 }
+
+                Daemon.Logger.Info($"HandleBlocks: received block with height {p.Blocks[0].Header.Height}", verbose: 99999);
+
                 if (BlockBuffer.Instance.BlockExists(p.Blocks[0].Header.BlockHash))
                 {
                     Daemon.Logger.Error("HandleBlocks: queried peer returned an existing block; ignoring");
@@ -1659,6 +1667,8 @@ namespace Discreet.Network
                         TossOrphans(bHash);
                         return;
                     }
+
+                    Daemon.Logger.Info($"AcceptOrphans: accepted block with height {block.Header.Height}", verbose: 99999);
 
                     try
                     {
