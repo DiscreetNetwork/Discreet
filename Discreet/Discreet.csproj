@@ -6,7 +6,7 @@
     <Platforms>AnyCPU;x64</Platforms>
     <PlatformTarget>x64</PlatformTarget>
 	<RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
-    <Version>0.2.55</Version>
+    <Version>0.2.56</Version>
     <ApplicationIcon>Daemon_icon.ico</ApplicationIcon>
   </PropertyGroup>
 
