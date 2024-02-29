@@ -486,14 +486,14 @@ namespace Discreet.Network
                 case PacketType.SENDTX:
                 case PacketType.GETTXS:
                 case PacketType.TXS:
-                case PacketType.BLOCKS:
                 case PacketType.GETHEADERS:
-                case PacketType.HEADERS:
                 case PacketType.GETPOOL:
                 case PacketType.POOL:
                     return true;
                 case PacketType.SENDBLOCK:
                 case PacketType.SENDBLOCKS:
+                case PacketType.BLOCKS:
+                case PacketType.HEADERS:
                 case PacketType.ALERT:
                 case PacketType.NONE:
                 case PacketType.INVENTORY:
@@ -1185,18 +1185,26 @@ namespace Discreet.Network
                     {
                         if (!MessageCache.GetMessageCache().OrphanBlockParents.ContainsKey(p.Block.Header.PreviousBlock))
                         {
+                            await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
+
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 3);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = p.Block.Header.PreviousBlock;
                             Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Block.Header.PreviousBlock } }), durationMilliseconds: 60000);
+                            
+                            MessageCache.GetMessageCache().OrphanLock.Release();
                             return;
                         }
                         else
                         {
+                            await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
+
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added", verbose: 3);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = p.Block.Header.PreviousBlock;
                             CheckRoot(p.Block, conn);
+
+                            MessageCache.GetMessageCache().OrphanLock.Release();
                             return;
                         }
                     }
@@ -1349,17 +1357,28 @@ namespace Discreet.Network
                         {
                             Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 3);
 
+                            await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
+
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = p.Blocks[0].Header.PreviousBlock;
                             Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Blocks[0].Header.PreviousBlock } }), durationMilliseconds: 60000);
+                            
+                            MessageCache.GetMessageCache().OrphanLock.Release();
+
                             return;
                         }
                         else
                         {
                             Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added", verbose: 1);
+
+                            await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
+
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = p.Blocks[0].Header.PreviousBlock;
                             CheckRoot(p.Blocks[0], conn);
+
+                            MessageCache.GetMessageCache().OrphanLock.Release();
+
                             return;
                         }
                     }
@@ -1368,7 +1387,11 @@ namespace Discreet.Network
                         Daemon.Logger.Error($"HandleBlocks: Malformed or invalid block received from peer {conn.Receiver}: {err.Message} (bogus block for orphan requirement)", err);
 
                         /* for now assume invalid root always has invalid leaves */
+
+                        await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
                         TossOrphans(p.Blocks[0].Header.BlockHash);
+                        MessageCache.GetMessageCache().OrphanLock.Release();
+
                         return;
                     }
 
@@ -1575,44 +1598,54 @@ namespace Discreet.Network
         public async Task AcceptOrphans(Cipher.SHA256 bHash)
         {
             MessageCache mCache = MessageCache.GetMessageCache();
-            while (mCache.OrphanBlocks.ContainsKey(bHash))
+
+            await mCache.OrphanLock.WaitAsync();
+
+            try
             {
-                mCache.OrphanBlocks.Remove(bHash, out var block);
-                DB.ValidationCache vCache = new DB.ValidationCache(block);
-                var err = vCache.Validate();
-                if (err is OrphanBlockException)
+                while (mCache.OrphanBlocks.ContainsKey(bHash))
                 {
-                    // simply return
-                    return;
-                }
-                if (err != null)
-                {
-                    Daemon.Logger.Error($"AcceptOrphans: Malformed or invalid block in orphan branch {bHash.ToHexShort()} (height {block.Header.Height}): {err.Message}; tossing branch", err);
-                    TossOrphans(bHash);
-                    return;
-                }
+                    mCache.OrphanBlocks.Remove(bHash, out var block);
+                    DB.ValidationCache vCache = new DB.ValidationCache(block);
+                    var err = vCache.Validate();
+                    if (err is OrphanBlockException)
+                    {
+                        // simply return
+                        return;
+                    }
+                    if (err != null)
+                    {
+                        Daemon.Logger.Error($"AcceptOrphans: Malformed or invalid block in orphan branch {bHash.ToHexShort()} (height {block.Header.Height}): {err.Message}; tossing branch", err);
+                        TossOrphans(bHash);
+                        return;
+                    }
 
-                try
-                {
-                    await vCache.Flush();
-                }
-                catch (Exception e)
-                {
-                    Daemon.Logger.Error($"AcceptOrphans: an error was encountered while flushing validation cache for block at height {block.Header.Height}: {e.Message}", e);
-                }
+                    try
+                    {
+                        await vCache.Flush();
+                    }
+                    catch (Exception e)
+                    {
+                        Daemon.Logger.Error($"AcceptOrphans: an error was encountered while flushing validation cache for block at height {block.Header.Height}: {e.Message}", e);
+                    }
 
-                try
-                {
-                    daemon.ProcessBlock(block);
-                }
-                catch (Exception e)
-                {
-                    Daemon.Logger.Error($"AcceptOrphans: an error was encountered while processing block at height {block.Header.Height}: {e.Message}", e);
-                }
+                    try
+                    {
+                        daemon.ProcessBlock(block);
+                    }
+                    catch (Exception e)
+                    {
+                        Daemon.Logger.Error($"AcceptOrphans: an error was encountered while processing block at height {block.Header.Height}: {e.Message}", e);
+                    }
 
-                OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = block });
-                bHash = block.Header.BlockHash;
-                mCache.OrphanBlockParents.Remove(bHash, out _);
+                    OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = block });
+                    bHash = block.Header.BlockHash;
+                    mCache.OrphanBlockParents.Remove(bHash, out _);
+                }
+            }
+            finally
+            {
+                mCache.OrphanLock.Release();
             }
         }
     }
