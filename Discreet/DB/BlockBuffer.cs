@@ -22,9 +22,7 @@ namespace Discreet.DB
     /// </summary>
     public class BlockBuffer : IView
     {
-        private Channel<Block> _buffer;
-
-        public ChannelWriter<Block> Writer { get => _buffer.Writer; }
+        private ConcurrentQueue<Block> _buffer;
 
         private static BlockBuffer _instance;
 
@@ -244,7 +242,7 @@ namespace Discreet.DB
 
         public BlockBuffer()
         {
-            _buffer = Channel.CreateUnbounded<Block>();
+            _buffer = new ConcurrentQueue<Block>();
             _view = DataView.GetView();
         }
 
@@ -257,9 +255,24 @@ namespace Discreet.DB
             }
         }
 
-        public async Task ForceFlush()
+        public void WriteToBuffer(Block blk)
         {
-            await _buffer.Writer.WriteAsync(_signaler);
+            _buffer.Enqueue(blk);
+            UpdateBuffers(blk);
+        }
+
+        public void ForceFlush()
+        {
+            lock (buffer)
+            {
+                if (buffer.Count == 0)
+                {
+                    return;
+                }
+
+                Flush(buffer);
+                buffer.Clear();
+            }
         }
 
         /// <summary>
@@ -270,49 +283,23 @@ namespace Discreet.DB
         {
             _pIndex = DataView.GetView().GetOutputIndex();
 
-            _ = Task.Factory.StartNew(async () =>
+            var timer = new PeriodicTimer(_flushInterval);
+            while (await timer.WaitForNextTickAsync())
             {
-                var timer = new PeriodicTimer(_flushInterval);
-                while (await timer.WaitForNextTickAsync())
+                lock (buffer)
                 {
-                    await _buffer.Writer.WriteAsync(_signaler);
-                }
-            });
-
-            await foreach(var block in _buffer.Reader.ReadAllAsync())
-            {
-                if (block == _signaler)
-                {
-                    lock (buffer)
+                    while (_buffer.TryDequeue(out var block))
                     {
-                        if (buffer.Count == 0)
-                        {
-                            continue;
-                        }
+                        buffer.Add(block);
+                    }
+
+                    if (buffer.Count == 0)
+                    {
+                        continue;
                     }
 
                     Flush(buffer);
-
-                    lock (buffer)
-                    {
-                        buffer.Clear();
-                    }
-                }
-                else
-                {
-                    if (_flushEveryBlock)
-                    {
-                        Flush(new List<Block> { block });
-                    }
-                    else
-                    {
-                        lock (buffer)
-                        {
-                            buffer.Add(block);
-                        }
-
-                        UpdateBuffers(block);
-                    }
+                    buffer.Clear();
                 }
             }
         }
@@ -325,7 +312,7 @@ namespace Discreet.DB
 
         public void ClearBlockCache() => _view.ClearBlockCache();
 
-        public void AddBlock(Block blk) => _buffer.Writer.TryWrite(blk);
+        public void AddBlock(Block blk) => _buffer.Enqueue(blk);
 
         public Dictionary<long, Block> GetBlockCache() => _view.GetBlockCache();
 
