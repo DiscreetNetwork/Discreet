@@ -620,7 +620,7 @@ namespace Discreet.DB
         {
             // We no longer flush updates here; TODO: remove updates from ValidationCache
             //dataView.Flush(updates);
-            if (blocks != null)
+            if (blocks != null && blocks.Count > 0)
             {
                 if (goodBlocks != null)
                 {
