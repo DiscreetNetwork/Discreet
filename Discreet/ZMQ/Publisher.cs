@@ -13,6 +13,10 @@ namespace Discreet.ZMQ
     public class Publisher
     {
         private static Publisher _instance;
+
+        /// <summary>
+        /// The instance of the publisher.
+        /// </summary>
         public static Publisher Instance { get { if (_instance == null) { _instance = new Publisher(); } return _instance; } }
         
         private CancellationTokenSource _cancellationTokenSource;
