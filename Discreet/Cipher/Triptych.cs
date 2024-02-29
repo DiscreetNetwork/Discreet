@@ -92,7 +92,7 @@ namespace Discreet.Cipher
             return proof;
         }
 
-        public static bool triptych_VERIFY(Triptych bp, Key[] M, Key[] P, Key C_offset, Key message) => Native.Native.Instance.triptych_VERIFY(bp, M, P, C_offset, message);
+        public static bool triptych_VERIFY(Triptych bp, Key[] M, Key[] P, Key C_offset, Key message) => Native.Native.Instance.triptych_VERIFY(bp, M, P, C_offset, message) != 0;
 
         public static bool Verify(Triptych bp, Key[] M, Key[] P, Key C_offset, Key message)
         {

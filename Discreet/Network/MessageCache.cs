@@ -7,6 +7,8 @@ using Discreet.Network.Core.Packets;
 using System.Net;
 using System.Collections.Concurrent;
 using Discreet.Coin.Models;
+using Discreet.DB;
+using System.Threading;
 
 namespace Discreet.Network
 {
@@ -25,6 +27,7 @@ namespace Discreet.Network
             }
         }
 
+        // TODO: February 27 2024 9:30 PM - look into LRU caching for these; simple finite size ConcurrentQueue would work.
         public ConcurrentBag<string> Messages;
         public ConcurrentBag<RejectPacket> Rejections;
         public HashSet<AlertPacket> Alerts;
@@ -36,7 +39,8 @@ namespace Discreet.Network
         private long _headerMax = -1;
 
         public ConcurrentDictionary<Cipher.SHA256, Block> OrphanBlocks;
-        public ConcurrentDictionary<Cipher.SHA256, int> OrphanBlockParents = new(new Cipher.SHA256EqualityComparer());
+        public ConcurrentDictionary<Cipher.SHA256, Cipher.SHA256> OrphanBlockParents = new(new Cipher.SHA256EqualityComparer());
+        public readonly SemaphoreSlim OrphanLock = new SemaphoreSlim(1, 1);
 
         public MessageCache()
         {
@@ -46,13 +50,13 @@ namespace Discreet.Network
             Versions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BadVersions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BlockCache = new ConcurrentDictionary<long, Block>();
-            OrphanBlocks = new ConcurrentDictionary<Cipher.SHA256, Block>();
+            OrphanBlocks = new ConcurrentDictionary<Cipher.SHA256, Block>(new Cipher.SHA256EqualityComparer());
             HeaderCache = new ConcurrentDictionary<long, BlockHeader>();
         }
 
         public bool AddHeaderToCache(BlockHeader header)
         {
-            var dataView = DB.DataView.GetView();
+            var dataView = BlockBuffer.Instance;
             var _curHeight = dataView.GetChainHeight();
 
             if (header == null) return false;
@@ -106,19 +110,19 @@ namespace Discreet.Network
         {
             if (BlockCache.ContainsKey(blk.Header.Height))
             {
-                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!");
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} (height {blk.Header.Height}) already in database!", verbose: 3);
                 return (true, "");
             }
 
             if (blk.Transactions == null || blk.Transactions.Length == 0 || blk.Header.NumTXs == 0)
             {
-                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has no transactions!");
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has no transactions!", verbose: 2);
                 return (false, "block has no transactions");
             }
 
             if ((long)blk.Header.Timestamp > DateTime.UtcNow.AddHours(2).Ticks)
             {
-                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} from too far in the future!");
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} from too far in the future!", verbose: 1);
                 return (false, "block too far from future");
             }
 
@@ -127,14 +131,14 @@ namespace Discreet.Network
             {
                 if ((!tx.HasInputs() || !tx.HasOutputs()) && (tx.Version != 0))
                 {
-                    Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has a transaction without inputs or outputs!");
+                    Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has a transaction without inputs or outputs!", verbose: 1);
                     return (false, "invalid transactions");
                 }
             }
 
             if (blk.GetMerkleRoot() != blk.Header.MerkleRoot)
             {
-                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has invalid Merkle root");
+                Daemon.Logger.Error($"AddBlockToCache: Block {blk.Header.BlockHash.ToHexShort()} has invalid Merkle root", verbose: 1);
                 return (false, "invalid merkle root");
             }
 

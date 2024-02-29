@@ -7,8 +7,10 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Discreet.Coin.Models;
+using Discreet.DB;
 using Discreet.Network.Core;
 using Discreet.Network.Core.Packets;
+using RocksDbSharp;
 
 namespace Discreet.Network
 {
@@ -87,6 +89,8 @@ namespace Discreet.Network
 
         public ConcurrentQueue<(Core.Packet, Peerbloom.Connection)> InboundPacketQueue = new();
 
+        //private ConcurrentQueue<> _seenPropagation = new ConcurrentQueue<uint>();
+
         /* back reference to the Daemon */
         public Daemon.Daemon daemon;
 
@@ -123,7 +127,7 @@ namespace Discreet.Network
             }
         }
 
-        public void RegisterNeeded(IPacketBody packet, IPEndPoint req, long durMilliseconds = 0, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback = null)
+        public bool RegisterNeeded(IPacketBody packet, IPEndPoint req, long durMilliseconds = 0, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback = null)
         {
             bool success = NeededInventory.TryGetValue(req, out var reqset);
             if (!success || reqset == null)
@@ -138,37 +142,65 @@ namespace Discreet.Network
 
             var timestamp = DateTime.UtcNow.Ticks;
             var durTicks = durMilliseconds * 10_000L;
+            bool needed = false;
 
             if (packet.GetType() == typeof(GetTransactionsPacket))
             {
                 var gettx = packet as GetTransactionsPacket;
+                var newGettxs = new List<Cipher.SHA256>();
                 foreach (var tx in gettx.Transactions)
                 {
                     var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, tx), reqset, callback, req);
-                    reqset.Add(ivref);
-                    InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                    if (!reqset.Contains(ivref))
+                    {
+                        newGettxs.Add(tx);
+                        needed = true;
+                        reqset.Add(ivref);
+                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                    }
                 }
+
+                gettx.Transactions = newGettxs.ToArray();
             }
             else if (packet.GetType() == typeof(GetBlocksPacket))
             {
                 var gettx = packet as GetBlocksPacket;
+                var newGettxs = new List<Cipher.SHA256>();
                 foreach (var block in gettx.Blocks)
                 {
                     var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block), reqset, callback, req);
-                    reqset.Add(ivref);
-                    InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                    if (!reqset.Contains(ivref))
+                    {
+                        newGettxs.Add(block);
+                        needed = true;
+                        reqset.Add(ivref);
+                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                    }
                 }
+
+                gettx.Blocks = newGettxs.ToArray();
             }
             else if (packet.GetType() == typeof(GetHeadersPacket))
             {
                 var gettx = packet as GetHeadersPacket;
+                var newGettxs = new List<Cipher.SHA256>();
                 if (gettx.Headers == null)
                 {
                     for (long i = gettx.StartingHeight; i < gettx.StartingHeight + gettx.Count; i++)
                     {
                         var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(i)), reqset, callback, req);
-                        reqset.Add(ivref);
-                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                        if (!reqset.Contains(ivref))
+                        {
+                            newGettxs.Add(new Cipher.SHA256(i));
+                            needed = true;
+                            reqset.Add(ivref);
+                            InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                        }
+                    }
+
+                    if (newGettxs.Count == gettx.Count)
+                    {
+                        newGettxs = null;
                     }
                 }
                 else
@@ -176,15 +208,27 @@ namespace Discreet.Network
                     foreach (var header in gettx.Headers)
                     {
                         var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header), reqset, callback, req);
-                        reqset.Add(ivref);
-                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                        if (!reqset.Contains(ivref))
+                        {
+                            newGettxs.Add(header);
+                            needed = true;
+                            reqset.Add(ivref);
+                            InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                        }
                     }
+                }
+
+                if (newGettxs != null)
+                {
+                    gettx.Headers = newGettxs.ToArray();
                 }
             }
             else
             {
                 Daemon.Logger.Error($"Handler.RegisterNeeded: cannot accept packet of type {packet.GetType()}");
             }
+
+            return needed;
         }
 
         internal (bool, List<InventoryVectorRef>) CheckFulfillment(IPacketBody packet, IPEndPoint resp)
@@ -279,6 +323,25 @@ namespace Discreet.Network
                     InventoryTimeouts.Remove(x, out _);
                 });
                 return (true, fulfilled);
+            }
+            else if (packet is NotFoundPacket p)
+            {
+                List<InventoryVectorRef> notFounds = new List<InventoryVectorRef>();
+                foreach (var vec in p.Inventory)
+                {
+                    var binv = new InventoryVectorRef(vec);
+                    bool remsuccess = reqset.TryGetValue(binv, out var trueinv);
+                    if (!remsuccess || trueinv == null) return (false, null);
+                    notFounds.Add(trueinv);
+                }
+
+                notFounds.ForEach(x =>
+                {
+                    reqset.Remove(x);
+                    InventoryTimeouts.Remove(x, out _);
+                });
+
+                return (true, notFounds);
             }
             else
             {
@@ -466,14 +529,14 @@ namespace Discreet.Network
                 case PacketType.SENDTX:
                 case PacketType.GETTXS:
                 case PacketType.TXS:
-                case PacketType.BLOCKS:
                 case PacketType.GETHEADERS:
-                case PacketType.HEADERS:
                 case PacketType.GETPOOL:
                 case PacketType.POOL:
                     return true;
                 case PacketType.SENDBLOCK:
                 case PacketType.SENDBLOCKS:
+                case PacketType.BLOCKS:
+                case PacketType.HEADERS:
                 case PacketType.ALERT:
                 case PacketType.NONE:
                 case PacketType.INVENTORY:
@@ -716,7 +779,7 @@ namespace Discreet.Network
                 Version = Daemon.DaemonConfig.GetConfig().NetworkVersion.Value,
                 Services = Services,
                 Timestamp = DateTime.UtcNow.Ticks,
-                Height = DB.DataView.GetView().GetChainHeight(),
+                Height = BlockBuffer.Instance.GetChainHeight(),
                 Port = Daemon.DaemonConfig.GetConfig().Port.Value,
                 Syncing = State == PeerState.Syncing
             };
@@ -821,7 +884,7 @@ namespace Discreet.Network
 
         public async Task HandleGetBlocks(GetBlocksPacket p, IPEndPoint senderEndpoint)
         {
-            DB.DataView dataView = DB.DataView.GetView();
+            IView dataView = BlockBuffer.Instance;
 
             List<Block> blocks = new();
             List<InventoryVector> notFound = new();
@@ -891,7 +954,7 @@ namespace Discreet.Network
 
         public async Task HandleGetTxs(GetTransactionsPacket p, IPEndPoint senderEndpoint)
         {
-            DB.DataView dataView = DB.DataView.GetView();
+            IView dataView = BlockBuffer.Instance;
 
             List<FullTransaction> txs = new();
             List<InventoryVector> notFound = new();
@@ -1034,7 +1097,7 @@ namespace Discreet.Network
             var txhash = p.Tx.TxID;
 
             /* sometimes a SendTx can occur as propagation for a recently added block */
-            if (DB.DataView.GetView().ContainsTransaction(txhash))
+            if (BlockBuffer.Instance.ContainsTransaction(txhash))
             {
                 Daemon.Logger.Debug($"HandleSendTx: Transaction received was in a previous block");
                 return;
@@ -1155,7 +1218,9 @@ namespace Discreet.Network
             }
             else
             {
-                if (!DB.DataView.GetView().BlockExists(p.Block.Header.BlockHash))
+                Daemon.Logger.Info($"HandleSendBlock: received block with height {p.Block.Header.Height}", verbose: 99999);
+
+                if (!BlockBuffer.Instance.BlockExists(p.Block.Header.BlockHash))
                 {
                     /* create validation cache and perform check */
                     DB.ValidationCache vCache = new DB.ValidationCache(p.Block);
@@ -1165,17 +1230,26 @@ namespace Discreet.Network
                     {
                         if (!MessageCache.GetMessageCache().OrphanBlockParents.ContainsKey(p.Block.Header.PreviousBlock))
                         {
+                            await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
+
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 3);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
-                            MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = 0;
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = p.Block.Header.PreviousBlock;
                             Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Block.Header.PreviousBlock } }), durationMilliseconds: 60000);
+                            
+                            MessageCache.GetMessageCache().OrphanLock.Release();
                             return;
                         }
                         else
                         {
+                            await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
+
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added", verbose: 3);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
-                            MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = 0;
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = p.Block.Header.PreviousBlock;
+                            CheckRoot(p.Block, conn);
+
+                            MessageCache.GetMessageCache().OrphanLock.Release();
                             return;
                         }
                     }
@@ -1198,7 +1272,7 @@ namespace Discreet.Network
                     /* accept block and propagate */
                     try
                     {
-                        vCache.Flush();
+                        await vCache.Flush();
                     }
                     catch (Exception e)
                     {
@@ -1231,7 +1305,7 @@ namespace Discreet.Network
                         OnTransactionReceived?.Invoke(new TransactionReceivedEventArgs { Tx = tx, Success = true });
                     }
                     /* check orphan data and process accordingly */
-                    AcceptOrphans(p.Block.Header.BlockHash);
+                    await AcceptOrphans(p.Block.Header.BlockHash);
                 }
                 else
                 {
@@ -1249,13 +1323,19 @@ namespace Discreet.Network
                 return;
             }
 
-            var propagate = p.Blocks.Any(x => !DB.DataView.GetView().BlockExists(x.Hash()));
+            // don't propagate endlessly
+            var propagate = p.Blocks.Where(x => !BlockBuffer.Instance.BlockExists(x.Hash()));
+            if (propagate.Any())
+            {
+                propagate = propagate.Where(x => !MessageCache.GetMessageCache().OrphanBlocks.ContainsKey(x.Header.BlockHash));
+            }
+
             foreach (var block in p.Blocks.OrderBy(x => x.Header.Height))
             {
                 await HandleSendBlock(new SendBlockPacket { Block = block }, conn, false);
             }
 
-            if (propagate) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCKS, p));
+            if (propagate.Any()) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCKS, p));
         }
 
         public async Task HandleBlocks(BlocksPacket p, Peerbloom.Connection conn)
@@ -1269,7 +1349,7 @@ namespace Discreet.Network
             }
             if (State == PeerState.Syncing)
             {
-                DB.DataView dataView = DB.DataView.GetView();
+                IView dataView = BlockBuffer.Instance;
                 fulfilled.Sort((x, y) => x.block.Header.Height.CompareTo(y.block.Header.Height));
 
                 foreach (var ivref in fulfilled)
@@ -1307,7 +1387,10 @@ namespace Discreet.Network
                     Daemon.Logger.Error("HandleBlocks: queried peer returned more than one block (not syncing; orphan block most likely)");
                     return;
                 }
-                if (DB.DataView.GetView().BlockExists(p.Blocks[0].Header.BlockHash))
+
+                Daemon.Logger.Info($"HandleBlocks: received block with height {p.Blocks[0].Header.Height}", verbose: 99999);
+
+                if (BlockBuffer.Instance.BlockExists(p.Blocks[0].Header.BlockHash))
                 {
                     Daemon.Logger.Error("HandleBlocks: queried peer returned an existing block; ignoring");
                 }
@@ -1323,16 +1406,28 @@ namespace Discreet.Network
                         {
                             Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added; querying {conn.Receiver} for previous block", verbose: 3);
 
+                            await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
+
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
-                            MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = 0;
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = p.Blocks[0].Header.PreviousBlock;
                             Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { p.Blocks[0].Header.PreviousBlock } }), durationMilliseconds: 60000);
+                            
+                            MessageCache.GetMessageCache().OrphanLock.Release();
+
                             return;
                         }
                         else
                         {
                             Daemon.Logger.Warn($"HandleBlocks: orphan block ({p.Blocks[0].Header.BlockHash.ToHexShort()}, height {p.Blocks[0].Header.Height}) added", verbose: 1);
+
+                            await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
+
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
-                            MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = 0;
+                            MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = p.Blocks[0].Header.PreviousBlock;
+                            CheckRoot(p.Blocks[0], conn);
+
+                            MessageCache.GetMessageCache().OrphanLock.Release();
+
                             return;
                         }
                     }
@@ -1341,15 +1436,21 @@ namespace Discreet.Network
                         Daemon.Logger.Error($"HandleBlocks: Malformed or invalid block received from peer {conn.Receiver}: {err.Message} (bogus block for orphan requirement)", err);
 
                         /* for now assume invalid root always has invalid leaves */
+
+                        await MessageCache.GetMessageCache().OrphanLock.WaitAsync();
                         TossOrphans(p.Blocks[0].Header.BlockHash);
+                        MessageCache.GetMessageCache().OrphanLock.Release();
+
                         return;
                     }
 
                     /* orphan data is valid; validate branch and publish changes */
                     Daemon.Logger.Info($"HandleBlocks: Root found for orphan branch beginning with block {p.Blocks[0].Header.BlockHash.ToHexShort()}", verbose: 1);
+                    MessageCache.GetMessageCache().OrphanBlockParents.Remove(p.Blocks[0].Header.BlockHash, out _);
+
                     try
                     {
-                        vCache.Flush();
+                        await vCache.Flush();
                     }
                     catch (Exception e)
                     {
@@ -1368,7 +1469,7 @@ namespace Discreet.Network
                     }
 
                     /* recursively accept orphan blocks from message cache */
-                    AcceptOrphans(p.Blocks[0].Header.BlockHash);
+                    await AcceptOrphans(p.Blocks[0].Header.BlockHash);
 
                     //success
                     fulfilled.ForEach(x => x.callback?.Invoke(x.peer, x.vector, true, RequestCallbackContext.SUCCESS));
@@ -1378,7 +1479,7 @@ namespace Discreet.Network
 
         public async Task HandleGetHeaders(GetHeadersPacket p, Peerbloom.Connection conn)
         {
-            DB.DataView dataView = DB.DataView.GetView();
+            IView dataView = BlockBuffer.Instance;
 
             List<BlockHeader> headers = new();
             List<InventoryVector> notFound = new();
@@ -1457,8 +1558,6 @@ namespace Discreet.Network
             }
             if (State == PeerState.Syncing)
             {
-                DB.DataView dataView = DB.DataView.GetView();
-
                 fulfilled.Sort((x,y) => x.header.Height.CompareTo(y.header.Height));
 
                 foreach (var ivref in fulfilled)
@@ -1530,46 +1629,77 @@ namespace Discreet.Network
             }
         }
 
+        public void CheckRoot(Block block, Peerbloom.Connection conn)
+        {
+            MessageCache mCache = MessageCache.GetMessageCache();
+            var hash = block.Header.PreviousBlock;
+            while (mCache.OrphanBlockParents.ContainsKey(hash))
+            {
+                hash = mCache.OrphanBlockParents[hash];
+            }
+
+            // request previous block
+            Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { hash } }), durationMilliseconds: 60000);
+        }
+
         /// <summary>
         /// Accepts all blocks on an orphan branch, if any.
         /// </summary>
         /// <param name="bHash"></param>
-        public void AcceptOrphans(Cipher.SHA256 bHash)
+        public async Task AcceptOrphans(Cipher.SHA256 bHash)
         {
             MessageCache mCache = MessageCache.GetMessageCache();
-            while (mCache.OrphanBlocks.ContainsKey(bHash))
+
+            await mCache.OrphanLock.WaitAsync();
+
+            try
             {
-                mCache.OrphanBlocks.Remove(bHash, out var block);
-                DB.ValidationCache vCache = new DB.ValidationCache(block);
-                var err = vCache.Validate();
-                if (err != null)
+                while (mCache.OrphanBlocks.ContainsKey(bHash))
                 {
-                    Daemon.Logger.Error($"AcceptOrphans: Malformed or invalid block in orphan branch {bHash.ToHexShort()} (height {block.Header.Height}): {err.Message}; tossing branch", err);
-                    TossOrphans(bHash);
-                    return;
-                }
+                    mCache.OrphanBlocks.Remove(bHash, out var block);
+                    DB.ValidationCache vCache = new DB.ValidationCache(block);
+                    var err = vCache.Validate();
+                    if (err is OrphanBlockException)
+                    {
+                        // simply return
+                        Daemon.Logger.Info($"AcceptOrphans: orphan block remains at height {block.Header.Height}", verbose: 3);
+                        return;
+                    }
+                    if (err != null)
+                    {
+                        Daemon.Logger.Error($"AcceptOrphans: Malformed or invalid block in orphan branch {bHash.ToHexShort()} (height {block.Header.Height}): {err.Message}; tossing branch", err);
+                        TossOrphans(bHash);
+                        return;
+                    }
 
-                try
-                {
-                    vCache.Flush();
-                }
-                catch (Exception e)
-                {
-                    Daemon.Logger.Error($"AcceptOrphans: an error was encountered while flushing validation cache for block at height {block.Header.Height}: {e.Message}", e);
-                }
+                    Daemon.Logger.Info($"AcceptOrphans: accepted block with height {block.Header.Height}", verbose: 99999);
 
-                try
-                {
-                    daemon.ProcessBlock(block);
-                }
-                catch (Exception e)
-                {
-                    Daemon.Logger.Error($"AcceptOrphans: an error was encountered while processing block at height {block.Header.Height}: {e.Message}", e);
-                }
+                    try
+                    {
+                        await vCache.Flush();
+                    }
+                    catch (Exception e)
+                    {
+                        Daemon.Logger.Error($"AcceptOrphans: an error was encountered while flushing validation cache for block at height {block.Header.Height}: {e.Message}", e);
+                    }
 
-                OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = block });
-                bHash = block.Header.BlockHash;
-                mCache.OrphanBlockParents.Remove(bHash, out _);
+                    try
+                    {
+                        daemon.ProcessBlock(block);
+                    }
+                    catch (Exception e)
+                    {
+                        Daemon.Logger.Error($"AcceptOrphans: an error was encountered while processing block at height {block.Header.Height}: {e.Message}", e);
+                    }
+
+                    OnBlockSuccess?.Invoke(new BlockSuccessEventArgs { Block = block });
+                    bHash = block.Header.BlockHash;
+                    mCache.OrphanBlockParents.Remove(bHash, out _);
+                }
+            }
+            finally
+            {
+                mCache.OrphanLock.Release();
             }
         }
     }

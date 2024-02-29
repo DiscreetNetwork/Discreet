@@ -124,8 +124,8 @@ namespace Discreet.Cipher.Native
                 [MarshalAs(UnmanagedType.Struct)] Key r,
                 [MarshalAs(UnmanagedType.Struct)] Key s,
                 [MarshalAs(UnmanagedType.Struct)] Key message);
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public delegate bool triptych_VERIFYDelegate(
+        [return: MarshalAs(UnmanagedType.U1)]
+        public delegate byte triptych_VERIFYDelegate(
                 [In, Out] Triptych bp,
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] M,
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] P,
