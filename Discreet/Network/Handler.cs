@@ -10,6 +10,7 @@ using Discreet.Coin.Models;
 using Discreet.DB;
 using Discreet.Network.Core;
 using Discreet.Network.Core.Packets;
+using RocksDbSharp;
 
 namespace Discreet.Network
 {
@@ -1445,6 +1446,8 @@ namespace Discreet.Network
 
                     /* orphan data is valid; validate branch and publish changes */
                     Daemon.Logger.Info($"HandleBlocks: Root found for orphan branch beginning with block {p.Blocks[0].Header.BlockHash.ToHexShort()}", verbose: 1);
+                    MessageCache.GetMessageCache().OrphanBlockParents.Remove(p.Blocks[0].Header.BlockHash, out _);
+
                     try
                     {
                         await vCache.Flush();
@@ -1659,6 +1662,7 @@ namespace Discreet.Network
                     if (err is OrphanBlockException)
                     {
                         // simply return
+                        Daemon.Logger.Info($"AcceptOrphans: orphan block remains at height {block.Header.Height}", verbose: 3);
                         return;
                     }
                     if (err != null)
