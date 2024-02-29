@@ -1247,9 +1247,10 @@ namespace Discreet.Network
                             Daemon.Logger.Warn($"HandleSendBlock: orphan block ({p.Block.Header.BlockHash.ToHexShort()}, height {p.Block.Header.Height}) added", verbose: 3);
                             MessageCache.GetMessageCache().OrphanBlocks[p.Block.Header.PreviousBlock] = p.Block;
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Block.Header.BlockHash] = p.Block.Header.PreviousBlock;
-                            CheckRoot(p.Block, conn);
 
                             MessageCache.GetMessageCache().OrphanLock.Release();
+                            await CheckRoot(p.Block, conn);
+
                             return;
                         }
                     }
@@ -1424,9 +1425,9 @@ namespace Discreet.Network
 
                             MessageCache.GetMessageCache().OrphanBlocks[p.Blocks[0].Header.PreviousBlock] = p.Blocks[0];
                             MessageCache.GetMessageCache().OrphanBlockParents[p.Blocks[0].Header.BlockHash] = p.Blocks[0].Header.PreviousBlock;
-                            CheckRoot(p.Blocks[0], conn);
-
                             MessageCache.GetMessageCache().OrphanLock.Release();
+
+                            await CheckRoot(p.Blocks[0], conn);
 
                             return;
                         }
@@ -1629,7 +1630,7 @@ namespace Discreet.Network
             }
         }
 
-        public void CheckRoot(Block block, Peerbloom.Connection conn)
+        public async Task CheckRoot(Block block, Peerbloom.Connection conn)
         {
             MessageCache mCache = MessageCache.GetMessageCache();
             var hash = block.Header.PreviousBlock;
@@ -1638,8 +1639,19 @@ namespace Discreet.Network
                 hash = mCache.OrphanBlockParents[hash];
             }
 
+            if (DB.BlockBuffer.Instance.BlockExists(hash))
+            {
+                Daemon.Logger.Info($"HandleBlocks: Root found for orphan branch beginning with block {hash.ToHexShort()}", verbose: 1);
+                MessageCache.GetMessageCache().OrphanBlockParents.Remove(hash, out _);
+
+                await AcceptOrphans(hash);
+            }
+
             // request previous block
-            Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { hash } }), durationMilliseconds: 60000);
+            if (!mCache.OrphanBlockParents.ContainsKey(hash) && !DB.BlockBuffer.Instance.BlockExists(hash))
+            {
+                Peerbloom.Network.GetNetwork().SendRequest(conn, new Packet(PacketType.GETBLOCKS, new GetBlocksPacket { Blocks = new Cipher.SHA256[] { hash } }), durationMilliseconds: 60000);
+            }
         }
 
         /// <summary>

@@ -44,6 +44,7 @@ namespace Discreet.DB
         private List<Block> buffer = new List<Block>();
         private HashSet<Key> spentKeys = new HashSet<Key>();
         private ConcurrentDictionary<long, Block> blockCache = new ConcurrentDictionary<long, Block>();
+        private ConcurrentDictionary<SHA256, long> hashesToHeights = new ConcurrentDictionary<SHA256, long>(new SHA256EqualityComparer());
         private ConcurrentDictionary<uint, TXOutput> outputCache = new ConcurrentDictionary<uint, TXOutput>();
         private ConcurrentDictionary<SHA256, FullTransaction> transactionCache = new ConcurrentDictionary<SHA256, FullTransaction>(new SHA256EqualityComparer());
         private ConcurrentDictionary<TTXInput, TTXOutput> inputCache = new ConcurrentDictionary<TTXInput, TTXOutput>(new TTXInputEqualityComparer());
@@ -71,10 +72,18 @@ namespace Discreet.DB
             else
             {
                 // try getting it from the cache
-                Block blk = null;
-                lock (buffer)
+                var success = hashesToHeights.TryGetValue(hash, out var height);
+                if (!success)
                 {
-                    blk = buffer.Where(x => x.Header.BlockHash == hash).FirstOrDefault(); 
+                    header = null;
+                    return false;
+                }
+
+                success = blockCache.TryGetValue(height, out var blk);
+                if (!success)
+                {
+                    header = null;
+                    return false;
                 }
 
                 if (blk == null)
@@ -106,21 +115,20 @@ namespace Discreet.DB
             }
             catch (Exception e)
             {
-                try
+                var success = hashesToHeights.TryGetValue(hash, out var height);
+                if (!success)
                 {
-                    Block blk = null;
-                    lock (buffer)
-                    {
-                        blk = buffer.Where(x => x.Header.BlockHash == hash).FirstOrDefault();
-                    }
+                    throw;
+                }
 
-                    if (blk == null) throw new Exception();
-                    return blk.Header;
-                }
-                catch
+                success = blockCache.TryGetValue(height, out var blk);
+                if (!success)
                 {
-                    throw e;
+                    throw;
                 }
+
+                if (blk == null) throw;
+                return blk.Header;
             }
         }
 
@@ -132,21 +140,14 @@ namespace Discreet.DB
             }
             catch (Exception e)
             {
-                try
+                var success = blockCache.TryGetValue(height, out var blk);
+                if (!success)
                 {
-                    Block blk = null;
-                    lock (buffer)
-                    {
-                        blk = buffer.Where(x => x.Header.Height == height).FirstOrDefault();
-                    }
+                    throw;
+                }
 
-                    if (blk == null) throw new Exception();
-                    return blk.Header;
-                }
-                catch
-                {
-                    throw e;
-                }
+                if (blk == null) throw;
+                return blk.Header;
             }
         }
 
@@ -160,13 +161,7 @@ namespace Discreet.DB
             }
             else
             {
-                Block blk = null;
-                lock (buffer)
-                {
-                    blk = buffer.Where(x => x.Header.BlockHash == hash).FirstOrDefault();
-                }
-
-                return blk != null;
+                return hashesToHeights.ContainsKey(hash);
             }
         }
 
@@ -248,16 +243,24 @@ namespace Discreet.DB
 
         public long GetChainHeight()
         {
-            lock (buffer)
-            {
-                if (buffer.Count == 0) return DataView.GetView().GetChainHeight();
-                return Math.Max(DataView.GetView().GetChainHeight(), buffer.Select(x => x.Header.Height).Max());
-            }
+            if (hashesToHeights.IsEmpty) return DataView.GetView().GetChainHeight();
+            return Math.Max(DataView.GetView().GetChainHeight(), hashesToHeights.Values.Max());
         }
 
         public void WriteToBuffer(Block blk)
         {
             _buffer.Enqueue(blk);
+
+            if (_flushEveryBlock)
+            {
+                lock (buffer)
+                {
+                    buffer.Add(blk);
+                }
+
+                ForceFlush();
+            }
+
             UpdateBuffers(blk);
         }
 
@@ -284,6 +287,10 @@ namespace Discreet.DB
             _pIndex = DataView.GetView().GetOutputIndex();
 
             var timer = new PeriodicTimer(_flushInterval);
+            if (_flushEveryBlock)
+            {
+                return;
+            }
             while (await timer.WaitForNextTickAsync())
             {
                 lock (buffer)
@@ -353,21 +360,14 @@ namespace Discreet.DB
             }
             catch (Exception e)
             {
-                try
+                var success = blockCache.TryGetValue(height, out var blk);
+                if (!success)
                 {
-                    Block blk = null;
-                    lock (buffer)
-                    {
-                        blk = buffer.Where(x => x.Header.Height == height).FirstOrDefault();
-                    }
+                    throw;
+                }
 
-                    if (blk == null) throw new Exception();
-                    return blk;
-                }
-                catch
-                {
-                    throw e;
-                }
+                if (blk == null) throw;
+                return blk;
             }
         }
 
@@ -379,21 +379,20 @@ namespace Discreet.DB
             }
             catch (Exception e)
             {
-                try
+                var success = hashesToHeights.TryGetValue(hash, out var height);
+                if (!success)
                 {
-                    Block blk = null;
-                    lock (buffer)
-                    {
-                        blk = buffer.Where(x => x.Header.BlockHash == hash).FirstOrDefault();
-                    }
+                    throw;
+                }
 
-                    if (blk == null) throw new Exception();
-                    return blk;
-                }
-                catch
+                success = blockCache.TryGetValue(height, out var blk);
+                if (!success)
                 {
-                    throw e;
+                    throw;
                 }
+
+                if (blk == null) throw;
+                return blk;
             }
         }
 
@@ -409,21 +408,13 @@ namespace Discreet.DB
             }
             catch (Exception e)
             {
-                try
+                var success = hashesToHeights.TryGetValue(hash, out var height);
+                if (!success)
                 {
-                    Block blk = null;
-                    lock (buffer)
-                    {
-                        blk = buffer.Where(x => x.Header.BlockHash == hash).FirstOrDefault();
-                    }
+                    throw;
+                }
 
-                    if (blk == null) throw new Exception();
-                    return blk.Header.Height;
-                }
-                catch
-                {
-                    throw e;
-                }
+                return height;
             }
         }
 
@@ -431,7 +422,7 @@ namespace Discreet.DB
         {
             lock (buffer)
             {
-                return _view.BlockHeightExists(h) || buffer.Any(x => x.Header.Height == h);
+                return _view.BlockHeightExists(h) || blockCache.Keys.Any(x => x == h);
             }
         }
 
@@ -442,6 +433,7 @@ namespace Discreet.DB
             if (blockCache.ContainsKey(block.Header.Height)) return;
 
             blockCache[block.Header.Height] = block;
+            hashesToHeights[block.Header.BlockHash] = block.Header.Height;
 
             foreach (var tx in block.Transactions)
             {
@@ -570,6 +562,7 @@ namespace Discreet.DB
             inputCache.Clear();
             transactionCache.Clear();
             outputCache.Clear();
+            hashesToHeights.Clear();
         }
     }
 }
