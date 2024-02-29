@@ -749,22 +749,23 @@ namespace Discreet.Network.Peerbloom
             Daemon.Logger.Info($"Network.SendRequest: Sending request {packet.Header.Command} to {conn.Receiver}", verbose: 2);
 
             // hacky; make specific functions for sending packets which call this instead (in the future)
+            bool success = false;
             if (packet.Header.Command == Core.PacketType.GETBLOCKS)
             {
-                handler.RegisterNeeded((Core.Packets.GetBlocksPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
+                success = handler.RegisterNeeded((Core.Packets.GetBlocksPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
             }
             else if (packet.Header.Command == Core.PacketType.GETTXS)
             {
-                handler.RegisterNeeded((Core.Packets.GetTransactionsPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
+                success = handler.RegisterNeeded((Core.Packets.GetTransactionsPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
             }
             else if (packet.Header.Command == Core.PacketType.GETHEADERS)
             {
-                handler.RegisterNeeded((Core.Packets.GetHeadersPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
+                success = handler.RegisterNeeded((Core.Packets.GetHeadersPacket)packet.Body, conn.Receiver, durationMilliseconds, callback);
             }
 
-            conn.Send(packet);
+            if (success) conn.Send(packet);
 
-            return true;
+            return success;
         }
 
         public bool Send(IPEndPoint endpoint, Core.Packet packet)

@@ -269,7 +269,15 @@ namespace Discreet.DB
         public async Task Start()
         {
             _pIndex = DataView.GetView().GetOutputIndex();
-            DateTime lastFlush = DateTime.MinValue;
+
+            _ = Task.Factory.StartNew(async () =>
+            {
+                var timer = new PeriodicTimer(_flushInterval);
+                while (await timer.WaitForNextTickAsync())
+                {
+                    await _buffer.Writer.WriteAsync(_signaler);
+                }
+            });
 
             await foreach(var block in _buffer.Reader.ReadAllAsync())
             {
@@ -304,20 +312,6 @@ namespace Discreet.DB
                         }
 
                         UpdateBuffers(block);
-
-                        // check received
-                        if (DateTime.Now.Subtract(lastFlush) > _flushInterval)
-                        {
-                            // flush
-                            Flush(buffer);
-
-                            lock (buffer)
-                            {
-                                buffer.Clear();
-                            }
-
-                            lastFlush = DateTime.Now;
-                        }
                     }
                 }
             }
