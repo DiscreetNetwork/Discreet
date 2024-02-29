@@ -124,7 +124,7 @@ namespace Discreet.Network
             }
         }
 
-        public void RegisterNeeded(IPacketBody packet, IPEndPoint req, long durMilliseconds = 0, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback = null)
+        public bool RegisterNeeded(IPacketBody packet, IPEndPoint req, long durMilliseconds = 0, Action<IPEndPoint, InventoryVector, bool, RequestCallbackContext> callback = null)
         {
             bool success = NeededInventory.TryGetValue(req, out var reqset);
             if (!success || reqset == null)
@@ -139,37 +139,65 @@ namespace Discreet.Network
 
             var timestamp = DateTime.UtcNow.Ticks;
             var durTicks = durMilliseconds * 10_000L;
+            bool needed = false;
 
             if (packet.GetType() == typeof(GetTransactionsPacket))
             {
                 var gettx = packet as GetTransactionsPacket;
+                var newGettxs = new List<Cipher.SHA256>();
                 foreach (var tx in gettx.Transactions)
                 {
                     var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Transaction, tx), reqset, callback, req);
-                    reqset.Add(ivref);
-                    InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                    if (!reqset.Contains(ivref))
+                    {
+                        newGettxs.Add(tx);
+                        needed = true;
+                        reqset.Add(ivref);
+                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                    }
                 }
+
+                gettx.Transactions = newGettxs.ToArray();
             }
             else if (packet.GetType() == typeof(GetBlocksPacket))
             {
                 var gettx = packet as GetBlocksPacket;
+                var newGettxs = new List<Cipher.SHA256>();
                 foreach (var block in gettx.Blocks)
                 {
                     var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.Block, block), reqset, callback, req);
-                    reqset.Add(ivref);
-                    InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                    if (!reqset.Contains(ivref))
+                    {
+                        newGettxs.Add(block);
+                        needed = true;
+                        reqset.Add(ivref);
+                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                    }
                 }
+
+                gettx.Blocks = newGettxs.ToArray();
             }
             else if (packet.GetType() == typeof(GetHeadersPacket))
             {
                 var gettx = packet as GetHeadersPacket;
+                var newGettxs = new List<Cipher.SHA256>();
                 if (gettx.Headers == null)
                 {
                     for (long i = gettx.StartingHeight; i < gettx.StartingHeight + gettx.Count; i++)
                     {
                         var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, new Cipher.SHA256(i)), reqset, callback, req);
-                        reqset.Add(ivref);
-                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                        if (!reqset.Contains(ivref))
+                        {
+                            newGettxs.Add(new Cipher.SHA256(i));
+                            needed = true;
+                            reqset.Add(ivref);
+                            InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                        }
+                    }
+
+                    if (newGettxs.Count == gettx.Count)
+                    {
+                        newGettxs = null;
                     }
                 }
                 else
@@ -177,15 +205,27 @@ namespace Discreet.Network
                     foreach (var header in gettx.Headers)
                     {
                         var ivref = new InventoryVectorRef(new InventoryVector(ObjectType.BlockHeader, header), reqset, callback, req);
-                        reqset.Add(ivref);
-                        InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                        if (!reqset.Contains(ivref))
+                        {
+                            newGettxs.Add(header);
+                            needed = true;
+                            reqset.Add(ivref);
+                            InventoryTimeouts.TryAdd(ivref, (timestamp, durTicks));
+                        }
                     }
+                }
+
+                if (newGettxs != null)
+                {
+                    gettx.Headers = newGettxs.ToArray();
                 }
             }
             else
             {
                 Daemon.Logger.Error($"Handler.RegisterNeeded: cannot accept packet of type {packet.GetType()}");
             }
+
+            return needed;
         }
 
         internal (bool, List<InventoryVectorRef>) CheckFulfillment(IPacketBody packet, IPEndPoint resp)
