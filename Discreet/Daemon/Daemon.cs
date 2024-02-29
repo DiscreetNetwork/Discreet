@@ -763,6 +763,8 @@ namespace Discreet.Daemon
             bool paused = true;
             bool reloop = false;
 
+            HashSet<long> produced = new HashSet<long>();
+
             // we start off paused, waiting for the first call to us
             while (paused)
             {
@@ -826,7 +828,7 @@ namespace Discreet.Daemon
                 if (numProduced % n == pid)
                 {
                     await MintLocker.WaitAsync();
-                    await MintTestnetBlock();
+                    await MintTestnetBlock(produced);
                     MintLocker.Release();
                 }
 
@@ -930,7 +932,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public async Task MintTestnetBlock()
+        public async Task MintTestnetBlock(HashSet<long> debugProduced = null)
         {
             try
             {
@@ -939,6 +941,18 @@ namespace Discreet.Daemon
                 var sigKey = DefaultBlockAuth.Instance.Keyring.SigningKeys[(int)((dataView.GetChainHeight() + 1) % DefaultBlockAuth.Instance.Keyring.SigningKeys.Count)];
                 var txs = txpool.GetTransactionsForBlock();
                 var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), sigKey);
+
+                if (debugProduced != null)
+                {
+                    if (debugProduced.Contains(blk.Header.Height))
+                    {
+                        Logger.Critical($"Discreet.Daemon: produced a block at a previously seen height!");
+                    }
+                    else
+                    {
+                        debugProduced.Add(blk.Header.Height);
+                    }
+                }
 
                 try
                 {

@@ -8,6 +8,7 @@ using System.Net;
 using System.Collections.Concurrent;
 using Discreet.Coin.Models;
 using Discreet.DB;
+using System.Threading;
 
 namespace Discreet.Network
 {
@@ -39,6 +40,7 @@ namespace Discreet.Network
 
         public ConcurrentDictionary<Cipher.SHA256, Block> OrphanBlocks;
         public ConcurrentDictionary<Cipher.SHA256, Cipher.SHA256> OrphanBlockParents = new(new Cipher.SHA256EqualityComparer());
+        public readonly SemaphoreSlim OrphanLock = new SemaphoreSlim(1, 1);
 
         public MessageCache()
         {
