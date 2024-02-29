@@ -131,7 +131,7 @@ namespace Discreet.DB
         private Exception validate(bool many = false)
         {
             /* validate basic data */
-            if (block == null) return new VerifyException("Block", "Block was null");
+            if (block == null) return new NullReferenceException("Block was null");
             if (block.Header.Version != 1 && block.Header.Version != 2) return new VerifyException("Block", $"Unsupported version (blocks are either version 1 or 2); got version {block.Header.Version}");
             if (!block.Hash().Equals(block.Header.BlockHash)) return new VerifyException("Block", $"Block hash in header does not match calculated block hash");
             if (blockBuffer.BlockExists(block.Header.BlockHash))

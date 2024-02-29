@@ -642,10 +642,23 @@ namespace Discreet.Daemon
 
                     DB.ValidationCache vCache = new DB.ValidationCache(block);
                     var err = vCache.Validate();
+                    if (err is NullReferenceException)
+                    {
+                        beginningHeight++;
+                        continue;
+                    }
+                    else if (err is OrphanBlockException)
+                    {
+                        beginningHeight++;
+                        continue;
+                    }
+
                     if (err != null)
                     {
                         Logger.Error($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}", err);
                         network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
+                        beginningHeight++;
+                        continue;
                     }
 
                     try
