@@ -626,20 +626,20 @@ namespace Discreet.DB
                 {
                     foreach (var blk in goodBlocks)
                     {
-                        await BlockBuffer.Instance.Writer.WriteAsync(blk);
+                        BlockBuffer.Instance.WriteToBuffer(blk);
                     }
                 }
                 else
                 {
                     foreach (var blk in blocks)
                     {
-                        await BlockBuffer.Instance.Writer.WriteAsync(blk);
+                        BlockBuffer.Instance.WriteToBuffer(blk);
                     }
                 }
             }
             else
             {
-                await BlockBuffer.Instance.Writer.WriteAsync(block);
+                BlockBuffer.Instance.WriteToBuffer(block);
             }
 
             if (blocks != null)
@@ -664,7 +664,7 @@ namespace Discreet.DB
                 Daemon.TXPool.GetTXPool().UpdatePool(block.Transactions);
             }
 
-            if (force) await BlockBuffer.Instance.ForceFlush();
+            if (force) BlockBuffer.Instance.ForceFlush();
         }
 
         public static async Task Process(Block block)

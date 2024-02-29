@@ -50,7 +50,7 @@ namespace Discreet.Network
             Versions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BadVersions = new ConcurrentDictionary<IPEndPoint, Core.Packets.Peerbloom.VersionPacket>();
             BlockCache = new ConcurrentDictionary<long, Block>();
-            OrphanBlocks = new ConcurrentDictionary<Cipher.SHA256, Block>();
+            OrphanBlocks = new ConcurrentDictionary<Cipher.SHA256, Block>(new Cipher.SHA256EqualityComparer());
             HeaderCache = new ConcurrentDictionary<long, BlockHeader>();
         }
 
