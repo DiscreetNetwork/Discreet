@@ -482,10 +482,11 @@ namespace Discreet.DB
             var bIndex = blocks.Select(x => x.Header.Height).Max();
 
             Dictionary<TTXInput, TTXOutput> pubUpdates = new Dictionary<TTXInput, TTXOutput>(new TTXInputEqualityComparer());
+            Dictionary<long, Block> processed = new();
 
             foreach (var block in blocks)
             {
-                if (DataView.GetView().BlockExists(block.Header.BlockHash)) continue;
+                if (DataView.GetView().BlockExists(block.Header.BlockHash) || processed.ContainsKey(block.Header.Height)) continue;
 
                 // add block info
                 updates.Add(new UpdateEntry { key = block.Header.BlockHash.Bytes, value = Serialization.Int64(block.Header.Height), rule = UpdateRule.ADD, type = UpdateType.BLOCKHEIGHT });
@@ -530,6 +531,8 @@ namespace Discreet.DB
                         pubUpdates[new TTXInput { TxSrc = tx.TxID, Offset = (byte)i }] = tx.TOutputs[i];
                     }
                 }
+
+                processed[block.Header.Height] = block;
             }
 
             // new touts
