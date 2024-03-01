@@ -7,9 +7,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using static NetMQ.NetMQSelector;
 
 namespace Discreet.DB
 {
@@ -190,6 +187,22 @@ redo:
                 iter = iter.Next();
                 limit--;
                 yield return block;
+            }
+
+            if (!iter.Valid()) iter.Dispose();
+        }
+
+        public IEnumerable<(Cipher.SHA256, long)> IterateBlockHashes()
+        {
+            var iter = rdb.NewIterator(cf: BlockHeights);
+            iter.SeekToFirst();
+            while (iter.Valid())
+            {
+                var hash = new Cipher.SHA256(iter.Key(), false);
+                var height = Serialization.GetInt64(iter.Value(), 0);
+
+                iter = iter.Next();
+                yield return (hash, height);
             }
 
             if (!iter.Valid()) iter.Dispose();
