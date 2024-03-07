@@ -1331,6 +1331,14 @@ namespace Discreet.Network
                 propagate = propagate.Where(x => !MessageCache.GetMessageCache().OrphanBlocks.ContainsKey(x.Header.BlockHash));
             }
 
+            if (propagate.Any())
+            {
+                foreach (var blk in propagate)
+                {
+                    Daemon.Logger.Info($"HandleSendBlocks: block {blk.Header.BlockHash.ToHexShort()} at height {blk.Header.Height} is in propagation set", verbose: 99999);
+                }
+            }
+
             foreach (var block in p.Blocks.OrderBy(x => x.Header.Height))
             {
                 await HandleSendBlock(new SendBlockPacket { Block = block }, conn, false);
