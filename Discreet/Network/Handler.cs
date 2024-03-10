@@ -1642,15 +1642,38 @@ namespace Discreet.Network
         {
             MessageCache mCache = MessageCache.GetMessageCache();
             var hash = block.Header.PreviousBlock;
+            List<Cipher.SHA256> forRemoval = new();
             while (mCache.OrphanBlockParents.ContainsKey(hash))
             {
                 hash = mCache.OrphanBlockParents[hash];
             }
 
+            // there should be a one-to-one correspondence between the values of OrphanBlockParents values and OrphanBlocks keys
+            foreach ((var t, var h) in mCache.OrphanBlockParents)
+            {
+                if (!mCache.OrphanBlocks.ContainsKey(h))
+                {
+                    forRemoval.Add(t);
+                }
+            }
+
+            if (forRemoval.Count > 0)
+            {
+                await mCache.OrphanLock.WaitAsync();
+                
+                foreach (var h in forRemoval)
+                {
+                    mCache.OrphanBlockParents.TryRemove(h, out _);
+                }
+
+                mCache.OrphanLock.Release();
+            }
+            
+
             if (DB.BlockBuffer.Instance.BlockExists(hash))
             {
                 Daemon.Logger.Info($"HandleBlocks: Root found for orphan branch beginning with block {hash.ToHexShort()}", verbose: 1);
-                MessageCache.GetMessageCache().OrphanBlockParents.Remove(hash, out _);
+                mCache.OrphanBlockParents.Remove(hash, out _);
 
                 await AcceptOrphans(hash);
             }
@@ -1676,7 +1699,7 @@ namespace Discreet.Network
             {
                 while (mCache.OrphanBlocks.ContainsKey(bHash))
                 {
-                    mCache.OrphanBlocks.Remove(bHash, out var block);
+                    var block = mCache.OrphanBlocks[bHash];
                     DB.ValidationCache vCache = new DB.ValidationCache(block);
                     var err = vCache.Validate();
                     if (err is OrphanBlockException)
@@ -1687,11 +1710,14 @@ namespace Discreet.Network
                     }
                     if (err != null)
                     {
+                        mCache.OrphanBlocks.Remove(bHash, out var _);
+                        mCache.OrphanBlockParents.Remove(block.Header.BlockHash, out _);
                         Daemon.Logger.Error($"AcceptOrphans: Malformed or invalid block in orphan branch {bHash.ToHexShort()} (height {block.Header.Height}): {err.Message}; tossing branch", err);
                         TossOrphans(bHash);
                         return;
                     }
 
+                    mCache.OrphanBlocks.Remove(bHash, out var _);
                     Daemon.Logger.Info($"AcceptOrphans: accepted block with height {block.Header.Height}", verbose: 99999);
 
                     try

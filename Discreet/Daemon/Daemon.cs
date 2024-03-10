@@ -582,6 +582,10 @@ namespace Discreet.Daemon
                 {
                     Block block;
                     messageCache.BlockCache.Remove(beginningHeight, out block);
+                    if (block == null)
+                    {
+
+                    }
 
                     if (block == null)
                     {
@@ -645,11 +649,23 @@ namespace Discreet.Daemon
                     if (err is NullReferenceException)
                     {
                         beginningHeight++;
+                        if (beginningHeight > (messageCache.BlockCache.Count == 0 ? -1 : messageCache.BlockCache.Keys.Max()))
+                        {
+                            Logger.Info($"Exceeded known blocks in block cache.");
+                            messageCache.BlockCache.Clear();
+                            break;
+                        }
                         continue;
                     }
                     else if (err is OrphanBlockException)
                     {
                         beginningHeight++;
+                        if (beginningHeight > (messageCache.BlockCache.Count == 0 ? -1 : messageCache.BlockCache.Keys.Max()))
+                        {
+                            Logger.Info($"Exceeded known blocks in block cache.");
+                            messageCache.BlockCache.Clear();
+                            break;
+                        }
                         continue;
                     }
 
