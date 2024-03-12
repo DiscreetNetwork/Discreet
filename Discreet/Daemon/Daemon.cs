@@ -18,6 +18,7 @@ using Discreet.Common.Serialize;
 using Discreet.Daemon.BlockAuth;
 using System.Threading.Channels;
 using Discreet.DB;
+using Discreet.Network.Peerbloom;
 
 namespace Discreet.Daemon
 {
@@ -63,6 +64,28 @@ namespace Discreet.Daemon
 
         public Daemon()
         {
+            // check if the chain has been updated
+            var db = DB.DataView.GetView();
+            if (db.GetChainHeight() >= 0)
+            {
+                var block = db.GetBlock(db.GetChainHeight());
+                if (block.Header.Extra != null && block.Header.Extra.Length == 96)
+                {
+                    var sig = new Signature(block.Header.Extra);
+                    if (Block.IsBlockAuthority(sig.y) && !AuthKeys.Defaults.Any(x => x == sig.y))
+                    {
+                        // our chain is outdated, wipe everything and peerlist
+                        Logger.Critical("Detected outdated peerlist and blockchain; wiping and forcing resync");
+                        db.ForceCloseAndWipe();
+                        network = Network.Peerbloom.Network.GetNetwork(true);
+                        DefaultBlockAuth.Instance.Keyring.Keys = new List<Key>(AuthKeys.Defaults);
+                        DaemonConfig.GetConfig().AuConfig.AuthorityKeys = new List<string>(AuthKeys.Defaults.Select(x => x.ToHex()));
+                        DaemonConfig.GetConfig().Save();
+                        Logger.Critical("Finished wipe.");
+                    }
+                }
+            }
+
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
@@ -71,9 +94,14 @@ namespace Discreet.Daemon
             config = DaemonConfig.GetConfig();
 
             _versionBackgroundPoller = new Version.VersionBackgroundPoller();
+            var pingStr = "";
+            if (DaemonConfig.GetConfig().PingOnUpdateAvailable.Value)
+            {
+                pingStr = "\a";
+            }
             _versionBackgroundPoller.UpdateAvailable += (localVersion, newVersion) =>
             {
-                Logger.Warn($"New version available: {newVersion.ToString(3)} - currently running on version: {localVersion.ToString(3)}");
+                Logger.Warn($"New version available: {newVersion.ToString(3)} - currently running on version: {localVersion.ToString(3)}{pingStr}");
             };
 
             signingKey = Key.FromHex(config.SigningKey);

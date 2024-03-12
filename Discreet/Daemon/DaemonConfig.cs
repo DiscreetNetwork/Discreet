@@ -182,6 +182,11 @@ namespace Discreet.Daemon
                 NetworkVersion = 1;
             }
 
+            if (PingOnUpdateAvailable == null)
+            {
+                PingOnUpdateAvailable = false;
+            }
+
             if (IsPublic == null)
             {
                 IsPublic = false;
@@ -279,6 +284,8 @@ namespace Discreet.Daemon
         public byte? NetworkID { get; set; }
         public uint? NetworkVersion { get; set; }
 
+        public bool? PingOnUpdateAvailable {  get; set; }
+
         public bool? IsPublic { get; set; }
 
         public string SigningKey { get; set; }
@@ -326,6 +333,8 @@ namespace Discreet.Daemon
 
             NetworkID = 1;
             NetworkVersion = 1;
+
+            PingOnUpdateAvailable = false;
 
             IsPublic = false;
 

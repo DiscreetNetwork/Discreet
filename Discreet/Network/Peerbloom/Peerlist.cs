@@ -43,22 +43,25 @@ namespace Discreet.Network.Peerbloom
             return;
         }
 
-        public Peerlist()
+        public Peerlist(bool forceWipePeers = false)
         {
             var path = Path.Combine(Daemon.DaemonConfig.GetConfig().DaemonPath, "peerlist.bin");
-            if (File.Exists(path))
+            if (!forceWipePeers)
             {
-                try
+                if (File.Exists(path))
                 {
-                    Deserialize(File.ReadAllBytes(path));
-                    return;
-                }
-                catch
-                {
-                    Daemon.Logger.Error($"Peerlist: could not initialize from {path}; possibly corrupt");
+                    try
+                    {
+                        Deserialize(File.ReadAllBytes(path));
+                        return;
+                    }
+                    catch
+                    {
+                        Daemon.Logger.Error($"Peerlist: could not initialize from {path}; possibly corrupt");
+                    }
                 }
             }
-
+            
             _counter = 1;
             _newCounter = 0;
             _triedCounter = 0;

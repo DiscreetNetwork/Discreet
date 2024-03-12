@@ -121,6 +121,8 @@ namespace Discreet.DB
             chainDB = new ChainDB(Path.Join(Daemon.DaemonConfig.GetConfig().DBPath, "chain"));
         }
 
+        internal void ForceCloseAndWipe() => chainDB.ForceCloseAndWipe();
+
         public IEnumerable<Block> GetBlocks(long startHeight, long limit) => chainDB.GetBlocks(startHeight, limit);
         public void AddBlockToCache(Block blk) => chainDB.AddBlockToCache(blk);
 

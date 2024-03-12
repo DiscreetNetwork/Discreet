@@ -173,6 +173,11 @@ redo:
             }
         }
 
+        internal void ForceCloseAndWipe()
+        {
+            DropAllData();
+        }
+
         public IEnumerable<Block> GetBlocks(long startHeight, long limit)
         {
             if (limit <= 0) limit = long.MaxValue;
@@ -398,6 +403,53 @@ redo:
             indexer_tx = new U64(0);
             height = new L64(-1);
             rdb?.Dispose();
+        }
+
+        internal void DropAllData()
+        {
+            if (rdb != null)
+            {
+                indexer_output = new U32(0);
+                indexer_tx = new U64(0);
+                height = new L64(-1);
+
+                DropAllInColumn(Txs);
+                DropAllInColumn(TxIndices);
+                DropAllInColumn(BlockHeights);
+                DropAllInColumn(Blocks);
+                DropAllInColumn(BlockHeaders);
+                DropAllInColumn(BlockCache);
+                DropAllInColumn(SpentKeys);
+                DropAllInColumn(Outputs);
+                DropAllInColumn(OutputIndices);
+                DropAllInColumn(PubOutputs);
+                DropAllInColumn(Meta);
+
+                // rebuild meta
+                rdb.Put(Encoding.ASCII.GetBytes("meta"), ZEROKEY, cf: Meta);
+                rdb.Put(Encoding.ASCII.GetBytes("indexer_tx"), Serialization.UInt64(indexer_tx.Value), cf: Meta);
+                rdb.Put(Encoding.ASCII.GetBytes("indexer_output"), Serialization.UInt32(indexer_output.Value), cf: Meta);
+                rdb.Put(Encoding.ASCII.GetBytes("height"), Serialization.Int64(height.Value), cf: Meta);
+            }
+        }
+
+        internal void DropAllInColumn(ColumnFamilyHandle h)
+        {
+            var iter = rdb.NewIterator(cf: h);
+            iter = iter.SeekToFirst();
+            List<byte[]> k2r = new List<byte[]>();
+            while (iter.Valid())
+            {
+                k2r.Add(iter.Key());
+                iter = iter.Next();
+            }
+
+            foreach (var k in k2r)
+            {
+                rdb.Remove(k, cf: h);
+            }
+
+            iter.Dispose();
         }
 
         public Dictionary<long, Block> GetBlockCache()
