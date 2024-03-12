@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Discreet.Coin.Models;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
+using Discreet.DB;
 
 namespace Discreet.Daemon
 {
@@ -70,7 +71,7 @@ namespace Discreet.Daemon
 
         private ConcurrentDictionary<Cipher.SHA256, FullTransaction> orphanTxs;
 
-        private DB.DataView view;
+        private DB.IView view;
 
         public TXPool()
         {
@@ -83,7 +84,7 @@ namespace Discreet.Daemon
             newOutputs = new();
             updateNewOutputs = new();
 
-            view = DB.DataView.GetView();
+            view = BlockBuffer.Instance;
 
             //DB.DisDB db = DB.DisDB.GetDB();
 

@@ -14,22 +14,22 @@ namespace Discreet.Daemon.BlockAuth
 
         public static List<Key> Defaults = new List<Key>
         {
-            Key.FromHex("60f13a18c379061795fd094be1e4043513fe00c94b3a9b5c0502949a1515970d"),
-            Key.FromHex("554fdfa82121ac55400fdbfde3403f608843bfb7e2ae17f05eca6e2f70dda038"),
-            Key.FromHex("d485ff6a2268e0bd2dc0c6b5d190044f8a84491b653b2b603d072ed6f13d1376"),
-            Key.FromHex("ef72d2be9afe943b03f7eabe17fe53c327db6dc4012c4910daa196961b379eee"),
-            Key.FromHex("6e4f9047ce3425ed2d11d495dd2cabf2ef6662e3bf77076c97a54a49480a3474"),
-            Key.FromHex("8fcea78a412b004a76c32d2933f4a43b8f52592c9ca2508b63d0861a786568d9"),
-            Key.FromHex("d51518eb9295241bd1452bcc5bedd526f480017feb5c62c05b4f895a447020a5"),
-            Key.FromHex("b8c5314628de3ba604934ac7a7ed3347a3050de2fa94e3f531a9073f821d2f9d"),
-            Key.FromHex("513fdd96d370d543613cdcee3560c042d0a99db1101d6b95686e1770abefabf8"),
-            Key.FromHex("ee761e6a2d89329bd4ea86effd65b117b9721fd267924e475a084f14cdab985a"),
-            Key.FromHex("21ce2b2ea5692e5a0654540ae2dcc698504d7c91c9c7510d899d7025e8191805"),
-            Key.FromHex("a2dbfee8f2baf02ca05d7d9f145c281556e2da5bbf680463d02de502aef25533"),
-            Key.FromHex("fae2f381da4ff1ab150e6f1cede5eec7dbd7ed97f049fca80fe0d8d2b02b5036"),
-            Key.FromHex("e76bcc50c1cac70b6be1cce37139fd9badf884826eed1c8963426ca33175664a"),
-            Key.FromHex("9195313d0a9240c221b3be02fc979ae1c754abf7471299283d58577d9f6c20f5"),
-            Key.FromHex("11240f594192a1cbe2736dd6381d6a3abb51bd34c3edd34ba5c675c8c5238c65")
+            Key.FromHex("c994ef3c17998f9ed3790947ee0f138485f6f26afa7f35abc57a5150cfbba1db"),
+            Key.FromHex("bc871325d7d90147da84879e19bc5311f01af59da10919c071cc6372adde145f"),
+            Key.FromHex("8b59acbf61731e063b4c44e6192e5f7091f881a5fc32f7e0e25fc1ed40be1d97"),
+            Key.FromHex("2531a37ed03085acda521899e201bdbe023907097788210a45229847fa25dc2b"),
+            Key.FromHex("db05003556a2874482bb84dde724d4c2674b5e7d817d20c36410299ead106695"),
+            Key.FromHex("ef441d6d3faf83c89a8cf5417b1cafe41a6efdfa449240ab77fabbbf3a89813e"),
+            Key.FromHex("969843a3de18f9395f68d163cc4250ee191fca995f4b99cccb535b716e8c8996"),
+            Key.FromHex("41212dc902a1704796a264650b4026c4a04b1e4683b92d171cdc2f1ecabc2b36"),
+            Key.FromHex("95cbe85e6739828e963aa35983eeecaa4d8a7d8da4e4791682d4774bd2a9b7cd"),
+            Key.FromHex("697ba8e5aa035914f7941db5de1b4e048ad77db6ad5de10493df2cff1b51f0b7"),
+            Key.FromHex("1241be44ddec0d253716777c46c44b1d7a04f6e5954bd90f556e4fae1b1db682"),
+            Key.FromHex("09d2a4bfa98035747a9e6e0ce90affbbd2af6473faec8c749910554871917536"),
+            Key.FromHex("13ded8880ed38664cb98e0644e080e0ab894ac76679ad54a0363dbf0863e186b"),
+            Key.FromHex("e3062bc48a845c05e40e98c675b83df6a1e552f058b8048a902f608136659c9f"),
+            Key.FromHex("7812eb4d5b7b0fc8f5ad1bd45f78cfa8a1023feb3efc89cda514df97e065b036"),
+            Key.FromHex("f7cfc2e27cd6a4617cb5565832027a39314bf11fa800bf7fa91d519c87ddc62a")
         };
 
         public AuthKeys(DaemonConfig conf)

@@ -265,8 +265,8 @@ namespace Discreet.Cipher.Native
                 [MarshalAs(UnmanagedType.Struct)] Key message);
 
         [DllImport("DiscreetCore")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool triptych_VERIFY(
+        [return: MarshalAs(UnmanagedType.U1)]
+        public static extern byte triptych_VERIFY(
                 [In, Out] Triptych bp,
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] M,
                 [MarshalAs(UnmanagedType.LPArray, SizeConst = 64, ArraySubType = UnmanagedType.Struct)] Key[] P,

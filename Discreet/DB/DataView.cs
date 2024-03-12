@@ -28,6 +28,8 @@ namespace Discreet.DB
             curView = new CurView();
         }
 
+        internal void ForceCloseAndWipe() => curView.ForceCloseAndWipe();
+
         public IEnumerable<Block> GetBlocks(long startHeight, long limit) => curView.GetBlocks(startHeight, limit);
 
         public void AddBlockToCache(Block blk) => curView.AddBlockToCache(blk);
@@ -152,6 +154,7 @@ namespace Discreet.DB
             }
             catch (Exception ex)
             {
+                // Feb 24 2024 11:27 PM: why do we log on attempting to get a block header?
                 Daemon.Logger.Error(ex.Message, ex);
                 header = null;
                 return false;

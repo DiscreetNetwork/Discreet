@@ -20,6 +20,50 @@ namespace Discreet.Wallets.Extensions
 {
     public static class AccountEx
     {
+        public static List<UTXO> CheckObsoleteUTXOs(this Account account)
+        {
+            List<UTXO> invalid = new();
+
+            if (account.Encrypted) throw new Exception("account is still encrypted");
+            // check against utxos in this account
+            foreach (var ux in account.UTXOs)
+            {
+                if (ux.Type == 0)
+                {
+                    // try fetch private utxo from index
+                    try
+                    {
+                        var otherUTXO = ViewProvider.GetDefaultProvider().GetOutput(ux.Index);
+                        if (otherUTXO.TransactionSrc != ux.TransactionSrc || otherUTXO.Commitment != ux.Commitment || otherUTXO.UXKey != ux.UXKey)
+                        {
+                            invalid.Add(ux);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        invalid.Add(ux);
+                    }
+                }
+                else
+                {
+                    try
+                    {
+                        var otherTrsp = ViewProvider.GetDefaultProvider().GetPubOutput(new TTXInput { TxSrc = ux.TransactionSrc, Offset = (byte)ux.Index });
+                        if (otherTrsp.TransactionSrc != ux.TransactionSrc || otherTrsp.Address.ToString() != ux.Address || ux.Amount != otherTrsp.Amount)
+                        {
+                            invalid.Add(ux);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        invalid.Add(ux);
+                    }
+                }
+            }
+
+            return invalid;
+        }
+
         public static (List<UTXO>? spents, List<UTXO>? utxos, List<HistoryTx>? htxs) ProcessBlock(this Account account, Block block)
         {
             List<UTXO> utxos = new();

@@ -9,6 +9,7 @@ using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
 using System.Text.Json;
 using Discreet.Daemon;
+using Discreet.DB;
 
 namespace Discreet.Coin.Models
 {
@@ -84,8 +85,9 @@ namespace Discreet.Coin.Models
                 block.Header.BlockSize += txs[i].GetSize();
             }
 
-            DB.DataView dataView = DB.DataView.GetView();
-
+            // because of block buffer, we need to use that instead
+            IView dataView = BlockBuffer.Instance;
+            
             block.Header.Height = dataView.GetChainHeight() + 1;
 
             if (block.Header.Height > 0)

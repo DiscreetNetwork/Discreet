@@ -17,6 +17,8 @@ using Discreet.Coin.Models;
 using Discreet.Common.Serialize;
 using Discreet.Daemon.BlockAuth;
 using System.Threading.Channels;
+using Discreet.DB;
+using Discreet.Network.Peerbloom;
 
 namespace Discreet.Daemon
 {
@@ -37,7 +39,7 @@ namespace Discreet.Daemon
         Network.Handler handler;
         Network.Peerbloom.Network network;
         Network.MessageCache messageCache;
-        DB.DataView dataView;
+        IView dataView;
         DaemonConfig config;
         SQLiteWallet emissionsWallet;
 
@@ -58,21 +60,48 @@ namespace Discreet.Daemon
 
         public bool RPCLive { get; set; } = false;
 
-        private object MintLocker = new();
+        private SemaphoreSlim MintLocker = new(1, 1);
 
         public Daemon()
         {
+            // check if the chain has been updated
+            var db = DB.DataView.GetView();
+            if (db.GetChainHeight() >= 0)
+            {
+                var block = db.GetBlock(db.GetChainHeight());
+                if (block.Header.Extra != null && block.Header.Extra.Length == 96)
+                {
+                    var sig = new Signature(block.Header.Extra);
+                    if (Block.IsBlockAuthority(sig.y) && !AuthKeys.Defaults.Any(x => x == sig.y))
+                    {
+                        // our chain is outdated, wipe everything and peerlist
+                        Logger.Critical("Detected outdated peerlist and blockchain; wiping and forcing resync");
+                        db.ForceCloseAndWipe();
+                        network = Network.Peerbloom.Network.GetNetwork(true);
+                        DefaultBlockAuth.Instance.Keyring.Keys = new List<Key>(AuthKeys.Defaults);
+                        DaemonConfig.GetConfig().AuConfig.AuthorityKeys = new List<string>(AuthKeys.Defaults.Select(x => x.ToHex()));
+                        DaemonConfig.GetConfig().Save();
+                        Logger.Critical("Finished wipe.");
+                    }
+                }
+            }
+
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
-            dataView = DB.DataView.GetView();
+            dataView = BlockBuffer.Instance;
 
             config = DaemonConfig.GetConfig();
 
             _versionBackgroundPoller = new Version.VersionBackgroundPoller();
+            var pingStr = "";
+            if (DaemonConfig.GetConfig().PingOnUpdateAvailable.Value)
+            {
+                pingStr = "\a";
+            }
             _versionBackgroundPoller.UpdateAvailable += (localVersion, newVersion) =>
             {
-                Logger.Warn($"New version available: {newVersion.ToString(3)} - currently running on version: {localVersion.ToString(3)}");
+                Logger.Warn($"New version available: {newVersion.ToString(3)} - currently running on version: {localVersion.ToString(3)}{pingStr}");
             };
 
             signingKey = Key.FromHex(config.SigningKey);
@@ -96,7 +125,7 @@ namespace Discreet.Daemon
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
-            dataView = DB.DataView.GetView();
+            dataView = BlockBuffer.Instance;
 
             config = DaemonConfig.GetConfig();
 
@@ -161,7 +190,7 @@ namespace Discreet.Daemon
                 }
                 else
                 {
-                    BuildGenesis();
+                    await BuildGenesis();
                 }
             }
 
@@ -169,6 +198,9 @@ namespace Discreet.Daemon
             _rpcServer = new RPC.RPCServer(DaemonConfig.GetConfig().RPCPort.Value, this);
             _ = _rpcServer.Start();
             _ = Task.Factory.StartNew(async () => await ZMQ.Publisher.Instance.Start(DaemonConfig.GetConfig().ZMQPort.Value));
+
+            Logger.Info($"Starting Block Buffer...");
+            _ = Task.Factory.StartNew(async () => await DB.BlockBuffer.Instance.Start());
 
             await network.Start();
             await network.Bootstrap();
@@ -433,13 +465,17 @@ namespace Discreet.Daemon
                         {
                             var vcache = new DB.ValidationCache(messageCache.GetAllCachedBlocks(_beginHeight, _newHeight));
                             (exc, _beginHeight, var goodBlocks, var reget) = vcache.ValidateReturnFailures();
-
+                            if (exc is AlreadyPresentException apex)
+                            {
+                                // ignore this
+                                exc = null;
+                            }
                             if (exc != null && reget != null)
                             {
                                 // first, flush valid blocks
                                 Logger.Error(exc.Message, exc);
                                 Logger.Error($"An invalid block was found during syncing (height {_beginHeight}). Re-requesting all future blocks (up to height {_newHeight}) and flushing valid blocks to disk");
-                                vcache.Flush();
+                                await vcache.Flush(goodBlocks, true);
 
                                 // publish to ZMQ and syncer queues 
                                 if (goodBlocks != null && goodBlocks.Count > 0)
@@ -490,7 +526,7 @@ namespace Discreet.Daemon
                             }
                             else
                             {
-                                vcache.Flush();
+                                await vcache.Flush();
                             }
                         } while (exc != null);
                     }
@@ -568,12 +604,16 @@ namespace Discreet.Daemon
                     beginningHeight++;
                 }*/
 
-                beginningHeight = dataView.GetChainHeight() + 1;
+                beginningHeight = BlockBuffer.Instance.GetChainHeight() + 1;
 
                 while (!messageCache.BlockCache.IsEmpty)
                 {
                     Block block;
                     messageCache.BlockCache.Remove(beginningHeight, out block);
+                    if (block == null)
+                    {
+
+                    }
 
                     if (block == null)
                     {
@@ -581,7 +621,7 @@ namespace Discreet.Daemon
                         // re-request all blocks up to current minimum height
                         var minheight = messageCache.BlockCache.Keys.Min();
 
-                        handler.LastSeenHeight = dataView.GetChainHeight();
+                        handler.LastSeenHeight = BlockBuffer.Instance.GetChainHeight();
                         toBeFulfilled = 0;
                         missedItems.Clear();
                         usablePeers.Clear();
@@ -634,15 +674,40 @@ namespace Discreet.Daemon
 
                     DB.ValidationCache vCache = new DB.ValidationCache(block);
                     var err = vCache.Validate();
+                    if (err is NullReferenceException)
+                    {
+                        beginningHeight++;
+                        if (beginningHeight > (messageCache.BlockCache.Count == 0 ? -1 : messageCache.BlockCache.Keys.Max()))
+                        {
+                            Logger.Info($"Exceeded known blocks in block cache.");
+                            messageCache.BlockCache.Clear();
+                            break;
+                        }
+                        continue;
+                    }
+                    else if (err is OrphanBlockException)
+                    {
+                        beginningHeight++;
+                        if (beginningHeight > (messageCache.BlockCache.Count == 0 ? -1 : messageCache.BlockCache.Keys.Max()))
+                        {
+                            Logger.Info($"Exceeded known blocks in block cache.");
+                            messageCache.BlockCache.Clear();
+                            break;
+                        }
+                        continue;
+                    }
+
                     if (err != null)
                     {
                         Logger.Error($"Block received is invalid ({err.Message}); requesting new block at height {beginningHeight}", err);
                         network.Send(bestPeer, new Network.Core.Packet(Network.Core.PacketType.GETBLOCKS, new Network.Core.Packets.GetBlocksPacket { Blocks = new SHA256[] { new SHA256(beginningHeight) } }));
+                        beginningHeight++;
+                        continue;
                     }
 
                     try
                     {
-                        vCache.Flush();
+                        await vCache.Flush();
                     }
                     catch (Exception e)
                     {
@@ -659,7 +724,8 @@ namespace Discreet.Daemon
                 ZMQ.Publisher.Instance.Publish(ZMQ_DAEMON_SYNC, zmqSyncF);
 
                 Logger.Info("Fetching TXPool...");
-                network.Send(messageCache.Versions.Keys.First(), new Network.Core.Packet(Network.Core.PacketType.GETPOOL, new Network.Core.Packets.GetPoolPacket()));
+                var conn2fetch = messageCache.Versions.Keys.FirstOrDefault() ?? network.OutboundConnectedPeers.Keys.FirstOrDefault();
+                network.Send(conn2fetch, new Network.Core.Packet(Network.Core.PacketType.GETPOOL, new Network.Core.Packets.GetPoolPacket()));
             }
             
             if (IsBlockAuthority)
@@ -710,7 +776,7 @@ namespace Discreet.Daemon
             if (DaemonConfig.GetConfig().DbgConfig.CheckBlockchain.Value)
             {
                 Logger.Debug("Checking for missing blocks...");
-                var blockchainHeight = dataView.GetChainHeight();
+                var blockchainHeight = BlockBuffer.Instance.GetChainHeight();
                 List<long> missingBlocks = new();
                 for (long i = 0; i < blockchainHeight; i++)
                 {
@@ -753,6 +819,8 @@ namespace Discreet.Daemon
             int numProduced = 0;
             bool paused = true;
             bool reloop = false;
+
+            HashSet<long> produced = new HashSet<long>();
 
             // we start off paused, waiting for the first call to us
             while (paused)
@@ -816,10 +884,9 @@ namespace Discreet.Daemon
 
                 if (numProduced % n == pid)
                 {
-                    lock (MintLocker)
-                    {
-                        MintTestnetBlock();
-                    }
+                    await MintLocker.WaitAsync();
+                    await MintTestnetBlock(produced);
+                    MintLocker.Release();
                 }
 
                 numProduced++;
@@ -841,14 +908,13 @@ namespace Discreet.Daemon
                 //
                 //    Mint();
                 //}
-                lock (MintLocker)
-                {
-                    MintTestnet();
-                }
+                await MintLocker.WaitAsync();
+                await MintTestnet();
+                MintLocker.Release();
             }
         }
 
-        public void Mint()
+        public async Task Mint()
         {
             /*if (wallet.Addresses[0].Type != 0)
             {
@@ -872,7 +938,7 @@ namespace Discreet.Daemon
                     {
                         Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
                     }
-                    vCache.Flush();
+                    await vCache.Flush();
                 }
                 catch (Exception e)
                 {
@@ -887,7 +953,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public void MintTestnet()
+        public async Task MintTestnet()
         {
             try
             {
@@ -904,7 +970,7 @@ namespace Discreet.Daemon
                     {
                         Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
                     }
-                    vCache.Flush();
+                    await vCache.Flush();
                 }
                 catch (Exception e)
                 {
@@ -923,7 +989,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public void MintTestnetBlock()
+        public async Task MintTestnetBlock(HashSet<long> debugProduced = null)
         {
             try
             {
@@ -933,6 +999,18 @@ namespace Discreet.Daemon
                 var txs = txpool.GetTransactionsForBlock();
                 var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), sigKey);
 
+                if (debugProduced != null)
+                {
+                    if (debugProduced.Contains(blk.Header.Height))
+                    {
+                        Logger.Critical($"Discreet.Daemon: produced a block at a previously seen height!");
+                    }
+                    else
+                    {
+                        debugProduced.Add(blk.Header.Height);
+                    }
+                }
+
                 try
                 {
                     DB.ValidationCache vCache = new(blk);
@@ -941,7 +1019,7 @@ namespace Discreet.Daemon
                     {
                         Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
                     }
-                    vCache.Flush();
+                    await vCache.Flush();
                 }
                 catch (Exception e)
                 {
@@ -960,7 +1038,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public void BuildGenesis()
+        public async Task BuildGenesis()
         {
             /* time to build the megablock */
             //Console.WriteLine("Please, enter the wallets and amounts (input stop token EXIT when finished)");
@@ -996,31 +1074,39 @@ namespace Discreet.Daemon
             }*/
 
             //addresses.Add(new StealthAddress(wallet.Addresses[0].Address));
-            addresses.Add(new StealthAddress(wallet.Accounts[0].Address));
-            coins.Add(45_000_000_0_000_000_000UL);
-
-            Logger.Info("Creating genesis block...");
-
-            var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, DefaultBlockAuth.Instance.Keyring.SigningKeys.First());
-            DB.ValidationCache vCache = new DB.ValidationCache(block);
-            var exc = vCache.Validate();
-            if (exc == null)
-                Logger.Info("Genesis block successfully created.");
-            else
-                throw new Exception($"Could not create genesis block: {exc}");
-
             try
             {
-                vCache.Flush();
+                addresses.Add(new StealthAddress(wallet.Accounts[0].Address));
+                coins.Add(45_000_000_0_000_000_000UL);
+
+                Logger.Info("Creating genesis block...");
+
+                var block = Block.BuildGenesis(addresses.ToArray(), coins.ToArray(), 4096, DefaultBlockAuth.Instance.Keyring.SigningKeys.First());
+                DB.ValidationCache vCache = new DB.ValidationCache(block);
+                var exc = vCache.Validate();
+                if (exc == null)
+                    Logger.Info("Genesis block successfully created.");
+                else
+                    throw new Exception($"Could not create genesis block: {exc}");
+
+                try
+                {
+                    await vCache.Flush();
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message, e);
+                }
+
+                ProcessBlock(block);
+
+                Logger.Info("Successfully created the genesis block.");
             }
             catch (Exception e)
             {
-                Logger.Error(new DatabaseException("Discreet.Daemon.Daemon.ProcessBlock", e.Message).Message, e);
+                await Console.Out.WriteLineAsync($"{e.GetType().Name}: {e.Message}\n{e.StackTrace}");
+                Environment.Exit(1);
             }
-
-            ProcessBlock(block);
-
-            Logger.Info("Successfully created the genesis block.");
         }
 
         public async Task BlockReceiver()
