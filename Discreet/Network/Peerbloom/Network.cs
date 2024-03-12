@@ -30,22 +30,22 @@ namespace Discreet.Network.Peerbloom
 
         private static object network_lock = new object();
 
-        public static Network GetNetwork()
+        public static Network GetNetwork(bool forceWipePeers = false)
         {
             lock (network_lock)
             {
-                if (_network == null) Instantiate();
+                if (_network == null) Instantiate(forceWipePeers);
 
                 return _network;
             }
         }
 
-        public static void Instantiate()
+        public static void Instantiate(bool forceWipePeers = false)
         {
             lock (network_lock)
             {
                 Daemon.Logger.Debug($"Network.Instantiate: network is being instantiated");
-                if (_network == null) _network = new Network(Daemon.DaemonConfig.GetConfig().Endpoint);
+                if (_network == null) _network = new Network(Daemon.DaemonConfig.GetConfig().Endpoint, forceWipePeers);
             }
         }
 
@@ -318,12 +318,12 @@ namespace Discreet.Network.Peerbloom
         /// <summary>
         /// Default constructor for the network class
         /// </summary>
-        public Network(IPEndPoint endpoint)
+        public Network(IPEndPoint endpoint, bool wipePeerlist = false)
         {
             LocalNode = new LocalNode(endpoint);
             Cache = MessageCache.GetMessageCache();
             _shutdownTokenSource = new CancellationTokenSource();
-            peerlist = new Peerlist();
+            peerlist = new Peerlist(wipePeerlist);
             feeler = new Feeler(this, peerlist);
             IncomingTester = new IncomingTester(this, peerlist);
         }

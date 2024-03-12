@@ -25,6 +25,7 @@ using Microsoft.EntityFrameworkCore;
 using Discreet.Cipher.Mnemonics;
 using System.Reflection.Emit;
 using Discreet.Coin.Models;
+using Discreet.Wallets.Extensions;
 
 namespace Discreet.Wallets
 {
@@ -368,6 +369,12 @@ namespace Discreet.Wallets
 
         public static SQLiteWallet CreateWallet(CreateWalletParameters parameters)
         {
+            // check if the wallet name is null or empty
+            if (string.IsNullOrEmpty(parameters.Label))
+            {
+                throw new FormatException($"{nameof(parameters.Label)} is null or empty");
+            }
+
             // first check if wallet with label already exists
             var labels = Directory.GetFiles(directory, "*.db")
                 .Select(file => System.IO.Path.GetFileNameWithoutExtension(file));
@@ -561,6 +568,11 @@ namespace Discreet.Wallets
             account.Name = parameters.Name;
             account.Deterministic = parameters.Deterministic;
             account.Type = parameters.Type;
+
+            if (string.IsNullOrEmpty(parameters.Name))
+            {
+                throw new FormatException(nameof(parameters.Name) + " is null or empty");
+            }
 
             if (account.Deterministic)
             {
@@ -910,6 +922,12 @@ namespace Discreet.Wallets
                 acc.TxHistory = new HashSet<HistoryTx>(txs, new HistoryTxEqualityComparer());
 
                 acc.SelectedUTXOs = new(new UTXOEqualityComparer());
+                // check if invalid utxos
+                var inv = acc.CheckObsoleteUTXOs();
+                if (inv != null && inv.Count > 0)
+                {
+                    SaveAccountFundData(acc, inv, Enumerable.Empty<UTXO>(), Enumerable.Empty<HistoryTx>());
+                }
 
                 var lshb = LoadKey(acc.Address);
                 if (lshb != null)

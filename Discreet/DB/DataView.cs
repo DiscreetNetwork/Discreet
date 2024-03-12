@@ -28,6 +28,8 @@ namespace Discreet.DB
             curView = new CurView();
         }
 
+        internal void ForceCloseAndWipe() => curView.ForceCloseAndWipe();
+
         public IEnumerable<Block> GetBlocks(long startHeight, long limit) => curView.GetBlocks(startHeight, limit);
 
         public void AddBlockToCache(Block blk) => curView.AddBlockToCache(blk);
