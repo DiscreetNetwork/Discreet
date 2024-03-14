@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -61,13 +62,21 @@ namespace Discreet.Wallets.Services
                 State = ServiceState.SYNCED;
                 while (!token.IsCancellationRequested)
                 {
-                    var chainHeight = view.GetChainHeight();
-                    if (lastSeenHeight < chainHeight)
+                    try
                     {
-                        ProcessBlocks(Enumerable.Range(
-                                (int)lastSeenHeight + 1,
-                                (int)chainHeight - (int)lastSeenHeight)
-                            .Select(x => view.GetBlock((long)x)));
+                        var chainHeight = view.GetChainHeight();
+                        if (lastSeenHeight < chainHeight)
+                        {
+                            ProcessBlocks(Enumerable.Range(
+                                    (int)lastSeenHeight + 1,
+                                    (int)chainHeight - (int)lastSeenHeight)
+                                .Select(x => view.GetBlock((long)x)));
+                        }
+                    }
+                    catch
+                    {
+                        await Task.Delay(100);
+                        continue;
                     }
 
                     try

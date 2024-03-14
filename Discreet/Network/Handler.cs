@@ -101,6 +101,9 @@ namespace Discreet.Network
         private ConcurrentDictionary<IPEndPoint, HashSet<InventoryVectorRef>> NeededInventory = new();
         private ConcurrentDictionary<InventoryVectorRef, (long, long)> InventoryTimeouts = new(Environment.ProcessorCount, 25000, new InventoryEqualityComparer());
 
+        private Dictionary<Cipher.SHA256, long> cachedSendBlocks = new(new Cipher.SHA256EqualityComparer());
+        private long cachedSendBlocksIndex = 0;
+
         public async Task NeededInventoryStart(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
@@ -1315,6 +1318,17 @@ namespace Discreet.Network
             }
         }
 
+        private Cipher.SHA256 CreateSendBlocksHash(SendBlocksPacket p)
+        {
+            byte[] dat = new byte[32 * p.Blocks.Length];
+            for (int i = 0; i < p.Blocks.Length; i++)
+            {
+                Array.Copy(p.Blocks[i].Header.BlockHash.Bytes, 0, dat, 32 * i, 32);
+            }
+
+            return new Cipher.SHA256(System.Security.Cryptography.SHA256.HashData(dat), false);
+        }
+
         public async Task HandleSendBlocks(SendBlocksPacket p, Peerbloom.Connection conn)
         {
             // ensure blocks are sorted
@@ -1342,6 +1356,26 @@ namespace Discreet.Network
             foreach (var block in p.Blocks.OrderBy(x => x.Header.Height))
             {
                 await HandleSendBlock(new SendBlockPacket { Block = block }, conn, false);
+            }
+
+            var cachedSendBlocksHash = CreateSendBlocksHash(p);
+
+            // check against cachedSendBlocks rule for propagation
+            lock (cachedSendBlocks)
+            {
+                if (cachedSendBlocks.ContainsKey(cachedSendBlocksHash))
+                {
+                    // don't propagate, we've seen this
+                    return;
+                }
+
+                cachedSendBlocks[cachedSendBlocksHash] = cachedSendBlocksIndex;
+                cachedSendBlocksIndex++;
+                if (cachedSendBlocks.Count > 100)
+                {
+                    var vmin = cachedSendBlocks.MinBy(x => x.Value);
+                    cachedSendBlocks.Remove(vmin.Key);
+                }
             }
 
             if (propagate.Any()) Peerbloom.Network.GetNetwork().Broadcast(new Packet(PacketType.SENDBLOCKS, p));
@@ -1401,7 +1435,7 @@ namespace Discreet.Network
 
                 if (BlockBuffer.Instance.BlockExists(p.Blocks[0].Header.BlockHash))
                 {
-                    Daemon.Logger.Error("HandleBlocks: queried peer returned an existing block; ignoring");
+                    Daemon.Logger.Error("HandleBlocks: queried peer returned an existing block; ignoring", verbose: 3);
                 }
                 else
                 {
