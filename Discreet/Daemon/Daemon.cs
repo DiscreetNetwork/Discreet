@@ -1018,6 +1018,8 @@ namespace Discreet.Daemon
                     if (vErr != null)
                     {
                         Logger.Error($"Discreet.Mint: validating minted block resulted in error: {vErr.Message}", vErr);
+                        ProcessBlock(blk, true);
+                        return;
                     }
                     await vCache.Flush();
                 }

@@ -276,7 +276,7 @@ namespace Discreet.DB
 
                     /* reject if duplicate or in main branch */
                     if (txs.Contains(tx.TxID.ToKey())) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in block");
-                    if (blockBuffer.ContainsTransaction(tx.TxID)) return new VerifyException("Block", $"Transaction {tx.TxID.ToHexShort()} already present in main branch");
+                    if (blockBuffer.ContainsTransaction(tx.TxID)) return new VerifyException("Block", $"Transaction {tx.TxID.ToHex()} already present in main branch");
 
                     /* transparent checks */
                     TTXOutput[] tinVals = new TTXOutput[tx.NumTInputs];
