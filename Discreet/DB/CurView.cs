@@ -139,7 +139,7 @@ namespace Discreet.DB
 
         public bool CheckSpentKey(Cipher.Key j) => chainDB.CheckSpentKey(j);
 
-        public TTXOutput GetPubOutput(TTXInput _input) => chainDB.GetPubOutput(_input);
+        public ScriptTXOutput GetPubOutput(TTXInput _input) => chainDB.GetPubOutput(_input);
 
         public void RemovePubOutput(TTXInput _input) => chainDB.RemovePubOutput(_input);
 

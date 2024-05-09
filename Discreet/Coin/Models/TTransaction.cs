@@ -25,7 +25,7 @@ namespace Discreet.Coin.Models
         public ulong Fee { get; set; }
 
         public TTXInput[] Inputs { get; set; }
-        public TTXOutput[] Outputs { get; set; }
+        public ScriptTXOutput[] Outputs { get; set; }
         public Signature[] Signatures { get; set; }
 
         private SHA256 _txid;
@@ -79,7 +79,7 @@ namespace Discreet.Coin.Models
             Fee = reader.ReadUInt64();
             InnerHash = reader.ReadSHA256();
             Inputs = reader.ReadSerializableArray<TTXInput>(NumInputs);
-            Outputs = reader.ReadSerializableArray<TTXOutput>(NumOutputs, (x) => x.TXUnmarshal);
+            Outputs = reader.ReadSerializableArray<ScriptTXOutput>(NumOutputs, (x) => x.TXUnmarshal);
             Signatures = reader.ReadSerializableArray<Signature>(NumSigs);
         }
 

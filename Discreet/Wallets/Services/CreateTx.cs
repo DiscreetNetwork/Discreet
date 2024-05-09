@@ -98,16 +98,16 @@ namespace Discreet.Wallets.Services
                 }).ToList();
         }
 
-        protected IEnumerable<TTXOutput> BuildTransparentOutputs(IEnumerable<IAddress> dests, IEnumerable<ulong> amounts)
+        protected IEnumerable<ScriptTXOutput> BuildTransparentOutputs(IEnumerable<IAddress> dests, IEnumerable<ulong> amounts)
         {
             var toutputs = dests.Zip(amounts)
                 .Where(x => x.First.Type() == (byte)AddressType.TRANSPARENT)
-                .Select(x => new TTXOutput(default, (TAddress)x.First, x.Second)).ToList();
+                .Select(x => new ScriptTXOutput(default, (TAddress)x.First, x.Second)).ToList();
 
             return toutputs;
         }
 
-        protected (TXOutput?, TTXOutput?) BuildChangeOutput(Account account, IEnumerable<UTXO> utxos, IEnumerable<ulong> amounts, Key? txPrivateKey, int i, out (Key, ulong)? extraPair)
+        protected (TXOutput?, ScriptTXOutput?) BuildChangeOutput(Account account, IEnumerable<UTXO> utxos, IEnumerable<ulong> amounts, Key? txPrivateKey, int i, out (Key, ulong)? extraPair)
         {
             var totalIn = utxos.Select(x => x.DecodedAmount).Aggregate(0UL, (x, y) => x + y);
             var totalOut = amounts.Aggregate(0UL, (x, y) => { return x + y; });

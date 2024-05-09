@@ -93,7 +93,7 @@ namespace Discreet.Wallets.Services
             (var pseudos, var blindingFactors) = BuildPseudoOutputs(inputs, secoutdata);
             tx.PseudoOutputs = pseudos.ToArray();
             tx.PSignatures = BuildPrivateSignatures(inputs, pinputs, pseudos, blindingFactors, tx.SigningHash).ToArray();
-            tx.TSignatures = BuildTransparentSignatures(inputs, tinputs, tx.SigningHash).ToArray();
+            tx.TSignatures = Enumerable.Range(0, tinputs.Length).Select(x => (byte)x).Zip(BuildTransparentSignatures(inputs, tinputs, tx.SigningHash)).ToArray();
 
             return (inputs, tx.ToFull());
         }

@@ -5,6 +5,10 @@ using System.Runtime.InteropServices;
 using Discreet.Common;
 using System.IO;
 using Discreet.Common.Exceptions;
+using Discreet.Coin.Script;
+using Discreet.Common.Serialize;
+using Discreet.Cipher;
+using Discreet.Cipher.Extensions;
 
 namespace Discreet.Coin
 {
@@ -29,6 +33,7 @@ namespace Discreet.Coin
     public static class AddressVersion
     {
         public static byte VERSION = 1;
+        public static byte SCRIPT_VERSION = 2;
     }
     
     /**
@@ -158,7 +163,7 @@ namespace Discreet.Coin
 
         public VerifyException Verify()
         {
-            if (version != 1)
+            if (version != 1 && version != 2)
             {
                 return new VerifyException("TAddress", $"transparent address version not supported! (supports {AddressVersion.VERSION}; got {version})");
             }
@@ -184,6 +189,109 @@ namespace Discreet.Coin
         {
             var pkh = Cipher.RIPEMD160.HashData(Cipher.SHA256.HashData(pk.bytes).Bytes);
             return hash.Equals(pkh);
+        }
+
+        public bool CheckAddressBytes(RIPEMD160 pkh)
+        {
+            return hash.Equals(pkh);
+        }
+
+        public (bool, int) CheckAddressBytes(RIPEMD160[] pkh)
+        {
+            for (int i = 0; i < pkh.Length; i++)
+            {
+                if (CheckAddressBytes(pkh[i]))
+                {
+                    return (true, i);
+                }
+            }
+
+            return (false, -1);
+        }
+
+        public static RIPEMD160 CreateAddressBytes(Cipher.Key pk)
+        {
+            return RIPEMD160.HashData(Cipher.SHA256.HashData(pk.bytes).Bytes);
+        }
+
+        public static bool operator ==(TAddress a, TAddress b)
+        {
+            return a.version == b.version && a.hash.Equals(b.hash) && a.checksum.BEquals(b.checksum);
+        }
+
+        public static bool operator !=(TAddress a, TAddress b) => !(a == b);
+
+        public ScriptAddress ToScriptAddress()
+        {
+            return new ScriptAddress { checksum = checksum, version = version, hash = hash };
+        }
+    }
+
+    public class ScriptAddress : TAddress
+    {
+        public ScriptAddress() : base()
+        {
+            version = AddressVersion.SCRIPT_VERSION;
+            hash = new Cipher.RIPEMD160(new byte[20], false);
+            checksum = new byte[4];
+        }
+
+        public ScriptAddress(ChainScript script)
+        {
+            version = AddressVersion.SCRIPT_VERSION;
+
+            var _hash = Cipher.SHA256.HashData(script.Serialize());
+            hash = Cipher.RIPEMD160.HashData(_hash.Bytes);
+
+            byte[] chk = new byte[21];
+            chk[0] = version;
+            Array.Copy(hash.Bytes, 0, chk, 1, 20);
+
+            checksum = Cipher.Base58.GetCheckSum(chk);
+        }
+
+        public ScriptAddress(byte[] bytes) : base(bytes)
+        {
+
+        }
+
+        public ScriptAddress(byte[] bytes, uint offset) : base(bytes, offset)
+        {
+
+        }
+
+        public ScriptAddress(Stream s) : base(s)
+        {
+
+        }
+
+        public ScriptAddress(string addr) : base(addr)
+        {
+
+        }
+
+        public new VerifyException Verify()
+        {
+            if (version != AddressVersion.SCRIPT_VERSION)
+            {
+                return new VerifyException("ScriptAddress", $"script address version not supported! (supports {AddressVersion.SCRIPT_VERSION}; got {version})");
+            }
+
+            byte[] chk = new byte[21];
+            chk[0] = version;
+            Array.Copy(hash.Bytes, 0, chk, 1, 20);
+
+            var chksum = Cipher.Base58.GetCheckSum(chk);
+
+            var chksumStr = Printable.Hexify(chksum);
+            var checksumStr = Printable.Hexify(checksum);
+
+            if (chksumStr != checksumStr)
+            {
+                return new VerifyException("ScriptAddress", $"script address checksums not equal! (calculated as {chksumStr}; but got {checksumStr})");
+            }
+
+            return null;
         }
     }
 

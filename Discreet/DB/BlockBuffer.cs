@@ -47,7 +47,7 @@ namespace Discreet.DB
         private ConcurrentDictionary<SHA256, long> hashesToHeights = new ConcurrentDictionary<SHA256, long>(new SHA256EqualityComparer());
         private ConcurrentDictionary<uint, TXOutput> outputCache = new ConcurrentDictionary<uint, TXOutput>();
         private ConcurrentDictionary<SHA256, FullTransaction> transactionCache = new ConcurrentDictionary<SHA256, FullTransaction>(new SHA256EqualityComparer());
-        private ConcurrentDictionary<TTXInput, TTXOutput> inputCache = new ConcurrentDictionary<TTXInput, TTXOutput>(new TTXInputEqualityComparer());
+        private ConcurrentDictionary<TTXInput, ScriptTXOutput> inputCache = new ConcurrentDictionary<TTXInput, ScriptTXOutput>(new TTXInputEqualityComparer());
         private uint _pIndex;
         private readonly object _pLock = new object();
 
@@ -178,7 +178,7 @@ namespace Discreet.DB
             }
         }
 
-        public TTXOutput GetPubOutput(TTXInput tin)
+        public ScriptTXOutput GetPubOutput(TTXInput tin)
         {
             try
             {

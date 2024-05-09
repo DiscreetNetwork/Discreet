@@ -759,7 +759,7 @@ redo:
             return rdb.Get(j.bytes, cf: SpentKeys) == null;
         }
 
-        public TTXOutput GetPubOutput(TTXInput _input)
+        public ScriptTXOutput GetPubOutput(TTXInput _input)
         {
             var result = rdb.Get(_input.Serialize(), cf: PubOutputs);
 
@@ -768,7 +768,7 @@ redo:
                 throw new Exception($"Discreet.StateDB.GetPubOutput: database get exception: could not find transparent tx output with index {_input}");
             }
 
-            var txo = new TTXOutput();
+            var txo = new ScriptTXOutput();
             txo.Deserialize(result);
             return txo;
         }

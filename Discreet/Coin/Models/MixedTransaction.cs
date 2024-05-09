@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Discreet.Cipher;
+using Discreet.Coin.Script;
 using Discreet.Common;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
@@ -29,14 +30,20 @@ namespace Discreet.Coin.Models
         public byte NumTOutputs { get; set; }
         public byte NumPOutputs { get; set; }
 
+        public byte NumRefInputs { get; set; }
+        public byte NumScriptInputs { get; set; }
+
         public SHA256 SigningHash { get; set; }
 
         public ulong Fee { get; set; }
 
+        public (long LowerBound, long UpperBound) ValidityInterval { get; set; }
+
         /* Transparent part */
         public TTXInput[] TInputs { get; set; }
-        public TTXOutput[] TOutputs { get; set; }
-        public Signature[] TSignatures { get; set; }
+        public TTXInput[] RefInputs { get; set; }
+        public ScriptTXOutput[] TOutputs { get; set; }
+        public (byte Index, Signature Signature)[] TSignatures { get; set; }
 
         /* Private part */
         public Key TransactionKey { get; set; }
@@ -45,6 +52,15 @@ namespace Discreet.Coin.Models
         public BulletproofPlus RangeProofPlus { get; set; }
         public Triptych[] PSignatures { get; set; }
         public Key[] PseudoOutputs { get; set; }
+
+        internal ChainScript[] _scripts;
+        internal Datum[] _datums;
+        internal (byte Index, Datum Datum)[] _redeemers;
+
+        public Dictionary<ScriptAddress, ChainScript> Scripts { get; set; }
+        public Dictionary<SHA256, Datum> Datums { get; set; } // if a non-inlined datum hash is present in an input, datum must be supplied.
+        public Dictionary<byte, Datum> Redeemers { get; set; } // byte corresponds to which input gets the redeemer
+
 
         private SHA256 _txid;
         public SHA256 TxID { get { if (_txid == default || _txid.Bytes == null) _txid = this.Hash(); return _txid; } }
@@ -72,13 +88,26 @@ namespace Discreet.Coin.Models
             writer.Write(NumPInputs);
             writer.Write(NumTOutputs);
             writer.Write(NumPOutputs);
+            writer.Write(NumRefInputs);
+            writer.Write(NumScriptInputs);
 
             writer.Write(Fee);
             writer.WriteSHA256(SigningHash);
+            writer.Write(ValidityInterval.LowerBound);
+            writer.Write(ValidityInterval.UpperBound);
 
             writer.WriteSerializableArray(TInputs, false);
+            writer.WriteSerializableArray(RefInputs, false);
             writer.WriteSerializableArray(TOutputs, false, (x) => x.TXMarshal);
-            writer.WriteSerializableArray(TSignatures, false);
+            writer.Write(TSignatures?.Length ?? 0);
+            if (TSignatures != null)
+            {
+                foreach ((var index, var sig) in TSignatures)
+                {
+                    writer.Write(index);
+                    writer.Write(sig);
+                }
+            }
 
             if (NumPOutputs > 0) writer.WriteKey(TransactionKey);
 
@@ -88,6 +117,19 @@ namespace Discreet.Coin.Models
             if (NumPOutputs > 0) RangeProofPlus.Serialize(writer);
             writer.WriteSerializableArray(PSignatures, false);
             if (NumPInputs > 0) writer.WriteKeyArray(PseudoOutputs, false);
+
+            writer.WriteSerializableArray(_scripts);
+            writer.WriteSerializableArray(_datums);
+            writer.Write(_redeemers?.Length ?? 0);
+
+            if (_redeemers is not null)
+            {
+                foreach ((var b, var r) in _redeemers)
+                {
+                    writer.Write(b);
+                    writer.Write(r);
+                }
+            }
         }
 
         public void Deserialize(ref MemoryReader reader)
@@ -100,13 +142,18 @@ namespace Discreet.Coin.Models
             NumPInputs = reader.ReadUInt8();
             NumTOutputs = reader.ReadUInt8();
             NumPOutputs = reader.ReadUInt8();
+            NumRefInputs = reader.ReadUInt8();
+            NumScriptInputs = reader.ReadUInt8();
 
             Fee = reader.ReadUInt64();
             SigningHash = reader.ReadSHA256();
+            ValidityInterval = (reader.ReadInt64(), reader.ReadInt64());
 
             TInputs = reader.ReadSerializableArray<TTXInput>(NumTInputs);
-            TOutputs = reader.ReadSerializableArray<TTXOutput>(NumTOutputs, (x) => x.TXUnmarshal);
-            TSignatures = reader.ReadSerializableArray<Signature>(NumTInputs);
+            RefInputs = reader.ReadSerializableArray<TTXInput>(NumRefInputs);
+            TOutputs = reader.ReadSerializableArray<ScriptTXOutput>(NumTOutputs, (x) => x.TXUnmarshal);
+            var lentsigs = reader.ReadInt32();
+            TSignatures = reader.ReadSerializableArrayCustomDecoder(lentsigs, (ref MemoryReader _reader) => (_reader.ReadUInt8(), _reader.ReadSerializable<Signature>()));
 
             if (NumPOutputs > 0) TransactionKey = reader.ReadKey();
 
@@ -116,11 +163,25 @@ namespace Discreet.Coin.Models
             if (NumPOutputs > 0) RangeProofPlus = reader.ReadSerializable<BulletproofPlus>();
             PSignatures = reader.ReadSerializableArray<Triptych>(NumPInputs);
             if (NumPInputs > 0) PseudoOutputs = reader.ReadKeyArray(NumPInputs);
+
+            _scripts = reader.ReadSerializableArray<ChainScript>();
+            _datums = reader.ReadSerializableArray<Datum>();
+            _redeemers = reader.ReadSerializableArrayCustomDecoder(-1, (ref MemoryReader _reader) => (_reader.ReadUInt8(), _reader.ReadSerializable<Datum>()));
+
+            if (_scripts != null && _scripts.Length > 0) Scripts = new Dictionary<ScriptAddress, ChainScript>(_scripts.Select(x => new KeyValuePair<ScriptAddress, ChainScript>(new ScriptAddress(x), x)));
+            else Scripts = new();
+
+            if (_scripts != null && _scripts.Length > 0) Datums = new Dictionary<SHA256, Datum>(_datums.Select(x => new KeyValuePair<SHA256, Datum>(x.Hash(), x)));
+            else Datums = new();
+
+            if (_redeemers != null && _redeemers.Length > 0) Redeemers = new Dictionary<byte, Datum>(_redeemers.Select(p => new KeyValuePair<byte, Datum>(p.Item1, p.Item2)));
+            else Redeemers = new();
         }
 
         public SHA256 TXSigningHash()
         {
-            byte[] bytes = new byte[16 + TTXInput.GetSize() * NumTInputs + 33 * NumTOutputs + (NumPOutputs > 0 ? 32 : 0) + NumPInputs * TXInput.GetSize() + NumPOutputs * 40];
+            // TODO: double-check this size calculation when you get a chance
+            byte[] bytes = new byte[46 + TTXInput.GetSize() * NumTInputs + TTXInput.GetSize() * NumRefInputs + TOutputs?.Aggregate(0, (x, y) => x + y.TXSize) ?? 0 + (NumPOutputs > 0 ? 32 : 0) + NumPInputs * TXInput.GetSize() + NumPOutputs * 40 + Scripts?.Values.Aggregate(0, (x, y) => x + y.Size) ?? 0 + Datums?.Values.Aggregate(0, (x, y) => x + y.Size) ?? 0 + Redeemers?.Values.Aggregate(Redeemers?.Count ?? 0, (x, y) => x + y.Size) ?? 0];
             var writer = new BEBinaryWriter(new MemoryStream(bytes));
 
             writer.Write(Version);
@@ -131,16 +192,33 @@ namespace Discreet.Coin.Models
             writer.Write(NumPInputs);
             writer.Write(NumTOutputs);
             writer.Write(NumPOutputs);
+            writer.Write(NumRefInputs);
+            writer.Write(NumScriptInputs); // 10
 
-            writer.Write(Fee);
+            writer.Write(Fee); // 18
+            writer.Write(ValidityInterval.LowerBound);
+            writer.Write(ValidityInterval.UpperBound);
 
             writer.WriteSerializableArray(TInputs, false);
+            writer.WriteSerializableArray(RefInputs, false);
             writer.WriteSerializableArray(TOutputs, false, (x) => x.TXMarshal);
 
             if (NumPOutputs > 0) writer.WriteKey(TransactionKey);
 
             writer.WriteSerializableArray(PInputs, false);
             writer.WriteSerializableArray(POutputs, false, (x) => (writer) => { writer.WriteKey(x.UXKey); writer.Write(x.Amount); });
+            writer.WriteSerializableArray(_scripts);
+            writer.WriteSerializableArray(_datums);
+            writer.Write(_redeemers?.Length ?? 0);
+            
+            if (_redeemers is not null)
+            {
+                foreach ((var b, var r) in _redeemers)
+                {
+                    writer.Write(b);
+                    writer.Write(r);
+                }
+            }
 
             return SHA256.HashData(bytes);
         }
@@ -155,15 +233,19 @@ namespace Discreet.Coin.Models
 
         public uint GetSize()
         {
-            return (uint)(48 + TTXInput.GetSize() * (TInputs == null ? 0 : TInputs.Length)
-                             + 33 * (TOutputs == null ? 0 : TOutputs.Length)
-                             + 96 * (TSignatures == null ? 0 : TSignatures.Length)
+            return (uint)(82 + TTXInput.GetSize() * (TInputs == null ? 0 : TInputs.Length)
+                             + TTXInput.GetSize() * (RefInputs == null ? 0 : RefInputs.Length)
+                             + (TOutputs?.Aggregate(0, (x, y) => x + y.TXSize)  ?? 0)
+                             + 97 * (TSignatures == null ? 0 : TSignatures.Length)
                              + (NumPOutputs > 0 ? 32 : 0)
                              + (PInputs == null ? 0 : PInputs.Length) * TXInput.GetSize()
                              + (POutputs == null ? 0 : POutputs.Length) * 72
                              + (RangeProofPlus == null && NumPOutputs == 0 ? 0 : RangeProofPlus.Size)
                              + Triptych.GetSize() * (PSignatures == null ? 0 : PSignatures.Length)
-                             + (NumPInputs == 0 ? 0 : 32 * PseudoOutputs.Length));
+                             + (NumPInputs == 0 ? 0 : 32 * PseudoOutputs.Length)
+                             + (_scripts?.Aggregate(0, (x, y) => x + y.Size) ?? 0)
+                             + (_datums?.Aggregate(0, (x, y) => x + y.Size) ?? 0)
+                             + (_redeemers?.Aggregate(_redeemers?.Length ?? 0, (x, y) => x + y.Item2.Size) ?? 0));
         }
 
         public int Size => (int)GetSize();
@@ -213,7 +295,7 @@ namespace Discreet.Coin.Models
 
             tx.Inputs = TInputs;
             tx.Outputs = TOutputs;
-            tx.Signatures = TSignatures;
+            tx.Signatures = TSignatures.Select(x => x.Signature).ToArray();
 
             tx.Fee = Fee;
 
@@ -235,6 +317,7 @@ namespace Discreet.Coin.Models
             bool pOutNull = POutputs == null;
             bool tSigNull = TSignatures == null;
             bool pSigNull = PSignatures == null;
+            bool rInNull = RefInputs == null;
 
             int lenTInputs = tInNull ? 0 : TInputs.Length;
             int lenTOutputs = tOutNull ? 0 : TOutputs.Length;
@@ -242,6 +325,7 @@ namespace Discreet.Coin.Models
             int lenPOutputs = pOutNull ? 0 : POutputs.Length;
             int lenTSigs = tSigNull ? 0 : TSignatures.Length;
             int lenPSigs = pSigNull ? 0 : PSignatures.Length;
+            int lenRInputs = rInNull ? 0 : RefInputs.Length;
 
             /* we can convert MixedTransactions to either Transparent.Transaction or Transaction */
             if (Version == 0 || Version == 1 || Version == 2)
@@ -289,6 +373,16 @@ namespace Discreet.Coin.Models
                 return new VerifyException("MixedTransaction", $"Number of Inputs exceeds the maximum of {Config.TRANSPARENT_MAX_NUM_OUTPUTS} ({NumOutputs} Inputs present)");
             }
 
+            if (NumRefInputs != lenRInputs)
+            {
+                return new VerifyException("MixedTransaction", $"Reference input number mismatch: expected {NumRefInputs}, but got {lenRInputs}");
+            }
+
+            if (NumRefInputs > Config.TRANSPARENT_MAX_NUM_INPUTS)
+            {
+                return new VerifyException("MixedTransaction", $"Number of Reference inputs exceeds the maximum of {Config.TRANSPARENT_MAX_NUM_INPUTS} ({NumRefInputs} Reference inputs present)");
+            }
+
             if (NumSigs > NumInputs)
             {
                 return new VerifyException("MixedTransaction", $"Invalid number of signatures: {NumSigs} > {NumInputs}, exceeding the number of inputs");
@@ -329,9 +423,9 @@ namespace Discreet.Coin.Models
                 return new VerifyException("MixedTransaction", $"Signature number mismatch: expected {NumSigs}, but got {lenTSigs + lenPSigs}");
             }
 
-            if (lenTSigs != NumTInputs)
+            if (lenTSigs != NumTInputs - NumScriptInputs)
             {
-                return new VerifyException("MixedTransaction", $"Transactions must have the same number of transparent signatures as transparent inputs ({NumTInputs} inputs, but {lenTSigs} sigs)");
+                return new VerifyException("MixedTransaction", $"Transactions must have the same number of transparent signatures as non-script transparent inputs ({NumTInputs - NumScriptInputs} inputs, but {lenTSigs} sigs)");
             }
 
             if (lenPSigs != NumPInputs)
@@ -380,9 +474,9 @@ namespace Discreet.Coin.Models
                 var aexc = tinputValues[i].Address.Verify();
                 if (aexc != null) return aexc;
 
-                if (!tinputValues[i].Address.CheckAddressBytes(TSignatures[i].y))
+                if (!tinputValues[i].Address.CheckAddressBytes(TSignatures[i].Item2.y))
                 {
-                    return new VerifyException("MixedTransaction", $"Transparent input at index {i}'s address ({tinputValues[i].Address}) does not match public key in signature ({TSignatures[i].y.ToHexShort()})");
+                    return new VerifyException("MixedTransaction", $"Transparent input at index {i}'s address ({tinputValues[i].Address}) does not match public key in signature ({TSignatures[i].Item2.y.ToHexShort()})");
                 }
 
                 /* check if present in database */
@@ -441,7 +535,7 @@ namespace Discreet.Coin.Models
 
             for (int i = 0; i < lenTSigs; i++)
             {
-                if (TSignatures[i].IsNull())
+                if (TSignatures[i].Item2.IsNull())
                 {
                     return new VerifyException("MixedTransaction", $"Unsigned transparent input present in transaction!");
                 }
@@ -452,7 +546,7 @@ namespace Discreet.Coin.Models
 
                 SHA256 checkSig = SHA256.HashData(data);
 
-                if (!TSignatures[i].Verify(checkSig))
+                if (!TSignatures[i].Item2.Verify(checkSig))
                 {
                     return new VerifyException("MixedTransaction", $"Signature failed verification!");
                 }

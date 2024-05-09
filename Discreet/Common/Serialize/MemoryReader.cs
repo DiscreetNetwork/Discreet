@@ -253,5 +253,11 @@ namespace Discreet.Common.Serialize
             pos = memory.Length;
             return res;
         }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAtEnd()
+        {
+            return pos == span.Length;
+        }
     }
 }

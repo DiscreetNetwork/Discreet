@@ -28,7 +28,7 @@ namespace Discreet.Wallets.Services
                 NumSigs = (byte)inputs.Length,
                 Fee = 0,
                 Inputs = inputs,
-                Outputs = outputs
+                Outputs = outputs,
             };
 
             tx.InnerHash = tx.SigningHash();

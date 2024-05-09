@@ -1,9 +1,11 @@
 ﻿using Discreet.Coin;
 using Discreet.Coin.Models;
+using Discreet.Coin.Script;
 using Discreet.Common;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
 using Discreet.Daemon;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -29,8 +31,8 @@ namespace Discreet.DB
         private ulong tIndex;
 
         /* ephemeral validation data structures */
-        private Dictionary<TTXInput, TTXOutput> spentPubs;
-        private Dictionary<TTXInput, TTXOutput> newOutputs;
+        private Dictionary<TTXInput, ScriptTXOutput> spentPubs;
+        private Dictionary<TTXInput, ScriptTXOutput> newOutputs;
         private SortedSet<Cipher.Key> spentKeys;
         private SortedSet<Cipher.Key> txs;
 
@@ -279,7 +281,13 @@ namespace Discreet.DB
                     if (blockBuffer.ContainsTransaction(tx.TxID)) return new VerifyException("Block", $"Transaction {tx.TxID.ToHex()} already present in main branch");
 
                     /* transparent checks */
-                    TTXOutput[] tinVals = new TTXOutput[tx.NumTInputs];
+                    ScriptTXOutput[] tinVals = new ScriptTXOutput[tx.NumTInputs];
+                    ScriptTXOutput[] rinVals = new ScriptTXOutput[tx.NumRefInputs];
+
+                    Dictionary<byte, ScriptTXOutput> scripts = new Dictionary<byte, ScriptTXOutput>();
+                    Dictionary<byte, Cipher.Signature> nonScripts = new Dictionary<byte, Cipher.Signature>(tx.TSignatures.Select(x => new KeyValuePair<byte, Cipher.Signature>(x.Index, x.Signature)));
+
+
                     if (tx.NumTInputs > 0)
                     {
                         /* check for spend in pool */
@@ -289,6 +297,12 @@ namespace Discreet.DB
                             _in.Add(tx.TInputs[j]);
 
                             if (spentPubs.ContainsKey(tx.TInputs[j])) return new VerifyException("Block", $"Transparent input at index {j} was spent in a previous transaction currently in the validation set");
+                        }
+
+                        /* check for ref spend in pool */
+                        for (int j = 0; j < tx.NumRefInputs; j++)
+                        {
+                            if (spentPubs.ContainsKey(tx.RefInputs[j])) return new VerifyException("Block", $"Reference input at index {j} was spent in a previous transaction currently in the validation set");
                         }
                     }
 
@@ -331,10 +345,84 @@ namespace Discreet.DB
                             var aexc = tinVals[j].Address.Verify();
                             if (aexc != null) return aexc;
 
-                            if (!tinVals[j].Address.CheckAddressBytes(tx.TSignatures[j].y))
+                            // transparent inputs are now broken up into script and non-script versions.
+                            if (tinVals[j].Address.Version() == Coin.AddressVersion.SCRIPT_VERSION)
                             {
-                                return new VerifyException("FullTransaction", $"Transparent input at index {j}'s address ({tinVals[j].Address}) does not match public key in signature ({tx.TSignatures[j].y.ToHexShort()})");
+                                scripts[(byte)j] = tinVals[j];
+                                continue;
                             }
+
+                            if (!nonScripts.TryGetValue((byte)j, out var sig))
+                            {
+                                return new VerifyException("Block", $"Transaction transparent input at index {j} is missing signature!");
+                            }
+
+                            if (!tinVals[j].Address.CheckAddressBytes(sig.y))
+                            {
+                                return new VerifyException("Block", $"Transaction transparent input at index {j}'s address ({tinVals[j].Address}) does not match public key in signature ({sig.y.ToHexShort()})");
+                            }
+                        }
+
+                        // check numscriptinputs
+                        if (tx.NumScriptInputs != scripts.Count)
+                        {
+                            return new VerifyException("Block", $"Transaction script input mismatch: expected {tx.NumScriptInputs}; got {scripts.Count}");
+                        }
+
+                        // check number signatures
+                        if (tx.NumTInputs - tx.NumScriptInputs != nonScripts.Count)
+                        {
+                            return new VerifyException("Block", $"Transaction transparent signature mismatch: expected {tx.NumTInputs - tx.NumScriptInputs}; got {nonScripts.Count}");
+                        }
+
+                        // check outputs
+                        for (int j = 0; j < tx.NumTOutputs; j++)
+                        {
+                            if (tx.TOutputs[j].ReferenceScript != null)
+                            {
+                                // check reference script matches address
+                                if (tx.TOutputs[j].Address != new Coin.ScriptAddress(tx.TOutputs[j].ReferenceScript) && tx.TOutputs[j].Address.Version() != Coin.AddressVersion.SCRIPT_VERSION)
+                                {
+                                    return new VerifyException("Block", $"Transaction script output's reference script does not match the supplied address (expected {tx.TOutputs[j].Address}; got {new Coin.ScriptAddress(tx.TOutputs[j].ReferenceScript)})");
+                                }
+                            }
+                        }
+                    }
+
+                    /* reference inputs */
+                    if (tx.NumRefInputs > 0)
+                    {
+                        for (int j = 0; j < tx.NumRefInputs; j++)
+                        {
+                            bool res = newOutputs.TryGetValue(tx.RefInputs[j], out rinVals[j]);
+                            if (!res)
+                            {
+                                try
+                                {
+                                    tinVals[j] = blockBuffer.GetPubOutput(tx.RefInputs[j]);
+                                }
+                                catch
+                                {
+                                    return new VerifyException("Block", $"Transaction reference input at index {j} has no matching output");
+                                }
+                            }
+                        }
+                    }
+
+                    /* check validity interval */
+                    if (tx.Version == 4 || tx.Version == 5)
+                    {
+                        var curHeight = block.Header.Height;
+
+                        // we check in a range
+                        if (curHeight < tx.ValidityInterval.Item1)
+                        {
+                            return new VerifyException("Block", $"Transaction validity interval for transaction too early");
+                        }
+
+                        if (curHeight > tx.ValidityInterval.Item2)
+                        {
+                            return new VerifyException("Block", $"Transaction validity interval for transaction too late");
                         }
                     }
 
@@ -478,13 +566,16 @@ namespace Discreet.DB
                     /* verify transparent signatures */
                     for (int j = 0; j < tx.NumTInputs; j++)
                     {
-                        if (tx.TSignatures[j].IsNull()) return new VerifyException("Block", $"Unsigned transparent input at index {j}");
+                        if (scripts.ContainsKey((byte)j)) continue;
+
+                        if (!nonScripts.ContainsKey((byte)j)) return new VerifyException("Block", $"Transparent input at index {j} missing signature");
+                        if (nonScripts[(byte)j].IsNull()) return new VerifyException("Block", $"Unsigned transparent input at index {j}");
 
                         byte[] data = new byte[64];
                         Array.Copy(tx.SigningHash.Bytes, data, 32);
                         Array.Copy(tx.TInputs[j].Hash(tinVals[j]).Bytes, 0, data, 32, 32);
                         Cipher.SHA256 checkSig = Cipher.SHA256.HashData(data);
-                        if (!tx.TSignatures[j].Verify(checkSig)) return new VerifyException("Block", $"Transparent input at index {j} has invalid signature");
+                        if (!nonScripts[(byte)j].Verify(checkSig)) return new VerifyException("Block", $"Transparent input at index {j} has invalid signature");
                     }
 
                     /* verify triptych signatures */
@@ -497,6 +588,88 @@ namespace Discreet.DB
 
                         var sigexc = tx.PSignatures[j].Verify(M, P, tx.PseudoOutputs[j], tx.SigningHash.ToKey(), tx.PInputs[j].KeyImage);
                         if (sigexc != null) return sigexc;
+                    }
+
+                    /* get supplied data for reference inputs. Non-inline, non-null datums must be supplied. */
+                    for (int j = 0; j < tx.NumRefInputs; j++)
+                    {
+                        Datum datum;
+                        if (rinVals[j].Datum == null && rinVals[j].DatumHash == null)
+                        {
+                            rinVals[j].Datum = Datum.Default();
+                        }
+                        else if (rinVals[j].DatumHash != null)
+                        {
+                            if (!tx.Datums.ContainsKey(rinVals[j].DatumHash.Value))
+                            {
+                                return new VerifyException("Block", $"Transaction reference input at index {j} missing matching datum");
+                            }
+
+                            rinVals[j].Datum = tx.Datums[rinVals[j].DatumHash.Value];
+                        }
+                    }
+
+                    /* build the script context, if necessary */
+                    ScriptContext scriptContext = null;
+                    if (scripts.Count > 0)
+                    {
+                        scriptContext = new ScriptContext(tx, tinVals, rinVals);
+                    }
+
+                    /* verify script data and script inputs */
+                    for (int j = 0; j < tx.NumTInputs; j++)
+                    {
+                        if (nonScripts.ContainsKey((byte)j)) continue;
+
+                        if (!scripts.ContainsKey((byte)j)) return new VerifyException("Block", $"Transaction script input at index {j} missing!");
+                        var scriptOutput = scripts[(byte)j];
+
+                        // match redeemer first
+                        if (!tx.Redeemers.ContainsKey((byte)j)) return new VerifyException("Block", $"Transaction script input at index {j} missing redeemer");
+                        var redeemer = tx.Redeemers[(byte)j];
+
+                        // now match datum
+                        Datum datum;
+                        if (scriptOutput.Datum == null && scriptOutput.DatumHash == null)
+                        {
+                            datum = Datum.Default();
+                        }
+                        else if (scriptOutput.Datum != null)
+                        {
+                            datum = scriptOutput.Datum;
+                        }
+                        else
+                        {
+                            if (!tx.Datums.ContainsKey(scriptOutput.DatumHash.Value))
+                            {
+                                return new VerifyException("Block", $"Transaction script input at index {j} missing matching datum to datum hash");
+                            }
+
+                            datum = tx.Datums[scriptOutput.DatumHash.Value];
+                        }
+
+                        // now match script
+                        ChainScript script;
+                        if (scriptOutput.ReferenceScript != null)
+                        {
+                            script = scriptOutput.ReferenceScript;
+                        }
+                        else
+                        {
+                            if (!tx.Scripts.ContainsKey(scriptOutput.Address.ToScriptAddress()))
+                            {
+                                return new VerifyException("Block", $"Transaction script input at index {j} has no matching supplied script");
+                            }
+
+                            script = tx.Scripts[scriptOutput.Address.ToScriptAddress()];
+                        }
+
+                        // now run script for validation
+                        var successfulRun = Scripting.DVM.Verify(scriptContext, j, script, datum, redeemer);
+                        if (successfulRun != null)
+                        {
+                            return new VerifyException("Block", $"Transaction script at index {j} failed: {successfulRun.Message}");
+                        }
                     }
 
                     /* valid; update validation structures */

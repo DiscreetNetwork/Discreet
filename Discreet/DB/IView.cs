@@ -33,7 +33,7 @@ namespace Discreet.DB
         public Dictionary<long, Block> GetBlockCache();
         public void ClearBlockCache();
         public bool CheckSpentKey(Key j);
-        public TTXOutput GetPubOutput(TTXInput _input);
+        public ScriptTXOutput GetPubOutput(TTXInput _input);
         public void RemovePubOutput(TTXInput _input);
         public uint[] GetOutputIndices(SHA256 tx);
         public TXOutput GetOutput(uint index);
@@ -134,7 +134,7 @@ namespace Discreet.DB
         public bool BlockExists(SHA256 blockHash);
         public bool BlockHeightExists(long height);
         public void Flush(IEnumerable<UpdateEntry> updates);
-        public TTXOutput MustGetPubOutput(TTXInput input)
+        public ScriptTXOutput MustGetPubOutput(TTXInput input)
         {
             try
             {

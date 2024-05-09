@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Security.Cryptography.Xml;
 using System.Text;
 using Discreet.Coin.Models;
 
@@ -21,7 +23,7 @@ namespace Discreet.WalletsLegacy
         public ulong Fee;
 
         public TTXInput[] TInputs;
-        public TTXOutput[] TOutputs;
+        public ScriptTXOutput[] TOutputs;
 
         public Cipher.Key TransactionKey;
         public PTXInput[] PInputs;
@@ -55,7 +57,7 @@ namespace Discreet.WalletsLegacy
 
             tx.TInputs = TInputs;
             tx.TOutputs = TOutputs;
-            tx.TSignatures = (NumTInputs > 0) ? new Cipher.Signature[tx.NumTInputs] : null;
+            tx.TSignatures = (NumTInputs > 0) ? Enumerable.Range(0, tx.NumTInputs).Select(x => (byte)x).Zip(new Cipher.Signature[tx.NumTInputs]).ToArray() : Array.Empty<(byte, Cipher.Signature)>();
 
             tx.TransactionKey = TransactionKey;
             tx.PInputs = new TXInput[NumPInputs];

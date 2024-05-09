@@ -1,7 +1,9 @@
 ﻿using Discreet.Cipher;
 using Discreet.Coin.Models;
+using Discreet.Coin.Script;
 using Discreet.Common;
 using Discreet.Common.Converters;
+using Discreet.Common.Serialize;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
@@ -24,6 +26,11 @@ namespace Discreet.Coin.Converters
         private static TXInputConverter TXInputConverter;
         private static TXOutputConverter TXOutputConverter;
         private static KeyConverter KeyConverter;
+        private static DatumConverter DatumConverter;
+        private static ChainScriptConverter ChainScriptConverter;
+        private static ScriptTXOutputConverter ScriptTXOutputConverter;
+        private static RedeemerConverter RedeemerConverter;
+        private static StringConverter StringConverter;
 
         static TransactionConverter()
         {
@@ -36,6 +43,11 @@ namespace Discreet.Coin.Converters
             TXInputConverter = new();
             TXOutputConverter = new();
             KeyConverter = new();
+            DatumConverter = new();
+            ChainScriptConverter = new();
+            ScriptTXOutputConverter = new();
+            RedeemerConverter = new();
+            StringConverter = new();
         }
 
         private static T[] ReadArray<T>(ref Utf8JsonReader reader, JsonConverter<T> converter, JsonSerializerOptions options)
@@ -47,6 +59,21 @@ namespace Discreet.Coin.Converters
             {
                 if (reader.TokenType == JsonTokenType.EndArray) break;
                 tinputs.Add(converter.Read(ref reader, typeof(T), options));
+            }
+            return tinputs.ToArray();
+        }
+
+        private delegate T ElementReader<T>(ref Utf8JsonReader reader, JsonSerializerOptions options);
+
+        private static T[] ReadArray<T>(ref Utf8JsonReader reader, ElementReader<T> converter, JsonSerializerOptions options)
+        {
+            if (reader.TokenType == JsonTokenType.Null) return null;
+            if (reader.TokenType != JsonTokenType.StartArray) throw new Exception();
+            var tinputs = new List<T>();
+            while (reader.Read())
+            {
+                if (reader.TokenType == JsonTokenType.EndArray) break;
+                tinputs.Add(converter(ref reader, options));
             }
             return tinputs.ToArray();
         }
@@ -79,6 +106,8 @@ namespace Discreet.Coin.Converters
                 case 3:
                     break;
                 case 4:
+                    break;
+                case 5:
                     break;
                 default:
                     throw new Exception("unreachable");
@@ -119,6 +148,12 @@ namespace Discreet.Coin.Converters
                         case "NumPOutputs":
                             transaction.NumPOutputs = reader.GetByte();
                             break;
+                        case "NumRefInputs":
+                            transaction.NumRefInputs = reader.GetByte();
+                            break;
+                        case "NumScriptInputs":
+                            transaction.NumScriptInputs = reader.GetByte();
+                            break;
 
                         /* data fields */
                         case "Fee":
@@ -127,14 +162,42 @@ namespace Discreet.Coin.Converters
                         case "SigningHash" or "InnerHash":
                             transaction.SigningHash = SHA256.FromHex(reader.GetString());
                             break;
+                        case "ValidityInterval":
+                            // interval encoded as array
+                            {
+                                if (reader.TokenType == JsonTokenType.Null) transaction.ValidityInterval = (-1, long.MaxValue);
+                                if (reader.TokenType != JsonTokenType.StartArray) throw new Exception();
+                                reader.Read();
+
+                                if (reader.TokenType == JsonTokenType.EndArray) throw new Exception();
+                                var _validityIntervalLow = reader.GetInt64();
+                                reader.Read();
+
+                                if (reader.TokenType == JsonTokenType.EndArray) throw new Exception();
+                                var _validityIntervalHigh = reader.GetInt64();
+                                reader.Read();
+
+                                if (reader.TokenType != JsonTokenType.EndArray) throw new Exception();
+                                transaction.ValidityInterval = (_validityIntervalLow, _validityIntervalHigh);
+                            }
+                            break;
                         case "TInputs":
                             transaction.TInputs = ReadArray(ref reader, TTXInputConverter, options);
                             break;
+                        case "RefInputs":
+                            transaction.RefInputs = ReadArray(ref reader, TTXInputConverter, options);
+                            break;
                         case "TOutputs":
-                            transaction.TOutputs = ReadArray(ref reader, TTXOutputConverter, options);
+                            transaction.TOutputs = ReadArray(ref reader, ScriptTXOutputConverter, options);
                             break;
                         case "TSignatures":
-                            transaction.TSignatures = ReadArray(ref reader, SignatureConverter, options);
+                            transaction.TSignatures = ReadArray<(byte, Signature)>(ref reader, (ref Utf8JsonReader _reader, JsonSerializerOptions _options) =>
+                            {
+                                var _str = _reader.GetString()!;
+                                var _bytes = Common.Printable.Byteify(_str);
+                                if (_bytes.Length != 97) throw new Exception();
+                                return (_bytes[0], new Signature(_bytes[1..]));
+                            }, options);
                             break;
                         case "TransactionKey":
                             var tkstr = reader.GetString();
@@ -165,7 +228,7 @@ namespace Discreet.Coin.Converters
                                 case 0 or 1 or 2:
                                     transaction.PInputs = ReadArray(ref reader, TXInputConverter, options);
                                     break;
-                                case 3:
+                                case 3 or 5:
                                     transaction.TInputs = ReadArray(ref reader, TTXInputConverter, options);
                                     break;
                                 default:
@@ -178,8 +241,8 @@ namespace Discreet.Coin.Converters
                                 case 0 or 1 or 2:
                                     transaction.POutputs = ReadArray(ref reader, TXOutputConverter, options);
                                     break;
-                                case 3:
-                                    transaction.TOutputs = ReadArray(ref reader, TTXOutputConverter, options);
+                                case 3 or 5:
+                                    transaction.TOutputs = ReadArray(ref reader, ScriptTXOutputConverter, options);
                                     break;
                                 default:
                                     throw new Exception();
@@ -192,10 +255,55 @@ namespace Discreet.Coin.Converters
                                     transaction.PSignatures = ReadArray(ref reader, TriptychConverter, options);
                                     break;
                                 case 3:
-                                    transaction.TSignatures = ReadArray(ref reader, SignatureConverter, options);
+                                    {
+                                        var _tsigs = ReadArray(ref reader, SignatureConverter, options);
+                                        transaction.TSignatures = Enumerable.Range(0, _tsigs?.Length ?? 0).Select(x => (byte)x).Zip(_tsigs).ToArray();
+                                    }
+                                    break;
+                                case 5:
+                                    transaction.TSignatures = ReadArray<(byte, Signature)>(ref reader, (ref Utf8JsonReader _reader, JsonSerializerOptions _options) =>
+                                    {
+                                        var _str = _reader.GetString()!;
+                                        var _bytes = Common.Printable.Byteify(_str);
+                                        if (_bytes.Length != 97) throw new Exception();
+                                        return (_bytes[0], new Signature(_bytes[1..]));
+                                    }, options);
                                     break;
                                 default:
                                     throw new Exception();
+                            }
+                            break;
+                        case "Scripts":
+                            transaction._scripts = ReadArray(ref reader, ChainScriptConverter, options);
+                            if (transaction._scripts != null && transaction._scripts.Length > 0)
+                            {
+                                transaction.Scripts = new Dictionary<ScriptAddress, ChainScript>(transaction._scripts.Select(x => new KeyValuePair<ScriptAddress, ChainScript>(new ScriptAddress(x), x)));
+                            }
+                            else
+                            {
+                                transaction.Scripts = new();
+                            }
+                            break;
+                        case "Datums":
+                            transaction._datums = ReadArray(ref reader, DatumConverter, options);
+                            if (transaction._datums != null && transaction._datums.Length > 0)
+                            {
+                                transaction.Datums = new Dictionary<SHA256, Datum>(transaction._datums.Select(x => new KeyValuePair<SHA256, Datum>(x.Hash(), x)));
+                            }
+                            else
+                            {
+                                transaction.Datums = new();
+                            }
+                            break;
+                        case "Redeemers":
+                            transaction._redeemers = ReadArray(ref reader, RedeemerConverter, options);
+                            if (transaction._redeemers != null && transaction._redeemers.Length > 0)
+                            {
+                                transaction.Redeemers = new Dictionary<byte, Datum>(transaction._redeemers.Select(x => new KeyValuePair<byte, Datum>(x.Item1, x.Item2)));
+                            }
+                            else
+                            {
+                                transaction.Redeemers = new();
                             }
                             break;
                         case "TxID":
@@ -207,7 +315,7 @@ namespace Discreet.Coin.Converters
                 }
             }
 
-            if (transaction.Version == 3)
+            if (transaction.Version == 3 || transaction.Version == 5)
             {
                 transaction.NumTInputs = transaction.NumInputs;
                 transaction.NumTOutputs = transaction.NumOutputs;
@@ -259,9 +367,15 @@ namespace Discreet.Coin.Converters
                 writer.WriteNumber(nameof(value.NumPOutputs), value.NumPOutputs);
             }
 
+            if (value.Version == 5 || value.Version == 4)
+            {
+                writer.WriteNumber(nameof(value.NumRefInputs), value.NumRefInputs);
+                writer.WriteNumber(nameof(value.NumScriptInputs), value.NumScriptInputs);
+            }
+
             writer.WriteNumber(nameof(value.Fee), value.Fee);
 
-            if (value.Version == 3 || value.Version == 4)
+            if (value.Version == 3 || value.Version == 4 || value.Version == 5)
             {
                 writer.WriteString(value.Version == 4 ? nameof(value.SigningHash) : "InnerHash", value.SigningHash.ToHex());
             }
@@ -270,25 +384,48 @@ namespace Discreet.Coin.Converters
                 writer.WriteString(nameof(value.TransactionKey), value.TransactionKey.ToHex());
             }
 
-            if (value.Version == 4 || value.Version == 3)
+            if (value.Version == 3 || value.Version == 4)
+            {
+                writer.WritePropertyName(nameof(value.ValidityInterval));
+                writer.WriteStartArray();
+                writer.WriteNumberValue(value.ValidityInterval.Item1);
+                writer.WriteNumberValue(value.ValidityInterval.Item2);
+                writer.WriteEndArray();
+            }
+
+            if (value.Version == 4 || value.Version == 3 || value.Version == 5)
             {
                 // write fields as individual elements
                 if (value.TInputs != null && value.TInputs.Length > 0)
                 {
-                    writer.WritePropertyName(value.Version == 3 ? "Inputs" : nameof(value.TInputs));
+                    writer.WritePropertyName((value.Version == 3 || value.Version == 5) ? "Inputs" : nameof(value.TInputs));
                     WriteArray(writer, value.TInputs, TTXInputConverter, options);
+                }
+
+                // we don't allow ref inputs in version 3 transactions
+                if (value.RefInputs != null && value.RefInputs.Length > 0 && value.Version != 3)
+                {
+                    writer.WritePropertyName(nameof(value.RefInputs));
+                    WriteArray(writer, value.RefInputs, TTXInputConverter, options);
                 }
 
                 if (value.TOutputs != null && value.TOutputs.Length > 0)
                 {
-                    writer.WritePropertyName(value.Version == 3 ? "Outputs" : nameof(value.TOutputs));
-                    WriteArray(writer, value.TOutputs, TTXOutputConverter, options);
+                    writer.WritePropertyName((value.Version == 3 || value.Version == 5) ? "Outputs" : nameof(value.TOutputs));
+                    WriteArray(writer, value.TOutputs, ScriptTXOutputConverter, options);
                 }
 
                 if (value.TSignatures != null && value.TSignatures.Length > 0)
                 {
-                    writer.WritePropertyName(value.Version == 3 ? "Signatures" : nameof(value.TSignatures));
-                    WriteArray(writer, value.TSignatures, SignatureConverter, options);
+                    writer.WritePropertyName((value.Version == 3 || value.Version == 5) ? "Signatures" : nameof(value.TSignatures));
+                    if (value.Version == 4 || value.Version == 5)
+                    {
+                        WriteArray(writer, value.TSignatures.Select(x => Common.Printable.Hexify(new byte[] { x.Index }.Concat(x.Signature.Serialize()).ToArray())).ToArray(), StringConverter, options);
+                    }
+                    else
+                    {
+                        WriteArray(writer, value.TSignatures.Select(x => x.Signature).ToArray(), SignatureConverter, options);
+                    }
                 }
 
                 if (value.TransactionKey != default)
@@ -332,6 +469,27 @@ namespace Discreet.Coin.Converters
                 {
                     writer.WritePropertyName(nameof(value.PseudoOutputs));
                     WriteArray(writer, value.PseudoOutputs.Select(x => (Key?)x).ToArray(), KeyConverter, options);
+                }
+            }
+
+            if (value.Version == 4 || value.Version == 5)
+            {
+                if (value._scripts != null && value._datums.Length > 0)
+                {
+                    writer.WritePropertyName("Scripts");
+                    WriteArray(writer, value._scripts, ChainScriptConverter, options);
+                }
+
+                if (value._datums != null && value._datums.Length > 0)
+                {
+                    writer.WritePropertyName("Datums");
+                    WriteArray(writer, value._datums, DatumConverter, options);
+                }
+
+                if (value._redeemers != null && value._redeemers.Length > 0)
+                {
+                    writer.WritePropertyName("Redeemers");
+                    WriteArray(writer, value._redeemers, RedeemerConverter, options);
                 }
             }
 

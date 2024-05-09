@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Discreet.Cipher;
+using Discreet.Coin.Script;
 using Discreet.Common;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
@@ -24,14 +25,20 @@ namespace Discreet.Coin.Models
         public byte NumTOutputs { get; set; }
         public byte NumPOutputs { get; set; }
 
+        public byte NumRefInputs { get; set; }
+        public byte NumScriptInputs { get; set; }
+
         public SHA256 SigningHash { get; set; }
 
         public ulong Fee { get; set; }
 
+        public (long Low, long High) ValidityInterval { get; set; }
+
         /* Transparent part */
         public TTXInput[] TInputs { get; set; }
-        public TTXOutput[] TOutputs { get; set; }
-        public Signature[] TSignatures { get; set; }
+        public TTXInput[] RefInputs { get; set; }
+        public ScriptTXOutput[] TOutputs { get; set; }
+        public (byte Index, Signature Signature)[] TSignatures { get; set; }
 
         /* Private part */
         public Key TransactionKey { get; set; }
@@ -41,6 +48,15 @@ namespace Discreet.Coin.Models
         public BulletproofPlus RangeProofPlus { get; set; }
         public Triptych[] PSignatures { get; set; }
         public Key[] PseudoOutputs { get; set; }
+
+        /* script part */
+        internal ChainScript[] _scripts;
+        internal Datum[] _datums;
+        internal (byte Index, Datum Datum)[] _redeemers;
+
+        public Dictionary<ScriptAddress, ChainScript> Scripts { get; set; }
+        public Dictionary<SHA256, Datum> Datums { get; set; }
+        public Dictionary<byte, Datum> Redeemers { get; set; }
 
         private SHA256 _txid;
         public SHA256 TxID { get { if (_txid == default || _txid.Bytes == null) _txid = Hash(); return _txid; } }
@@ -66,6 +82,11 @@ namespace Discreet.Coin.Models
         public FullTransaction(MixedTransaction tx)
         {
             FromMixed(tx);
+        }
+
+        public FullTransaction(ScriptTransaction tx)
+        {
+            FromScript(tx);
         }
 
         public override bool Equals(object obj)
@@ -118,6 +139,36 @@ namespace Discreet.Coin.Models
                 Fee = Fee,
                 Inputs = TInputs,
                 Outputs = TOutputs,
+                Signatures = TSignatures.Select(x => x.Item2).ToArray(),
+            };
+
+            return tx;
+        }
+
+        public ScriptTransaction ToScript()
+        {
+            if (Version != 5) throw new Exception("FullTransaction.ToScript: version must match!");
+
+            var tx = new ScriptTransaction
+            {
+                Version = Version,
+                NumInputs = NumInputs,
+                NumOutputs = NumOutputs,
+                NumSigs = NumSigs,
+                NumRefInputs = NumRefInputs,
+                NumScriptInputs = NumScriptInputs,
+                InnerHash = SigningHash,
+                Fee = Fee,
+                ValidityInterval = ValidityInterval,
+                Inputs = TInputs,
+                RefInputs = RefInputs,
+                Outputs = TOutputs,
+                _scripts = _scripts,
+                _datums = _datums,
+                _redeemers = _redeemers,
+                Scripts = Scripts,
+                Datums = Datums,
+                Redeemers = Redeemers,
                 Signatures = TSignatures,
             };
 
@@ -137,8 +188,11 @@ namespace Discreet.Coin.Models
                 NumPOutputs = NumPOutputs,
                 NumTInputs = NumTInputs,
                 NumTOutputs = NumTOutputs,
+                NumRefInputs = NumRefInputs,
+                NumScriptInputs = NumScriptInputs,
                 NumSigs = NumSigs,
                 Fee = Fee,
+                ValidityInterval = ValidityInterval,
                 TransactionKey = TransactionKey,
                 PInputs = PInputs,
                 POutputs = POutputs,
@@ -146,9 +200,16 @@ namespace Discreet.Coin.Models
                 RangeProofPlus = RangeProofPlus,
                 PseudoOutputs = PseudoOutputs,
                 TInputs = TInputs,
+                RefInputs = RefInputs,
                 TOutputs = TOutputs,
                 TSignatures = TSignatures,
                 SigningHash = SigningHash,
+                _scripts = _scripts,
+                _datums = _datums,
+                _redeemers = _redeemers,
+                Datums = Datums,
+                Redeemers = Redeemers,
+                Scripts = Scripts,
             };
 
             return tx;
@@ -163,6 +224,8 @@ namespace Discreet.Coin.Models
             NumPOutputs = tx.NumOutputs;
             NumTInputs = 0;
             NumTOutputs = 0;
+            NumRefInputs = 0;
+            NumScriptInputs = 0;
             NumSigs = tx.NumSigs;
             Fee = tx.Fee;
             TransactionKey = tx.TransactionKey;
@@ -186,12 +249,14 @@ namespace Discreet.Coin.Models
             NumTOutputs = tx.NumOutputs;
             NumPInputs = 0;
             NumPOutputs = 0;
+            NumRefInputs = 0;
+            NumScriptInputs = 0;
             Fee = tx.Fee;
             SigningHash = tx.InnerHash;
             Fee = tx.Fee;
             TInputs = tx.Inputs;
             TOutputs = tx.Outputs;
-            TSignatures = tx.Signatures;
+            TSignatures = Enumerable.Range(0, tx.Signatures.Length).Select(x => (byte)x).Zip(tx.Signatures).ToArray();
         }
 
         public void FromMixed(MixedTransaction tx)
@@ -204,6 +269,8 @@ namespace Discreet.Coin.Models
             NumTInputs = tx.NumTInputs;
             NumTOutputs = tx.NumTOutputs;
             NumSigs = tx.NumSigs;
+            NumRefInputs = tx.NumRefInputs;
+            NumScriptInputs = tx.NumScriptInputs;
             Fee = tx.Fee;
             TransactionKey = tx.TransactionKey;
             PInputs = tx.PInputs;
@@ -212,9 +279,44 @@ namespace Discreet.Coin.Models
             RangeProofPlus = tx.RangeProofPlus;
             PseudoOutputs = tx.PseudoOutputs;
             TInputs = tx.TInputs;
+            RefInputs = tx.RefInputs;
             TOutputs = tx.TOutputs;
             TSignatures = tx.TSignatures;
             SigningHash = tx.SigningHash;
+            ValidityInterval = tx.ValidityInterval;
+            _scripts = tx._scripts;
+            _datums = tx._datums;
+            _redeemers = tx._redeemers;
+            Scripts = tx.Scripts;
+            Datums = tx.Datums;
+            Redeemers = tx.Redeemers;
+        }
+
+        public void FromScript(ScriptTransaction tx)
+        {
+            Version = tx.Version;
+            NumInputs = tx.NumInputs;
+            NumOutputs = tx.NumOutputs;
+            NumPInputs = 0;
+            NumPOutputs = 0;
+            NumTInputs = tx.NumInputs;
+            NumTOutputs = tx.NumOutputs;
+            NumSigs = tx.NumSigs;
+            NumRefInputs = tx.NumRefInputs;
+            NumScriptInputs = tx.NumScriptInputs;
+            Fee = tx.Fee;
+            TInputs = tx.Inputs;
+            RefInputs = tx.RefInputs;
+            TOutputs = tx.Outputs;
+            TSignatures = tx.Signatures;
+            SigningHash = tx.InnerHash;
+            ValidityInterval = tx.ValidityInterval;
+            _scripts = tx._scripts;
+            _datums = tx._datums;
+            _redeemers = tx._redeemers;
+            Scripts = tx.Scripts;
+            Datums = tx.Datums;
+            Redeemers = tx.Redeemers;
         }
 
         public void Serialize(BEBinaryWriter writer)
@@ -229,6 +331,9 @@ namespace Discreet.Coin.Models
                     break;
                 case 4:
                     ToMixed().Serialize(writer);
+                    break;
+                case 5:
+                    ToScript().Serialize(writer);
                     break;
                 default:
                     throw new Exception("Unknown transaction type: " + Version);
@@ -249,6 +354,9 @@ namespace Discreet.Coin.Models
                 case 4:
                     FromMixed(reader.ReadSerializable<MixedTransaction>());
                     break;
+                case 5:
+                    FromScript(reader.ReadSerializable<ScriptTransaction>());
+                    break;
                 default:
                     throw new Exception("Unknown transaction type: " + Version);
             }
@@ -262,6 +370,7 @@ namespace Discreet.Coin.Models
                 1 or 2 => ToPrivate().Hash(),
                 3 => ToTransparent().Hash(),
                 4 => ToMixed().Hash(),
+                5 => ToScript().Hash(),
                 _ => throw new Exception("Unknown transaction type: " + Version),
             };
         }
@@ -282,26 +391,47 @@ namespace Discreet.Coin.Models
                 1 => (uint)(4 + TXInput.GetSize() * PInputs.Length + 72 * POutputs.Length + RangeProof.Size + 8 + Triptych.GetSize() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
                 2 => (uint)(4 + TXInput.GetSize() * PInputs.Length + 72 * POutputs.Length + RangeProofPlus.Size + 8 + Triptych.GetSize() * PSignatures.Length + 32 * PseudoOutputs.Length + 32),
                 3 => (uint)(44 + TTXInput.GetSize() * TInputs.Length + 33 * TOutputs.Length + 96 * TSignatures.Length),
-                4 => (uint)(48 + TTXInput.GetSize() * (TInputs == null ? 0 : TInputs.Length)
-                               + 33 * (TOutputs == null ? 0 : TOutputs.Length)
-                               + 96 * (TSignatures == null ? 0 : TSignatures.Length)
-                               + (NumPOutputs > 0 ? 32 : 0)
-                               + (PInputs == null ? 0 : PInputs.Length) * TXInput.GetSize()
-                               + (POutputs == null ? 0 : POutputs.Length) * 72
-                               + (RangeProofPlus == null && NumPOutputs == 0 ? 0 : RangeProofPlus.Size)
-                               + Triptych.GetSize() * (PSignatures == null ? 0 : PSignatures.Length)
-                               + (NumPInputs == 0 ? 0 : 32 * PseudoOutputs.Length)),
+                4 => (uint)(82 + TTXInput.GetSize() * (TInputs == null ? 0 : TInputs.Length)
+                             + TTXInput.GetSize() * (RefInputs == null ? 0 : RefInputs.Length)
+                             + (TOutputs?.Aggregate(0, (x, y) => x + y.TXSize) ?? 0)
+                             + 97 * (TSignatures == null ? 0 : TSignatures.Length)
+                             + (NumPOutputs > 0 ? 32 : 0)
+                             + (PInputs == null ? 0 : PInputs.Length) * TXInput.GetSize()
+                             + (POutputs == null ? 0 : POutputs.Length) * 72
+                             + (RangeProofPlus == null && NumPOutputs == 0 ? 0 : RangeProofPlus.Size)
+                             + Triptych.GetSize() * (PSignatures == null ? 0 : PSignatures.Length)
+                             + (NumPInputs == 0 ? 0 : 32 * PseudoOutputs.Length)
+                             + (_scripts?.Aggregate(0, (x, y) => x + y.Size) ?? 0)
+                             + (_datums?.Aggregate(0, (x, y) => x + y.Size) ?? 0)
+                             + (_redeemers?.Aggregate(_redeemers?.Length ?? 0, (x, y) => x + y.Item2.Size) ?? 0)),
+                5 => (uint)(78 + TTXInput.GetSize() * (TInputs == null ? 0 : TInputs.Length)
+                             + TTXInput.GetSize() * (RefInputs == null ? 0 : RefInputs.Length)
+                             + (TOutputs?.Aggregate(0, (x, y) => x + y.TXSize) ?? 0)
+                             + 97 * (TSignatures == null ? 0 : TSignatures.Length)
+                             + (_scripts?.Aggregate(0, (x, y) => x + y.Size) ?? 0)
+                             + (_datums?.Aggregate(0, (x, y) => x + y.Size) ?? 0)
+                             + (_redeemers?.Aggregate(_redeemers?.Length ?? 0, (x, y) => x + y.Item2.Size) ?? 0)),
                 _ => throw new Exception("Unknown transaction type: " + Version),
             };
         }
 
         public int Size => (int)GetSize();
 
+        /// <summary>
+        /// DEPRECATED.
+        /// </summary>
+        /// <returns></returns>
         public VerifyException Verify()
         {
             return Verify(inBlock: false);
         }
 
+        /// <summary>
+        /// DEPRECATED.
+        /// </summary>
+        /// <param name="inBlock"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
         public VerifyException Verify(bool inBlock = false)
         {
             return Version switch
@@ -354,6 +484,7 @@ namespace Discreet.Coin.Models
                 0 or 1 or 2 => ToPrivate().SigningHash(),
                 3 => ToTransparent().SigningHash(),
                 4 => ToMixed().TXSigningHash(),
+                5 => ToScript().TXSigningHash(),
                 _ => throw new Exception("Unknown transaction type: " + Version),
             };
         }
@@ -365,6 +496,7 @@ namespace Discreet.Coin.Models
             var npin = tx.PInputs == null ? 0 : tx.PInputs.Length;
             var npout = tx.POutputs == null ? 0 : tx.POutputs.Length;
             var ntin = tx.TInputs == null ? 0 : tx.TInputs.Length;
+            var nrin = tx.RefInputs == null ? 0 : tx.RefInputs.Length;
             var ntout = tx.TOutputs == null ? 0 : tx.TOutputs.Length;
 
             var npsg = tx.PSignatures == null ? 0 : tx.PSignatures.Length;
@@ -375,7 +507,8 @@ namespace Discreet.Coin.Models
             if (ntout != tx.NumTOutputs) return new VerifyException("FullTransaction", $"Transparent output mismatch: expected {tx.NumTOutputs}; got {ntout}");
             if (npin != tx.NumPInputs) return new VerifyException("FullTransaction", $"Private input mismatch: expected {tx.NumPInputs}; got {npin}");
             if (npout != tx.NumPOutputs) return new VerifyException("FullTransaction", $"Private output mismatch: expected {tx.NumPOutputs}; got {npout}");
-            if (ntsg != ntin) return new VerifyException("FullTransaction", $"Number of transparent input signatures ({ntsg}) not equal to number of transparent inputs ({ntin})");
+            if (nrin != tx.NumRefInputs) return new VerifyException("FullTransaction", $"Reference input mismatch: expected {tx.NumRefInputs}; got {nrin}");
+            if (ntsg != ntin - tx.NumScriptInputs) return new VerifyException("FullTransaction", $"Number of transparent input signatures ({ntsg}) not equal to number of non-script transparent inputs ({ntin - tx.NumScriptInputs})");
             if (npsg != npin) return new VerifyException("FullTransaction", $"Number of  Triptych signatures ({npsg}) not equal to number of private inputs ({npin})");
             if (npin + ntin != tx.NumInputs) return new VerifyException("FullTransaction", $"Input mismatch: expected {tx.NumInputs}; got {ntin + npin}");
             if (ntout + npout != tx.NumOutputs) return new VerifyException("FullTransaction", $"Output mismatch: expected {tx.NumOutputs}; got {ntout + npout}");
@@ -387,6 +520,7 @@ namespace Discreet.Coin.Models
 
             /* ensure no size limit reached */
             if (ntin > Config.TRANSPARENT_MAX_NUM_INPUTS) return new VerifyException("FullTransaction", $"Number of transparent inputs exceeds maximum ({Config.TRANSPARENT_MAX_NUM_INPUTS})");
+            if (nrin > Config.TRANSPARENT_MAX_NUM_INPUTS) return new VerifyException("FullTransaction", $"Number of reference inputs exceeds maximum ({Config.TRANSPARENT_MAX_NUM_INPUTS})");
             if (ntout > Config.TRANSPARENT_MAX_NUM_OUTPUTS) return new VerifyException("FullTransaction", $"Number of transparent outputs exceeds maximum ({Config.TRANSPARENT_MAX_NUM_OUTPUTS})");
             if (npin > Config.PRIVATE_MAX_NUM_INPUTS) return new VerifyException("FullTransaction", $"Number of private inputs exceeds maximum ({Config.PRIVATE_MAX_NUM_INPUTS})");
             if (npout > Config.PRIVATE_MAX_NUM_OUTPUTS) return new VerifyException("FullTransaction", $"Number of private outputs exceeds maximum ({Config.PRIVATE_MAX_NUM_OUTPUTS})");

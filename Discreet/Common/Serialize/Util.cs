@@ -47,6 +47,19 @@ namespace Discreet.Common.Serialize
             return res;
         }
 
+        public static T[] ReadSerializableArrayCustomDecoder<T>(this ref MemoryReader reader, int length = -1, DeserializeElement<T> elementDecoder = null)
+        {
+            if (length < 0) length = reader.ReadInt32();
+            T[] arr = new T[length];
+
+            for (int i = 0; i < arr.Length; i++)
+            {
+                arr[i] = elementDecoder(ref reader);
+            }
+
+            return arr;
+        }
+
         public static T[] ReadSerializableArray<T>(this ref MemoryReader reader, int length = -1, Func<T, CustomDeserializer> selector = null) where T : ISerializable, new()
         {
             if (length < 0) length = reader.ReadInt32();

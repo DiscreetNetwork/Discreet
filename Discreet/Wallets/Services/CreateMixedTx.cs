@@ -66,7 +66,7 @@ namespace Discreet.Wallets.Services
                 TInputs = Array.Empty<TTXInput>(),
                 TOutputs = toutputs,
                 RangeProofPlus = bp,
-                TSignatures = Array.Empty<Signature>()
+                TSignatures = Array.Empty<(byte, Signature)>()
             };
 
             if (tx.NumPOutputs > 0) tx.TransactionKey = txPublicKey;
@@ -115,7 +115,7 @@ namespace Discreet.Wallets.Services
             };
 
             tx.SigningHash = tx.TXSigningHash();
-            tx.TSignatures = BuildTransparentSignatures(utxos, tinputs, tx.SigningHash).ToArray();
+            tx.TSignatures = Enumerable.Range(0, tinputs.Length).Select(x => (byte)x).Zip(BuildTransparentSignatures(utxos, tinputs, tx.SigningHash)).ToArray();
 
             return tx.ToFull();
         }

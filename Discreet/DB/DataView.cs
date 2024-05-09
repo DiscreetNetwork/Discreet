@@ -61,7 +61,7 @@ namespace Discreet.DB
 
         public bool CheckSpentKey(Cipher.Key j) => curView.CheckSpentKey(j);
 
-        public TTXOutput GetPubOutput(TTXInput _input) => curView.GetPubOutput(_input);
+        public ScriptTXOutput GetPubOutput(TTXInput _input) => curView.GetPubOutput(_input);
 
         public void RemovePubOutput(TTXInput _input) => curView.RemovePubOutput(_input);
 
@@ -196,7 +196,7 @@ namespace Discreet.DB
 
         public void Flush(IEnumerable<UpdateEntry> updates) => curView.Flush(updates);
 
-        public TTXOutput MustGetPubOutput(TTXInput input)
+        public ScriptTXOutput MustGetPubOutput(TTXInput input)
         {
             try
             {

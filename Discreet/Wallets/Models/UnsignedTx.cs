@@ -24,7 +24,7 @@ namespace Discreet.Wallets.Models
         public ulong Fee;
 
         public TTXInput[] TInputs;
-        public TTXOutput[] TOutputs;
+        public ScriptTXOutput[] TOutputs;
 
         public Key TransactionKey;
         public PrivateTxInput[] PInputs;
@@ -53,7 +53,7 @@ namespace Discreet.Wallets.Models
 
             tx.TInputs = TInputs;
             tx.TOutputs = TOutputs;
-            tx.TSignatures = (NumTInputs > 0) ? new Signature[tx.NumTInputs] : null;
+            tx.TSignatures = (NumTInputs > 0) ? Enumerable.Range(0, tx.NumTInputs).Select(x => (byte)x).Zip(new Signature[tx.NumTInputs]).ToArray() : Array.Empty<(byte, Signature)>();
 
             tx.TransactionKey = TransactionKey;
             tx.PInputs = new TXInput[NumPInputs];

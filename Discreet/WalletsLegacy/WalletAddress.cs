@@ -708,7 +708,7 @@ namespace Discreet.WalletsLegacy
 
                     var hash = SHA256.HashData(data);
 
-                    tx.TSignatures[i] = new Signature(SecKey, PubKey, hash);
+                    tx.TSignatures[i] = ((byte)i, new Signature(SecKey, PubKey, hash));
                 }
             }
 
@@ -826,7 +826,7 @@ namespace Discreet.WalletsLegacy
             }
 
             /* construct outputs */
-            List<TTXOutput> tOutputs = new List<TTXOutput>();
+            List<ScriptTXOutput> tOutputs = new List<ScriptTXOutput>();
             List<TXOutput> pOutputs = new List<TXOutput>();
             List<Key> gammas = new List<Key>();
             List<ulong> amounts = new List<ulong>();
@@ -843,7 +843,7 @@ namespace Discreet.WalletsLegacy
             {
                 if (to[i].Type() == (byte)AddressType.TRANSPARENT)
                 {
-                    tOutputs.Add(new TTXOutput(default, new TAddress(to[i].Bytes()), amount[i]));
+                    tOutputs.Add(new ScriptTXOutput(default, new TAddress(to[i].Bytes()), amount[i]));
                     utx.NumTOutputs++;
                 }
                 else
@@ -914,7 +914,7 @@ namespace Discreet.WalletsLegacy
             {
                 if (neededAmount != totalAmount)
                 {
-                    tOutputs.Add(new TTXOutput(default, new TAddress(Address), neededAmount - totalAmount));
+                    tOutputs.Add(new ScriptTXOutput(default, new TAddress(Address), neededAmount - totalAmount));
                     utx.NumTOutputs++;
                 }
             }
@@ -981,14 +981,14 @@ namespace Discreet.WalletsLegacy
             }
 
             /* create outputs */
-            tx.Outputs = new TTXOutput[tx.NumOutputs];
+            tx.Outputs = new ScriptTXOutput[tx.NumOutputs];
             for (int i = 0; i < to.Length; i++)
             {
-                tx.Outputs[i] = new TTXOutput(default, to[i], amount[i]);
+                tx.Outputs[i] = new ScriptTXOutput(default, to[i], amount[i]);
             }
             if (neededAmount != totalAmount)
             {
-                tx.Outputs[tx.NumOutputs - 1] = new TTXOutput(default, new TAddress(Address), neededAmount - totalAmount);
+                tx.Outputs[tx.NumOutputs - 1] = new ScriptTXOutput(default, new TAddress(Address), neededAmount - totalAmount);
             }
 
             /* create signatures */
