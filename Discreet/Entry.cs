@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Linq;
 using System.Diagnostics;
-using Cryptography.ECDSA;
 using Discreet.Cipher.Mnemonics;
 using Discreet.Coin;
 using Discreet.WalletsLegacy;
