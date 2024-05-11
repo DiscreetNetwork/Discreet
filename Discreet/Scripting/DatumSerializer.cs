@@ -6,6 +6,9 @@ using System.Threading.Tasks;
 
 namespace Discreet.Scripting
 {
+    /// <summary>
+    /// Currently unused for V1 Datums.
+    /// </summary>
     public class DatumSerializer
     {
         private const int TagNull = 0;
