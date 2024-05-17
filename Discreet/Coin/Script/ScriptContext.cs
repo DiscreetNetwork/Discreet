@@ -29,6 +29,19 @@ namespace Discreet.Coin.Script
 
         public Key? TransactionKey { get; set; }
 
+        public static readonly ScriptContext Empty = new ScriptContext
+        {
+            Fee = 0,
+            SigningHash = new SHA256(new byte[32], false),
+            ValidityInterval = (-1, long.MaxValue),
+            Inputs = Array.Empty<TXInInfo>(),
+            ReferenceInputs = Array.Empty<TXInInfo>(),
+            Outputs = Array.Empty<ScriptTXOutput>(),
+            PrivateInputs = Array.Empty<TXInput>(),
+            PrivateOutputs = Array.Empty<TXOutput>(),
+            TransactionKey = null,
+        };
+
         public ScriptContext() { }
 
         public ScriptContext(FullTransaction tx, ScriptTXOutput[] tinVals, ScriptTXOutput[] rinVals)

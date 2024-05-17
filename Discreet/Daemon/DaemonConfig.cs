@@ -212,6 +212,11 @@ namespace Discreet.Daemon
                 MaxNumLogfiles = 0;
             }
 
+            if (Sandbox == null)
+            {
+                Sandbox = false;
+            }
+
             if (NetConfig == null)
             {
                 NetConfig = new NetworkConfig();
@@ -295,6 +300,8 @@ namespace Discreet.Daemon
         public long? MaxLogfileSize { get; set; }
         public int? MaxNumLogfiles { get; set; }
 
+        public bool? Sandbox { get; set; }
+
         public NetworkConfig NetConfig { get; set; }
 
         public DebugConfig DbgConfig { get; set; }
@@ -356,6 +363,7 @@ namespace Discreet.Daemon
 
             MaxLogfileSize = 10 * 1024 * 1024;
             MaxNumLogfiles = 0;
+            Sandbox = false;
 
             NetConfig = new NetworkConfig();
             DbgConfig = new DebugConfig();

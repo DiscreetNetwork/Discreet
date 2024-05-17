@@ -39,9 +39,9 @@ namespace Discreet.Scripting
 
         public DVM(ChainScript script)
         {
-            InitializeMemory();
             _stack = new UInt256[MAX_STACK_V1];
             _script = script;
+            InitializeMemory();
         }
 
         protected void InitializeMemory()
@@ -925,6 +925,7 @@ namespace Discreet.Scripting
                             }
 
                             _stack[_sp++] = new UInt256(_data.AsSpan(), true);
+                            _pc += (uint)_blen; // add size of immediate to program counter
                         }
                         break;
                     case DVMOpcodeV1.DUP1:

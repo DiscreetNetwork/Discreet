@@ -323,10 +323,11 @@ namespace Discreet.Common.Serialize
             obj.Deserialize(ref reader);
         }
 
-        public static void Deserialize<T>(this T obj, byte[] data, int offset = 0) where T : ISerializable
+        public static T Deserialize<T>(this T obj, byte[] data, int offset = 0) where T : ISerializable
         {
             MemoryReader reader = new(new ReadOnlyMemory<byte>(data, offset, data.Length - offset));
             obj.Deserialize(ref reader);
+            return obj;
         }
 
         public static SHA256 Hash<T>(this T obj) where T : IHashable

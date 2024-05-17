@@ -1,4 +1,5 @@
 ﻿using Discreet.DB;
+using Discreet.Sandbox;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,7 +14,7 @@ namespace Discreet.DB
 
         static ViewProvider()
         {
-            defaultProvider = DataView.GetView();
+            defaultProvider = (Daemon.DaemonConfig.GetConfig().Sandbox.Value ? DataView.GetView() : SandboxView.GetView());
         }
 
         public static IView GetDefaultProvider() => defaultProvider;

@@ -28,6 +28,8 @@ using Discreet.Common.Converters;
 using System.Text.Json.Serialization;
 using Discreet.Wallets;
 using System.Collections.Concurrent;
+using Discreet.Coin.Script;
+using Discreet.Scripting;
 
 namespace Discreet
 {

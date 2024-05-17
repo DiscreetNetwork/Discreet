@@ -18,7 +18,7 @@ namespace Discreet.DB
     {
         /* raw data and db access */
         private DataView dataView;
-        private BlockBuffer blockBuffer;
+        private IView blockBuffer;
         private Block block; // for validating single block
         private List<Block> blocks = null; // for validating multiple blocks
 
@@ -43,7 +43,7 @@ namespace Discreet.DB
         public ValidationCache(Block blk)
         {
             dataView = DataView.GetView();
-            blockBuffer = BlockBuffer.Instance;
+            blockBuffer = (Daemon.DaemonConfig.GetConfig().Sandbox ?? false) ? ViewProvider.GetDefaultProvider() : BlockBuffer.Instance;
             block = blk;
             pIndex = blockBuffer.GetOutputIndex();
             tIndex = dataView.GetTransactionIndexer();
@@ -61,7 +61,7 @@ namespace Discreet.DB
         public ValidationCache(List<Block> blks)
         {
             dataView = DataView.GetView();
-            blockBuffer = BlockBuffer.Instance;
+            blockBuffer = (Daemon.DaemonConfig.GetConfig().Sandbox ?? false) ? ViewProvider.GetDefaultProvider() : BlockBuffer.Instance;
             blocks = blks;
             pIndex = blockBuffer.GetOutputIndex();
             tIndex = dataView.GetTransactionIndexer();
@@ -793,26 +793,53 @@ namespace Discreet.DB
         {
             // We no longer flush updates here; TODO: remove updates from ValidationCache
             //dataView.Flush(updates);
-            if (blocks != null && blocks.Count > 0)
+            if (Daemon.DaemonConfig.GetConfig().Sandbox ?? false)
             {
-                if (goodBlocks != null)
+                if (blocks != null && blocks.Count > 0)
                 {
-                    foreach (var blk in goodBlocks)
+                    if (goodBlocks != null)
                     {
-                        BlockBuffer.Instance.WriteToBuffer(blk);
+                        foreach (var blk in goodBlocks)
+                        {
+                            blockBuffer.AddBlock(blk);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var blk in blocks)
+                        {
+                            blockBuffer.AddBlock(blk);
+                        }
                     }
                 }
                 else
                 {
-                    foreach (var blk in blocks)
-                    {
-                        BlockBuffer.Instance.WriteToBuffer(blk);
-                    }
+                    blockBuffer.AddBlock(block);
                 }
             }
             else
             {
-                BlockBuffer.Instance.WriteToBuffer(block);
+                if (blocks != null && blocks.Count > 0)
+                {
+                    if (goodBlocks != null)
+                    {
+                        foreach (var blk in goodBlocks)
+                        {
+                            BlockBuffer.Instance.WriteToBuffer(blk);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var blk in blocks)
+                        {
+                            BlockBuffer.Instance.WriteToBuffer(blk);
+                        }
+                    }
+                }
+                else
+                {
+                    BlockBuffer.Instance.WriteToBuffer(block);
+                }
             }
 
             if (blocks != null)

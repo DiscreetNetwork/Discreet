@@ -62,6 +62,8 @@ namespace Discreet.Daemon
 
         private SemaphoreSlim MintLocker = new(1, 1);
 
+        private bool Sandbox = false;
+
         public Daemon()
         {
             // check if the chain has been updated
@@ -86,10 +88,12 @@ namespace Discreet.Daemon
                 }
             }
 
+            Sandbox = DaemonConfig.GetConfig().Sandbox ?? false;
+
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
-            dataView = BlockBuffer.Instance;
+            dataView = Sandbox ? ViewProvider.GetDefaultProvider() : BlockBuffer.Instance;
 
             config = DaemonConfig.GetConfig();
 
@@ -121,11 +125,13 @@ namespace Discreet.Daemon
             await Task.Delay(5000);
             _ = _versionBackgroundPoller.StartBackgroundPoller();
 
+            Sandbox = DaemonConfig.GetConfig().Sandbox ?? false;
+
             // re-create everything
             txpool = TXPool.GetTXPool();
             network = Network.Peerbloom.Network.GetNetwork();
             messageCache = Network.MessageCache.GetMessageCache();
-            dataView = BlockBuffer.Instance;
+            dataView = Sandbox ? ViewProvider.GetDefaultProvider() : BlockBuffer.Instance;
 
             config = DaemonConfig.GetConfig();
 
@@ -199,16 +205,20 @@ namespace Discreet.Daemon
             _ = _rpcServer.Start();
             _ = Task.Factory.StartNew(async () => await ZMQ.Publisher.Instance.Start(DaemonConfig.GetConfig().ZMQPort.Value));
 
-            Logger.Info($"Starting Block Buffer...");
-            _ = Task.Factory.StartNew(async () => await DB.BlockBuffer.Instance.Start());
-
-            await network.Start();
-            await network.Bootstrap();
-            if (syncFromPeers && IsBlockAuthority)
+            if (!Sandbox)
             {
-                Logger.Info("Block authority beginning connecting to peers.");
-                await network.ConnectToPeers();
+                Logger.Info($"Starting Block Buffer...");
+                _ = Task.Factory.StartNew(async () => await DB.BlockBuffer.Instance.Start());
+
+                await network.Start();
+                await network.Bootstrap();
+                if (syncFromPeers && IsBlockAuthority)
+                {
+                    Logger.Info("Block authority beginning connecting to peers.");
+                    await network.ConnectToPeers();
+                }
             }
+            
             handler = network.handler;
             handler.daemon = this;
 
@@ -237,7 +247,7 @@ namespace Discreet.Daemon
                 syncFromPeers = true;
             }
 
-            if (syncFromPeers && !(DaemonConfig.GetConfig().DbgConfig.DebugMode.Value && DaemonConfig.GetConfig().DbgConfig.SkipSyncing.Value))
+            if (!Sandbox && syncFromPeers && !(DaemonConfig.GetConfig().DbgConfig.DebugMode.Value && DaemonConfig.GetConfig().DbgConfig.SkipSyncing.Value))
             {
                 /* among peers, find each of their associated heights */
                 List<(IPEndPoint, long)> peersAndHeights = new();
@@ -728,7 +738,11 @@ namespace Discreet.Daemon
                 network.Send(conn2fetch, new Network.Core.Packet(Network.Core.PacketType.GETPOOL, new Network.Core.Packets.GetPoolPacket()));
             }
             
-            if (IsBlockAuthority)
+            if (Sandbox)
+            {
+
+            }
+            else if (IsBlockAuthority)
             {
                 Logger.Info("Loading Master Wallet...");
 
@@ -767,16 +781,19 @@ namespace Discreet.Daemon
             handler.SetState(Network.PeerState.Normal);
             ZMQ.Publisher.Instance.Publish("daemonstatechanged", "ready");
 
-            Logger.Info($"Starting peer exchanger...");
-            network.StartPeerExchanger();
+            if (!Sandbox)
+            {
+                Logger.Info($"Starting peer exchanger...");
+                network.StartPeerExchanger();
 
-            Logger.Info($"Starting heartbeater...");
-            network.StartHeartbeater();
+                Logger.Info($"Starting heartbeater...");
+                network.StartHeartbeater();
+            }
 
             if (DaemonConfig.GetConfig().DbgConfig.CheckBlockchain.Value)
             {
                 Logger.Debug("Checking for missing blocks...");
-                var blockchainHeight = BlockBuffer.Instance.GetChainHeight();
+                var blockchainHeight = dataView.GetChainHeight();
                 List<long> missingBlocks = new();
                 for (long i = 0; i < blockchainHeight; i++)
                 {
@@ -797,6 +814,50 @@ namespace Discreet.Daemon
             Logger.Info($"Daemon startup complete.");
 
             return true;
+        }
+
+        public void SandboxTransaction(FullTransaction tx)
+        {
+            var exc = txpool.ProcessTx(tx);
+            if (exc != null)
+            {
+                Logger.Error($"Daemon.SandboxTransaction: {exc.Message}", exc);
+            }
+        }
+
+        public async void SandboxMint()
+        {
+            try
+            {
+                Logger.Info($"Discreet.SandboxMint: Minting new block...", verbose: 1);
+                var sigKey = DefaultBlockAuth.Instance.Keyring.SigningKeys[(int)((dataView.GetChainHeight() + 1) % DefaultBlockAuth.Instance.Keyring.SigningKeys.Count)];
+                var txs = txpool.GetTransactionsForBlock();
+                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), sigKey);
+
+                try
+                {
+                    DB.ValidationCache vC = new ValidationCache(blk);
+                    var err = vC.Validate();
+                    if (err != null)
+                    {
+                        Logger.Error($"Discreet.SandboxMint: validating minted block resulted in error: {err.Message}", err);
+                        ProcessBlock(blk, true);
+                        return;
+                    }
+
+                    await vC.Flush();
+                }
+                catch (Exception e)
+                {
+                    Logger.Error(new DatabaseException("Daemon.SandboxMint", e.Message).Message, e);
+                    ProcessBlock(blk, true);
+                    return;
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Error("Discreet.SandboxMint: Minting block failed: " + e.Message, e);
+            }
         }
 
         public void ProcessBlock(Block block, bool failed = false)
