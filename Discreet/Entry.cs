@@ -41,11 +41,6 @@ namespace Discreet
 
 		public static async Task Main(string[] args)
         {
-            //var cod = DVMAParserV1.ParseFile("C:\\\\users\\brand\\OneDrive\\Desktop\\wip_dapp.txt");
-            //await Console.Out.WriteLineAsync(Printable.Hexify(cod));
-
-            //return;
-
             Console.Title = $"Discreet Daemon (v{Assembly.GetExecutingAssembly().GetName().Version.ToString(3)})";
             // daemon initialization and start
             daemon = Daemon.Daemon.Init();

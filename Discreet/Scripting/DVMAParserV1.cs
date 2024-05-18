@@ -420,6 +420,14 @@ redo:
             Lexer.Close();
         }
 
+        public static byte[] ParseString(string code)
+        {
+            var parser = new DVMAParserV1(new MemoryStream(Encoding.ASCII.GetBytes(code)));
+            var rv = parser.Parse();
+            parser.Close();
+            return rv;
+        }
+
         public static byte[] ParseFile(string path)
         {
             var parser = new DVMAParserV1(path);

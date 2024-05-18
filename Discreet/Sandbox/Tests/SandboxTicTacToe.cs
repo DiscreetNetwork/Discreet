@@ -77,7 +77,7 @@ namespace Discreet.Sandbox.Tests
 
         public static FullTransaction CreateTTTGame(TAddress x, TAddress o, SandboxWallet w, int initialMove = -1, ulong earliestRedeem = 10)
         {
-            var cod = DVMAParserV1.ParseFile("C:\\\\users\\brand\\OneDrive\\Desktop\\wip_dapp.txt");
+            var cod = DVMAParserV1.ParseString(TicTacToeAsm.Program);
             if (w.Utxos.Count == 0)
             {
                 throw new Exception("Missing input!");
