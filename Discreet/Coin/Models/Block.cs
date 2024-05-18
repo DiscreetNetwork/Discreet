@@ -86,7 +86,7 @@ namespace Discreet.Coin.Models
             }
 
             // because of block buffer, we need to use that instead
-            IView dataView = BlockBuffer.Instance;
+            IView dataView = (Daemon.DaemonConfig.GetConfig().Sandbox ?? false) ? ViewProvider.GetDefaultProvider() : BlockBuffer.Instance;
             
             block.Header.Height = dataView.GetChainHeight() + 1;
 

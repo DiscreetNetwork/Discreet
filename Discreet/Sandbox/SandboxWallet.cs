@@ -34,6 +34,18 @@ namespace Discreet.Sandbox
         public HashSet<SandboxUtxo> Utxos { get; set; } = new HashSet<SandboxUtxo>(new SandboxUtxoEqualityComparer());
         public Dictionary<ScriptAddress, List<SandboxUtxo>> Watchers = new();
 
+        internal static Daemon.Daemon _daemon;
+
+        internal static void SetDaemon(Daemon.Daemon daemon)
+        {
+            _daemon = daemon;
+        }
+
+        public static ulong CoinsToDroplets(int c)
+        {
+            return (ulong)c * 1_000_000_000_0ul;
+        }
+
         public SandboxWallet(string name, bool @private = false)
         {
             Name = name;
@@ -52,6 +64,8 @@ namespace Discreet.Sandbox
 
                 Type = 0;
             }
+
+            _daemon.AddSandboxWallet(this);
         }
 
         public void ParseBlock(Block block)
@@ -216,8 +230,9 @@ namespace Discreet.Sandbox
             var totalAmount = recipients.Aggregate(0ul, (x, y) => x + y.Item1);
             var utxos = Utxos.TakeWhile((ux) =>
             {
+                bool comp = neededAmount < totalAmount;
                 neededAmount += ux.DecodedAmount;
-                return neededAmount < totalAmount;
+                return comp;
             }).ToList();
 
             if (neededAmount < totalAmount) throw new Exception("Not enough coins");
@@ -260,12 +275,14 @@ namespace Discreet.Sandbox
                 _maskAmountPairs.Add((mask, x.Item1));
                 Key comm = new Key(new byte[32]);
                 KeyOps.GenCommitment(ref comm, ref mask, x.Item1);
-                return new TXOutput
+                var _out =  new TXOutput
                 {
                     UXKey = KeyOps.DKSAP(ref txPrivateKey, x.Item2.view, x.Item2.spend, __i),
                     Commitment = comm,
-                    Amount = (Type == 1) ? x.Item1 : KeyOps.GenAmountMask(ref txPrivateKey, ref x.Item2.view, __i++, x.Item1),
+                    Amount = (Type == 1) ? x.Item1 : KeyOps.GenAmountMask(ref txPrivateKey, ref x.Item2.view, __i, x.Item1),
                 };
+                __i++;
+                return _out;
             }).ToArray();
 
             Coin.Models.BulletproofPlus bp = (poutputs.Length != 0) ? new Coin.Models.BulletproofPlus(Cipher.BulletproofPlus.Prove(_maskAmountPairs.Select(x => x.Item2).ToArray(), _maskAmountPairs.Select(x => x.Item1).ToArray())) : null;
@@ -306,6 +323,7 @@ namespace Discreet.Sandbox
                 NumRefInputs = 0,
                 NumScriptInputs = 0,
                 Fee = 0,
+                ValidityInterval = (-1, long.MaxValue),
                 PInputs = pinputs.Select(x => x.Input).ToArray(),
                 TInputs = tinputs,
                 RefInputs = Array.Empty<TTXInput>(),
@@ -335,6 +353,12 @@ namespace Discreet.Sandbox
                     var ringsig = Cipher.Triptych.Prove(x.Item2.M, x.Item2.P, x.Item3, (uint)x.Item2.l, sign_r, sign_s, ftx.SigningHash.ToKey());
                     return new Coin.Models.Triptych(ringsig);
                 }).ToArray();
+
+            var pserr = ftx.PSignatures.Length > 0 ? ftx.PSignatures[0].Verify(pinputs[0].M, pinputs[0].P, pseudoOuts[0], ftx.SigningHash.ToKey(), pinputs[0].Input.KeyImage) : null;
+            if (pserr != null)
+            {
+                throw pserr;
+            }
 
             ftx.TSignatures = Enumerable.Range(0, tinputs.Length).Select(x => (byte)x).Zip(utxos.Where(x => x.Type == 1).Zip(tinputs).Select(x =>
             {

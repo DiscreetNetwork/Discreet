@@ -2,16 +2,11 @@
 using Discreet.Coin;
 using Discreet.Coin.Models;
 using Discreet.Coin.Script;
+using Discreet.Common;
 using Discreet.Common.Exceptions;
 using Discreet.Common.Serialize;
 using Nethermind.Int256;
 using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Discreet.Scripting
 {
@@ -36,6 +31,7 @@ namespace Discreet.Scripting
         protected UInt256? success;
 
         protected bool strict = false;
+        protected bool debug = false; // FIXME: set to false after testing
 
         public DVM(ChainScript script)
         {
@@ -185,8 +181,10 @@ namespace Discreet.Scripting
 
             _pc = 0;
             _sp = 0;
-            
-            while (success == null)
+            var _cost = 0;
+            bool jmp = false;
+
+            while (success == null && _cost < MAX_INSTRUCTIONS_V1)
             {
                 var op = _script.Code[_pc];
                 switch ((DVMOpcodeV1)op)
@@ -500,8 +498,9 @@ namespace Discreet.Scripting
                             }
                             else
                             {
-                                var _shft = _x >> (248 - (((int)_i.u0) << 3));
-                                _stack[_sp++] = _shft & 0xFF;
+                                var _b = (int)_i;
+                                var _xb = _x.ToBigEndian();
+                                _stack[_sp++] = (UInt256)(_xb[31 - _b]);
                             }
                         }
                         break;
@@ -651,6 +650,7 @@ namespace Discreet.Scripting
                             }
 
                             _pc = (uint)_dest;
+                            jmp = true;
                         }
                         break;
                     case DVMOpcodeV1.JMPC:
@@ -663,7 +663,7 @@ namespace Discreet.Scripting
                             var _dest = _stack[--_sp];
                             var _cond = _stack[--_sp];
 
-                            if (_cond.IsZero)
+                            if (!_cond.IsZero)
                             {
                                 if (_dest >= _script.Code.Length)
                                 {
@@ -671,6 +671,7 @@ namespace Discreet.Scripting
                                 }
 
                                 _pc = (uint)_dest;
+                                jmp = true;
                             }
                         }
                         break;
@@ -690,6 +691,7 @@ namespace Discreet.Scripting
 
                             _stack[_sp++] = (_pc + 1);
                             _pc = (uint)_dest;
+                            jmp = true;
                         }
                         break;
                     case DVMOpcodeV1.CALLI:
@@ -720,6 +722,7 @@ namespace Discreet.Scripting
                             _sp++;
                             Array.Copy(_args, 0, _stack, (_sp - _argszInt), _argszInt);
                             _pc = (uint)_dest;
+                            jmp = true;
                         }
                         break;
                     case DVMOpcodeV1.RET:
@@ -732,6 +735,7 @@ namespace Discreet.Scripting
                             }
 
                             _pc = (uint)_newPc;
+                            jmp = true;
                         }
                         break;
                     case DVMOpcodeV1.RDML:
@@ -1953,10 +1957,64 @@ namespace Discreet.Scripting
                         break;
                 }
 
-                _pc++;
+                if (debug)
+                {
+                    Console.WriteLine($"{((DVMOpcodeV1)op),-16} ; [{GetStackPrint()}]");
+                }
+
+                if (jmp)
+                {
+                    jmp = false;
+                }
+                else
+                {
+                    _pc++;
+                }
+
+                _cost++;
+            }
+
+            if (_cost >= MAX_INSTRUCTIONS_V1)
+            {
+                return new VerifyException("DVM", "Exceeded maximum execution cost");
             }
 
             return (success.Value > 0) ? null : new VerifyException("DVM", "Script did not validate");
+        }
+
+        protected string GetStackPrint()
+        {
+            string stk = "";
+            for (int i = (int)_sp - 1; i >= 0; i--)
+            {
+                var val = _stack[i];
+                if (val > int.MaxValue)
+                {
+                    var bytes = val.ToBigEndian();
+                    var len = 31;
+                    while (len >= 0 && bytes[31 - len] == 0) len--;
+                    len++;
+                    if (len == 25)
+                    {
+                        var addr = new TAddress(bytes[7..]);
+                        stk += $"{addr.ToString()[..8]}{(_sp > 0 ? " " : "")}";
+                    }
+                    else
+                    {
+                        int b = 0;
+                        while (bytes[b] == 0) b++;
+                        var hex = Printable.Hexify(bytes[b..]);
+                        hex = hex[..(hex.Length > 20 ? 20 : hex.Length)];
+                        stk += $"{hex}{(_sp > 0 ? " " : "")}";
+                    }
+                }
+                else
+                {
+                    stk += $"{(int)val}{(_sp > 0 ? " " : "")}";
+                }
+            }
+
+            return stk;
         }
 
         public static VerifyException Verify(ScriptContext ctx, int index, ChainScript script, Datum datum, Datum redeemer)

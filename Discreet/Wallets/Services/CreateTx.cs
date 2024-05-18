@@ -180,12 +180,14 @@ namespace Discreet.Wallets.Services
                     maskAmountPairs.Add((mask, x.Second));
                     Key comm = new(new byte[32]);
                     KeyOps.GenCommitment(ref comm, ref mask, x.Second);
-                    return new TXOutput
+                    var _out = new TXOutput
                     {
                         UXKey = KeyOps.DKSAP(ref txPrivateKey, x.Item1.view, x.Item1.spend, i),
                         Commitment = comm,
-                        Amount = (account.Type == 1) ? x.Second : KeyOps.GenAmountMask(ref txPrivateKey, ref x.Item1.view, i++, x.Second),
+                        Amount = (account.Type == 1) ? x.Second : KeyOps.GenAmountMask(ref txPrivateKey, ref x.Item1.view, i, x.Second),
                     };
+                    i++;
+                    return _out;
                 }).ToList();
 
             //if (totalIn != totalOut && account.Type == 0)

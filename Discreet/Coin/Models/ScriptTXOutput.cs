@@ -61,13 +61,13 @@ namespace Discreet.Coin.Models
             writer.WriteByteArray(Address.Bytes(), false);
             writer.Write(Amount);
             writer.Write((Datum == null && DatumHash == null) ? (byte)0 : (Datum == null ? (byte)1 : (byte)2));
-            if (DatumHash != null)
+            if (Datum != null)
             {
-                writer.WriteSHA256(DatumHash.Value);
+                writer.Write(Datum);
             }
             else
             {
-                writer.Write(Datum);
+                writer.WriteSHA256(DatumHash.Value);
             }
 
             if (ReferenceScript is not null) writer.Write(ReferenceScript);
@@ -148,7 +148,7 @@ namespace Discreet.Coin.Models
             }
         }
 
-        public new int Size => 65 + ((Datum == null && DatumHash == null) ? 1 : (Datum == null ? 33 : (Datum.Size + 1))) + ReferenceScript?.Size ?? 4;
+        public new int Size => 65 + ((Datum == null && DatumHash == null) ? 1 : (Datum == null ? 33 : (Datum.Size + 1))) + (ReferenceScript?.Size ?? 4);
         public new int TXSize => Size - 32;
     }
 }

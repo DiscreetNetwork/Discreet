@@ -14,7 +14,7 @@ namespace Discreet.DB
 
         static ViewProvider()
         {
-            defaultProvider = (Daemon.DaemonConfig.GetConfig().Sandbox.Value ? DataView.GetView() : SandboxView.GetView());
+            defaultProvider = (Daemon.DaemonConfig.GetConfig().Sandbox.Value ? SandboxView.GetView() : DataView.GetView());
         }
 
         public static IView GetDefaultProvider() => defaultProvider;

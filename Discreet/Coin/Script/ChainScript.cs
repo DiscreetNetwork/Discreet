@@ -14,7 +14,7 @@ namespace Discreet.Coin.Script
 
         public uint Version { get; set; }
 
-        public int Size => 4 + Code?.Length ?? 0 + Data?.Length ?? 0;
+        public int Size => 4 + (Version > 0 ? 8 + (Code.Length + Data.Length) : 0);
 
         public void Deserialize(ref MemoryReader reader)
         {

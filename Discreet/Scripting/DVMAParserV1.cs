@@ -61,6 +61,11 @@ namespace Discreet.Scripting
                 chars = new List<int>();
             }
 
+            public void Close()
+            {
+                _stream.Close();
+            }
+
             private void ReadChar()
             {
                 if (c == -1) return;
@@ -410,10 +415,17 @@ redo:
             Offset = 0;
         }
 
+        public void Close()
+        {
+            Lexer.Close();
+        }
+
         public static byte[] ParseFile(string path)
         {
             var parser = new DVMAParserV1(path);
-            return parser.Parse();
+            var rv = parser.Parse();
+            parser.Close();
+            return rv;
         }
 
         public DVMATokenV1 ParseOp(DVMATokenV1 tok, string lbl = "")

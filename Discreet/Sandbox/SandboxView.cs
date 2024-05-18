@@ -89,13 +89,15 @@ namespace Discreet.Sandbox
                     _outputs.Remove(tx.TInputs[i]);
                 }
 
-                for (int i = 0; i <= tx.NumTOutputs; i++)
+                for (int i = 0; i < tx.NumTOutputs; i++)
                 {
                     _outputs[new TTXInput { TxSrc = tx.TxID, Offset = (byte)i}] = tx.TOutputs[i];
                 }
 
                 _transactionIndex++;
             }
+
+            _blockIndex = blk.Header.Height;
         }
 
         public void AddBlockToCache(Block blk)

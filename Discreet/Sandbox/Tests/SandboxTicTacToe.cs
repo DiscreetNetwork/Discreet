@@ -4,6 +4,7 @@ using Discreet.Coin.Models;
 using Discreet.Coin.Script;
 using Discreet.Common;
 using Discreet.Common.Serialize;
+using Discreet.Scripting;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System;
 using System.Collections.Generic;
@@ -11,39 +12,34 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Discreet.Sandbox
+namespace Discreet.Sandbox.Tests
 {
     /// <summary>
     /// Debug code for testing default debug app (Tic-Tac-Toe)
     /// </summary>
-    public class CreateTxSandbox
+    public class SandboxTicTacToe
     {
-        public static ulong CoinsToDroplets(int c)
-        {
-            return (ulong)c * 1_000_000_000_0ul;
-        }
-
         public static bool CheckWin(byte[] boardState)
         {
             for (int i = 0; i < 3; i++)
             {
-                if (boardState[1 + i] != 0 && ((boardState[i + 1] == boardState[i + 4]) && (boardState[i + 4] == boardState[i + 7])))
+                if (boardState[1 + i] != 0 && boardState[i + 1] == boardState[i + 4] && boardState[i + 4] == boardState[i + 7])
                 {
                     return true;
                 }
 
-                if (boardState[3*i + 1] != 0 && ((boardState[3*i + 1] == boardState[3*i + 2]) && (boardState[3*i + 2] == boardState[3*i + 3])))
+                if (boardState[3 * i + 1] != 0 && boardState[3 * i + 1] == boardState[3 * i + 2] && boardState[3 * i + 2] == boardState[3 * i + 3])
                 {
                     return true;
                 }
             }
 
-            if (boardState[1] != 0 && ((boardState[1] == boardState[5]) && (boardState[5] == boardState[9])))
+            if (boardState[1] != 0 && boardState[1] == boardState[5] && boardState[5] == boardState[9])
             {
                 return true;
             }
 
-            if (boardState[3] != 0 && ((boardState[3] == boardState[5]) && (boardState[5] == boardState[7])))
+            if (boardState[3] != 0 && boardState[3] == boardState[5] && boardState[5] == boardState[7])
             {
                 return true;
             }
@@ -55,23 +51,23 @@ namespace Discreet.Sandbox
         {
             for (int i = 0; i < 3; i++)
             {
-                if (boardState[1 + i] == who && ((boardState[i + 1] == boardState[i + 4]) && (boardState[i + 4] == boardState[i + 7])))
+                if (boardState[1 + i] == who && boardState[i + 1] == boardState[i + 4] && boardState[i + 4] == boardState[i + 7])
                 {
                     return true;
                 }
 
-                if (boardState[3 * i + 1] == who && ((boardState[3 * i + 1] == boardState[3 * i + 2]) && (boardState[3 * i + 2] == boardState[3 * i + 3])))
+                if (boardState[3 * i + 1] == who && boardState[3 * i + 1] == boardState[3 * i + 2] && boardState[3 * i + 2] == boardState[3 * i + 3])
                 {
                     return true;
                 }
             }
 
-            if (boardState[1] == who && ((boardState[1] == boardState[5]) && (boardState[5] == boardState[9])))
+            if (boardState[1] == who && boardState[1] == boardState[5] && boardState[5] == boardState[9])
             {
                 return true;
             }
 
-            if (boardState[3] == who && ((boardState[3] == boardState[5]) && (boardState[5] == boardState[7])))
+            if (boardState[3] == who && boardState[3] == boardState[5] && boardState[5] == boardState[7])
             {
                 return true;
             }
@@ -79,16 +75,16 @@ namespace Discreet.Sandbox
             return false;
         }
 
-        public FullTransaction CreateTTTGame(TAddress x, TAddress o, SandboxWallet w, int initialMove = -1, ulong earliestRedeem = 10)
+        public static FullTransaction CreateTTTGame(TAddress x, TAddress o, SandboxWallet w, int initialMove = -1, ulong earliestRedeem = 10)
         {
-            const string bytecode = "3080285050501133000001852430011033000002ab2430021033000003d12430031033000000832433000004be23300930013101172c310100202f2f5252163058100151300810330000005924513001016180330000003c23618080602731010030a02f522e300a2f3101a02c3101b060d031020030602f522960d333000004be2427330000002e25502f1060302020a2a830021033000004be24300114ab102f201260300110121330011433000004be308020a50c33000004be24330000005e25fca0bc30016002502f1033000000e6245151bd1033000000ec243001600233000000c92333000004be2350c3300a1030011433000004be246080300a2f3104162f63c13104002061608027582f103001145957101256541012582f10300114595710125654101213572f10300114585610125553101213592f103001145a5a10125959101213562f10300114575710125656101213532f103001145454101253531213592f103001145a5710125653101213572f103001145857101256551012136a27330000005e25302020a2a830021033000004be24300114ab1033000004be243060282f510d2f5210133009520c1230011433000004be24300a2f3103162c310300202f513009165030581033000004be2452300816533007165430061655300516563004165730031658300216593001165a2f1633000002066a80330000010d238080808080808080808030011433000004be8033000000c3252f5130091652300816533007165430061655300516563004165730031658300216593001165a2f162433000002556a80330000010d2380808080808080808051512f10125230011452304f10121330011433000004be24f8808038ffffffffffffffffff123103002038ffffffffffffffffff12306028300802300303305817011030011433000004be24fc330000005e25304020a2a830021033000004be24300114ab1033000004be243060282f510d2f5210133009520c1230011433000004be24300a2f3103162c310300202f5130091650304f1033000004be2452300816533007165430061655300516563004165730031658300216593001165a2f16330000032c6a80330000010d238080808080808080808030011433000004be8033000000c3252f5130091652300816533007165430061655300516563004165730031658300216593001165a2f1624330000037b6a80330000010d2380808080808080808051512f10125230011452305810121330011433000004be24f8808038ffffffffffffffffff123103002038ffffffffffffffffff12306028300802300303304f17011030011433000004be24fca2a830021033000004be24300114ab302020511033000003f724304020511033000003ff24fb3058330000040123304f300a2f3102162c3102002050300916502f1030011433000004be2451300816523007165330061654300516553004165630031657300216583001165916585c103001145957101256541012585d10300114595710125654101213575d10300114585610125553101213595d103001145a5a10125959101213565d10300114575710125656101213535d103001145454101253531213595d103001145a5710125653101213575d1030011458571012565510121330011433000004be24fcfb";
+            var cod = DVMAParserV1.ParseFile("C:\\\\users\\brand\\OneDrive\\Desktop\\wip_dapp.txt");
             if (w.Utxos.Count == 0)
             {
                 throw new Exception("Missing input!");
             }
 
             byte[] scriptData = new byte[160];
-            scriptData[31] = (byte)((x.ToString() == w.Address) ? 1 : 0);
+            scriptData[31] = (byte)(x.ToString() == w.Address ? 1 : 0);
             Array.Copy(x.Bytes(), 0, scriptData, 39, 25);
             Array.Copy(o.Bytes(), 0, scriptData, 71, 25);
 
@@ -97,7 +93,7 @@ namespace Discreet.Sandbox
                 throw new Exception("Expected a transparent wallet");
             }
 
-            var utxo = w.Utxos.Where(x => x.Type == 1 && x.DecodedAmount >= CoinsToDroplets(2)).FirstOrDefault();
+            var utxo = w.Utxos.Where(x => x.Type == 1 && x.DecodedAmount >= SandboxWallet.CoinsToDroplets(2)).FirstOrDefault();
             if (utxo == null)
             {
                 throw new Exception("Could not find utxo with enough coins");
@@ -105,11 +101,11 @@ namespace Discreet.Sandbox
 
             var input = new TTXInput { TxSrc = utxo.TxSrc, Offset = (byte)utxo.OutputIndex };
             Array.Copy(utxo.TxSrc.Bytes, 0, scriptData, 96, 32);
-            Array.Copy(Common.Serialization.UInt64(earliestRedeem), 0, scriptData, 152, 8);
+            Array.Copy(Serialization.UInt64(earliestRedeem), 0, scriptData, 152, 8);
 
-            ChainScript script = new ChainScript { Version = 1, Code = Printable.Byteify(bytecode), Data = scriptData };
+            ChainScript script = new ChainScript { Version = 1, Code = cod, Data = scriptData };
 
-            var scriptOut = new ScriptTXOutput { Address = new ScriptAddress(script), Amount = CoinsToDroplets(1), ReferenceScript = script };
+            var scriptOut = new ScriptTXOutput { Address = new ScriptAddress(script), Amount = SandboxWallet.CoinsToDroplets(1), ReferenceScript = script };
 
             byte[] boardState = new byte[10];
             boardState[0] = 0x58;
@@ -170,7 +166,7 @@ namespace Discreet.Sandbox
             return tx;
         }
 
-        public FullTransaction TakeXTurn(ScriptTXOutput scriptOut, int index, SandboxWallet w, int move)
+        public static FullTransaction TakeXTurn(ScriptTXOutput scriptOut, int index, SandboxWallet w, int move)
         {
             if (w.Type == 0)
             {
@@ -193,7 +189,7 @@ namespace Discreet.Sandbox
                 throw new Exception("Script datum invalid");
             }
 
-            var xaddr = new TAddress(scriptOut.Datum.Data[39..64]);
+            var xaddr = new TAddress(scriptOut.ReferenceScript.Data[39..64]);
             if (xaddr.ToString() != w.Address)
             {
                 throw new Exception("wallet address does not match script x address");
@@ -250,7 +246,7 @@ namespace Discreet.Sandbox
                 NumTInputs = 2,
                 NumTOutputs = 2,
                 NumRefInputs = 0,
-                NumScriptInputs = 0,
+                NumScriptInputs = 1,
                 TInputs = [intput, scriptInput],
                 RefInputs = [],
                 TOutputs = [coinOut, newScriptOut],
@@ -276,7 +272,7 @@ namespace Discreet.Sandbox
             return tx;
         }
 
-        public FullTransaction TakeOTurn(ScriptTXOutput scriptOut, int index, SandboxWallet w, int move)
+        public static FullTransaction TakeOTurn(ScriptTXOutput scriptOut, int index, SandboxWallet w, int move)
         {
             if (w.Type == 0)
             {
@@ -299,7 +295,7 @@ namespace Discreet.Sandbox
                 throw new Exception("Script datum invalid");
             }
 
-            var oaddr = new TAddress(scriptOut.Datum.Data[71..96]);
+            var oaddr = new TAddress(scriptOut.ReferenceScript.Data[71..96]);
             if (oaddr.ToString() != w.Address)
             {
                 throw new Exception("wallet address does not match script o address");
@@ -334,7 +330,7 @@ namespace Discreet.Sandbox
             var redeemerData = new byte[160];
             Array.Copy(rdmSig.Serialize(), redeemerData, 96);
             redeemerData[127] = (byte)move;
-            redeemerData[159] = 0;
+            redeemerData[159] = 1;
 
             var redeemer = new Datum { Version = 0, Data = redeemerData };
 
@@ -356,7 +352,7 @@ namespace Discreet.Sandbox
                 NumTInputs = 2,
                 NumTOutputs = 2,
                 NumRefInputs = 0,
-                NumScriptInputs = 0,
+                NumScriptInputs = 1,
                 TInputs = [intput, scriptInput],
                 RefInputs = [],
                 TOutputs = [coinOut, newScriptOut],
@@ -382,7 +378,7 @@ namespace Discreet.Sandbox
             return tx;
         }
 
-        public FullTransaction RedeemBet(ScriptTXOutput scriptOut, int index, SandboxWallet w)
+        public static FullTransaction RedeemBet(ScriptTXOutput scriptOut, int index, SandboxWallet w)
         {
             if (w.Type == 0)
             {
@@ -400,13 +396,14 @@ namespace Discreet.Sandbox
                 throw new Exception("Script datum invalid");
             }
 
-            var xaddr = new TAddress(scriptOut.Datum.Data[39..64]);
-            if (xaddr.ToString() != w.Address)
+            var xorOCreator = scriptOut.ReferenceScript.Data[31];
+            var xaddr = new TAddress(scriptOut.ReferenceScript.Data[39..64]);
+            if (xorOCreator == 1 && xaddr.ToString() != w.Address)
             {
                 throw new Exception("wallet address does not match script x address");
             }
 
-            var lowestValidityInterval = Common.Serialization.GetInt64(scriptOut.ReferenceScript.Data, 152);
+            var lowestValidityInterval = Serialization.GetInt64(scriptOut.ReferenceScript.Data, 152);
             if (lowestValidityInterval > DB.ViewProvider.GetDefaultProvider().GetChainHeight())
             {
                 throw new Exception("Earliest redeem interval not met!");
@@ -419,8 +416,9 @@ namespace Discreet.Sandbox
             Array.Copy(scriptOut.Datum.Data, 0, rdmSigData, 0xa0, 10);
             var rdmSigHash = SHA256.HashData(rdmSigData);
             var rdmSig = new Signature(w.SecKey.Value, w.PubKey.Value, rdmSigHash);
-            var redeemerData = new byte[96];
+            var redeemerData = new byte[160];
             Array.Copy(rdmSig.Serialize(), redeemerData, 96);
+            redeemerData[159] = 3;
 
             var redeemer = new Datum { Version = 0, Data = redeemerData };
 
@@ -438,9 +436,9 @@ namespace Discreet.Sandbox
                 NumPInputs = 0,
                 NumPOutputs = 0,
                 NumTInputs = 2,
-                NumTOutputs = 2,
+                NumTOutputs = 1,
                 NumRefInputs = 0,
-                NumScriptInputs = 0,
+                NumScriptInputs = 1,
                 TInputs = [intput, scriptInput],
                 RefInputs = [],
                 TOutputs = [coinOut],
@@ -466,7 +464,7 @@ namespace Discreet.Sandbox
             return tx;
         }
 
-        public FullTransaction ClaimWin(ScriptTXOutput scriptOut, int index, SandboxWallet w)
+        public static FullTransaction ClaimWin(ScriptTXOutput scriptOut, int index, SandboxWallet w)
         {
             if (w.Type == 0)
             {
@@ -484,14 +482,14 @@ namespace Discreet.Sandbox
                 throw new Exception("Script datum invalid");
             }
 
-            var xaddr = new TAddress(scriptOut.Datum.Data[39..64]);
-            var oaddr = new TAddress(scriptOut.Datum.Data[71..96]);
+            var xaddr = new TAddress(scriptOut.ReferenceScript.Data[39..64]);
+            var oaddr = new TAddress(scriptOut.ReferenceScript.Data[71..96]);
             if (xaddr.ToString() != w.Address && oaddr.ToString() != w.Address)
             {
                 throw new Exception("wallet address does not match script x or o address");
             }
 
-            var who = (xaddr.ToString() == w.Address) ? 0x58 : 0x4f;
+            var who = xaddr.ToString() == w.Address ? 0x58 : 0x4f;
 
             var boardState = scriptOut.Datum.Data;
             if (boardState[0] != 0x00)
@@ -514,15 +512,16 @@ namespace Discreet.Sandbox
             Array.Copy(scriptOut.Datum.Data, 0, rdmSigData, 0xa0, 10);
             var rdmSigHash = SHA256.HashData(rdmSigData);
             var rdmSig = new Signature(w.SecKey.Value, w.PubKey.Value, rdmSigHash);
-            var redeemerData = new byte[96];
+            var redeemerData = new byte[160];
             Array.Copy(rdmSig.Serialize(), redeemerData, 96);
+            redeemerData[159] = 2;
 
             var redeemer = new Datum { Version = 0, Data = redeemerData };
 
             var scriptInput = new TTXInput { TxSrc = scriptOut.TransactionSrc, Offset = (byte)index };
             var intput = new TTXInput { TxSrc = utxo.TxSrc, Offset = (byte)utxo.OutputIndex };
 
-            var coinOut = new ScriptTXOutput(default, new TAddress(w.Address), utxo.DecodedAmount);
+            var coinOut = new ScriptTXOutput(default, new TAddress(w.Address), scriptOut.Amount + utxo.DecodedAmount);
 
             var tx = new FullTransaction
             {
@@ -533,9 +532,9 @@ namespace Discreet.Sandbox
                 NumPInputs = 0,
                 NumPOutputs = 0,
                 NumTInputs = 2,
-                NumTOutputs = 2,
+                NumTOutputs = 1,
                 NumRefInputs = 0,
-                NumScriptInputs = 0,
+                NumScriptInputs = 1,
                 TInputs = [intput, scriptInput],
                 RefInputs = [],
                 TOutputs = [coinOut],

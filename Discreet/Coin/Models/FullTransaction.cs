@@ -287,9 +287,15 @@ namespace Discreet.Coin.Models
             _scripts = tx._scripts;
             _datums = tx._datums;
             _redeemers = tx._redeemers;
-            Scripts = tx.Scripts;
-            Datums = tx.Datums;
-            Redeemers = tx.Redeemers;
+
+            if (_scripts != null && _scripts.Length > 0) Scripts = new Dictionary<ScriptAddress, ChainScript>(_scripts.Select(x => new KeyValuePair<ScriptAddress, ChainScript>(new ScriptAddress(x), x)));
+            else Scripts = new();
+
+            if (_scripts != null && _scripts.Length > 0) Datums = new Dictionary<SHA256, Datum>(_datums.Select(x => new KeyValuePair<SHA256, Datum>(x.Hash(), x)));
+            else Datums = new();
+
+            if (_redeemers != null && _redeemers.Length > 0) Redeemers = new Dictionary<byte, Datum>(_redeemers.Select(p => new KeyValuePair<byte, Datum>(p.Item1, p.Item2)));
+            else Redeemers = new();
         }
 
         public void FromScript(ScriptTransaction tx)
@@ -314,9 +320,15 @@ namespace Discreet.Coin.Models
             _scripts = tx._scripts;
             _datums = tx._datums;
             _redeemers = tx._redeemers;
-            Scripts = tx.Scripts;
-            Datums = tx.Datums;
-            Redeemers = tx.Redeemers;
+
+            if (_scripts != null && _scripts.Length > 0) Scripts = new Dictionary<ScriptAddress, ChainScript>(_scripts.Select(x => new KeyValuePair<ScriptAddress, ChainScript>(new ScriptAddress(x), x)));
+            else Scripts = new();
+
+            if (_scripts != null && _scripts.Length > 0) Datums = new Dictionary<SHA256, Datum>(_datums.Select(x => new KeyValuePair<SHA256, Datum>(x.Hash(), x)));
+            else Datums = new();
+
+            if (_redeemers != null && _redeemers.Length > 0) Redeemers = new Dictionary<byte, Datum>(_redeemers.Select(p => new KeyValuePair<byte, Datum>(p.Item1, p.Item2)));
+            else Redeemers = new();
         }
 
         public void Serialize(BEBinaryWriter writer)
@@ -493,6 +505,18 @@ namespace Discreet.Coin.Models
 
         public static Exception Precheck(FullTransaction tx, bool mustBeCoinbase = false)
         {
+            if (tx.NumScriptInputs > 0)
+            {
+                if (tx._scripts != null && tx._scripts.Length > 0) tx.Scripts = new Dictionary<ScriptAddress, ChainScript>(tx._scripts.Select(x => new KeyValuePair<ScriptAddress, ChainScript>(new ScriptAddress(x), x)));
+                else tx.Scripts = new();
+
+                if (tx._scripts != null && tx._scripts.Length > 0) tx.Datums = new Dictionary<SHA256, Datum>(tx._datums.Select(x => new KeyValuePair<SHA256, Datum>(x.Hash(), x)));
+                else tx.Datums = new();
+
+                if (tx._redeemers != null && tx._redeemers.Length > 0) tx.Redeemers = new Dictionary<byte, Datum>(tx._redeemers.Select(p => new KeyValuePair<byte, Datum>(p.Item1, p.Item2)));
+                else tx.Redeemers = new();
+            }
+
             var npin = tx.PInputs == null ? 0 : tx.PInputs.Length;
             var npout = tx.POutputs == null ? 0 : tx.POutputs.Length;
             var ntin = tx.TInputs == null ? 0 : tx.TInputs.Length;

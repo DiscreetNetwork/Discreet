@@ -26,6 +26,6 @@ namespace Discreet.Coin.Models
             Data = reader.ReadByteArray();
         }
 
-        public int Size => 1 + Data?.Length ?? 0;
+        public int Size => 5 + (Data?.Length ?? 0);
     }
 }

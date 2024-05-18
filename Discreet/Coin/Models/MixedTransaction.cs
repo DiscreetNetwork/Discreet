@@ -181,7 +181,7 @@ namespace Discreet.Coin.Models
         public SHA256 TXSigningHash()
         {
             // TODO: double-check this size calculation when you get a chance
-            byte[] bytes = new byte[46 + TTXInput.GetSize() * NumTInputs + TTXInput.GetSize() * NumRefInputs + TOutputs?.Aggregate(0, (x, y) => x + y.TXSize) ?? 0 + (NumPOutputs > 0 ? 32 : 0) + NumPInputs * TXInput.GetSize() + NumPOutputs * 40 + Scripts?.Values.Aggregate(0, (x, y) => x + y.Size) ?? 0 + Datums?.Values.Aggregate(0, (x, y) => x + y.Size) ?? 0 + Redeemers?.Values.Aggregate(Redeemers?.Count ?? 0, (x, y) => x + y.Size) ?? 0];
+            byte[] bytes = new byte[46 + TTXInput.GetSize() * NumTInputs + TTXInput.GetSize() * NumRefInputs + (TOutputs?.Aggregate(0, (x, y) => x + y.TXSize) ?? 0) + (NumPOutputs > 0 ? 32 : 0) + NumPInputs * TXInput.GetSize() + NumPOutputs * 40 + (_scripts?.Aggregate(0, (x, y) => x + y.Size) ?? 0) + (_datums?.Aggregate(0, (x, y) => x + y.Size) ?? 0) + (_redeemers?.Aggregate(_redeemers?.Length ?? 0, (x, y) => x + y.Datum.Size) ?? 0)];
             var writer = new BEBinaryWriter(new MemoryStream(bytes));
 
             writer.Write(Version);
@@ -197,7 +197,7 @@ namespace Discreet.Coin.Models
 
             writer.Write(Fee); // 18
             writer.Write(ValidityInterval.LowerBound);
-            writer.Write(ValidityInterval.UpperBound);
+            writer.Write(ValidityInterval.UpperBound); // 34
 
             writer.WriteSerializableArray(TInputs, false);
             writer.WriteSerializableArray(RefInputs, false);

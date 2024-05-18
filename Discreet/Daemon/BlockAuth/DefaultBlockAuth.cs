@@ -18,7 +18,7 @@ namespace Discreet.Daemon.BlockAuth
         private static DefaultBlockAuth instance;
         public static DefaultBlockAuth Instance { get { if (instance == null) {  instance = new DefaultBlockAuth(DaemonConfig.GetConfig()); return instance; } else { return instance; } } }
 
-        public AuthKeys Keyring { get; private set; }
+        public AuthKeys Keyring { get; internal set; }
 
         private CancellationTokenSource _cts;
         private readonly PublisherSocket _data = new PublisherSocket();

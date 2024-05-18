@@ -19,6 +19,7 @@ using Discreet.Daemon.BlockAuth;
 using System.Threading.Channels;
 using Discreet.DB;
 using Discreet.Network.Peerbloom;
+using Discreet.Network;
 
 namespace Discreet.Daemon
 {
@@ -63,6 +64,7 @@ namespace Discreet.Daemon
         private SemaphoreSlim MintLocker = new(1, 1);
 
         private bool Sandbox = false;
+        private static List<Discreet.Sandbox.SandboxWallet> sandboxWallets = new List<Discreet.Sandbox.SandboxWallet>();
 
         public Daemon()
         {
@@ -175,6 +177,7 @@ namespace Discreet.Daemon
 
         public async Task<bool> Start()
         {
+            if (Sandbox) Logger.Critical("Daemon started in sandbox mode.");
             Logger.GetLogger().Start(_cancellationToken);
 
             AppDomain.CurrentDomain.UnhandledException += (sender, e) => Logger.CrashLog(sender, e);
@@ -217,6 +220,10 @@ namespace Discreet.Daemon
                     Logger.Info("Block authority beginning connecting to peers.");
                     await network.ConnectToPeers();
                 }
+            }
+            else
+            {
+                network.SetHandlerSandbox();
             }
             
             handler = network.handler;
@@ -740,7 +747,8 @@ namespace Discreet.Daemon
             
             if (Sandbox)
             {
-
+                SetSandboxKeys();
+                Discreet.Sandbox.SandboxWallet.SetDaemon(this);
             }
             else if (IsBlockAuthority)
             {
@@ -825,14 +833,24 @@ namespace Discreet.Daemon
             }
         }
 
-        public async void SandboxMint()
+        public async void SandboxMint(Block blk = null)
         {
             try
             {
-                Logger.Info($"Discreet.SandboxMint: Minting new block...", verbose: 1);
-                var sigKey = DefaultBlockAuth.Instance.Keyring.SigningKeys[(int)((dataView.GetChainHeight() + 1) % DefaultBlockAuth.Instance.Keyring.SigningKeys.Count)];
-                var txs = txpool.GetTransactionsForBlock();
-                var blk = Block.Build(txs, new StealthAddress(SQLiteWallet.Wallets["TESTNET_EMISSIONS"].Accounts[0].Address), sigKey);
+                if (blk == null)
+                {
+                    Logger.Info($"Discreet.SandboxMint: Minting new block...", verbose: 1);
+                    var sigKey = DefaultBlockAuth.Instance.Keyring.SigningKeys[(int)((dataView.GetChainHeight() + 1) % DefaultBlockAuth.Instance.Keyring.SigningKeys.Count)];
+                    var txs = txpool.GetTransactionsForBlock();
+                    blk = Block.Build(txs, new StealthAddress(new Key(new byte[32]), new Key(new byte[32])), sigKey);
+                }
+                else
+                {
+                    if (blk.Header.Height == 0)
+                    {
+                        Logger.Info($"Discreet.SandboxMint: Minting genesis block...", verbose: 1);
+                    }
+                }
 
                 try
                 {
@@ -853,11 +871,18 @@ namespace Discreet.Daemon
                     ProcessBlock(blk, true);
                     return;
                 }
+
+                ProcessBlock(blk);
             }
             catch (Exception e)
             {
                 Logger.Error("Discreet.SandboxMint: Minting block failed: " + e.Message, e);
             }
+        }
+
+        internal void AddSandboxWallet(Discreet.Sandbox.SandboxWallet w)
+        {
+            sandboxWallets.Add(w);
         }
 
         public void ProcessBlock(Block block, bool failed = false)
@@ -868,6 +893,14 @@ namespace Discreet.Daemon
             {
                 ZMQ.Publisher.Instance.Publish("blockhash", block.Header.BlockHash.ToHex());
                 ZMQ.Publisher.Instance.Publish("blockraw", block.Readable());
+
+                if (Sandbox)
+                {
+                    foreach (var w in sandboxWallets)
+                    {
+                        w.ParseBlock(block);
+                    }
+                }
             }
         }
 
@@ -1099,6 +1132,16 @@ namespace Discreet.Daemon
             {
                 Logger.Error("Minting block failed: " + e.Message, e);
             }
+        }
+
+        public void SetSandboxKeys()
+        {
+            var kps = Enumerable.Range(0, 16).Select(x => KeyOps.GenerateKeypair()).ToList();
+            var sks = kps.Select(x => x.Sk.ToHex()).ToList();
+            var pks = kps.Select(x => x.Pk.ToHex()).ToList();
+            DaemonConfig.GetConfig().AuConfig.AuthorityKeys = pks;
+            DaemonConfig.GetConfig().AuConfig.SigningKeys = sks;
+            DefaultBlockAuth.Instance.Keyring = new AuthKeys(DaemonConfig.GetConfig());
         }
 
         public async Task BuildGenesis()

@@ -85,7 +85,7 @@ namespace Discreet.Daemon
             newOutputs = new();
             updateNewOutputs = new();
 
-            view = BlockBuffer.Instance;
+            view = (DaemonConfig.GetConfig().Sandbox ?? false) ? ViewProvider.GetDefaultProvider() : BlockBuffer.Instance;
 
             //DB.DisDB db = DB.DisDB.GetDB();
 

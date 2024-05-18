@@ -901,5 +901,13 @@ namespace Discreet.Network.Peerbloom
                 }
             }
         }
+
+        /// <summary>
+        /// Intended to simply set the handler for sandbox compatibility.
+        /// </summary>
+        internal void SetHandlerSandbox()
+        {
+            handler = Handler.Initialize(this);
+        }
     }
 }

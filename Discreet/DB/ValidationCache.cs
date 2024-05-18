@@ -46,7 +46,7 @@ namespace Discreet.DB
             blockBuffer = (Daemon.DaemonConfig.GetConfig().Sandbox ?? false) ? ViewProvider.GetDefaultProvider() : BlockBuffer.Instance;
             block = blk;
             pIndex = blockBuffer.GetOutputIndex();
-            tIndex = dataView.GetTransactionIndexer();
+            tIndex = blockBuffer.GetTransactionIndexer();
             updates = new List<UpdateEntry>();
 
             spentPubs = new();
@@ -64,7 +64,7 @@ namespace Discreet.DB
             blockBuffer = (Daemon.DaemonConfig.GetConfig().Sandbox ?? false) ? ViewProvider.GetDefaultProvider() : BlockBuffer.Instance;
             blocks = blks;
             pIndex = blockBuffer.GetOutputIndex();
-            tIndex = dataView.GetTransactionIndexer();
+            tIndex = blockBuffer.GetTransactionIndexer();
             updates = new List<UpdateEntry>();
 
             spentPubs = new();

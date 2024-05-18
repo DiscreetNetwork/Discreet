@@ -216,6 +216,8 @@ namespace Discreet.Coin
 
         public static bool operator ==(TAddress a, TAddress b)
         {
+            if (a is null && b is null) return true;
+            if (a is null || b is null) return false;
             return a.version == b.version && a.hash.Equals(b.hash) && a.checksum.BEquals(b.checksum);
         }
 
