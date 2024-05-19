@@ -70,7 +70,6 @@ namespace Discreet.Sandbox.Tests
             }
 
             // redeem due to tie
-            Scripting.DVM.FlagDebug();
             var redeem = SandboxTicTacToe.RedeemBet(txXTurn5.TOutputs[1], 1, w1);
             daemon.SandboxTransaction(redeem);
             daemon.SandboxMint();
