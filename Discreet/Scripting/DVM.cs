@@ -31,7 +31,13 @@ namespace Discreet.Scripting
         protected UInt256? success;
 
         protected bool strict = false;
-        protected bool debug = false; // FIXME: set to false after testing
+
+        private static bool debug = false; // FIXME: set to false after testing
+
+        internal static void FlagDebug()
+        {
+            debug = true;
+        }
 
         public DVM(ChainScript script)
         {

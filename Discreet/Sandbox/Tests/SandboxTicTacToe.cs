@@ -304,7 +304,21 @@ namespace Discreet.Sandbox.Tests
             var boardState = scriptOut.Datum.Data;
             if (boardState[0] != 0x4f)
             {
-                throw new Exception("Board state indicates it is not X's turn");
+                throw new Exception("Board state indicates it is not O's turn");
+            }
+
+            var numOs = 0;
+            for (int i = 0; i < 9; i++)
+            {
+                if (boardState[i + 1] == 0x4f) numOs++;
+            }
+
+            if (numOs == 0)
+            {
+                if (utxo.DecodedAmount < scriptOut.Amount)
+                {
+                    throw new Exception("Not enough coins to ante");
+                }
             }
 
             if (boardState[1 + move] != 0)
@@ -337,25 +351,29 @@ namespace Discreet.Sandbox.Tests
             var scriptInput = new TTXInput { TxSrc = scriptOut.TransactionSrc, Offset = (byte)index };
             var intput = new TTXInput { TxSrc = utxo.TxSrc, Offset = (byte)utxo.OutputIndex };
 
-            var coinOut = new ScriptTXOutput(default, new TAddress(w.Address), utxo.DecodedAmount);
-            var newScriptOut = new ScriptTXOutput { Address = scriptOut.Address, Amount = scriptOut.Amount, ReferenceScript = scriptOut.ReferenceScript, Datum = new Datum { Version = 0, Data = newBoardState } };
+            var coinOut = new ScriptTXOutput(default, new TAddress(w.Address), (numOs == 0) ? utxo.DecodedAmount - scriptOut.Amount : utxo.DecodedAmount);
+            if (coinOut.Amount == 0)
+            {
+                coinOut = null;
+            }
+            var newScriptOut = new ScriptTXOutput { Address = scriptOut.Address, Amount = (numOs == 0) ? scriptOut.Amount * 2 : scriptOut.Amount, ReferenceScript = scriptOut.ReferenceScript, Datum = new Datum { Version = 0, Data = newBoardState } };
             newScriptOut.DatumHash = newScriptOut.Datum.Hash();
 
             var tx = new FullTransaction
             {
                 Version = 4,
                 NumInputs = 2,
-                NumOutputs = 2,
+                NumOutputs = (byte)((coinOut == null) ? 1 : 2),
                 NumSigs = 1,
                 NumPInputs = 0,
                 NumPOutputs = 0,
                 NumTInputs = 2,
-                NumTOutputs = 2,
+                NumTOutputs = (byte)((coinOut == null) ? 1 : 2),
                 NumRefInputs = 0,
                 NumScriptInputs = 1,
                 TInputs = [intput, scriptInput],
                 RefInputs = [],
-                TOutputs = [coinOut, newScriptOut],
+                TOutputs = ((coinOut == null) ? [newScriptOut] : [coinOut, newScriptOut]),
                 _datums = [],
                 _redeemers = [(1, redeemer)],
                 _scripts = [],
@@ -398,6 +416,7 @@ namespace Discreet.Sandbox.Tests
 
             var xorOCreator = scriptOut.ReferenceScript.Data[31];
             var xaddr = new TAddress(scriptOut.ReferenceScript.Data[39..64]);
+            var oaddr = new TAddress(scriptOut.ReferenceScript.Data[71..96]);
             if (xorOCreator == 1 && xaddr.ToString() != w.Address)
             {
                 throw new Exception("wallet address does not match script x address");
@@ -426,22 +445,28 @@ namespace Discreet.Sandbox.Tests
             var intput = new TTXInput { TxSrc = utxo.TxSrc, Offset = (byte)utxo.OutputIndex };
 
             var coinOut = new ScriptTXOutput(default, new TAddress(w.Address), utxo.DecodedAmount + scriptOut.Amount);
+            ScriptTXOutput coin2Out = null;
+            if (boardState.All(x => x != 0) && !CheckWin(boardState))
+            {
+                coinOut.Amount = utxo.DecodedAmount + scriptOut.Amount / 2;
+                coin2Out = new ScriptTXOutput(default, xaddr.ToString() == w.Address ? oaddr : xaddr, scriptOut.Amount / 2);
+            }
 
             var tx = new FullTransaction
             {
                 Version = 4,
                 NumInputs = 2,
-                NumOutputs = 1,
+                NumOutputs = (byte)((coin2Out == null) ? 1 : 2),
                 NumSigs = 1,
                 NumPInputs = 0,
                 NumPOutputs = 0,
                 NumTInputs = 2,
-                NumTOutputs = 1,
+                NumTOutputs = (byte)((coin2Out == null) ? 1 : 2),
                 NumRefInputs = 0,
                 NumScriptInputs = 1,
                 TInputs = [intput, scriptInput],
                 RefInputs = [],
-                TOutputs = [coinOut],
+                TOutputs = (coin2Out == null) ? [coinOut] : [coinOut, coin2Out],
                 _datums = [],
                 _redeemers = [(1, redeemer)],
                 _scripts = [],

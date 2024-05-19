@@ -833,7 +833,7 @@ namespace Discreet.Daemon
             }
         }
 
-        public async void SandboxMint(Block blk = null)
+        public void SandboxMint(Block blk = null)
         {
             try
             {
@@ -863,7 +863,7 @@ namespace Discreet.Daemon
                         return;
                     }
 
-                    await vC.Flush();
+                    vC.Flush().GetAwaiter().GetResult();
                 }
                 catch (Exception e)
                 {
