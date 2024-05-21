@@ -16,6 +16,7 @@ namespace Discreet.RPC.Common
         STORAGE = 1 << 3,
         SEED_RECOVERY = 1 << 4,
         STATUS = 1 << 5,
+        SANDBOX = 1 << 6,
     }
 
     public static class APISetExtensions
@@ -42,6 +43,7 @@ namespace Discreet.RPC.Common
             if (api.ToLower().Trim() == "storage") return APISet.STORAGE;
             if (api.ToLower().Trim() == "seed_recovery") return APISet.SEED_RECOVERY;
             if (api.ToLower().Trim() == "status") return APISet.STATUS;
+            if (api.ToLower().Trim() == "sandbox") return APISet.SANDBOX;
             if (api.ToLower().Trim() == "all") return APISet.READ | APISet.TXN | APISet.WALLET | APISet.STORAGE | APISet.SEED_RECOVERY | APISet.STATUS;
             if (api.ToLower().Trim() == "explorer") return APISet.READ | APISet.STATUS;
 
@@ -66,6 +68,7 @@ namespace Discreet.RPC.Common
             if (set.HasFlag(APISet.STORAGE)) rvs.Add("storage");
             if (set.HasFlag(APISet.SEED_RECOVERY)) rvs.Add("seed_recovery");
             if (set.HasFlag(APISet.STATUS)) rvs.Add("status");
+            if (set.HasFlag(APISet.SANDBOX)) rvs.Add("sandbox");
 
             return string.Join(", ", rvs.ToArray());
         }

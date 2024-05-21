@@ -59,7 +59,7 @@ namespace Discreet.Sandbox.Tests
             var txOTurn4 = SandboxTicTacToe.TakeOTurn(txXTurn4.TOutputs[1], 1, w2, 8);
             daemon.SandboxTransaction(txOTurn4);
             daemon.SandboxMint();
-
+            
             var txXTurn5 = SandboxTicTacToe.TakeXTurn(txOTurn4.TOutputs[1], 1, w1, 7);
             daemon.SandboxTransaction(txXTurn5);
             daemon.SandboxMint();

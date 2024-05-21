@@ -63,7 +63,7 @@ namespace Discreet.DB
         /// <returns></returns>
         public bool TryGetBlockHeader(SHA256 hash, out BlockHeader header)
         {
-            var err =_view.TryGetBlockHeader(hash, out var rv);
+            var err =_view.TryGetBlockHeader(hash, out var rv, false);
             if (err)
             {
                 header = rv;

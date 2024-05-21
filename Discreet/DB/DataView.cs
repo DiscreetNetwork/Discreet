@@ -145,7 +145,7 @@ namespace Discreet.DB
 
         public BlockHeader GetBlockHeader(Cipher.SHA256 blockHash) => curView.GetBlockHeader(blockHash);
 
-        public bool TryGetBlockHeader(Cipher.SHA256 blockHash, out BlockHeader header)
+        public bool TryGetBlockHeader(Cipher.SHA256 blockHash, out BlockHeader header, bool logErr = true)
         {
             try
             {
@@ -155,7 +155,7 @@ namespace Discreet.DB
             catch (Exception ex)
             {
                 // Feb 24 2024 11:27 PM: why do we log on attempting to get a block header?
-                Daemon.Logger.Error(ex.Message, ex);
+                if (logErr) Daemon.Logger.Error(ex.Message, ex);
                 header = null;
                 return false;
             }
