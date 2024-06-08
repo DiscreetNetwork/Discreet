@@ -50,6 +50,8 @@ namespace Discreet.Daemon
         private long bytesWritten = 0;
 
         private ConcurrentQueue<(ConsoleColor, bool, string)> logQueue = new();
+        private ConsoleColor _restoreBg;
+        private ConsoleColor _restoreFg;
 
         public Logger(string logpath)
         {
@@ -63,6 +65,15 @@ namespace Discreet.Daemon
             }
 
             CreateLogfile();
+
+            _restoreBg = Console.BackgroundColor;
+            _restoreFg = Console.ForegroundColor;
+
+            Console.CancelKeyPress += delegate
+            {
+                Console.BackgroundColor = _restoreBg;
+                Console.ForegroundColor = _restoreFg;
+            };
         }
 
         private void CreateLogfile()
