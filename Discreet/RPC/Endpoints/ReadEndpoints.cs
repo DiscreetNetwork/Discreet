@@ -10,6 +10,8 @@ using Discreet.Cipher;
 using System.Text.Json;
 using Discreet.Coin.Models;
 using Discreet.Common.Serialize;
+using System.Data;
+using static System.Reflection.Metadata.BlobBuilder;
 
 namespace Discreet.RPC.Endpoints
 {
@@ -171,6 +173,37 @@ namespace Discreet.RPC.Endpoints
                 Daemon.Logger.Error($"RPC call to GetBlockHeight failed: {ex.Message}", ex);
 
                 return new RPCError($"Could not get block height with hash {hash}");
+            }
+        }
+
+        [RPCEndpoint("get_blocks_range", APISet.READ)]
+        public static object GetBlocksRange(long start, long count)
+        {
+            List<Block> blocks = new List<Block>();
+
+            try
+            {
+                var iter = DB.DataView.GetView().GetBlocks(start, count + 1);
+                var enumr = iter.GetEnumerator();
+
+                while (enumr.MoveNext())
+                {
+                    if (enumr.Current == null) break;
+
+                    if (blocks.Count == count)
+                    {
+                        break;
+                    }
+                    blocks.Add(enumr.Current);
+                }
+
+                return blocks;
+            }
+            catch (Exception ex)
+            {
+                Daemon.Logger.Error($"RPC call to GetBlocksRange failed: {ex.Message}", ex);
+
+                return new RPCError(-1, $"Could not get blocks with specified range", blocks);
             }
         }
 
@@ -582,7 +615,7 @@ namespace Discreet.RPC.Endpoints
             public List<FullTransaction> TxPool { get; set; }
             public string Status { get; set; }
             public bool Synced { get; set; }
-            
+
 
             public GetBlockchainRV() { }
         }
